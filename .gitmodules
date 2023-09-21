@@ -1,6 +1,6 @@
-[submodule "trdparty/minimidi"]
-	path = trdparty/minimidi
+[submodule "3rdparty/minimidi"]
+	path = 3rdparty/minimidi
 	url = https://github.com/lzqlzzq/minimidi.git
-[submodule "trdparty/pdqsort"]
-	path = trdparty/pdqsort
+[submodule "3rdparty/pdqsort"]
+	path = 3rdparty/pdqsort
 	url = https://github.com/orlp/pdqsort.git
