@@ -2,6 +2,7 @@
 // Created by lyk on 23-9-21.
 //
 #include "Score.hpp"
+#include "cassert"
 using namespace score;
 using namespace minimidi;
 
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
             auto score_notes = count_note_num(s);
             std::cout << "Midi notes: " << midi_notes << std::endl;
             std::cout << "Score notes: " << score_notes << std::endl;
+            assert(midi_notes == score_notes);
         } catch(const char* e) {
             std::cout << e << std::endl;
             exit(EXIT_FAILURE);
