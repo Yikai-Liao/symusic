@@ -81,8 +81,8 @@ PYBIND11_MODULE(pyscore, m) {
         .def_readwrite("notes", &Track::notes)
         .def_readwrite("controls", &Track::controls)
         .def("__repr__", [](const Track &self) {
-            return "<Track name=" + self.name +
-                   ", program=" + std::to_string((int) self.program) +
+            return "<Track name=\"" + self.name +
+                   "\", program=" + std::to_string((int) self.program) +
                    ", is_drum=" + (self.is_drum ? "True" : "False") +
                    ", note_num=" + std::to_string(self.notes.size()) + ">";
         });
