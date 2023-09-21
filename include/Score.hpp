@@ -1,5 +1,6 @@
 #include <unordered_map>
 #include <map>
+#include <queue>
 #include <pdqsort.h>
 #include "MiniMidi.hpp"
 
@@ -16,7 +17,7 @@ public:
     int8_t velocity;
 
     inline Note(float start, float duration, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
-        start(start), duration(duration), pitch(pitch), velocity(velocity) {}
+            start(start), duration(duration), pitch(pitch), velocity(velocity) {}
 };
 
 class ControlChange {
@@ -34,10 +35,10 @@ public:
     uint8_t denominator;
 
     inline TimeSignature(float time, uint8_t numerator, uint8_t denominator) :
-        time(time), numerator(numerator), denominator(denominator) {}
+            time(time), numerator(numerator), denominator(denominator) {}
 
     inline TimeSignature(float time, minimidi::message::TimeSignature msg) :
-        time(time), numerator(msg.numerator), denominator(msg.denominator) {}
+            time(time), numerator(msg.numerator), denominator(msg.denominator) {}
 };
 
 class KeySignature {
@@ -47,19 +48,19 @@ public:
     uint8_t tonality;
 
     inline KeySignature(float time, int8_t key, uint8_t tonality) :
-        time(time), key(key), tonality(tonality) {}
+            time(time), key(key), tonality(tonality) {}
 
     inline KeySignature(float time, minimidi::message::KeySignature msg) :
-        time(time), key(msg.key), tonality(msg.tonality) {}
+            time(time), key(msg.key), tonality(msg.tonality) {}
 
     [[nodiscard]] inline std::string to_string() const {
         static const std::string MINOR_KEYS[] = {
-            "bc", "bg", "bd", "ba", "be", "bb", "f",
-            "c", "g", "d", "a", "e", "b", "#f", "#c"
+                "bc", "bg", "bd", "ba", "be", "bb", "f",
+                "c", "g", "d", "a", "e", "b", "#f", "#c"
         };
         static const std::string MAJOR_KEYS[] = {
-            "bC", "bG", "bD", "bA", "bE", "bB", "F", "C",
-            "G", "D", "A", "E", "B", "#F", "#C"
+                "bC", "bG", "bD", "bA", "bE", "bB", "F", "C",
+                "G", "D", "A", "E", "B", "#F", "#C"
         };
 
         return this->tonality ? MINOR_KEYS[this->key + 7] : MAJOR_KEYS[this->key + 7];
@@ -101,8 +102,8 @@ public:
 
     void sort() {
         pdqsort_branchless(
-            notes.begin(), notes.end(),
-            [](const Note &a, const Note &b) { return a.start < b.start; }
+                notes.begin(), notes.end(),
+                [](const Note &a, const Note &b) { return a.start < b.start; }
         );
         for (auto &control_pair: controls) {
             auto data = control_pair.second;
@@ -126,6 +127,49 @@ Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t 
 }
 
 
+class NoteOn {
+public:
+    float start = 0;
+    int8_t velocity = 0;
+
+    NoteOn() = default;
+
+    inline bool empty() const { return velocity == 0; }
+
+    inline void reset() {
+        start = 0;
+        velocity = 0;
+    }
+};
+
+class NoteOnQueue {
+private:
+    std::queue<NoteOn> queue;
+public:
+    NoteOn front;
+
+    NoteOnQueue() = default;
+
+    inline size_t size() { return front.empty() ? 0 : queue.size() + 1; }
+
+    inline bool empty() { return front.empty(); }
+
+    inline void emplace(float start, int8_t velocity) {
+        if (!front.empty()) queue.push(front);
+        front.start = start;
+        front.velocity = velocity;
+    }
+
+    inline void pop() {
+        if (queue.empty()) front.reset();
+        else {
+            front = queue.front();
+            queue.pop();
+        }
+    }
+
+};
+
 class Score {
 public:
     std::vector<Track> tracks;
@@ -145,7 +189,7 @@ public:
             uint8_t cur_instr[128] = {0}; // channel -> program
             std::string cur_name;
 
-            std::tuple<float, int8_t> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
+            NoteOnQueue last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
             // iter midi messages in the track
             size_t message_num = midi_track.message_num();
             for (size_t j = 0; j < message_num; ++j) {
@@ -155,24 +199,20 @@ public:
                     case (minimidi::message::MessageType::NoteOn): {
                         auto velocity = (int8_t) msg.get_velocity();
                         if (velocity != 0) {
-                            last_note_on[msg.get_channel()][msg.get_pitch()] =
-                                std::make_tuple(start, velocity);
+                            last_note_on[msg.get_channel()][msg.get_pitch()].emplace(start, velocity);
                             break;
                         } // if velocity is zero, turn to note off case
                     }
                     case (minimidi::message::MessageType::NoteOff): {
                         uint8_t channel = msg.get_channel();
                         auto pitch = (int8_t) msg.get_pitch();
-                        float note_start;
-                        int8_t velocity;
-                        std::tie(note_start, velocity) = last_note_on[channel][pitch];
-                        if (velocity != 0) {
-                            float duration = start - note_start;
-                            auto &track = get_track(track_map, channel, cur_instr[channel]);
-                            // we can omit the construction function when using emplace_back
-                            track.notes.emplace_back(note_start, duration, pitch, velocity);
-                            // reset values in last_note_on array
-                            last_note_on[msg.get_channel()][pitch] = std::make_tuple(0, 0);
+                        auto &note_on_queue = last_note_on[channel][pitch];
+                        auto &track = get_track(track_map, channel, cur_instr[channel]);
+                        while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
+                            auto const &note_on = note_on_queue.front;
+                            float duration = start - note_on.start;
+                            track.notes.emplace_back(note_on.start, duration, pitch, note_on.velocity);
+                            note_on_queue.pop();
                         }
                         break;
                     }
