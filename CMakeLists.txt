@@ -13,3 +13,8 @@ add_subdirectory(3rdparty/pybind11)
 
 pybind11_add_module(pyscore src/pyscore.cpp)
 add_executable(note_count test/note_count.cpp)
+
+if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
+    # Strip unnecessary sections of the binary on Linux/macOS
+    pybind11_strip(pyscore)
+endif()
