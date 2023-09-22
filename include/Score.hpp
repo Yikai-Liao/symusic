@@ -3,6 +3,7 @@
 #include <queue>
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <pdqsort.h>
 #include <Eigen/Core>
 #include "MiniMidi.hpp"
@@ -237,21 +238,28 @@ public:
                 float start = (float) msg.get_time() / tpq;
                 switch (msg.get_type()) {
                     case (minimidi::message::MessageType::NoteOn): {
-                        auto velocity = (int8_t) msg.get_velocity();
+                        uint8_t velocity = msg.get_velocity();
                         if (velocity != 0) {
-                            last_note_on[msg.get_channel()][msg.get_pitch()].emplace(start, velocity);
+                            auto pitch = msg.get_pitch();
+                            if(pitch >= 128)
+                                throw std::range_error("Get pitch=" + std::to_string((int)pitch));
+                            if(velocity >= 128)
+                                throw std::range_error("Get velocity=" + std::to_string((int)velocity));
+                            last_note_on[msg.get_channel()][pitch].emplace(start, (int8_t) velocity);
                             break;
                         } // if velocity is zero, turn to note off case
                     }
                     case (minimidi::message::MessageType::NoteOff): {
                         uint8_t channel = msg.get_channel();
-                        auto pitch = (int8_t) msg.get_pitch();
+                        uint8_t pitch =  msg.get_pitch();
+                        if(pitch >= 128)
+                            throw std::range_error("Get pitch=" + std::to_string((int)pitch));
                         auto &note_on_queue = last_note_on[channel][pitch];
                         auto &track = get_track(track_map, channel, cur_instr[channel]);
                         while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
                             auto const &note_on = note_on_queue.front;
                             float duration = start - note_on.start;
-                            track.notes.emplace_back(note_on.start, duration, pitch, note_on.velocity);
+                            track.notes.emplace_back(note_on.start, duration, (int8_t) pitch, note_on.velocity);
                             note_on_queue.pop();
                         }
                         break;
@@ -259,6 +267,8 @@ public:
                     case (minimidi::message::MessageType::ProgramChange): {
                         uint8_t channel = msg.get_channel();
                         uint8_t program = msg.get_program();
+                        if(program >= 128)
+                            throw std::range_error("Get program=" + std::to_string((int)program));
                         cur_instr[channel] = program;
                         break;
                     }
@@ -266,6 +276,12 @@ public:
                         uint8_t channel = msg.get_channel();
                         uint8_t program = msg.get_program();
                         auto &track = get_track(track_map, channel, program);
+                        uint8_t control_number = msg.get_control_number();
+                        uint8_t control_value = msg.get_control_value();
+                        if(control_number >= 128)
+                            throw std::range_error("Get control_number=" + std::to_string((int)control_number));
+                        if(control_value >= 128)
+                            throw std::range_error("Get control_value=" + std::to_string((int)control_value));
                         track.controls[msg.get_control_number()].emplace_back(start, msg.get_control_value());
                         break;
                     }
