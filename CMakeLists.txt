@@ -9,6 +9,7 @@ include_directories(3rdparty/pdqsort)
 
 # find_package(Python REQUIRED COMPONENTS Interpreter Development)
 # find_package(pybind11 REQUIRED CONFIG)
+add_subdirectory(3rdparty/eigen)
 add_subdirectory(3rdparty/pybind11)
 
 pybind11_add_module(pyscore src/pyscore.cpp)
