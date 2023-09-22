@@ -16,6 +16,9 @@ PLAT_TO_CMAKE = {
 }
 
 
+_TARGET_NAME = "pyscore"
+
+
 # A CMakeExtension needs a sourcedir instead of a file list.
 # The name must be the _single_ output extension from the CMake build.
 # If you need multiple extensions, see scikit-build.
@@ -119,7 +122,7 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
         )
         subprocess.run(
-            ["cmake", "--build", ".", *build_args], cwd=build_temp, check=True
+            ["cmake", "--build", ".", "--target", _TARGET_NAME, *build_args], cwd=build_temp, check=True
         )
 
 
