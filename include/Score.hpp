@@ -1,11 +1,17 @@
 #include <unordered_map>
 #include <map>
 #include <queue>
+#include <algorithm>
+#include <cmath>
 #include <pdqsort.h>
+#include <Eigen/Core>
 #include "MiniMidi.hpp"
 
 namespace score {
 #define DEFAULT_VELOCITY 100
+
+#define MIDI_PITCH_NUMS 128
+typedef Eigen::Array<bool, MIDI_PITCH_NUMS, Eigen::Dynamic> Pianoroll;
 
 // Using int8_t to avoid possible errors while shifting
 
@@ -90,15 +96,15 @@ public:
 
     void shift_pitch(int8_t offset) {
         for (auto &note: notes) note.pitch += offset;
-    }
+    };
 
     void shift_time(float offset) {
         for (auto &note: notes) note.start += offset;
-    }
+    };
 
     void shift_velocity(int8_t offset) {
         for (auto &note: notes) note.velocity += offset;
-    }
+    };
 
     void sort() {
         pdqsort_branchless(
@@ -109,7 +115,41 @@ public:
             auto data = control_pair.second;
             pdqsort_branchless(data.begin(), data.end(), cmp_time<ControlChange>);
         }
-    }
+    };
+
+    inline float get_end_time() const {
+        Note max_time_note = *std::max_element(this->notes.begin(),
+                                                this->notes.end(),
+                                                [](const Note& n1, const Note& n2) { return n1.start + n1.duration < n2.start + n2.duration; });
+        return max_time_note.start + max_time_note.duration;
+    };
+
+    inline Pianoroll _get_empty_pianoroll(uint16_t quantization=16) const {
+        return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->get_end_time() * quantization / 4));
+    };
+
+    Pianoroll get_frame_pianoroll(uint16_t quantization=16) const {
+        Pianoroll pianoroll = _get_empty_pianoroll(quantization);
+
+        for(const auto &note: notes) {
+            uint64_t start = floor(note.start * quantization / 4);
+            uint64_t duration = floor(note.duration * quantization / 4);
+            pianoroll.row(note.pitch).segment(start, duration) = true;
+        }
+
+        return pianoroll;
+    };
+
+    Pianoroll get_onset_pianoroll(uint16_t quantization=16) const {
+        Pianoroll pianoroll = _get_empty_pianoroll(quantization);
+
+        for(const auto &note: notes) {
+            uint64_t start = floor(note.start * quantization / 4);
+            pianoroll.row(note.pitch).col(start) = true;
+        }
+
+        return pianoroll;
+    };
 };
 
 typedef std::tuple<uint8_t, uint8_t> TrackIdx;
@@ -134,12 +174,12 @@ public:
 
     NoteOn() = default;
 
-    inline bool empty() const { return velocity == 0; }
+    inline bool empty() const { return velocity == 0; };
 
     inline void reset() {
         start = 0;
         velocity = 0;
-    }
+    };
 };
 
 class NoteOnQueue {
@@ -150,15 +190,15 @@ public:
 
     NoteOnQueue() = default;
 
-    inline size_t size() { return front.empty() ? 0 : queue.size() + 1; }
+    inline size_t size() { return front.empty() ? 0 : queue.size() + 1; };
 
-    inline bool empty() { return front.empty(); }
+    inline bool empty() { return front.empty(); };
 
     inline void emplace(float start, int8_t velocity) {
         if (!front.empty()) queue.push(front);
         front.start = start;
         front.velocity = velocity;
-    }
+    };
 
     inline void pop() {
         if (queue.empty()) front.reset();
@@ -166,7 +206,7 @@ public:
             front = queue.front();
             queue.pop();
         }
-    }
+    };
 
 };
 
@@ -268,34 +308,34 @@ public:
         pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
         pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
         pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
-    }
+    };
 
     inline static Score from_midi(minimidi::file::MidiFile &midi) {
         return Score(midi);
-    }
+    };
 
     inline static Score from_file(const std::string &filepath) {
         auto midi = minimidi::file::MidiFile::from_file(filepath);
         return Score(midi);
-    }
+    };
 
     void sort() {
         pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
         pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
         pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
         for (auto &track: tracks) { track.sort(); }
-    }
+    };
 
     void shift_pitch(int8_t offset) {
         for (auto &track: tracks) track.shift_pitch(offset);
-    }
+    };
 
     void shift_time(float offset) {
         for (auto &track: tracks) track.shift_time(offset);
-    }
+    };
 
     void shift_velocity(int8_t offset) {
         for (auto &track: tracks) track.shift_velocity(offset);
-    }
+    };
 };
 }
