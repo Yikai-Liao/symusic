@@ -4,6 +4,7 @@
 #include <string>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/eigen.h>
 #include "Score.hpp"
 
 namespace py = pybind11;
@@ -75,6 +76,8 @@ PYBIND11_MODULE(pyscore, m) {
         .def("shift_pitch", &Track::shift_pitch)
         .def("shift_time", &Track::shift_time)
         .def("shift_velocity", &Track::shift_velocity)
+        .def("get_frame_pianoroll", &Track::get_frame_pianoroll, py::arg("quantization")=16, py::return_value_policy::move)
+        .def("get_onset_pianoroll", &Track::get_onset_pianoroll, py::arg("quantization")=16, py::return_value_policy::move)
         .def_readwrite("name", &Track::name)
         .def_readwrite("program", &Track::program)
         .def_readwrite("is_drum", &Track::is_drum)
