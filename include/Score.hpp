@@ -118,6 +118,10 @@ public:
         }
     };
 
+    inline size_t note_num() const {
+        return this->notes.size();
+    }
+
     inline float get_end_time() const {
         Note max_time_note = *std::max_element(this->notes.begin(),
                                                 this->notes.end(),
@@ -353,5 +357,17 @@ public:
     void shift_velocity(int8_t offset) {
         for (auto &track: tracks) track.shift_velocity(offset);
     };
+
+    inline size_t note_num() const {
+        size_t num = 0;
+        std::for_each(tracks.begin(),
+                    tracks.end(),
+                    [&] (const Track& t) { num += t.note_num(); });
+        return num;
+        /*accumulate(tracks.begin(),
+            tracks.end(),
+            [](const Track& t1, const Track& t2) { return t1.note_num() + t2.note_num(); });
+            */
+    }
 };
 }
