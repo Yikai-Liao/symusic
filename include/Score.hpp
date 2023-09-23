@@ -123,6 +123,8 @@ public:
     }
 
     inline float get_end_time() const {
+        if(this->notes.empty()) return 0;
+
         Note max_time_note = *std::max_element(this->notes.begin(),
                                                 this->notes.end(),
                                                 [](const Note& n1, const Note& n2) { return n1.start + n1.duration < n2.start + n2.duration; });
@@ -367,6 +369,8 @@ public:
     }
 
     inline float get_end_time() const {
+        if(this->tracks.empty()) return 0;
+
         Track last_t = *std::max_element(this->tracks.begin(),
                                         this->tracks.end(),
                                         [](const Track& t1, const Track& t2) { return t1.get_end_time() < t2.get_end_time(); });
