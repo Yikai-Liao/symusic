@@ -348,10 +348,14 @@ public:
                     tracks.end(),
                     [&] (const Track& t) { num += t.note_num(); });
         return num;
-        /*accumulate(tracks.begin(),
-            tracks.end(),
-            [](const Track& t1, const Track& t2) { return t1.note_num() + t2.note_num(); });
-            */
     }
+
+    inline float get_end_time() const {
+        Track last_t = *std::max_element(this->tracks.begin(),
+                                        this->tracks.end(),
+                                        [](const Track& t1, const Track& t2) { return t1.get_end_time() < t2.get_end_time(); });
+
+        return last_t.get_end_time();
+    };
 };
 }
