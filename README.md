@@ -7,6 +7,7 @@ The libaray is written in cpp and offers a python binding using pybind11.
 
 * You can just read a midi file like `score = pyscore.Score("path to midi")`
 * The time unit of the parsed data is the quarter note.
+* The tempo attribute in the tempo event represents quarter per minute (qpm)
 * We offer some batch operation functions for both `Score` and `Track` class:
   * shift_pitch(offset: int)
   * shift_velocity(offset: int)
