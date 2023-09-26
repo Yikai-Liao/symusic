@@ -1,6 +1,6 @@
 # pyscore
 
-A cross platform `note level` midi decoding libaray with lightening speed.
+A cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 The libaray is written in cpp and offers a python binding using pybind11.
 
 ## Features
