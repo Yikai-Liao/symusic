@@ -1,5 +1,14 @@
 # pyscore
 
+A cross platform `note level` midi decoding libaray with lightening speed.
+The libaray is written in cpp and offers a python binding using pybind11.
+
+Notice that this libaray is under development:
+* Writing back to midi files is currently not supported
+* Not all features in midi are suppored, like lyrics and pitchbend
+* There is no pre-built wheel yet
+* We haven't uploaded it to pypi
+
 ## Installation
 
 ```bash
