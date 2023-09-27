@@ -18,7 +18,7 @@ PYBIND11_MAKE_OPAQUE(std::vector<KeySignature>)
 PYBIND11_MAKE_OPAQUE(std::vector<Tempo>)
 PYBIND11_MAKE_OPAQUE(std::unordered_map<uint8_t, std::vector<ControlChange>>)
 
-PYBIND11_MODULE(pyscore, m) {
+PYBIND11_MODULE(symusic, m) {
     py::class_<Note>(m, "Note")
         .def(py::init<float, float, int8_t, int8_t>())
         .def_readwrite("start", &Note::start)
