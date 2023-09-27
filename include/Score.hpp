@@ -14,6 +14,13 @@ namespace score {
 #define MIDI_PITCH_NUMS 128
 typedef Eigen::Array<bool, MIDI_PITCH_NUMS, Eigen::Dynamic> Pianoroll;
 
+inline int8_t safe_add(int8_t a, int8_t b) {
+    int ans = a + b;
+    if (ans > 127 || ans < 0)
+        throw std::range_error("Overflow while adding " + std::to_string(a) + " and " + std::to_string(b));
+    return (int8_t) ans;
+}
+
 // Using int8_t to avoid possible errors while shifting
 
 class Note {
@@ -25,6 +32,14 @@ public:
 
     inline Note(float start, float duration, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
         start(start), duration(duration), pitch(pitch), velocity(velocity) {}
+
+    [[nodiscard]] inline float end_time() const { return start + duration; };
+
+    inline void shift_pitch(int8_t offset) { pitch = safe_add(pitch, offset); };
+
+    inline void shift_velocity(int8_t offset) { velocity = safe_add(velocity, offset); };
+
+    inline void shift_time(float offset) { start += offset; };
 };
 
 class ControlChange {
@@ -96,15 +111,15 @@ public:
     Track() = default;
 
     void shift_pitch(int8_t offset) {
-        for (auto &note: notes) note.pitch += offset;
+        for (auto &note: notes) note.shift_pitch(offset);
     };
 
     void shift_time(float offset) {
-        for (auto &note: notes) note.start += offset;
+        for (auto &note: notes) note.shift_time(offset);
     };
 
     void shift_velocity(int8_t offset) {
-        for (auto &note: notes) note.velocity += offset;
+        for (auto &note: notes) note.shift_velocity(offset);
     };
 
     void sort() {
@@ -114,7 +129,7 @@ public:
         );
         for (auto &control_pair: controls) {
             auto data = control_pair.second;
-            pdqsort_branchless(data.begin(), data.end(), cmp_time<ControlChange>);
+            pdqsort_branchless(data.begin(), data.end(), cmp_time < ControlChange > );
         }
     };
 
@@ -124,8 +139,8 @@ public:
 
     inline float end_time() const {
         float time = 0;
-        for(auto const &note : this->notes)
-            time = std::max(time, note.start + note.duration);
+        for (auto const &note: this->notes)
+            time = std::max(time, note.end_time());
         return time;
     };
 
@@ -179,7 +194,7 @@ public:
 
     NoteOn() = default;
 
-    inline bool empty() const { return velocity == 0; };
+    [[nodiscard]] inline bool empty() const { return velocity == 0; };
 
     inline void reset() {
         start = 0;
@@ -197,7 +212,7 @@ public:
 
     inline size_t size() { return front.empty() ? 0 : queue.size() + 1; };
 
-    inline bool empty() const { return front.empty(); };
+    [[nodiscard]] inline bool empty() const { return front.empty(); };
 
     inline void emplace(float start, int8_t velocity) {
         if (!front.empty()) queue.push(front);
@@ -325,9 +340,9 @@ public:
                 tracks.push_back(track);
             }
         }
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
+        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
     };
 
     inline static Score from_midi(minimidi::file::MidiFile &midi) {
@@ -340,9 +355,9 @@ public:
     };
 
     void sort() {
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
+        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
         for (auto &track: tracks) { track.sort(); }
     };
 
@@ -358,16 +373,16 @@ public:
         for (auto &track: tracks) track.shift_velocity(offset);
     };
 
-    inline size_t note_num() const {
+    [[nodiscard]] inline size_t note_num() const {
         size_t num = 0;
         for (auto const &track: this->tracks)
             num += track.note_num();
         return num;
     }
 
-    inline float end_time() const {
+    [[nodiscard]] inline float end_time() const {
         float time = 0.;
-        for(auto const &track: this->tracks)
+        for (auto const &track: this->tracks)
             time = std::max(time, track.end_time());
         return time;
     };

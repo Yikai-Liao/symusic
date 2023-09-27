@@ -25,6 +25,11 @@ PYBIND11_MODULE(pyscore, m) {
         .def_readwrite("duration", &Note::duration)
         .def_readwrite("pitch", &Note::pitch)
         .def_readwrite("velocity", &Note::velocity)
+        .def_property_readonly("end", &Note::end_time)
+        .def("end_time", &Note::end_time)
+        .def("shift_pitch", &Note::shift_pitch)
+        .def("shift_time", &Note::shift_time)
+        .def("shift_velocity", &Note::shift_velocity)
         .def("__repr__", [](const Note &self) {
             return "<Note start=" + std::to_string(self.start) +
                    ", dur=" + std::to_string(self.duration) +
