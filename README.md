@@ -1,6 +1,8 @@
 # symusic
 
-A cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
+*Sy*music is short for "*Sy*bolic *Music*".
+
+It is a cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 
 The libaray is written in cpp and offers a python binding using pybind11.
 
