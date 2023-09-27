@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(pyscore)
+project(symusic)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -12,13 +12,13 @@ include_directories(3rdparty/pdqsort)
 add_subdirectory(3rdparty/eigen)
 add_subdirectory(3rdparty/pybind11)
 
-pybind11_add_module(pyscore src/pyscore.cpp)
-target_link_libraries(pyscore PRIVATE eigen)
+pybind11_add_module(symusic src/symusic.cpp)
+target_link_libraries(symusic PRIVATE eigen)
 
 add_executable(note_count test/note_count.cpp)
 target_link_libraries(note_count PRIVATE eigen)
 
 if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
     # Strip unnecessary sections of the binary on Linux/macOS
-    pybind11_strip(pyscore)
+    pybind11_strip(symusic)
 endif()
