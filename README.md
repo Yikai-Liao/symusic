@@ -1,6 +1,6 @@
 # symusic
 
-*Sy*music is short for "*Sy*bolic *Music*".
+**Sy**music is short for "**Sy**bolic **Music**".
 
 It is a cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 
