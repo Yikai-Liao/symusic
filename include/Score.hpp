@@ -167,7 +167,7 @@ public:
     };
 
 protected:
-    inline Pianoroll empty_pianoroll(uint16_t quantization = 16) const {
+    [[nodiscard]] inline Pianoroll empty_pianoroll(uint16_t quantization = 16) const {
         return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->end_time() * (float) quantization / 4));
     };
 };
