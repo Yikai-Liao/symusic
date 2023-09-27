@@ -60,7 +60,7 @@ PYBIND11_MODULE(pyscore, m) {
         });
 
     py::class_<score::Tempo>(m, "Tempo")
-        .def(py::init<float, uint32_t>())
+        .def(py::init<float, float>())
         .def_readwrite("time", &score::Tempo::time)
         .def_readwrite("tempo", &score::Tempo::qpm)
         .def("__repr__", [](score::Tempo &self) {
