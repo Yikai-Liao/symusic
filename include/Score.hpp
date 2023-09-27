@@ -129,7 +129,7 @@ public:
         );
         for (auto &control_pair: controls) {
             auto data = control_pair.second;
-            pdqsort_branchless(data.begin(), data.end(), cmp_time < ControlChange > );
+            pdqsort_branchless(data.begin(), data.end(), cmp_time<ControlChange>);
         }
     };
 
@@ -317,7 +317,7 @@ public:
                                 break;
                             }
                             case (minimidi::message::MetaType::SetTempo): {
-                                tempos.emplace_back(start, 60000000. / (float) msg.get_tempo());
+                                tempos.emplace_back(start, (float) ((double) 60000000. / (double) msg.get_tempo()));
                                 break;
                             }
                             case (minimidi::message::MetaType::KeySignature): {
@@ -340,9 +340,9 @@ public:
                 tracks.push_back(track);
             }
         }
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
+        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
     };
 
     inline static Score from_midi(minimidi::file::MidiFile &midi) {
@@ -355,9 +355,9 @@ public:
     };
 
     void sort() {
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
+        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
         for (auto &track: tracks) { track.sort(); }
     };
 
