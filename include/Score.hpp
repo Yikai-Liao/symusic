@@ -24,7 +24,7 @@ public:
     int8_t velocity;
 
     inline Note(float start, float duration, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
-            start(start), duration(duration), pitch(pitch), velocity(velocity) {}
+        start(start), duration(duration), pitch(pitch), velocity(velocity) {}
 };
 
 class ControlChange {
@@ -42,10 +42,10 @@ public:
     uint8_t denominator;
 
     inline TimeSignature(float time, uint8_t numerator, uint8_t denominator) :
-            time(time), numerator(numerator), denominator(denominator) {}
+        time(time), numerator(numerator), denominator(denominator) {}
 
     inline TimeSignature(float time, minimidi::message::TimeSignature msg) :
-            time(time), numerator(msg.numerator), denominator(msg.denominator) {}
+        time(time), numerator(msg.numerator), denominator(msg.denominator) {}
 };
 
 class KeySignature {
@@ -55,19 +55,19 @@ public:
     uint8_t tonality;
 
     inline KeySignature(float time, int8_t key, uint8_t tonality) :
-            time(time), key(key), tonality(tonality) {}
+        time(time), key(key), tonality(tonality) {}
 
     inline KeySignature(float time, minimidi::message::KeySignature msg) :
-            time(time), key(msg.key), tonality(msg.tonality) {}
+        time(time), key(msg.key), tonality(msg.tonality) {}
 
     [[nodiscard]] inline std::string to_string() const {
         static const std::string MINOR_KEYS[] = {
-                "bc", "bg", "bd", "ba", "be", "bb", "f",
-                "c", "g", "d", "a", "e", "b", "#f", "#c"
+            "bc", "bg", "bd", "ba", "be", "bb", "f",
+            "c", "g", "d", "a", "e", "b", "#f", "#c"
         };
         static const std::string MAJOR_KEYS[] = {
-                "bC", "bG", "bD", "bA", "bE", "bB", "F", "C",
-                "G", "D", "A", "E", "B", "#F", "#C"
+            "bC", "bG", "bD", "bA", "bE", "bB", "F", "C",
+            "G", "D", "A", "E", "B", "#F", "#C"
         };
 
         return this->tonality ? MINOR_KEYS[this->key + 7] : MAJOR_KEYS[this->key + 7];
@@ -109,8 +109,8 @@ public:
 
     void sort() {
         pdqsort_branchless(
-                notes.begin(), notes.end(),
-                [](const Note &a, const Note &b) { return a.start < b.start; }
+            notes.begin(), notes.end(),
+            [](const Note &a, const Note &b) { return a.start < b.start; }
         );
         for (auto &control_pair: controls) {
             auto data = control_pair.second;
@@ -122,40 +122,38 @@ public:
         return this->notes.size();
     }
 
-    inline float get_end_time() const {
-        if(this->notes.empty()) return 0;
-
-        Note max_time_note = *std::max_element(this->notes.begin(),
-                                                this->notes.end(),
-                                                [](const Note& n1, const Note& n2) { return n1.start + n1.duration < n2.start + n2.duration; });
-        return max_time_note.start + max_time_note.duration;
+    inline float end_time() const {
+        float time = 0;
+        for(auto const &note : this->notes)
+            time = std::max(time, note.start + note.duration);
+        return time;
     };
 
-    inline Pianoroll _get_empty_pianoroll(uint16_t quantization=16) const {
-        return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->get_end_time() * quantization / 4));
-    };
-
-    Pianoroll get_frame_pianoroll(uint16_t quantization=16) const {
-        Pianoroll pianoroll = _get_empty_pianoroll(quantization);
-
-        for(const auto &note: notes) {
-            uint64_t start = floor(note.start * quantization / 4);
-            uint64_t duration = floor(note.duration * quantization / 4);
-            pianoroll.row(note.pitch).segment(start, duration) = true;
+    Pianoroll frame_pianoroll(uint16_t quantization = 16) const {
+        Pianoroll pianoroll = empty_pianoroll(quantization);
+        for (const auto &note: notes) {
+            uint64_t start = floor(note.start * (float) quantization / 4);
+            uint64_t duration = floor(note.duration * (float) quantization / 4);
+            pianoroll.row(note.pitch).segment((long) start, duration) = true; // eigen index should be long
         }
 
         return pianoroll;
     };
 
-    Pianoroll get_onset_pianoroll(uint16_t quantization=16) const {
-        Pianoroll pianoroll = _get_empty_pianoroll(quantization);
+    Pianoroll onset_pianoroll(uint16_t quantization = 16) const {
+        Pianoroll pianoroll = empty_pianoroll(quantization);
 
-        for(const auto &note: notes) {
-            uint64_t start = floor(note.start * quantization / 4);
-            pianoroll.row(note.pitch).col(start) = true;
+        for (const auto &note: notes) {
+            uint64_t start = floor(note.start * (float) quantization / 4);
+            pianoroll.row(note.pitch).col((long) start) = true; // eigen index should be long
         }
 
         return pianoroll;
+    };
+
+protected:
+    inline Pianoroll empty_pianoroll(uint16_t quantization = 16) const {
+        return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->end_time() * (float) quantization / 4));
     };
 };
 
@@ -199,7 +197,7 @@ public:
 
     inline size_t size() { return front.empty() ? 0 : queue.size() + 1; };
 
-    inline bool empty() { return front.empty(); };
+    inline bool empty() const { return front.empty(); };
 
     inline void emplace(float start, int8_t velocity) {
         if (!front.empty()) queue.push(front);
@@ -247,19 +245,19 @@ public:
                         uint8_t velocity = msg.get_velocity();
                         if (velocity != 0) {
                             auto pitch = msg.get_pitch();
-                            if(pitch >= 128)
-                                throw std::range_error("Get pitch=" + std::to_string((int)pitch));
-                            if(velocity >= 128)
-                                throw std::range_error("Get velocity=" + std::to_string((int)velocity));
+                            if (pitch >= 128)
+                                throw std::range_error("Get pitch=" + std::to_string((int) pitch));
+                            if (velocity >= 128)
+                                throw std::range_error("Get velocity=" + std::to_string((int) velocity));
                             last_note_on[msg.get_channel()][pitch].emplace(start, (int8_t) velocity);
                             break;
                         } // if velocity is zero, turn to note off case
                     }
                     case (minimidi::message::MessageType::NoteOff): {
                         uint8_t channel = msg.get_channel();
-                        uint8_t pitch =  msg.get_pitch();
-                        if(pitch >= 128)
-                            throw std::range_error("Get pitch=" + std::to_string((int)pitch));
+                        uint8_t pitch = msg.get_pitch();
+                        if (pitch >= 128)
+                            throw std::range_error("Get pitch=" + std::to_string((int) pitch));
                         auto &note_on_queue = last_note_on[channel][pitch];
                         auto &track = get_track(track_map, channel, cur_instr[channel]);
                         while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
@@ -273,8 +271,8 @@ public:
                     case (minimidi::message::MessageType::ProgramChange): {
                         uint8_t channel = msg.get_channel();
                         uint8_t program = msg.get_program();
-                        if(program >= 128)
-                            throw std::range_error("Get program=" + std::to_string((int)program));
+                        if (program >= 128)
+                            throw std::range_error("Get program=" + std::to_string((int) program));
                         cur_instr[channel] = program;
                         break;
                     }
@@ -284,10 +282,10 @@ public:
                         auto &track = get_track(track_map, channel, program);
                         uint8_t control_number = msg.get_control_number();
                         uint8_t control_value = msg.get_control_value();
-                        if(control_number >= 128)
-                            throw std::range_error("Get control_number=" + std::to_string((int)control_number));
-                        if(control_value >= 128)
-                            throw std::range_error("Get control_value=" + std::to_string((int)control_value));
+                        if (control_number >= 128)
+                            throw std::range_error("Get control_number=" + std::to_string((int) control_number));
+                        if (control_value >= 128)
+                            throw std::range_error("Get control_value=" + std::to_string((int) control_value));
                         track.controls[msg.get_control_number()].emplace_back(start, msg.get_control_value());
                         break;
                     }
@@ -342,9 +340,9 @@ public:
     };
 
     void sort() {
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time < TimeSignature > );
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time < KeySignature > );
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time < Tempo > );
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
+        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
         for (auto &track: tracks) { track.sort(); }
     };
 
@@ -362,20 +360,16 @@ public:
 
     inline size_t note_num() const {
         size_t num = 0;
-        std::for_each(tracks.begin(),
-                    tracks.end(),
-                    [&] (const Track& t) { num += t.note_num(); });
+        for (auto const &track: this->tracks)
+            num += track.note_num();
         return num;
     }
 
-    inline float get_end_time() const {
-        if(this->tracks.empty()) return 0;
-
-        Track last_t = *std::max_element(this->tracks.begin(),
-                                        this->tracks.end(),
-                                        [](const Track& t1, const Track& t2) { return t1.get_end_time() < t2.get_end_time(); });
-
-        return last_t.get_end_time();
+    inline float end_time() const {
+        float time = 0.;
+        for(auto const &track: this->tracks)
+            time = std::max(time, track.end_time());
+        return time;
     };
 };
 }

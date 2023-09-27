@@ -102,12 +102,14 @@ PYBIND11_MODULE(pyscore, m) {
         .def("shift_pitch", &Track::shift_pitch)
         .def("shift_time", &Track::shift_time)
         .def("shift_velocity", &Track::shift_velocity)
-        .def("get_frame_pianoroll",
-             &Track::get_frame_pianoroll,
+        .def("note_num", &Track::note_num)
+        .def("end_time", &Track::end_time)
+        .def("frame_pianoroll",
+             &Track::frame_pianoroll,
              py::arg("quantization") = 16,
              py::return_value_policy::move)
-        .def("get_onset_pianoroll",
-             &Track::get_onset_pianoroll,
+        .def("onset_pianoroll",
+             &Track::onset_pianoroll,
              py::arg("quantization") = 16,
              py::return_value_policy::move)
         .def_readwrite("name", &Track::name)
@@ -116,10 +118,12 @@ PYBIND11_MODULE(pyscore, m) {
         .def_readwrite("notes", &Track::notes)
         .def_readwrite("controls", &Track::controls)
         .def("__repr__", [](const Track &self) {
-            return "<Track name=\"" + self.name +
-                   "\", program=" + std::to_string((int) self.program) +
-                   ", is_drum=" + (self.is_drum ? "True" : "False") +
-                   ", note_num=" + std::to_string(self.notes.size()) + ">";
+            return "<Track name=\"" + self.name
+                   + "\", program=" + std::to_string((int) self.program)
+                   + ", is_drum=" + (self.is_drum ? "True" : "False")
+                   + ", note_num=" + std::to_string(self.note_num())
+                   + ", end_time=" + std::to_string(self.end_time())
+                   + ">";
         });
 
     py::bind_vector<std::vector<Track>>(m, "TrackList")
@@ -137,12 +141,18 @@ PYBIND11_MODULE(pyscore, m) {
         .def("shift_pitch", &Score::shift_pitch)
         .def("shift_time", &Score::shift_time)
         .def("shift_velocity", &Score::shift_velocity)
+        .def("note_num", &Score::note_num)
+        .def("end_time", &Score::end_time)
         .def_readwrite("tracks", &Score::tracks)
         .def_readwrite("time_signatures", &Score::time_signatures)
         .def_readwrite("key_signatures", &Score::key_signatures)
         .def_readwrite("tempos", &Score::tempos)
         .def("__repr__", [](const Score &self) {
-            return "<Score track_num=" + std::to_string(self.tracks.size()) + ">";
+            return "<Score track_num="
+                   + std::to_string(self.tracks.size())
+                   + ", note_num=" + std::to_string(self.note_num())
+                   + ", end_time=" + std::to_string(self.end_time())
+                   + ">";
         });
 
 
