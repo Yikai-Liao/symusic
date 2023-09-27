@@ -1,4 +1,4 @@
-# pyscore
+# symusic
 
 A cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 
