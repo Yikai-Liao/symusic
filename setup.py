@@ -130,12 +130,13 @@ class CMakeBuild(build_ext):
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
     name="symusic",
-    version="0.0.1",
+    version="0.0.2",
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
+    license=open('LICENSE').read(),
     packages=["."],
     ext_modules=[CMakeExtension("")],
     cmdclass={"build_ext": CMakeBuild},
