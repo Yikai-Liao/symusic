@@ -135,6 +135,7 @@ setup(
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
     long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     packages=["."],
     ext_modules=[CMakeExtension("")],
     cmdclass={"build_ext": CMakeBuild},
