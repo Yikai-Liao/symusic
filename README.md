@@ -17,8 +17,8 @@ The libaray is written in cpp and offers a python binding using pybind11.
   * sort()
 * You can operate each note just like you did before in python (like PrettyMidi)
 * There are interfaces for generating pianoroll with any quantizations using Eigen in cpp:
-  * Track.get_frame_pianoroll(quantization: int = 16)
-  * Track.get_onset_pianoroll(quantization: int = 16)
+  * Track.frame_pianoroll(quantization: int = 16)
+  * Track.onset_pianoroll(quantization: int = 16)
 
 ## TODO
 
