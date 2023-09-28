@@ -35,6 +35,6 @@ Notice that this libaray is under development:
 
 ```bash
 git clone git@github.com:Yikai-Liao/symusic.git --recursive
-pip install ./pyscore
+pip install ./symusic
 ```
 
