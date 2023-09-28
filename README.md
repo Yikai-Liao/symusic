@@ -34,7 +34,7 @@ Notice that this libaray is under development:
 > Make sure that your system has cmake and c++ compilers
 
 ```bash
-git clone git@github.com:Yikai-Liao/pyscore.git --recursive
+git clone git@github.com:Yikai-Liao/symusic.git --recursive
 pip install ./pyscore
 ```
 
