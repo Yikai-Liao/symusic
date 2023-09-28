@@ -1,14 +1,12 @@
 # symusic
 
-**Sy**music is short for "**Sy**bolic **Music**".
-
-It is a cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
+**Sy**music("**Sy**bolic **Music**") is a cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 
 The libaray is written in cpp and offers a python binding using pybind11.
 
 ## Features
 
-* You can just read a midi file like `score = pyscore.Score("path to midi")`
+* You can just read a midi file like `score = symusic.Score("path to midi")`
 * The time unit of the parsed data is the quarter note.
 * The tempo attribute in the tempo event represents quarter per minute (qpm)
 * We offer some batch operation functions for both `Score` and `Track` class:
