@@ -9,6 +9,8 @@ on:
 
 jobs:
   build_wheels:
+    env:
+      CIBW_ARCHS: all
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
