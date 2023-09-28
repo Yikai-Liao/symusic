@@ -26,9 +26,6 @@ Notice that this libaray is under development:
 
 * Writing back to midi files is currently not supported
 * Not all features in midi are suppored, like lyrics and pitchbend
-* There is no pre-built wheel yet
-* We haven't uploaded it to pypi
-* The pyi file haven't been generated
 
 ## Installation
 
