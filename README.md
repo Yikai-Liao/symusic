@@ -32,7 +32,7 @@ Notice that this libaray is under development:
 > Make sure that your system has cmake and c++ compilers
 
 ```bash
-git clone git@github.com:Yikai-Liao/symusic.git --recursive
+git clone https://github.com/Yikai-Liao/symusic --recursive
 pip install ./symusic
 ```
 
