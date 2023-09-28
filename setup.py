@@ -134,7 +134,7 @@ setup(
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
-    long_description="",
+    long_description=open('README.md').read(),
     packages=["."],
     ext_modules=[CMakeExtension("")],
     cmdclass={"build_ext": CMakeBuild},
