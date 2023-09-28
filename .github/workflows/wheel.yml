@@ -20,11 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Checkout submodules
-        uses: textbook/git-checkout-submodule-action@master
         with:
-          remote: true
+          submodules: true
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.1
@@ -40,9 +37,8 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Checkout submodules
-        uses: textbook/git-checkout-submodule-action@master
         with:
-          remote: true
+          submodules: true
 
       - name: Build sdist
         run: pipx run build --sdist
