@@ -16,7 +16,7 @@ PLAT_TO_CMAKE = {
 }
 
 
-_TARGET_NAME = "pyscore"
+_TARGET_NAME = "symusic"
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
@@ -129,14 +129,16 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name="pyscore",
+    name="symusic",
     version="0.0.1",
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
     long_description="",
-    ext_modules=[CMakeExtension("src")],
+    packages=["."],
+    ext_modules=[CMakeExtension("")],
     cmdclass={"build_ext": CMakeBuild},
+    package_data={".": ["symusic.pyi"]},
     zip_safe=False,
     install_requires=["numpy>=1.20"],
     setup_requires=["pybind11>=2.10"],
