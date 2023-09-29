@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
+#include <functional>
 #include <pdqsort.h>
 #include <Eigen/Core>
 #include "MiniMidi.hpp"
@@ -215,6 +216,16 @@ public:
         for (auto &control_vec: controls) {
             clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
         }
+        return notes.size();
+    };
+
+    size_t filter_notes(std::function<bool(const Note &)> &filter){
+        std::vector<Note> new_notes;
+        new_notes.reserve(notes.size());
+        std::copy_if(
+            notes.begin(), notes.end(), std::back_inserter(new_notes), filter
+        );
+        notes = std::move(new_notes);
         return notes.size();
     };
 
@@ -492,6 +503,12 @@ public:
         clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
         clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
         clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
+        return note_num;
+    };
+
+    size_t filter_notes(std::function<bool(const Note &)> &filter){
+        size_t note_num = 0;
+        for (auto &track: tracks) note_num += track.filter_notes(filter);
         return note_num;
     };
 
