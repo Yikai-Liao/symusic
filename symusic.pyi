@@ -1,14 +1,24 @@
 from __future__ import annotations
 import numpy
 import typing
-__all__ = ['ControlChange', 'ControlChangeList', 'ControlMap', 'KeySignature', 'KeySignatureList', 'Note', 'NoteList', 'Score', 'Tempo', 'TempoList', 'TimeSignature', 'TimeSignatureList', 'Track', 'TrackList']
+__all__ = ['ControlChange', 'ControlChangeList', 'ControlMap', 'KeySignature', 'KeySignatureList', 'Note', 'NoteArray', 'NoteList', 'Score', 'Tempo', 'TempoList', 'TimeSignature', 'TimeSignatureList', 'Track', 'TrackList']
 class ControlChange:
     time: float
     value: int
+    @typing.overload
     def __init__(self, arg0: float, arg1: int) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: ControlChange) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def copy(self) -> ControlChange:
+        """
+        Deep copy
+        """
 class ControlChangeList:
     def __bool__(self) -> bool:
         """
@@ -124,10 +134,20 @@ class KeySignature:
     key: int
     time: float
     tonality: int
+    @typing.overload
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: KeySignature) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def copy(self) -> KeySignature:
+        """
+        Deep copy
+        """
 class KeySignatureList:
     def __bool__(self) -> bool:
         """
@@ -213,21 +233,54 @@ class Note:
     pitch: int
     start: float
     velocity: int
+    @typing.overload
     def __init__(self, arg0: float, arg1: float, arg2: int, arg3: int) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: Note) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def copy(self) -> Note:
+        """
+        Deep copy the note
+        """
+    def empty(self) -> bool:
+        """
+        duration <= 0 or velocity <= 0
+        """
     def end_time(self) -> float:
         ...
-    def shift_pitch(self, arg0: int) -> None:
+    def shift_pitch(self, arg0: int) -> Note:
         ...
-    def shift_time(self, arg0: float) -> None:
+    def shift_time(self, arg0: float) -> Note:
         ...
-    def shift_velocity(self, arg0: int) -> None:
+    def shift_velocity(self, arg0: int) -> Note:
         ...
     @property
     def end(self) -> float:
         ...
+class NoteArray:
+    duration: numpy.ndarray
+    name: str
+    pitch: numpy.ndarray
+    program: int
+    start: numpy.ndarray
+    velocity: numpy.ndarray
+    @typing.overload
+    def __init__(self, arg0: Track) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: NoteArray) -> None:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def copy(self) -> NoteArray:
+        """
+        Deep copy
+        """
 class NoteList:
     def __bool__(self) -> bool:
         """
@@ -324,27 +377,56 @@ class Score:
     @typing.overload
     def __init__(self, arg0: str) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: Score) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
+        ...
+    def clip_time_sorted(self, arg0: float, arg1: float) -> Score:
+        """
+        Clip sorted notes to a given time range
+        """
+    def clip_time_unsorted(self, arg0: float, arg1: float) -> Score:
+        """
+        Clip unordered notes to a given time range
+        """
+    def copy(self) -> Score:
         ...
     def end_time(self) -> float:
         ...
+    def filter_notes(self, arg0: typing.Callable[[symusic.Note], bool]) -> Score:
+        """
+        Filter notes by a given function
+        """
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> None:
+    def shift_pitch(self, arg0: int) -> Score:
         ...
-    def shift_time(self, arg0: float) -> None:
+    def shift_time(self, arg0: float) -> Score:
         ...
-    def shift_velocity(self, arg0: int) -> None:
+    def shift_velocity(self, arg0: int) -> Score:
         ...
-    def sort(self) -> None:
+    def sort(self) -> Score:
         ...
 class Tempo:
     tempo: float
     time: float
+    @typing.overload
     def __init__(self, arg0: float, arg1: float) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: Tempo) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def copy(self) -> Tempo:
+        """
+        Deep copy
+        """
 class TempoList:
     def __bool__(self) -> bool:
         """
@@ -429,10 +511,20 @@ class TimeSignature:
     denominator: int
     numerator: int
     time: float
+    @typing.overload
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: TimeSignature) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def copy(self) -> TimeSignature:
+        """
+        Deep copy
+        """
 class TimeSignatureList:
     def __bool__(self) -> bool:
         """
@@ -519,25 +611,49 @@ class Track:
     name: str
     notes: NoteList
     program: int
+    @typing.overload
     def __init__(self) -> None:
         ...
+    @typing.overload
+    def __init__(self, arg0: Track) -> None:
+        """
+        Copy constructor
+        """
     def __repr__(self) -> str:
         ...
+    def clip_time_sorted(self, arg0: float, arg1: float) -> Track:
+        """
+        Clip sorted notes to a given time range
+        """
+    def clip_time_unsorted(self, arg0: float, arg1: float) -> Track:
+        """
+        Clip unordered notes to a given time range
+        """
+    def copy(self) -> Track:
+        """
+        Deep copy
+        """
     def end_time(self) -> float:
         ...
+    def filter_notes(self, arg0: typing.Callable[[symusic.Note], bool]) -> Track:
+        """
+        Filter notes by a given function
+        """
     def frame_pianoroll(self, quantization: int = 16) -> numpy.ndarray:
+        ...
+    def note_array(self) -> NoteArray:
         ...
     def note_num(self) -> int:
         ...
     def onset_pianoroll(self, quantization: int = 16) -> numpy.ndarray:
         ...
-    def shift_pitch(self, arg0: int) -> None:
+    def shift_pitch(self, arg0: int) -> Track:
         ...
-    def shift_time(self, arg0: float) -> None:
+    def shift_time(self, arg0: float) -> Track:
         ...
-    def shift_velocity(self, arg0: int) -> None:
+    def shift_velocity(self, arg0: int) -> Track:
         ...
-    def sort(self) -> None:
+    def sort(self) -> Track:
         ...
 class TrackList:
     def __bool__(self) -> bool:
