@@ -4,6 +4,7 @@
 #include <string>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/functional.h>
 #include <pybind11/eigen.h>
 #include "Score.hpp"
 
@@ -124,6 +125,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("shift_velocity", &Track::shift_velocity)
         .def("clip_time_sorted", &Track::clip_time_sorted, "Clip sorted notes to a given time range")
         .def("clip_time_unsorted", &Track::clip_time_unsorted, "Clip unordered notes to a given time range")
+        .def("filter_notes", &Track::filter_notes, "Filter notes by a given function")
         .def("note_num", &Track::note_num)
         .def("end_time", &Track::end_time)
         .def("frame_pianoroll",
@@ -188,6 +190,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("shift_velocity", &Score::shift_velocity)
         .def("clip_time_sorted", &Score::clip_time_sorted, "Clip sorted notes to a given time range")
         .def("clip_time_unsorted", &Score::clip_time_unsorted, "Clip unordered notes to a given time range")
+        .def("filter_notes", &Score::filter_notes, "Filter notes by a given function")
         .def("note_num", &Score::note_num)
         .def("end_time", &Score::end_time)
         .def_readwrite("tracks", &Score::tracks)
