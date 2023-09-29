@@ -14,6 +14,25 @@ namespace score {
 #define MIDI_PITCH_NUMS 128
 typedef Eigen::Array<bool, MIDI_PITCH_NUMS, Eigen::Dynamic> Pianoroll;
 
+typedef Eigen::Array<float, Eigen::Dynamic, 1> F32Vector;
+typedef Eigen::Array<uint8_t, Eigen::Dynamic, 1> U8Vector;
+
+class Track;
+
+class NoteArray {
+public: // use eigen 1d array to store start, duration, pitch and velocity
+    std::string name;
+    uint8_t program = 0;
+    F32Vector start;
+    F32Vector duration;
+    U8Vector pitch;
+    U8Vector velocity;
+
+    NoteArray() = default;
+
+    inline explicit NoteArray(const Track &track);
+};
+
 inline int8_t safe_add(int8_t a, int8_t b) {
     int ans = a + b;
     if (ans > 127 || ans < 0)
@@ -164,6 +183,10 @@ public:
         }
 
         return pianoroll;
+    };
+
+    NoteArray note_array() const {
+        return std::move(NoteArray(*this));
     };
 
 protected:
@@ -387,4 +410,23 @@ public:
         return time;
     };
 };
+
+NoteArray::NoteArray(const score::Track &track) {
+    size_t note_num = track.note_num();
+    name = track.name;
+    program = track.program;
+    start = F32Vector(note_num);
+    duration = F32Vector(note_num);
+    pitch = U8Vector(note_num);
+    velocity = U8Vector(note_num);
+
+    long i = 0;
+    for (auto const &note: track.notes) {
+        start[i] = note.start;
+        duration[i] = note.duration;
+        pitch[i] = note.pitch;
+        velocity[i] = note.velocity;
+        i++;
+    }
+}
 }

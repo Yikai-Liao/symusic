@@ -101,6 +101,8 @@ PYBIND11_MODULE(symusic, m) {
                    + ", event_num=" + std::to_string(self.size()) + ">";
         });
 
+    auto py_note_arr = py::class_<NoteArray>(m, "NoteArray");
+
     py::class_<Track>(m, "Track")
         .def(py::init<>())
         .def("sort", &Track::sort)
@@ -117,6 +119,9 @@ PYBIND11_MODULE(symusic, m) {
              &Track::onset_pianoroll,
              py::arg("quantization") = 16,
              py::return_value_policy::move)
+        .def("note_array",
+             &Track::note_array,
+             py::return_value_policy::move)
         .def_readwrite("name", &Track::name)
         .def_readwrite("program", &Track::program)
         .def_readwrite("is_drum", &Track::is_drum)
@@ -130,6 +135,22 @@ PYBIND11_MODULE(symusic, m) {
                    + ", end_time=" + std::to_string(self.end_time())
                    + ">";
         });
+
+    py_note_arr
+        .def(py::init<const Track &>())
+        .def_readwrite("name", &NoteArray::name)
+        .def_readwrite("program", &NoteArray::program)
+        .def_readwrite("start", &NoteArray::start)
+        .def_readwrite("duration", &NoteArray::duration)
+        .def_readwrite("pitch", &NoteArray::pitch)
+        .def_readwrite("velocity", &NoteArray::velocity)
+        .def("__repr__", [](const NoteArray &self) {
+            return "<NoteArray name=\"" + self.name
+                   + "\", program=" + std::to_string((int) self.program)
+                   + ", note_num=" + std::to_string(self.start.size())
+                   + ">";
+        });
+
 
     py::bind_vector<std::vector<Track>>(m, "TrackList")
         .def("__repr__", [](const std::vector<Track> &self) {
