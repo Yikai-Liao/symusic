@@ -21,11 +21,14 @@ PYBIND11_MAKE_OPAQUE(std::unordered_map<uint8_t, std::vector<ControlChange>>)
 PYBIND11_MODULE(symusic, m) {
     py::class_<Note>(m, "Note")
         .def(py::init<float, float, int8_t, int8_t>())
+        .def(py::init<const Note &>(), "Copy constructor")
         .def_readwrite("start", &Note::start)
         .def_readwrite("duration", &Note::duration)
         .def_readwrite("pitch", &Note::pitch)
         .def_readwrite("velocity", &Note::velocity)
         .def_property_readonly("end", &Note::end_time)
+        .def("empty", &Note::empty, "duration <= 0 or velocity <= 0")
+        .def("copy", &Note::copy, "Deep copy the note", py::return_value_policy::move)
         .def("end_time", &Note::end_time)
         .def("shift_pitch", &Note::shift_pitch)
         .def("shift_time", &Note::shift_time)
@@ -39,9 +42,11 @@ PYBIND11_MODULE(symusic, m) {
 
     py::class_<TimeSignature>(m, "TimeSignature")
         .def(py::init<float, uint8_t, uint8_t>())
+        .def(py::init<const TimeSignature &>(), "Copy constructor")
         .def_readwrite("time", &score::TimeSignature::time)
         .def_readwrite("numerator", &score::TimeSignature::numerator)
         .def_readwrite("denominator", &score::TimeSignature::denominator)
+        .def("copy", &score::TimeSignature::copy, "Deep copy", py::return_value_policy::move)
         .def("__repr__", [](TimeSignature &self) {
             return "<TimeSignature time=" + std::to_string(self.time) +
                    ", numerator=" + std::to_string((int) self.numerator) +
@@ -50,15 +55,19 @@ PYBIND11_MODULE(symusic, m) {
 
     py::class_<KeySignature>(m, "KeySignature")
         .def(py::init<float, int8_t, uint8_t>())
+        .def(py::init<const KeySignature &>(), "Copy constructor")
         .def_readwrite("time", &score::KeySignature::time)
         .def_readwrite("key", &score::KeySignature::key)
         .def_readwrite("tonality", &score::KeySignature::tonality)
+        .def("copy", &score::KeySignature::copy, "Deep copy", py::return_value_policy::move)
         .def("__repr__", &score::KeySignature::to_string);
 
     py::class_<score::ControlChange>(m, "ControlChange")
         .def(py::init<float, uint8_t>())
+        .def(py::init<const score::ControlChange &>(), "Copy constructor")
         .def_readwrite("time", &score::ControlChange::time)
         .def_readwrite("value", &score::ControlChange::value)
+        .def("copy", &score::ControlChange::copy, "Deep copy", py::return_value_policy::move)
         .def("__repr__", [](score::ControlChange &self) {
             return "<ControlChange time=" + std::to_string(self.time) +
                    ", value=" + std::to_string((int) self.value) + ">";
@@ -66,8 +75,10 @@ PYBIND11_MODULE(symusic, m) {
 
     py::class_<score::Tempo>(m, "Tempo")
         .def(py::init<float, float>())
+        .def(py::init<const score::Tempo &>(), "Copy constructor")
         .def_readwrite("time", &score::Tempo::time)
         .def_readwrite("tempo", &score::Tempo::qpm)
+        .def("copy", &score::Tempo::copy, "Deep copy", py::return_value_policy::move)
         .def("__repr__", [](score::Tempo &self) {
             return "<Tempo time=" + std::to_string(self.time) +
                    ", qpm=" + std::to_string(self.qpm) + ">";
@@ -105,6 +116,8 @@ PYBIND11_MODULE(symusic, m) {
 
     py::class_<Track>(m, "Track")
         .def(py::init<>())
+        .def(py::init<const Track &>(), "Copy constructor")
+        .def("copy", &Track::copy, "Deep copy")
         .def("sort", &Track::sort)
         .def("shift_pitch", &Track::shift_pitch)
         .def("shift_time", &Track::shift_time)
@@ -140,12 +153,14 @@ PYBIND11_MODULE(symusic, m) {
 
     py_note_arr
         .def(py::init<const Track &>())
+        .def(py::init<const NoteArray &>())
         .def_readwrite("name", &NoteArray::name)
         .def_readwrite("program", &NoteArray::program)
         .def_readwrite("start", &NoteArray::start)
         .def_readwrite("duration", &NoteArray::duration)
         .def_readwrite("pitch", &NoteArray::pitch)
         .def_readwrite("velocity", &NoteArray::velocity)
+        .def("copy", &NoteArray::copy, "Deep copy")
         .def("__repr__", [](const NoteArray &self) {
             return "<NoteArray name=\"" + self.name
                    + "\", program=" + std::to_string((int) self.program)
@@ -162,6 +177,8 @@ PYBIND11_MODULE(symusic, m) {
     py::class_<Score>(m, "Score")
         .def(py::init<>())
         .def(py::init(&Score::from_file))
+        .def(py::init<const Score &>(), "Copy constructor")
+        .def("copy", &Score::copy)
         .def_property_readonly_static("from_file", [](const py::object &) {
             return py::cpp_function([](std::string &x) { return Score::from_file(x); });
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693

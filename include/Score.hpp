@@ -30,7 +30,11 @@ public: // use eigen 1d array to store start, duration, pitch and velocity
 
     NoteArray() = default;
 
+    NoteArray(const NoteArray &) = default;
+
     inline explicit NoteArray(const Track &track);
+
+    inline auto copy() const { return NoteArray(*this); };
 };
 
 inline int8_t safe_add(int8_t a, int8_t b) {
@@ -50,7 +54,13 @@ public:
     int8_t velocity;
 
     inline Note(float start, float duration, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
-        start(start), duration(duration), pitch(pitch), velocity(velocity) {}
+        start(start), duration(duration), pitch(pitch), velocity(velocity) {};
+
+    inline Note(const Note &) = default;
+
+    inline auto copy() const { return Note(*this); }
+
+    [[nodiscard]] inline bool empty() const { return velocity <= 0 || duration <= 0; };
 
     [[nodiscard]] inline float end_time() const { return start + duration; };
 
@@ -66,7 +76,11 @@ public:
     float time;
     uint8_t value;
 
-    inline ControlChange(float time, uint8_t value) : time(time), value(value) {}
+    inline ControlChange(float time, uint8_t value) : time(time), value(value) {};
+
+    inline ControlChange(const ControlChange &) = default;
+
+    inline auto copy() const { return ControlChange(*this); }
 };
 
 class TimeSignature {
@@ -76,10 +90,14 @@ public:
     uint8_t denominator;
 
     inline TimeSignature(float time, uint8_t numerator, uint8_t denominator) :
-        time(time), numerator(numerator), denominator(denominator) {}
+        time(time), numerator(numerator), denominator(denominator) {};
 
     inline TimeSignature(float time, minimidi::message::TimeSignature msg) :
-        time(time), numerator(msg.numerator), denominator(msg.denominator) {}
+        time(time), numerator(msg.numerator), denominator(msg.denominator) {};
+    
+    inline TimeSignature(const TimeSignature &) = default;
+
+    inline auto copy() const { return TimeSignature(*this); }
 };
 
 class KeySignature {
@@ -89,10 +107,14 @@ public:
     uint8_t tonality;
 
     inline KeySignature(float time, int8_t key, uint8_t tonality) :
-        time(time), key(key), tonality(tonality) {}
+        time(time), key(key), tonality(tonality) {};
 
     inline KeySignature(float time, minimidi::message::KeySignature msg) :
-        time(time), key(msg.key), tonality(msg.tonality) {}
+        time(time), key(msg.key), tonality(msg.tonality) {};
+    
+    inline KeySignature(const KeySignature &) = default;
+
+    inline auto copy() const { return KeySignature(*this); };
 
     [[nodiscard]] inline std::string to_string() const {
         static const std::string MINOR_KEYS[] = {
@@ -113,7 +135,11 @@ public:
     float time;
     float qpm;
 
-    inline Tempo(float time, float qpm) : time(time), qpm(qpm) {}
+    inline Tempo(float time, float qpm) : time(time), qpm(qpm) {};
+
+    inline Tempo(const Tempo &) = default;
+
+    inline auto copy() const { return Tempo(*this); };
 };
 
 template<typename T>
@@ -158,6 +184,10 @@ public:
     std::unordered_map<uint8_t, std::vector<ControlChange>> controls;
 
     Track() = default;
+    
+    Track(const Track&) = default;
+
+    auto copy() const { return Track(*this); }
 
     void shift_pitch(int8_t offset) {
         for (auto &note: notes) note.shift_pitch(offset);
@@ -308,6 +338,10 @@ public:
     std::vector<KeySignature> key_signatures;
 
     Score() = default;
+
+    Score(const Score&) = default;
+
+    auto copy() const { return Score(*this); }
 
     explicit Score(minimidi::file::MidiFile &midi) {
         size_t track_num = midi.track_num();
