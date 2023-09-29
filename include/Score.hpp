@@ -119,6 +119,36 @@ public:
 template<typename T>
 inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
 
+template<typename T, typename F>
+inline void clip_sorted(std::vector<T> &vec, float start, float end, F &&get_key) {
+    // using std::binary_search() to find the range
+    auto start_it = std::lower_bound(
+        vec.begin(), vec.end(), start,
+        [&get_key](const T &item, float time) { return get_key(item) < time; }
+    );
+    auto end_it = std::upper_bound(
+        vec.begin(), vec.end(), end,
+        [&get_key](float time, const T &item) { return time <= get_key(item); }
+    );
+    vec = std::move(std::vector<T>(start_it, end_it));
+}
+
+template<typename T, typename F>
+void clip_unsorted(std::vector<T> &vec, float start, float end, F &&get_key) {
+    // using std::copy_if
+    std::vector<T> new_vec;
+    new_vec.reserve(vec.size());
+    std::copy_if(
+        vec.begin(), vec.end(), std::back_inserter(new_vec),
+        [start, end, &get_key](const T &item) {
+            float key = get_key(item);
+            return start <= key && key < end;
+        }
+    );
+    // move the new_vec to vec
+    vec = std::move(new_vec);
+}
+
 class Track {
 public:
     std::string name;
@@ -139,6 +169,23 @@ public:
 
     void shift_velocity(int8_t offset) {
         for (auto &note: notes) note.shift_velocity(offset);
+    };
+
+    size_t clip_time_sorted(float start, float end) {
+        // using std::binary_search() to find the range
+        clip_sorted(notes, start, end, [](const Note &note) { return note.start; });
+        for (auto &control_vec: controls) {
+            clip_sorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+        }
+        return notes.size();
+    };
+
+    size_t clip_time_unsorted(float start, float end) {
+        clip_unsorted(notes, start, end, [](const Note &note) { return note.start; });
+        for (auto &control_vec: controls) {
+            clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+        }
+        return notes.size();
     };
 
     void sort() {
@@ -394,6 +441,24 @@ public:
 
     void shift_velocity(int8_t offset) {
         for (auto &track: tracks) track.shift_velocity(offset);
+    };
+
+    size_t clip_time_sorted(float start, float end) {
+        size_t note_num = 0;
+        for (auto &track: tracks) note_num += track.clip_time_sorted(start, end);
+        clip_sorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
+        clip_sorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
+        return note_num;
+    };
+
+    size_t clip_time_unsorted(float start, float end) {
+        size_t note_num = 0;
+        for (auto &track: tracks) note_num += track.clip_time_unsorted(start, end);
+        clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
+        clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
+        return note_num;
     };
 
     [[nodiscard]] inline size_t note_num() const {
