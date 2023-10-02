@@ -1,5 +1,5 @@
 # symusic
-[![Build and upload to PyPI](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml/badge.svg?branch=main)](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml) 
+[![Build and upload to PyPI](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml/badge.svg?branch=main)](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml) [![PyPI version](https://badge.fury.io/py/symusic.svg)](https://badge.fury.io/py/symusic)
 
 **Sy**music("**Sy**bolic **Music**") is a cross platform `note level` midi decoding libaray with lightening speed, based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main).
 
