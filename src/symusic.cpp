@@ -127,6 +127,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("clip_time_unsorted", &Track::clip_time_unsorted, "Clip unordered notes to a given time range")
         .def("filter_notes", &Track::filter_notes, "Filter notes by a given function")
         .def("note_num", &Track::note_num)
+        .def("start_time", &Track::start_time)
         .def("end_time", &Track::end_time)
         .def("frame_pianoroll",
              &Track::frame_pianoroll,
@@ -193,6 +194,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("filter_notes", &Score::filter_notes, "Filter notes by a given function")
         .def("note_num", &Score::note_num)
         .def("end_time", &Score::end_time)
+        .def("start_time", &Score::start_time)
         .def_readwrite("tracks", &Score::tracks)
         .def_readwrite("time_signatures", &Score::time_signatures)
         .def_readwrite("key_signatures", &Score::key_signatures)
