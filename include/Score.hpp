@@ -19,6 +19,49 @@ typedef Eigen::Array<bool, MIDI_PITCH_NUMS, Eigen::Dynamic> Pianoroll;
 typedef Eigen::Array<float, Eigen::Dynamic, 1> F32Vector;
 typedef Eigen::Array<uint8_t, Eigen::Dynamic, 1> U8Vector;
 
+
+namespace utils{
+inline int8_t safe_add(int8_t a, int8_t b) {
+    int ans = a + b;
+    if (ans > 127 || ans < 0)
+        throw std::range_error("Overflow while adding " + std::to_string(a) + " and " + std::to_string(b));
+    return (int8_t) ans;
+}
+
+template<typename T>
+inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
+
+template<typename T, typename F>
+inline void clip_sorted(std::vector<T> &vec, float start, float end, F &&get_key) {
+    // using std::binary_search() to find the range
+    auto start_it = std::lower_bound(
+        vec.begin(), vec.end(), start,
+        [&get_key](const T &item, float time) { return get_key(item) < time; }
+    );
+    auto end_it = std::upper_bound(
+        vec.begin(), vec.end(), end,
+        [&get_key](float time, const T &item) { return time <= get_key(item); }
+    );
+    vec = std::move(std::vector<T>(start_it, end_it));
+}
+
+template<typename T, typename F>
+void clip_unsorted(std::vector<T> &vec, float start, float end, F &&get_key) {
+    // using std::copy_if
+    std::vector<T> new_vec;
+    new_vec.reserve(vec.size());
+    std::copy_if(
+        vec.begin(), vec.end(), std::back_inserter(new_vec),
+        [start, end, &get_key](const T &item) {
+            float key = get_key(item);
+            return start <= key && key < end;
+        }
+    );
+    // move the new_vec to vec
+    vec = std::move(new_vec);
+}
+}
+
 class Track;
 
 class NoteArray {
@@ -38,14 +81,6 @@ public: // use eigen 1d array to store start, duration, pitch and velocity
 
     inline auto copy() const { return NoteArray(*this); };
 };
-
-inline int8_t safe_add(int8_t a, int8_t b) {
-    int ans = a + b;
-    if (ans > 127 || ans < 0)
-        throw std::range_error("Overflow while adding " + std::to_string(a) + " and " + std::to_string(b));
-    return (int8_t) ans;
-}
-
 // Using int8_t to avoid possible errors while shifting
 
 class Note {
@@ -66,9 +101,9 @@ public:
 
     [[nodiscard]] inline float end_time() const { return start + duration; };
 
-    inline Note& shift_pitch(int8_t offset) { pitch = safe_add(pitch, offset); return *this;};
+    inline Note& shift_pitch(int8_t offset) { pitch = utils::safe_add(pitch, offset); return *this;};
 
-    inline Note& shift_velocity(int8_t offset) { velocity = safe_add(velocity, offset); return *this;};
+    inline Note& shift_velocity(int8_t offset) { velocity = utils::safe_add(velocity, offset); return *this;};
 
     inline Note& shift_time(float offset) { start += offset; return *this;};
 };
@@ -144,39 +179,6 @@ public:
     inline auto copy() const { return Tempo(*this); };
 };
 
-template<typename T>
-inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
-
-template<typename T, typename F>
-inline void clip_sorted(std::vector<T> &vec, float start, float end, F &&get_key) {
-    // using std::binary_search() to find the range
-    auto start_it = std::lower_bound(
-        vec.begin(), vec.end(), start,
-        [&get_key](const T &item, float time) { return get_key(item) < time; }
-    );
-    auto end_it = std::upper_bound(
-        vec.begin(), vec.end(), end,
-        [&get_key](float time, const T &item) { return time <= get_key(item); }
-    );
-    vec = std::move(std::vector<T>(start_it, end_it));
-}
-
-template<typename T, typename F>
-void clip_unsorted(std::vector<T> &vec, float start, float end, F &&get_key) {
-    // using std::copy_if
-    std::vector<T> new_vec;
-    new_vec.reserve(vec.size());
-    std::copy_if(
-        vec.begin(), vec.end(), std::back_inserter(new_vec),
-        [start, end, &get_key](const T &item) {
-            float key = get_key(item);
-            return start <= key && key < end;
-        }
-    );
-    // move the new_vec to vec
-    vec = std::move(new_vec);
-}
-
 class Track {
 public:
     std::string name;
@@ -208,17 +210,17 @@ public:
 
     Track& clip_time_sorted(float start, float end, bool clip_end) {
         // using std::binary_search() to find the range
-        clip_sorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
+        utils::clip_sorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
         for (auto &control_vec: controls) {
-            clip_sorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+            utils::clip_sorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
         }
         return *this;
     };
 
     Track& clip_time_unsorted(float start, float end, bool clip_end) {
-        clip_unsorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
+        utils::clip_unsorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
         for (auto &control_vec: controls) {
-            clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+            utils::clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
         }
         return *this;
     };
@@ -240,7 +242,7 @@ public:
         );
         for (auto &control_pair: controls) {
             auto data = control_pair.second;
-            pdqsort_branchless(data.begin(), data.end(), cmp_time<ControlChange>);
+            pdqsort_branchless(data.begin(), data.end(), utils::cmp_time<ControlChange>);
         }
         return *this;
     };
@@ -294,7 +296,7 @@ protected:
         return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->end_time() * (float) quantization / 4));
     };
 };
-
+namespace utils{
 typedef std::tuple<uint8_t, uint8_t> TrackIdx;
 
 Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t program) {
@@ -352,6 +354,7 @@ public:
     };
 
 };
+}
 
 class Score {
 public:
@@ -372,11 +375,11 @@ public:
         using std::cout, std::endl;
         for (size_t i = 0; i < track_num; ++i) {
             auto &midi_track = midi.track(i);
-            std::map<TrackIdx, Track> track_map; // (channel, program) -> Track
+            std::map<utils::TrackIdx, Track> track_map; // (channel, program) -> Track
             uint8_t cur_instr[128] = {0}; // channel -> program
             std::string cur_name;
 
-            NoteOnQueue last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
+            utils::NoteOnQueue last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
             // iter midi messages in the track
             size_t message_num = midi_track.message_num();
             for (size_t j = 0; j < message_num; ++j) {
@@ -401,7 +404,7 @@ public:
                         if (pitch >= 128)
                             throw std::range_error("Get pitch=" + std::to_string((int) pitch));
                         auto &note_on_queue = last_note_on[channel][pitch];
-                        auto &track = get_track(track_map, channel, cur_instr[channel]);
+                        auto &track = utils::get_track(track_map, channel, cur_instr[channel]);
                         while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
                             auto const &note_on = note_on_queue.front;
                             float duration = start - note_on.start;
@@ -421,7 +424,7 @@ public:
                     case (minimidi::message::MessageType::ControlChange): {
                         uint8_t channel = msg.get_channel();
                         uint8_t program = msg.get_program();
-                        auto &track = get_track(track_map, channel, program);
+                        auto &track = utils::get_track(track_map, channel, program);
                         uint8_t control_number = msg.get_control_number();
                         uint8_t control_value = msg.get_control_value();
                         if (control_number >= 128)
@@ -467,9 +470,9 @@ public:
                 tracks.push_back(track);
             }
         }
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), utils::cmp_time<TimeSignature>);
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), utils::cmp_time<KeySignature>);
+        pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
     };
 
     inline static Score from_midi(minimidi::file::MidiFile &midi) {
@@ -482,9 +485,9 @@ public:
     };
 
     Score& sort() {
-        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), cmp_time<TimeSignature>);
-        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), cmp_time<KeySignature>);
-        pdqsort_branchless(tempos.begin(), tempos.end(), cmp_time<Tempo>);
+        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), utils::cmp_time<TimeSignature>);
+        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), utils::cmp_time<KeySignature>);
+        pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
         for (auto &track: tracks) { track.sort(); }
         return *this;
     };
@@ -506,17 +509,17 @@ public:
 
     Score& clip_time_sorted(float start, float end, bool clip_end) {
         for (auto &track: tracks) track.clip_time_sorted(start, end, clip_end);
-        clip_sorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
-        clip_sorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
-        clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
+        utils::clip_sorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
+        utils::clip_sorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        utils::clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
         return *this;
     };
 
     Score& clip_time_unsorted(float start, float end, bool clip_end) {
         for (auto &track: tracks) track.clip_time_unsorted(start, end, clip_end);
-        clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
-        clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
-        clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
+        utils::clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
+        utils::clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        utils::clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
         return *this;
     };
 
