@@ -206,17 +206,17 @@ public:
         return *this;
     };
 
-    Track& clip_time_sorted(float start, float end) {
+    Track& clip_time_sorted(float start, float end, bool clip_end) {
         // using std::binary_search() to find the range
-        clip_sorted(notes, start, end, [](const Note &note) { return note.start; });
+        clip_sorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
         for (auto &control_vec: controls) {
             clip_sorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
         }
         return *this;
     };
 
-    Track& clip_time_unsorted(float start, float end) {
-        clip_unsorted(notes, start, end, [](const Note &note) { return note.start; });
+    Track& clip_time_unsorted(float start, float end, bool clip_end) {
+        clip_unsorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
         for (auto &control_vec: controls) {
             clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
         }
@@ -504,16 +504,16 @@ public:
         return *this;
     };
 
-    Score& clip_time_sorted(float start, float end) {
-        for (auto &track: tracks) track.clip_time_sorted(start, end);
+    Score& clip_time_sorted(float start, float end, bool clip_end) {
+        for (auto &track: tracks) track.clip_time_sorted(start, end, clip_end);
         clip_sorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
         clip_sorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
         clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
         return *this;
     };
 
-    Score& clip_time_unsorted(float start, float end) {
-        for (auto &track: tracks) track.clip_time_unsorted(start, end);
+    Score& clip_time_unsorted(float start, float end, bool clip_end) {
+        for (auto &track: tracks) track.clip_time_unsorted(start, end, clip_end);
         clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
         clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
         clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
