@@ -3,6 +3,7 @@
 #include <queue>
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 #include <exception>
 #include <functional>
 #include <pdqsort.h>
@@ -254,6 +255,13 @@ public:
             time = std::max(time, note.end_time());
         return time;
     };
+
+    inline float start_time() const {
+        float time = FLT_MAX;
+        for (auto const &note: this->notes)
+            time = std::min(time, note.start);
+        return time;
+    }
 
     Pianoroll frame_pianoroll(uint16_t quantization = 16) const {
         Pianoroll pianoroll = empty_pianoroll(quantization);
@@ -530,6 +538,13 @@ public:
             time = std::max(time, track.end_time());
         return time;
     };
+
+    [[nodiscard]] inline float start_time() const {
+        float time = FLT_MAX;
+        for (auto const &track: this->tracks)
+            time = std::min(time, track.start_time());
+        return time;
+    }
 };
 
 NoteArray::NoteArray(const score::Track &track) {
