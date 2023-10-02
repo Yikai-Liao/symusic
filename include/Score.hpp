@@ -20,7 +20,7 @@ typedef Eigen::Array<float, Eigen::Dynamic, 1> F32Vector;
 typedef Eigen::Array<uint8_t, Eigen::Dynamic, 1> U8Vector;
 
 
-namespace utils{
+namespace utils {
 inline int8_t safe_add(int8_t a, int8_t b) {
     int ans = a + b;
     if (ans > 127 || ans < 0)
@@ -59,6 +59,84 @@ void clip_unsorted(std::vector<T> &vec, float start, float end, F &&get_key) {
     );
     // move the new_vec to vec
     vec = std::move(new_vec);
+}
+
+std::string correct_non_utf_8(std::string *str) {
+    int i, f_size = str->size();
+    unsigned char c, c2, c3, c4;
+    std::string to;
+    to.reserve(f_size);
+
+    for (i = 0; i < f_size; i++) {
+        c = (unsigned char) (*str)[i];
+        if (c < 32) {//control char
+            if (c == 9 || c == 10 || c == 13) {//allow only \t \n \r
+                to.append(1, c);
+            }
+            continue;
+        } else if (c < 127) {//normal ASCII
+            to.append(1, c);
+            continue;
+        } else if (c <
+                   160) {//control char (nothing should be defined here either ASCI, ISO_8859-1 or UTF8, so skipping)
+            if (c2 == 128) {//fix microsoft mess, add euro
+                to.append(1, -30); // 226 for unsigned
+                to.append(1, -126); // 130 for unsigned
+                to.append(1, -84); // 172 for unsigned
+            }
+            if (c2 == 133) {//fix IBM mess, add NEL = \n\r
+                to.append(1, 10);
+                to.append(1, 13);
+            }
+            continue;
+        } else if (c < 192) {//invalid for UTF8, converting ASCII
+            to.append(1, (unsigned char) 194);
+            to.append(1, c);
+            continue;
+        } else if (c < 194) {//invalid for UTF8, converting ASCII
+            to.append(1, (unsigned char) 195);
+            to.append(1, c - 64);
+            continue;
+        } else if (c < 224 && i + 1 < f_size) {//possibly 2byte UTF8
+            c2 = (unsigned char) (*str)[i + 1];
+            if (c2 > 127 && c2 < 192) {//valid 2byte UTF8
+                if (c == 194 && c2 < 160) {//control char, skipping
+                    ;
+                } else {
+                    to.append(1, c);
+                    to.append(1, c2);
+                }
+                i++;
+                continue;
+            }
+        } else if (c < 240 && i + 2 < f_size) {//possibly 3byte UTF8
+            c2 = (unsigned char) (*str)[i + 1];
+            c3 = (unsigned char) (*str)[i + 2];
+            if (c2 > 127 && c2 < 192 && c3 > 127 && c3 < 192) {//valid 3byte UTF8
+                to.append(1, c);
+                to.append(1, c2);
+                to.append(1, c3);
+                i += 2;
+                continue;
+            }
+        } else if (c < 245 && i + 3 < f_size) {//possibly 4byte UTF8
+            c2 = (unsigned char) (*str)[i + 1];
+            c3 = (unsigned char) (*str)[i + 2];
+            c4 = (unsigned char) (*str)[i + 3];
+            if (c2 > 127 && c2 < 192 && c3 > 127 && c3 < 192 && c4 > 127 && c4 < 192) {//valid 4byte UTF8
+                to.append(1, c);
+                to.append(1, c2);
+                to.append(1, c3);
+                to.append(1, c4);
+                i += 3;
+                continue;
+            }
+        }
+        //invalid UTF8, converting ASCII (c>245 || string too short for multi-byte))
+        to.append(1, (unsigned char) 195);
+        to.append(1, c - 64);
+    }
+    return to;
 }
 }
 
@@ -101,11 +179,20 @@ public:
 
     [[nodiscard]] inline float end_time() const { return start + duration; };
 
-    inline Note& shift_pitch(int8_t offset) { pitch = utils::safe_add(pitch, offset); return *this;};
+    inline Note &shift_pitch(int8_t offset) {
+        pitch = utils::safe_add(pitch, offset);
+        return *this;
+    };
 
-    inline Note& shift_velocity(int8_t offset) { velocity = utils::safe_add(velocity, offset); return *this;};
+    inline Note &shift_velocity(int8_t offset) {
+        velocity = utils::safe_add(velocity, offset);
+        return *this;
+    };
 
-    inline Note& shift_time(float offset) { start += offset; return *this;};
+    inline Note &shift_time(float offset) {
+        start += offset;
+        return *this;
+    };
 };
 
 class ControlChange {
@@ -131,7 +218,7 @@ public:
 
     inline TimeSignature(float time, minimidi::message::TimeSignature msg) :
         time(time), numerator(msg.numerator), denominator(msg.denominator) {};
-    
+
     inline TimeSignature(const TimeSignature &) = default;
 
     inline auto copy() const { return TimeSignature(*this); }
@@ -148,7 +235,7 @@ public:
 
     inline KeySignature(float time, minimidi::message::KeySignature msg) :
         time(time), key(msg.key), tonality(msg.tonality) {};
-    
+
     inline KeySignature(const KeySignature &) = default;
 
     inline auto copy() const { return KeySignature(*this); };
@@ -188,44 +275,50 @@ public:
     std::unordered_map<uint8_t, std::vector<ControlChange>> controls;
 
     Track() = default;
-    
-    Track(const Track&) = default;
+
+    Track(const Track &) = default;
 
     auto copy() const { return Track(*this); }
 
-    Track& shift_pitch(int8_t offset) {
+    Track &shift_pitch(int8_t offset) {
         for (auto &note: notes) note.shift_pitch(offset);
         return *this;
     };
 
-    Track& shift_time(float offset) {
+    Track &shift_time(float offset) {
         for (auto &note: notes) note.shift_time(offset);
         return *this;
     };
 
-    Track& shift_velocity(int8_t offset) {
+    Track &shift_velocity(int8_t offset) {
         for (auto &note: notes) note.shift_velocity(offset);
         return *this;
     };
 
-    Track& clip_time_sorted(float start, float end, bool clip_end) {
+    Track &clip_time_sorted(float start, float end, bool clip_end) {
         // using std::binary_search() to find the range
-        utils::clip_sorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
+        utils::clip_sorted(notes, start, end, [&clip_end](const Note &note) {
+            return clip_end ? note.start + note.duration : note.start;
+        });
         for (auto &control_vec: controls) {
-            utils::clip_sorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+            utils::clip_sorted(control_vec.second, start, end,
+                               [](const ControlChange &control) { return control.time; });
         }
         return *this;
     };
 
-    Track& clip_time_unsorted(float start, float end, bool clip_end) {
-        utils::clip_unsorted(notes, start, end, [&clip_end](const Note &note) { return clip_end ? note.start + note.duration : note.start; });
+    Track &clip_time_unsorted(float start, float end, bool clip_end) {
+        utils::clip_unsorted(notes, start, end, [&clip_end](const Note &note) {
+            return clip_end ? note.start + note.duration : note.start;
+        });
         for (auto &control_vec: controls) {
-            utils::clip_unsorted(control_vec.second, start, end, [](const ControlChange &control) { return control.time; });
+            utils::clip_unsorted(control_vec.second, start, end,
+                                 [](const ControlChange &control) { return control.time; });
         }
         return *this;
     };
 
-    Track& filter_notes(std::function<bool(const Note &)> &filter){
+    Track &filter_notes(std::function<bool(const Note &)> &filter) {
         std::vector<Note> new_notes;
         new_notes.reserve(notes.size());
         std::copy_if(
@@ -235,7 +328,7 @@ public:
         return *this;
     };
 
-    Track& sort() {
+    Track &sort() {
         pdqsort_branchless(
             notes.begin(), notes.end(),
             [](const Note &a, const Note &b) { return a.start < b.start; }
@@ -296,7 +389,7 @@ protected:
         return Pianoroll::Zero(MIDI_PITCH_NUMS, ceil(this->end_time() * (float) quantization / 4));
     };
 };
-namespace utils{
+namespace utils {
 typedef std::tuple<uint8_t, uint8_t> TrackIdx;
 
 Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t program) {
@@ -365,7 +458,7 @@ public:
 
     Score() = default;
 
-    Score(const Score&) = default;
+    Score(const Score &) = default;
 
     auto copy() const { return Score(*this); }
 
@@ -439,7 +532,8 @@ public:
                         switch (msg.get_meta_type()) {
                             case (minimidi::message::MetaType::TrackName): {
                                 minimidi::container::Bytes data = msg.get_meta_value();
-                                cur_name = std::string(data.begin(), data.end());
+                                auto tmp = std::string(data.begin(), data.end());
+                                cur_name = utils::correct_non_utf_8(&tmp);
                                 break;
                             }
                             case (minimidi::message::MetaType::TimeSignature): {
@@ -484,7 +578,7 @@ public:
         return Score(midi);
     };
 
-    Score& sort() {
+    Score &sort() {
         pdqsort_branchless(time_signatures.begin(), time_signatures.end(), utils::cmp_time<TimeSignature>);
         pdqsort_branchless(key_signatures.begin(), key_signatures.end(), utils::cmp_time<KeySignature>);
         pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
@@ -492,39 +586,43 @@ public:
         return *this;
     };
 
-    Score& shift_pitch(int8_t offset) {
+    Score &shift_pitch(int8_t offset) {
         for (auto &track: tracks) track.shift_pitch(offset);
         return *this;
     };
 
-    Score& shift_time(float offset) {
+    Score &shift_time(float offset) {
         for (auto &track: tracks) track.shift_time(offset);
         return *this;
     };
 
-    Score& shift_velocity(int8_t offset) {
+    Score &shift_velocity(int8_t offset) {
         for (auto &track: tracks) track.shift_velocity(offset);
         return *this;
     };
 
-    Score& clip_time_sorted(float start, float end, bool clip_end) {
+    Score &clip_time_sorted(float start, float end, bool clip_end) {
         for (auto &track: tracks) track.clip_time_sorted(start, end, clip_end);
-        utils::clip_sorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
-        utils::clip_sorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        utils::clip_sorted(time_signatures, start, end,
+                           [](const TimeSignature &time_signature) { return time_signature.time; });
+        utils::clip_sorted(key_signatures, start, end,
+                           [](const KeySignature &key_signature) { return key_signature.time; });
         utils::clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
         return *this;
     };
 
-    Score& clip_time_unsorted(float start, float end, bool clip_end) {
+    Score &clip_time_unsorted(float start, float end, bool clip_end) {
         for (auto &track: tracks) track.clip_time_unsorted(start, end, clip_end);
-        utils::clip_unsorted(time_signatures, start, end, [](const TimeSignature &time_signature) { return time_signature.time; });
-        utils::clip_unsorted(key_signatures, start, end, [](const KeySignature &key_signature) { return key_signature.time; });
+        utils::clip_unsorted(time_signatures, start, end,
+                             [](const TimeSignature &time_signature) { return time_signature.time; });
+        utils::clip_unsorted(key_signatures, start, end,
+                             [](const KeySignature &key_signature) { return key_signature.time; });
         utils::clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
         return *this;
     };
 
-    Score& filter_notes(std::function<bool(const Note &)> &filter){
-        for (auto &track: tracks) track.filter_notes(filter);  
+    Score &filter_notes(std::function<bool(const Note &)> &filter) {
+        for (auto &track: tracks) track.filter_notes(filter);
         return *this;
     };
 
