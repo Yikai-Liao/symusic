@@ -1,4 +1,3 @@
-#include <unordered_map>
 #include <map>
 #include <queue>
 #include <algorithm>
@@ -31,37 +30,7 @@ inline int8_t safe_add(int8_t a, int8_t b) {
 template<typename T>
 inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
 
-template<typename T, typename F>
-inline void clip_sorted(std::vector<T> &vec, float start, float end, F &&get_key) {
-    // using std::binary_search() to find the range
-    auto start_it = std::lower_bound(
-        vec.begin(), vec.end(), start,
-        [&get_key](const T &item, float time) { return get_key(item) < time; }
-    );
-    auto end_it = std::upper_bound(
-        vec.begin(), vec.end(), end,
-        [&get_key](float time, const T &item) { return time <= get_key(item); }
-    );
-    vec = std::move(std::vector<T>(start_it, end_it));
-}
-
-template<typename T, typename F>
-void clip_unsorted(std::vector<T> &vec, float start, float end, F &&get_key) {
-    // using std::copy_if
-    std::vector<T> new_vec;
-    new_vec.reserve(vec.size());
-    std::copy_if(
-        vec.begin(), vec.end(), std::back_inserter(new_vec),
-        [start, end, &get_key](const T &item) {
-            float key = get_key(item);
-            return start <= key && key < end;
-        }
-    );
-    // move the new_vec to vec
-    vec = std::move(new_vec);
-}
-
-std::string correct_non_utf_8(std::string *str) {
+std::string strip_non_utf_8(std::string *str) {
     int i, f_size = str->size();
     unsigned char c, c2, c3, c4;
     std::string to;
@@ -179,32 +148,28 @@ public:
 
     [[nodiscard]] inline float end_time() const { return start + duration; };
 
-    inline Note &shift_pitch(int8_t offset) {
-        pitch = utils::safe_add(pitch, offset);
-        return *this;
+    inline Note shift_pitch(int8_t offset) const {
+        return Note(start, duration, utils::safe_add(pitch, offset), velocity);
     };
 
-    inline Note &shift_velocity(int8_t offset) {
-        velocity = utils::safe_add(velocity, offset);
-        return *this;
+    inline Note shift_velocity(int8_t offset) const {
+        return Note(start, duration, pitch, utils::safe_add(velocity, offset));
     };
 
-    inline Note &shift_time(float offset) {
-        start += offset;
-        return *this;
-    };
 };
 
 class ControlChange {
 public:
     float time;
+    uint8_t number;
     uint8_t value;
 
-    inline ControlChange(float time, uint8_t value) : time(time), value(value) {};
+    inline ControlChange(float time, uint8_t number, uint8_t value) : time(time), number(number), value(value) {};
 
     inline ControlChange(const ControlChange &) = default;
 
     inline auto copy() const { return ControlChange(*this); }
+
 };
 
 class TimeSignature {
@@ -221,7 +186,8 @@ public:
 
     inline TimeSignature(const TimeSignature &) = default;
 
-    inline auto copy() const { return TimeSignature(*this); }
+    inline auto copy() const { return TimeSignature(*this); };
+
 };
 
 class KeySignature {
@@ -252,6 +218,7 @@ public:
 
         return this->tonality ? MINOR_KEYS[this->key + 7] : MAJOR_KEYS[this->key + 7];
     };
+
 };
 
 class Tempo {
@@ -264,15 +231,19 @@ public:
     inline Tempo(const Tempo &) = default;
 
     inline auto copy() const { return Tempo(*this); };
+
 };
+
+typedef std::vector<Note> Notes;
+typedef std::vector<ControlChange> ControlChanges;
 
 class Track {
 public:
     std::string name;
     uint8_t program = 0;
     bool is_drum = false;
-    std::vector<Note> notes;
-    std::unordered_map<uint8_t, std::vector<ControlChange>> controls;
+    Notes notes;
+    ControlChanges controls;
 
     Track() = default;
 
@@ -280,63 +251,84 @@ public:
 
     auto copy() const { return Track(*this); }
 
-    Track &shift_pitch(int8_t offset) {
-        for (auto &note: notes) note.shift_pitch(offset);
-        return *this;
+    Track shift_pitch(int8_t offset) const {
+        Track newTrack(*this);
+        for (auto &note: newTrack.notes) note = note.shift_pitch(offset);
+        return newTrack;
     };
 
-    Track &shift_time(float offset) {
-        for (auto &note: notes) note.shift_time(offset);
-        return *this;
+    Track shift_time(float offset) const {
+        Track newTrack(*this);
+        for (auto &note: newTrack.notes) note.start += offset;
+        for (auto &controlChange: newTrack.controls) controlChange.time += offset;
+        return newTrack;
     };
 
-    Track &shift_velocity(int8_t offset) {
-        for (auto &note: notes) note.shift_velocity(offset);
-        return *this;
+    Track shift_velocity(int8_t offset) const {
+        Track newTrack;
+        for (auto &note: newTrack.notes) note = note.shift_velocity(offset);
+        return newTrack;
     };
 
-    Track &clip_time_sorted(float start, float end, bool clip_end) {
-        // using std::binary_search() to find the range
-        utils::clip_sorted(notes, start, end, [&clip_end](const Note &note) {
-            return clip_end ? note.start + note.duration : note.start;
-        });
-        for (auto &control_vec: controls) {
-            utils::clip_sorted(control_vec.second, start, end,
-                               [](const ControlChange &control) { return control.time; });
-        }
-        return *this;
-    };
+    ControlChanges filter_controls(const std::function<bool(const ControlChange &)> &filter) const {
+        ControlChanges new_controls;
+        new_controls.reserve(controls.size());
+        std::copy_if(
+            controls.begin(), controls.end(), std::back_inserter(new_controls), filter
+        );
+        ControlChanges(new_controls).swap(new_controls);
+        return new_controls;
+    }
 
-    Track &clip_time_unsorted(float start, float end, bool clip_end) {
-        utils::clip_unsorted(notes, start, end, [&clip_end](const Note &note) {
-            return clip_end ? note.start + note.duration : note.start;
-        });
-        for (auto &control_vec: controls) {
-            utils::clip_unsorted(control_vec.second, start, end,
-                                 [](const ControlChange &control) { return control.time; });
-        }
-        return *this;
-    };
-
-    Track &filter_notes(std::function<bool(const Note &)> &filter) {
-        std::vector<Note> new_notes;
+    Notes filter_notes(const std::function<bool(const Note &)> &filter) const {
+        Notes new_notes;
         new_notes.reserve(notes.size());
         std::copy_if(
             notes.begin(), notes.end(), std::back_inserter(new_notes), filter
         );
-        notes = std::move(new_notes);
-        return *this;
+        Notes(new_notes).swap(new_notes);
+        return new_notes;
+    };
+
+    ControlChanges get_control_changes(uint8_t control_number) const {
+        return filter_controls([control_number](const ControlChange &c)
+                                { return c.number == control_number; });
+    }
+
+    Notes clip_notes(float start, float end, bool clip_end) const {
+        if(clip_end)
+            return this->filter_notes([start, end](const Note &n)
+                                        { return (n.start >= start & n.end_time() <= end); });
+        else
+            return this->filter_notes([start, end](const Note &n)
+                                        { return (n.start >= start & n.start <= end); });
+    };
+
+    ControlChanges clip_control_changes(float start, float end) const {
+        return this->filter_controls([start, end](const ControlChange &c)
+                                        { return c.time >= start & c.time <= end; });
+    };
+
+    Track clip(float start, float end, bool clip_end) const {
+        Track newTrack(*this);
+
+        newTrack.notes = clip_notes(start, end, clip_end);
+        newTrack.controls = clip_control_changes(start, end);
+
+        return newTrack;
     };
 
     Track &sort() {
-        pdqsort_branchless(
-            notes.begin(), notes.end(),
-            [](const Note &a, const Note &b) { return a.start < b.start; }
-        );
-        for (auto &control_pair: controls) {
-            auto data = control_pair.second;
-            pdqsort_branchless(data.begin(), data.end(), utils::cmp_time<ControlChange>);
-        }
+        if(!notes.empty())
+            pdqsort_branchless(
+                notes.begin(), notes.end(),
+                [](const Note &a, const Note &b) { return a.start < b.start; }
+            );
+        if(!controls.empty())
+            pdqsort_branchless(
+                controls.begin(),
+                controls.end(),
+                [](const ControlChange &a, const ControlChange &b) { return a.time < b.time; });
         return *this;
     };
 
@@ -524,7 +516,7 @@ public:
                             throw std::range_error("Get control_number=" + std::to_string((int) control_number));
                         if (control_value >= 128)
                             throw std::range_error("Get control_value=" + std::to_string((int) control_value));
-                        track.controls[msg.get_control_number()].emplace_back(start, msg.get_control_value());
+                        track.controls.emplace_back(start, msg.get_control_number(), msg.get_control_value());
                         break;
                     }
                         // Meta Message
@@ -533,7 +525,7 @@ public:
                             case (minimidi::message::MetaType::TrackName): {
                                 minimidi::container::Bytes data = msg.get_meta_value();
                                 auto tmp = std::string(data.begin(), data.end());
-                                cur_name = utils::correct_non_utf_8(&tmp);
+                                cur_name = utils::strip_non_utf_8(&tmp);
                                 break;
                             }
                             case (minimidi::message::MetaType::TimeSignature): {
@@ -586,44 +578,40 @@ public:
         return *this;
     };
 
-    Score &shift_pitch(int8_t offset) {
-        for (auto &track: tracks) track.shift_pitch(offset);
-        return *this;
+    Score shift_pitch(int8_t offset) const {
+        Score new_score(*this);
+        for(auto &track: new_score.tracks) track = track.shift_pitch(offset);
+        return new_score;
     };
 
-    Score &shift_time(float offset) {
-        for (auto &track: tracks) track.shift_time(offset);
-        return *this;
+    Score shift_time(float offset) const {
+        Score new_score(*this);
+
+        for (auto &track: new_score.tracks) track = track.shift_time(offset);
+        for (auto &tempo: new_score.tempos) tempo.time += offset;
+        for (auto &time_signature: new_score.time_signatures) time_signature.time += offset;
+        for (auto &key_signature: new_score.key_signatures) key_signature.time = offset;
+
+        return new_score;
     };
 
-    Score &shift_velocity(int8_t offset) {
-        for (auto &track: tracks) track.shift_velocity(offset);
-        return *this;
+    Score shift_velocity(int8_t offset) {
+        Score new_score(*this);
+        for(auto &track: new_score.tracks) track = track.shift_velocity(offset);
+        return new_score;
     };
 
-    Score &clip_time_sorted(float start, float end, bool clip_end) {
-        for (auto &track: tracks) track.clip_time_sorted(start, end, clip_end);
-        utils::clip_sorted(time_signatures, start, end,
-                           [](const TimeSignature &time_signature) { return time_signature.time; });
-        utils::clip_sorted(key_signatures, start, end,
-                           [](const KeySignature &key_signature) { return key_signature.time; });
-        utils::clip_sorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
-        return *this;
+    Score filter_notes(std::function<bool(const Note &)> &filter) {
+        Score new_score(*this);
+        for (auto &track: new_score.tracks) track.notes = track.filter_notes(filter);
+        return new_score;
     };
 
-    Score &clip_time_unsorted(float start, float end, bool clip_end) {
-        for (auto &track: tracks) track.clip_time_unsorted(start, end, clip_end);
-        utils::clip_unsorted(time_signatures, start, end,
-                             [](const TimeSignature &time_signature) { return time_signature.time; });
-        utils::clip_unsorted(key_signatures, start, end,
-                             [](const KeySignature &key_signature) { return key_signature.time; });
-        utils::clip_unsorted(tempos, start, end, [](const Tempo &tempo) { return tempo.time; });
-        return *this;
-    };
-
-    Score &filter_notes(std::function<bool(const Note &)> &filter) {
-        for (auto &track: tracks) track.filter_notes(filter);
-        return *this;
+    Score clip(float start, float end, bool clip_end) {
+        Score new_score(*this);
+        for(auto &track: new_score.tracks) track = track.clip(start, end, clip_end);
+        // TODO: clip tempo, timesig, keysig
+        return new_score;
     };
 
     [[nodiscard]] inline size_t note_num() const {
@@ -631,7 +619,7 @@ public:
         for (auto const &track: this->tracks)
             num += track.note_num();
         return num;
-    }
+    };
 
     [[nodiscard]] inline float end_time() const {
         float time = 0.;
@@ -645,7 +633,7 @@ public:
         for (auto const &track: this->tracks)
             time = std::min(time, track.start_time());
         return time;
-    }
+    };
 };
 
 NoteArray::NoteArray(const score::Track &track) {

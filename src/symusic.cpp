@@ -32,7 +32,6 @@ PYBIND11_MODULE(symusic, m) {
         .def("copy", &Note::copy, "Deep copy the note", py::return_value_policy::move)
         .def("end_time", &Note::end_time)
         .def("shift_pitch", &Note::shift_pitch)
-        .def("shift_time", &Note::shift_time)
         .def("shift_velocity", &Note::shift_velocity)
         .def("__repr__", [](const Note &self) {
             return "<Note start=" + std::to_string(self.start) +
@@ -64,7 +63,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("__repr__", &score::KeySignature::to_string);
 
     py::class_<score::ControlChange>(m, "ControlChange")
-        .def(py::init<float, uint8_t>())
+        .def(py::init<float, uint8_t, uint8_t>())
         .def(py::init<const score::ControlChange &>(), "Copy constructor")
         .def_readwrite("time", &score::ControlChange::time)
         .def_readwrite("value", &score::ControlChange::value)
@@ -105,6 +104,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("__repr__", [](const std::vector<Tempo> &self) {
             return "<TempoList length=" + std::to_string(self.size()) + ">";
         });
+    /*
     py::bind_map<std::unordered_map<uint8_t, std::vector<ControlChange>>>(m, "ControlMap")
         .def("__repr__", [](const std::unordered_map<uint8_t, std::vector<ControlChange>> &self) {
             size_t control_num = 0;
@@ -112,6 +112,7 @@ PYBIND11_MODULE(symusic, m) {
             return "<ControlMap control_types=" + std::to_string(self.size())
                    + ", event_num=" + std::to_string(self.size()) + ">";
         });
+    */
 
     auto py_note_arr = py::class_<NoteArray>(m, "NoteArray");
 
@@ -123,12 +124,12 @@ PYBIND11_MODULE(symusic, m) {
         .def("shift_pitch", &Track::shift_pitch)
         .def("shift_time", &Track::shift_time)
         .def("shift_velocity", &Track::shift_velocity)
-        .def("clip_time_sorted", &Track::clip_time_sorted, "Clip sorted notes to a given time range")
-        .def("clip_time_unsorted", &Track::clip_time_unsorted, "Clip unordered notes to a given time range")
+        .def("clip", &Track::clip, "Clip notes and controls to a given time range")
         .def("filter_notes", &Track::filter_notes, "Filter notes by a given function")
         .def("note_num", &Track::note_num)
         .def("start_time", &Track::start_time)
         .def("end_time", &Track::end_time)
+        .def("get_control_changes", &Track::get_control_changes)
         .def("frame_pianoroll",
              &Track::frame_pianoroll,
              py::arg("quantization") = 16,
@@ -189,8 +190,7 @@ PYBIND11_MODULE(symusic, m) {
         .def("shift_pitch", &Score::shift_pitch)
         .def("shift_time", &Score::shift_time)
         .def("shift_velocity", &Score::shift_velocity)
-        .def("clip_time_sorted", &Score::clip_time_sorted, "Clip sorted notes to a given time range")
-        .def("clip_time_unsorted", &Score::clip_time_unsorted, "Clip unordered notes to a given time range")
+        .def("clip", &Score::clip, "Clip events in the score to a given time range")
         .def("filter_notes", &Score::filter_notes, "Filter notes by a given function")
         .def("note_num", &Score::note_num)
         .def("end_time", &Score::end_time)
