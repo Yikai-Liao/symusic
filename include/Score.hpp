@@ -298,15 +298,15 @@ public:
     Notes clip_notes(float start, float end, bool clip_end) const {
         if(clip_end)
             return this->filter_notes([start, end](const Note &n)
-                                        { return (n.start >= start & n.end_time() <= end); });
+                                        { return (n.start >= start & n.end_time() < end); });
         else
             return this->filter_notes([start, end](const Note &n)
-                                        { return (n.start >= start & n.start <= end); });
+                                        { return (n.start >= start & n.start < end); });
     };
 
     ControlChanges clip_control_changes(float start, float end) const {
         return this->filter_controls([start, end](const ControlChange &c)
-                                        { return c.time >= start & c.time <= end; });
+                                        { return c.time >= start & c.time < end; });
     };
 
     Track clip(float start, float end, bool clip_end) const {
