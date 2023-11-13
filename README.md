@@ -28,7 +28,12 @@ Notice that this libaray is under development:
 * Not all features in midi are suppored, like lyrics and pitchbend
 
 ## Installation
+### Use pre-compiled version
+```bash
+pip install symusic
+```
 
+### Build from source
 > Make sure that your system has cmake and c++ compilers
 
 ```bash
