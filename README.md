@@ -52,15 +52,15 @@ pip install ./symusic
 ## Benchmark
 ### Parsing MIDI
 
-* test using mahler.mid from minimid/example in colab
-* mido is writen in pure python, and only parsing midi file to event level
-* pretty_midi and miditoolkit is based on mido
+* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example in colab
+* `mido` is writen in pure python, and only parses midi files to `event level``
+* `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 
 |libarary| time |
 | -- | -- |
-|**symusic**|21.8 ms ± 11.7 ms|
-|MIDI.jl|128.024 ms|
-|mido|5.68 s ± 2 s|
-|pretty_midi|5.59 s ± 844 ms|
-|miditoolkit|6.27 s ± 1.79 s|
-|music21|8.59 s ± 1.2 s|
+|[**symusic**](https://github.com/Yikai-Liao/symusic)|21.8 ms ± 11.7 ms|
+|[MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)|128.024 ms|
+|[mido](https://github.com/mido/mido)|5.68 s ± 2 s|
+|[pretty_midi](https://github.com/craffel/pretty-midi)|5.59 s ± 844 ms|
+|[miditoolkit](https://github.com/YatingMusic/miditoolkit)|6.27 s ± 1.79 s|
+|[music21](https://github.com/cuthbertLab/music21)|8.59 s ± 1.2 s|
