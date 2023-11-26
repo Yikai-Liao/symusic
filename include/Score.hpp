@@ -520,7 +520,7 @@ public:
                     case (minimidi::message::MessageType::Meta): {
                         switch (msg.get_meta_type()) {
                             case (minimidi::message::MetaType::TrackName): {
-                                minimidi::container::Bytes data = msg.get_meta_value();
+                                auto data = msg.get_meta_value();
                                 auto tmp = std::string(data.begin(), data.end());
                                 cur_name = utils::strip_non_utf_8(&tmp);
                                 break;
