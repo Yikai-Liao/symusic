@@ -384,7 +384,7 @@ protected:
 namespace utils {
 typedef std::tuple<uint8_t, uint8_t> TrackIdx;
 
-Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t program) {
+Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t program, size_t message_num) {
     // TrackIdx track_idx = {channel, program};
     auto track_idx = std::make_tuple(channel, program);
     if (track_map.find(track_idx) == track_map.end()) {
@@ -392,6 +392,7 @@ Track &get_track(std::map<TrackIdx, Track> &track_map, uint8_t channel, uint8_t 
         track.program = program;
         track.is_drum = channel == 9;
         track_map[track_idx] = track;
+        track.notes.reserve(message_num / 2 + 10);
     }
     return track_map[track_idx];
 }
@@ -489,7 +490,7 @@ public:
                         if (pitch >= 128)
                             throw std::range_error("Get pitch=" + std::to_string((int) pitch));
                         auto &note_on_queue = last_note_on[channel][pitch];
-                        auto &track = utils::get_track(track_map, channel, cur_instr[channel]);
+                        auto &track = utils::get_track(track_map, channel, cur_instr[channel], message_num);
                         while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
                             auto const &note_on = note_on_queue.front;
                             float duration = start - note_on.start;
@@ -509,7 +510,7 @@ public:
                     case (minimidi::message::MessageType::ControlChange): {
                         uint8_t channel = msg.get_channel();
                         uint8_t program = msg.get_program();
-                        auto &track = utils::get_track(track_map, channel, program);
+                        auto &track = utils::get_track(track_map, channel, program, message_num);
                         uint8_t control_number = msg.get_control_number();
                         uint8_t control_value = msg.get_control_value();
                         if (control_number >= 128)
@@ -553,6 +554,7 @@ public:
                 Track track = track_pair.second;
                 if (track.notes.empty()) continue;
                 track.name = cur_name;
+                track.notes.shrink_to_fit();
                 tracks.push_back(track);
             }
         }
