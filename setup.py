@@ -136,7 +136,7 @@ setup(
     description="A high performance MIDI file parser with comprehensible interface.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    license=open('LICENSE').read(),
+    license=open('LICENSE', encoding="utf-8").read(),
     packages=["."],
     ext_modules=[CMakeExtension("")],
     cmdclass={"build_ext": CMakeBuild},
