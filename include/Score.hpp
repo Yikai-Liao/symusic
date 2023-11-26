@@ -452,20 +452,23 @@ public:
 
     Score(const Score &) = default;
 
-    auto copy() const { return Score(*this); }
+    [[nodiscard]] Score copy() const { return {*this}; }
 
-    explicit Score(minimidi::file::MidiFileStream &midi) {
+    explicit Score(minimidi::file::MidiFile &midi) {
         size_t track_num = midi.track_num();
         float tpq = midi.get_tick_per_quarter();
         using std::cout, std::endl;
-        for (auto trackStream : midi) {
+        for (size_t i = 0; i < track_num; ++i) {
+            auto &midi_track = midi.track(i);
             std::map<utils::TrackIdx, Track> track_map; // (channel, program) -> Track
             uint8_t cur_instr[128] = {0}; // channel -> program
             std::string cur_name;
 
             utils::NoteOnQueue last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
             // iter midi messages in the track
-            for (auto msg : trackStream) {
+            size_t message_num = midi_track.message_num();
+            for (size_t j = 0; j < message_num; ++j) {
+                auto &msg = midi_track.message(j);
                 float start = (float) msg.get_time() / tpq;
                 switch (msg.get_type()) {
                     case (minimidi::message::MessageType::NoteOn): {
@@ -558,12 +561,12 @@ public:
         pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
     };
 
-    inline static Score from_midi(minimidi::file::MidiFileStream &midi) {
+    inline static Score from_midi(minimidi::file::MidiFile &midi) {
         return Score(midi);
     };
 
     inline static Score from_file(const std::string &filepath) {
-        auto midi = minimidi::file::MidiFileStream::from_file(filepath);
+        auto midi = minimidi::file::MidiFile::from_file(filepath);
         return Score(midi);
     };
 
