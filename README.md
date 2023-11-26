@@ -53,7 +53,7 @@ pip install ./symusic
 ### Parsing MIDI
 
 * test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example in colab
-* `mido` is writen in pure python, and only parses midi files to `event level``
+* `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 
 |libarary| time |
