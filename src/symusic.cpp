@@ -17,6 +17,8 @@ PYBIND11_MAKE_OPAQUE(std::vector<ControlChange>)
 PYBIND11_MAKE_OPAQUE(std::vector<TimeSignature>)
 PYBIND11_MAKE_OPAQUE(std::vector<KeySignature>)
 PYBIND11_MAKE_OPAQUE(std::vector<Tempo>)
+PYBIND11_MAKE_OPAQUE(std::vector<PitchBend>)
+PYBIND11_MAKE_OPAQUE(std::vector<TextMeta>)
 PYBIND11_MAKE_OPAQUE(std::unordered_map<uint8_t, std::vector<ControlChange>>)
 
 PYBIND11_MODULE(symusic, m) {
@@ -94,6 +96,32 @@ PYBIND11_MODULE(symusic, m) {
                    ", qpm=" + std::to_string(self.qpm) + ">";
         });
 
+    py::class_<score::PitchBend>(m, "PitchBend")
+        .def(py::init<float, uint8_t>())
+        .def(py::init<const score::PitchBend &>(), "Copy constructor")
+        .def_readwrite("time", &score::PitchBend::time)
+        .def_readwrite("value", &score::PitchBend::value)
+        .def("copy", &score::PitchBend::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::PitchBend::copy, "Deep copy")
+        .def("__deepcopy__", &score::PitchBend::copy, "Deep copy")
+        .def("__repr__", [](score::PitchBend &self) {
+            return "<PitchBend time=" + std::to_string(self.time) +
+                   ", value=" + std::to_string(self.value) + ">";
+        });
+
+    py::class_<score::TextMeta>(m, "TextMeta")
+        .def(py::init<float, std::string &>())
+        .def(py::init<const score::TextMeta &>(), "Copy constructor")
+        .def_readwrite("time", &score::TextMeta::time)
+        .def_readwrite("text", &score::TextMeta::text)
+        .def("copy", &score::TextMeta::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::TextMeta::copy, "Deep copy")
+        .def("__deepcopy__", &score::TextMeta::copy, "Deep copy")
+        .def("__repr__", [](score::TextMeta &self) {
+            return "<TextMeta time=" + std::to_string(self.time) +
+                   ", text=\"" + self.text + "\">";
+        });
+
     py::bind_vector<std::vector<Note>>(m, "NoteList")
         .def("__repr__", [](const std::vector<Note> &self) {
             return "<NoteList length=" + std::to_string(self.size()) + ">";
@@ -113,6 +141,16 @@ PYBIND11_MODULE(symusic, m) {
     py::bind_vector<std::vector<Tempo>>(m, "TempoList")
         .def("__repr__", [](const std::vector<Tempo> &self) {
             return "<TempoList length=" + std::to_string(self.size()) + ">";
+        });
+
+    py::bind_vector<PitchBends>(m, "PitchBendList")
+        .def("__repr__", [](const PitchBends &self) {
+            return "<PitchBendList length=" + std::to_string(self.size()) + ">";
+        });
+
+    py::bind_vector<std::vector<TextMeta>>(m, "TextMetaList")
+        .def("__repr__", [](const std::vector<TextMeta> &self) {
+            return "<TextMetaList length=" + std::to_string(self.size()) + ">";
         });
     /*
     py::bind_map<std::unordered_map<uint8_t, std::vector<ControlChange>>>(m, "ControlMap")
@@ -158,6 +196,7 @@ PYBIND11_MODULE(symusic, m) {
         .def_readwrite("is_drum", &Track::is_drum)
         .def_readwrite("notes", &Track::notes)
         .def_readwrite("controls", &Track::controls)
+        .def_readwrite("pitch_bends", &Track::pitch_bends)
         .def("__repr__", [](const Track &self) {
             return "<Track name=\"" + self.name
                    + "\", program=" + std::to_string((int) self.program)
@@ -185,7 +224,6 @@ PYBIND11_MODULE(symusic, m) {
                    + ", note_num=" + std::to_string(self.start.size())
                    + ">";
         });
-
 
     py::bind_vector<std::vector<Track>>(m, "TrackList")
         .def("__repr__", [](const std::vector<Track> &self) {
@@ -215,6 +253,8 @@ PYBIND11_MODULE(symusic, m) {
         .def_readwrite("time_signatures", &Score::time_signatures)
         .def_readwrite("key_signatures", &Score::key_signatures)
         .def_readwrite("tempos", &Score::tempos)
+        .def_readwrite("lyrics", &Score::lyrics)
+        .def_readwrite("markers", &Score::markers)
         .def("__repr__", [](const Score &self) {
             return "<Score track_num="
                    + std::to_string(self.tracks.size())
