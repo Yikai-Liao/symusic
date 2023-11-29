@@ -19,6 +19,7 @@ typedef Eigen::Array<bool, MIDI_PITCH_NUMS, Eigen::Dynamic> Pianoroll;
 typedef Eigen::Array<float, Eigen::Dynamic, 1> F32Vector;
 typedef Eigen::Array<uint8_t, Eigen::Dynamic, 1> U8Vector;
 
+using minimidi::message::Message;
 
 namespace utils {
 inline int8_t safe_add(int8_t a, int8_t b) {
@@ -28,13 +29,17 @@ inline int8_t safe_add(int8_t a, int8_t b) {
     return (int8_t) ans;
 }
 
+inline uint32_t quantize(float time, float tpq) {
+    return static_cast<uint32_t>(std::round(time * tpq));
+}
+
 template<typename T>
 inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
 
 template<typename T>
 inline void sort_by_time(std::vector<T> &data) {
-    if(!data.empty())
-        pdqsort_branchless(data.begin(), data.end(), cmp_time<T>);
+    if (!data.empty())
+        pdqsort_branchless(data.begin(), data.end(), cmp_time < T > );
 }
 
 // NOLINTBEGIN
@@ -164,6 +169,14 @@ public:
         return {start, duration, pitch, utils::safe_add(velocity, offset)};
     };
 
+    [[nodiscard]] inline Message note_on_msg(float tpq, uint8_t channel) const {
+        return Message::NoteOn(utils::quantize(start, tpq), channel, pitch, velocity);
+    }
+
+    [[nodiscard]] inline Message note_off_msg(float tpq, uint8_t channel) const {
+        return Message::NoteOff(utils::quantize(end_time(), tpq), channel, pitch, velocity);
+    }
+
 };
 
 class ControlChange {
@@ -177,6 +190,10 @@ public:
     inline ControlChange(const ControlChange &) = default;
 
     [[nodiscard]] inline ControlChange copy() const { return {*this}; }
+
+    [[nodiscard]] inline Message to_msg(float tpq, uint8_t channel) const {
+        return Message::ControlChange(utils::quantize(time, tpq), channel, number, value);
+    }
 
 };
 
@@ -195,6 +212,10 @@ public:
     inline TimeSignature(const TimeSignature &) = default;
 
     [[nodiscard]] inline TimeSignature copy() const { return {*this}; };
+
+    [[nodiscard]] inline Message to_msg(float tpq) const {
+        return Message::TimeSignature(utils::quantize(time, tpq), numerator, denominator);
+    };
 
 };
 
@@ -227,6 +248,10 @@ public:
         return this->tonality ? MINOR_KEYS[this->key + 7] : MAJOR_KEYS[this->key + 7];
     };
 
+    [[nodiscard]] inline Message to_msg(float tpq) const {
+        return Message::KeySignature(utils::quantize(time, tpq), key, tonality);
+    };
+
 };
 
 class Tempo {
@@ -240,9 +265,13 @@ public:
 
     [[nodiscard]] inline Tempo copy() const { return {*this}; };
 
+    [[nodiscard]] inline Message to_msg(float tpq) const {
+        return Message::SetTempo(utils::quantize(time, tpq), (uint32_t) (60000000. / qpm));
+    };
+
 };
 
-class PitchBend{
+class PitchBend {
 public:
     float time;
     int16_t value;
@@ -252,6 +281,10 @@ public:
     inline PitchBend(const PitchBend &) = default;
 
     [[nodiscard]] inline PitchBend copy() const { return {*this}; };
+
+    [[nodiscard]] inline Message to_msg(float tpq, uint8_t channel) const {
+        return Message::PitchBend(utils::quantize(time, tpq), channel, value);
+    };
 };
 
 class TextMeta {
@@ -268,6 +301,18 @@ public:
     inline TextMeta(const TextMeta &) = default;
 
     [[nodiscard]] inline TextMeta copy() const { return {*this}; };
+
+    [[nodiscard]] inline Message to_msg(float tpq, minimidi::message::MetaType meta_type) const {
+        return Message::Meta(utils::quantize(time, tpq), meta_type, text);
+    };
+
+    [[nodiscard]] inline Message to_lyric_msg(float tpq) const {
+        return Message::Lyric(utils::quantize(time, tpq), text);
+    }
+
+    [[nodiscard]] inline Message to_marker_msg(float tpq) const {
+        return Message::Marker(utils::quantize(time, tpq), text);
+    }
 };
 
 
@@ -334,22 +379,18 @@ public:
     };
 
     [[nodiscard]] ControlChanges get_control_changes(uint8_t control_number) const {
-        return filter_controls([control_number](const ControlChange &c)
-                                { return c.number == control_number; });
+        return filter_controls([control_number](const ControlChange &c) { return c.number == control_number; });
     }
 
     [[nodiscard]] Notes clip_notes(float start, float end, bool clip_end) const {
-        if(clip_end)
-            return this->filter_notes([start, end](const Note &n)
-                                        { return (n.start >= start & n.end_time() < end); });
+        if (clip_end)
+            return this->filter_notes([start, end](const Note &n) { return (n.start >= start & n.end_time() < end); });
         else
-            return this->filter_notes([start, end](const Note &n)
-                                        { return (n.start >= start & n.start < end); });
+            return this->filter_notes([start, end](const Note &n) { return (n.start >= start & n.start < end); });
     };
 
     [[nodiscard]] ControlChanges clip_control_changes(float start, float end) const {
-        return this->filter_controls([start, end](const ControlChange &c)
-                                        { return c.time >= start & c.time < end; });
+        return this->filter_controls([start, end](const ControlChange &c) { return c.time >= start & c.time < end; });
     };
 
     [[nodiscard]] Track clip(float start, float end, bool clip_end) const {
@@ -362,7 +403,7 @@ public:
     };
 
     Track &sort() {
-        if(!notes.empty())
+        if (!notes.empty())
             pdqsort_branchless(
                 notes.begin(), notes.end(),
                 [](const Note &a, const Note &b) { return a.start < b.start; }
@@ -416,6 +457,33 @@ public:
         return NoteArray(*this);
     };
 
+    [[nodiscard]] size_t msg_num() const {
+        return notes.size() * 2 + controls.size() + pitch_bends.size() + 2; // 2 for track name and program change
+    };
+
+    [[nodiscard]] std::vector<Message> to_msgs(float tpq, size_t additional_space = 0) {
+        uint8_t channel = is_drum ? 9 : 0;
+        std::vector<Message> msgs;
+        msgs.reserve(msg_num() + additional_space);
+        msgs.emplace_back(Message::TrackName(0, name));
+        msgs.emplace_back(Message::ProgramChange(0, channel, program));
+        for (auto &note: notes) {
+            msgs.emplace_back(note.note_on_msg(tpq, channel));
+            msgs.emplace_back(note.note_off_msg(tpq, channel));
+        }
+        for (auto &control: controls) {
+            msgs.emplace_back(control.to_msg(tpq, channel));
+        }
+        for (auto &pitch_bend: pitch_bends) {
+            msgs.emplace_back(pitch_bend.to_msg(tpq, channel));
+        }
+        pdqsort_branchless(
+            msgs.begin(), msgs.end(),
+            [](const Message &a, const Message &b) { return a.get_time() < b.get_time(); }
+        );
+        return msgs;
+    };
+
 protected:
     [[nodiscard]] inline Pianoroll empty_pianoroll(uint16_t quantization = 16) const {
         return Pianoroll::Zero(MIDI_PITCH_NUMS, std::ceil(this->end_time() * (float) quantization / 4));
@@ -434,9 +502,9 @@ Track &get_track(
     auto track_idx = std::make_tuple(channel, program);
     if (track_map.find(track_idx) == track_map.end()) {
         auto &track = stragglers[channel];
-        if(!create_new) return track;
+        if (!create_new) return track;
         Track new_track;
-        if(!track.empty()) {
+        if (!track.empty()) {
             new_track = Track(stragglers[channel]); // copy from stragglers
         }
         new_track.program = program;
@@ -542,7 +610,8 @@ public:
                         if (pitch >= 128)
                             throw std::range_error("Get pitch=" + std::to_string((int) pitch));
                         auto &note_on_queue = last_note_on[channel][pitch];
-                        auto &track = utils::get_track(track_map, stragglers, channel, cur_instr[channel], message_num, true);
+                        auto &track = utils::get_track(track_map, stragglers, channel, cur_instr[channel], message_num,
+                                                       true);
                         while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
                             auto const &note_on = note_on_queue.front;
                             float duration = start - note_on.start;
@@ -582,7 +651,7 @@ public:
                             throw std::range_error("Get pitch_bend=" + std::to_string((int) value));
                         track.pitch_bends.emplace_back(start, value);
                     }
-                    // Meta Message
+                        // Meta Message
                     case (minimidi::message::MessageType::Meta): {
                         switch (msg.get_meta_type()) {
                             case (minimidi::message::MetaType::TrackName): {
@@ -668,7 +737,7 @@ public:
 
     [[nodiscard]] Score shift_pitch(int8_t offset) const {
         Score new_score(*this);
-        for(auto &track: new_score.tracks) track = track.shift_pitch(offset);
+        for (auto &track: new_score.tracks) track = track.shift_pitch(offset);
         return new_score;
     };
 
@@ -685,7 +754,7 @@ public:
 
     Score shift_velocity(int8_t offset) {
         Score new_score(*this);
-        for(auto &track: new_score.tracks) track = track.shift_velocity(offset);
+        for (auto &track: new_score.tracks) track = track.shift_velocity(offset);
         return new_score;
     };
 
@@ -697,7 +766,7 @@ public:
 
     Score clip(float start, float end, bool clip_end) {
         Score new_score(*this);
-        for(auto &track: new_score.tracks) track = track.clip(start, end, clip_end);
+        for (auto &track: new_score.tracks) track = track.clip(start, end, clip_end);
         // TODO: clip tempo, time sig, key sig
         return new_score;
     };
