@@ -45,7 +45,7 @@ pip install symusic
 > Make sure that your system has cmake and c++ compilers
 
 ```bash
-git clone https://github.com/Yikai-Liao/symusic --recursive
+git clone --recursive https://github.com/Yikai-Liao/symusic
 pip install ./symusic
 ```
 
