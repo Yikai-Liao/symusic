@@ -723,9 +723,6 @@ public:
     };
 
     Score &sort() {
-//        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), utils::cmp_time<TimeSignature>);
-//        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), utils::cmp_time<KeySignature>);
-//        pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
         utils::sort_by_time(time_signatures);
         utils::sort_by_time(key_signatures);
         utils::sort_by_time(tempos);
