@@ -9,7 +9,6 @@
 #include <pdqsort.h>
 #include <Eigen/Core>
 #include "MiniMidi.hpp"
-
 namespace score {
 #define DEFAULT_VELOCITY 100
 
@@ -27,19 +26,6 @@ inline int8_t safe_add(int8_t a, int8_t b) {
     if (ans > 127 || ans < 0)
         throw std::range_error("Overflow while adding " + std::to_string(a) + " and " + std::to_string(b));
     return (int8_t) ans;
-}
-
-inline uint32_t quantize(float time, float tpq) {
-    return static_cast<uint32_t>(std::round(time * tpq));
-}
-
-template<typename T>
-inline bool cmp_time(T &a, T &b) { return a.time < b.time; }
-
-template<typename T>
-inline void sort_by_time(std::vector<T> &data) {
-    if (!data.empty())
-        pdqsort_branchless(data.begin(), data.end(), cmp_time < T > );
 }
 
 // NOLINTBEGIN
@@ -122,6 +108,239 @@ std::string strip_non_utf_8(std::string *str) {
 }
 } // NOLINTEND
 
+enum class TimeUnit : uint8_t {
+    Tick,
+    Quarter,
+    Second
+};
+
+struct Time {
+public:
+    union {
+        uint32_t tick;
+        float quarter;
+        float second;
+    };
+
+    Time() = default;
+    Time(const Time &) = default;
+    [[nodiscard]] inline Time copy() const { return {*this}; };
+
+    inline Time(uint32_t tick, float qpm, TimeUnit time_unit) {
+        switch (time_unit) {
+            case TimeUnit::Tick:
+                this->tick = tick;
+                break;
+            case TimeUnit::Quarter:
+                this->quarter = (float) tick / qpm;
+                break;
+            case TimeUnit::Second:
+                throw std::invalid_argument("Second time unit is not supported currently");
+        }
+    }
+
+    inline Time& shift_inplace(float offset, TimeUnit time_unit) {
+        switch (time_unit) {
+            case TimeUnit::Tick:
+                this->tick += (uint32_t) offset;
+                break;
+            case TimeUnit::Quarter:
+                this->quarter += offset;
+                break;
+            case TimeUnit::Second:
+                this->second += offset;
+                break;
+        } return *this;
+    }
+
+    [[nodiscard]] inline Time shift(float offset, TimeUnit time_unit) const {
+        return copy().shift_inplace(offset, time_unit);
+    }
+
+    [[nodiscard]] inline uint32_t get_tick(TimeUnit time_unit, float tpq) const {
+        switch (time_unit) {
+            case TimeUnit::Tick:
+                return tick;
+            case TimeUnit::Quarter:
+                return (uint32_t) std::round(quarter * tpq);
+            case TimeUnit::Second:
+                throw std::invalid_argument("Second time unit is not supported currently");
+        }
+    };
+
+    [[nodiscard]] inline float get_quarter(TimeUnit time_unit, float tpq) const {
+        switch (time_unit) {
+            case TimeUnit::Tick:
+                return (float) tick / tpq;
+            case TimeUnit::Quarter:
+                return quarter;
+            case TimeUnit::Second:
+                throw std::invalid_argument("Second time unit is not supported currently");
+        }
+    };
+
+    float inline to_float(TimeUnit time_unit) const {
+        switch (time_unit) {
+            case TimeUnit::Tick:
+                return (float) tick;
+            case TimeUnit::Quarter:
+                return quarter;
+            case TimeUnit::Second:
+                return second;
+        }
+    }
+
+};
+
+class TimeContainer {
+protected:
+    Time time;
+    TimeUnit timeUnit;
+public:
+    TimeContainer() = default;
+
+    TimeContainer(const TimeContainer &) = default;
+
+    inline TimeContainer(uint32_t tick, float qpm, TimeUnit time_unit) :
+        time(Time(tick, qpm, time_unit)), timeUnit(time_unit) {}
+
+    inline TimeContainer(Time time, TimeUnit time_unit) :
+        time(time), timeUnit(time_unit) {}
+
+    [[nodiscard]] inline TimeUnit get_time_unit() const { return timeUnit; };
+
+    [[nodiscard]] inline Time get_time_struct() const { return time; };
+
+    [[nodiscard]] inline uint32_t get_tick(float tpq) const { return time.get_tick(timeUnit, tpq); };
+
+    [[nodiscard]] inline float get_quarter(float tpq) const { return time.get_quarter(timeUnit, tpq); };
+
+    [[nodiscard]] inline float to_float() const { return time.to_float(timeUnit); };
+
+    [[nodiscard]] inline uint32_t get_tick_unchecked() const {return time.tick;}
+
+    [[nodiscard]] inline float get_quarter_unchecked() const {return time.quarter;}
+
+    [[nodiscard]] inline float get_second_unchecked() const {return time.second;}
+
+    [[nodiscard]] inline TimeContainer shift_time(float offset) const {
+        return {time.shift(offset, timeUnit), timeUnit};
+    }
+
+    inline TimeContainer& shift_time_inplace(float offset) {
+        time.shift_inplace(offset, timeUnit);
+        return *this;
+    }
+};
+
+namespace utils {
+
+template<typename T>
+inline bool cmp_tick(T &a, T &b) { return a.get_tick_unchecked() < b.get_tick_unchecked(); }
+
+template<typename T>
+inline bool cmp_quarter(T &a, T &b) { return a.get_quarter_unchecked() < b.get_quarter_unchecked(); }
+
+template<typename T>
+inline bool cmp_second(T &a, T &b) { return a.get_second_unchecked() < b.get_second_unchecked(); }
+
+template<typename T>
+inline void sort_by_time(std::vector<T> &data) {
+    if (!data.empty()) {
+        switch (data[0].get_time_unit()) {
+            case TimeUnit::Tick:
+                pdqsort_branchless(data.begin(), data.end(), cmp_tick<T>);
+                break;
+            case TimeUnit::Quarter:
+                pdqsort_branchless(data.begin(), data.end(), cmp_quarter<T> );
+                break;
+            case TimeUnit::Second:
+                pdqsort_branchless(data.begin(), data.end(), cmp_second<T> );
+                break;
+        }
+    }
+}
+
+template<typename T>
+inline void sort_by_start(std::vector<T> &data) {
+    if (!data.empty()) {
+        switch (data[0].timeUnit) {
+            case TimeUnit::Tick:
+                pdqsort_branchless(data.begin(), data.end(), [](const T &a, const T &b) {
+                    return a.start.tick < b.start.tick;
+                });
+                break;
+            case TimeUnit::Quarter:
+                pdqsort_branchless(data.begin(), data.end(), [](const T &a, const T &b) {
+                    return a.start.quarter < b.start.quarter;
+                });
+                break;
+            case TimeUnit::Second:
+                pdqsort_branchless(data.begin(), data.end(), [](const T &a, const T &b) {
+                    return a.start.second < b.start.second;
+                });
+                break;
+        }
+    }
+}
+
+template<typename T>
+inline std::vector<T> filter(const std::vector<T> &data, const std::function<bool(const T &)> &filter) {
+    std::vector<T> new_data;
+    new_data.reserve(data.size());
+    std::copy_if(
+        data.begin(), data.end(), std::back_inserter(new_data), filter
+    );
+    new_data.shrink_to_fit();
+    return new_data;
+}
+
+template<typename T>
+inline std::vector<T> clip(const std::vector<T> &data, float start, float end) {
+    if (data.empty()) return {};
+    std::function<bool(const T &)> filter;
+    switch (data[0].get_time_unit()) {
+        case TimeUnit::Tick:
+            filter = [start, end](const T &t) {
+                auto tick = t.get_tick_unchecked();
+                return tick >= (uint32_t) start && tick < (uint32_t) end;
+            };
+            break;
+        case TimeUnit::Quarter:
+            filter = [start, end](const T &t) {
+                auto quarter = t.get_quarter_unchecked();
+                return quarter >= start && quarter < end;
+            };
+            break;
+        case TimeUnit::Second:
+            filter = [start, end](const T &t) {
+                auto second = t.get_second_unchecked();
+                return second >= start && second < end;
+            };
+            break;
+    } return utils::filter(data, filter);
+}
+
+std::function<uint64_t (const Time &)> get_quantize_func(TimeUnit time_unit, float tpq, uint16_t quantization){
+    std::function<uint64_t (const Time &)> quantize;
+    switch(time_unit){
+        case TimeUnit::Tick:
+            quantize = [tpq, quantization](const Time & time) {
+                return (uint64_t) std::floor((float) time.tick * ((float) quantization / (4 * tpq)));
+            };
+            break;
+        case TimeUnit::Quarter:
+            quantize = [quantization](const Time & time) {
+                return (uint64_t)std::floor(( time.quarter * ((float) quantization / 4)));
+            };
+        case TimeUnit::Second:
+            throw std::invalid_argument("Second time unit is not supported currently");
+    }
+    return quantize;
+}
+
+}
+
 class Track;
 
 class NoteArray {
@@ -145,91 +364,148 @@ public: // use eigen 1d array to store start, duration, pitch and velocity
 
 class Note {
 public:
-    float start;
-    float duration;
+    Time start;
+    Time duration;
+    TimeUnit timeUnit;
     int8_t pitch;
     int8_t velocity;
 
-    inline Note(float start, float duration, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
-        start(start), duration(duration), pitch(pitch), velocity(velocity) {};
+public:
+    inline Note(Time start, Time duration, TimeUnit time_unit, int8_t pitch, int8_t velocity = DEFAULT_VELOCITY) :
+        start(start), duration(duration), timeUnit(time_unit), pitch(pitch), velocity(velocity) {};
 
     inline Note(const Note &) = default;
 
     [[nodiscard]] inline auto copy() const { return Note(*this); }
 
-    [[nodiscard]] inline bool empty() const { return velocity <= 0 || duration <= 0; };
+    [[nodiscard]] inline bool empty() const {
+        bool answer = velocity <= 0;
+        switch (timeUnit){
+            case TimeUnit::Tick:
+                return answer || duration.tick <= 0;
+            case TimeUnit::Quarter:
+                return answer || duration.quarter <= 0;
+            case TimeUnit::Second:
+                return answer || duration.second <= 0;
+            default:
+                return answer;
+        }
+    };
 
-    [[nodiscard]] inline float end_time() const { return start + duration; };
+    [[nodiscard]] inline Time end_time() const {
+        Time end = start;
+        switch (timeUnit){
+            case TimeUnit::Tick:
+                end.tick += duration.tick;
+                break;
+            case TimeUnit::Quarter:
+                end.quarter += duration.quarter;
+                break;
+            case TimeUnit::Second:
+                end.second += duration.second;
+                break;
+        } return end;
+    };
+
+    [[nodiscard]] inline float end_time_float() const {
+        return end_time().to_float(timeUnit);
+    };
+
+    [[nodiscard]] inline float start_float() const {
+        return start.to_float(timeUnit);
+    }
+
+    [[nodiscard]] inline float duration_float() const {
+        return duration.to_float(timeUnit);
+    }
 
     [[nodiscard]] inline Note shift_pitch(int8_t offset) const {
-        return {start, duration, utils::safe_add(pitch, offset), velocity};
+        return {start, duration, timeUnit, utils::safe_add(pitch, offset), velocity};
     };
 
     [[nodiscard]] inline Note shift_velocity(int8_t offset) const {
-        return {start, duration, pitch, utils::safe_add(velocity, offset)};
+        return {start, duration, timeUnit, pitch, utils::safe_add(velocity, offset)};
     };
 
+    [[nodiscard]] inline Note shift_time(float offset) const {
+        auto new_start = start.shift(offset, timeUnit);
+        return {new_start, duration, timeUnit, pitch, velocity};
+    }
+
+    inline Note& shift_time_inplace(float offset) {
+        start.shift_inplace(offset, timeUnit);
+        return *this;
+    }
+
+    inline Note& shift_pitch_inplace(int8_t offset) {
+        pitch = utils::safe_add(pitch, offset);
+        return *this;
+    }
+
+    inline Note& shift_velocity_inplace(int8_t offset) {
+        velocity = utils::safe_add(velocity, offset);
+        return *this;
+    }
+
     [[nodiscard]] inline Message note_on_msg(float tpq, uint8_t channel) const {
-        return Message::NoteOn(utils::quantize(start, tpq), channel, pitch, velocity);
+        return Message::NoteOn(start.get_tick(timeUnit, tpq), channel, pitch, velocity);
     }
 
     [[nodiscard]] inline Message note_off_msg(float tpq, uint8_t channel) const {
-        return Message::NoteOff(utils::quantize(end_time(), tpq), channel, pitch, velocity);
+        return Message::NoteOff(end_time().get_tick(timeUnit, tpq), channel, pitch, velocity);
     }
 
 };
 
-class ControlChange {
+class ControlChange: public TimeContainer {
 public:
-    float time;
     uint8_t number;
     uint8_t value;
 
-    inline ControlChange(float time, uint8_t number, uint8_t value) : time(time), number(number), value(value) {};
+    inline ControlChange(TimeContainer time, uint8_t number, uint8_t value) :
+        TimeContainer(time), number(number), value(value) {};
 
     inline ControlChange(const ControlChange &) = default;
 
     [[nodiscard]] inline ControlChange copy() const { return {*this}; }
 
     [[nodiscard]] inline Message to_msg(float tpq, uint8_t channel) const {
-        return Message::ControlChange(utils::quantize(time, tpq), channel, number, value);
+        return Message::ControlChange(get_tick(tpq), channel, number, value);
     }
 
 };
 
-class TimeSignature {
+class TimeSignature: public TimeContainer {
 public:
-    float time;
     uint8_t numerator;
     uint8_t denominator;
 
-    inline TimeSignature(float time, uint8_t numerator, uint8_t denominator) :
-        time(time), numerator(numerator), denominator(denominator) {};
+    inline TimeSignature(TimeContainer time, uint8_t numerator, uint8_t denominator) :
+        TimeContainer(time), numerator(numerator), denominator(denominator) {};
 
-    inline TimeSignature(float time, minimidi::message::TimeSignature msg) :
-        time(time), numerator(msg.numerator), denominator(msg.denominator) {};
+    inline TimeSignature(TimeContainer time, minimidi::message::TimeSignature msg) :
+        TimeContainer(time), numerator(msg.numerator), denominator(msg.denominator) {};
 
     inline TimeSignature(const TimeSignature &) = default;
 
     [[nodiscard]] inline TimeSignature copy() const { return {*this}; };
 
     [[nodiscard]] inline Message to_msg(float tpq) const {
-        return Message::TimeSignature(utils::quantize(time, tpq), numerator, denominator);
+        return Message::TimeSignature(get_tick(tpq), numerator, denominator);
     };
 
 };
 
-class KeySignature {
+class KeySignature: public TimeContainer {
 public:
-    float time;
     int8_t key;
     uint8_t tonality;
 
-    inline KeySignature(float time, int8_t key, uint8_t tonality) :
-        time(time), key(key), tonality(tonality) {};
+    inline KeySignature(TimeContainer time, int8_t key, uint8_t tonality) :
+        TimeContainer(time), key(key), tonality(tonality) {};
 
-    inline KeySignature(float time, minimidi::message::KeySignature msg) :
-        time(time), key(msg.key), tonality(msg.tonality) {};
+    inline KeySignature(TimeContainer time, minimidi::message::KeySignature msg) :
+    TimeContainer(time), key(msg.key), tonality(msg.tonality) {};
 
     inline KeySignature(const KeySignature &) = default;
 
@@ -249,69 +525,66 @@ public:
     };
 
     [[nodiscard]] inline Message to_msg(float tpq) const {
-        return Message::KeySignature(utils::quantize(time, tpq), key, tonality);
+        return Message::KeySignature(get_tick(tpq), key, tonality);
     };
 
 };
 
-class Tempo {
+class Tempo: public TimeContainer {
 public:
-    float time;
     float qpm;
 
-    inline Tempo(float time, float qpm) : time(time), qpm(qpm) {};
+    inline Tempo(TimeContainer time, float qpm) : TimeContainer(time), qpm(qpm) {};
 
     inline Tempo(const Tempo &) = default;
 
     [[nodiscard]] inline Tempo copy() const { return {*this}; };
 
     [[nodiscard]] inline Message to_msg(float tpq) const {
-        return Message::SetTempo(utils::quantize(time, tpq), (uint32_t) (60000000. / qpm));
+        return Message::SetTempo(get_tick(tpq), (uint32_t) (60000000. / qpm));
     };
 
 };
 
-class PitchBend {
+class PitchBend: public TimeContainer{
 public:
-    float time;
     int16_t value;
 
-    inline PitchBend(float time, int16_t value) : time(time), value(value) {};
+    inline PitchBend(TimeContainer time, int16_t value) : TimeContainer(time), value(value) {};
 
     inline PitchBend(const PitchBend &) = default;
 
     [[nodiscard]] inline PitchBend copy() const { return {*this}; };
 
     [[nodiscard]] inline Message to_msg(float tpq, uint8_t channel) const {
-        return Message::PitchBend(utils::quantize(time, tpq), channel, value);
+        return Message::PitchBend(get_tick(tpq), channel, value);
     };
 };
 
-class TextMeta {
+class TextMeta: public TimeContainer {
 public:
-    float time;
     std::string text;
 
     // copy string constructor
-    inline TextMeta(float time, std::string &text) : time(time), text(text) {};
+    inline TextMeta(TimeContainer time, std::string &text) : TimeContainer(time), text(text) {};
 
     // move string constructor
-    inline TextMeta(float time, std::string &&text) : time(time), text(std::move(text)) {};
+    inline TextMeta(TimeContainer time, std::string &&text) : TimeContainer(time), text(std::move(text)) {};
 
     inline TextMeta(const TextMeta &) = default;
 
     [[nodiscard]] inline TextMeta copy() const { return {*this}; };
 
     [[nodiscard]] inline Message to_msg(float tpq, minimidi::message::MetaType meta_type) const {
-        return Message::Meta(utils::quantize(time, tpq), meta_type, text);
+        return Message::Meta(get_tick(tpq), meta_type, text);
     };
 
     [[nodiscard]] inline Message to_lyric_msg(float tpq) const {
-        return Message::Lyric(utils::quantize(time, tpq), text);
+        return Message::Lyric(get_tick(tpq), text);
     }
 
     [[nodiscard]] inline Message to_marker_msg(float tpq) const {
-        return Message::Marker(utils::quantize(time, tpq), text);
+        return Message::Marker(get_tick(tpq), text);
     }
 };
 
@@ -341,41 +614,34 @@ public:
 
     [[nodiscard]] Track shift_pitch(int8_t offset) const {
         Track newTrack(*this);
-        for (auto &note: newTrack.notes) note = note.shift_pitch(offset);
+        for (auto &note: newTrack.notes) note = note.shift_pitch_inplace(offset);
         return newTrack;
     };
 
     [[nodiscard]] Track shift_time(float offset) const {
         Track newTrack(*this);
-        for (auto &note: newTrack.notes) note.start += offset;
-        for (auto &controlChange: newTrack.controls) controlChange.time += offset;
+        for (auto &note: newTrack.notes) note.shift_time_inplace(offset);
+        for (auto &controlChange: newTrack.controls) controlChange.shift_time_inplace(offset);
+        for (auto &pitchBend: newTrack.pitch_bends) pitchBend.shift_time_inplace(offset);
         return newTrack;
     };
 
     [[nodiscard]] Track shift_velocity(int8_t offset) const {
         Track newTrack(*this);
-        for (auto &note: newTrack.notes) note = note.shift_velocity(offset);
+        for (auto &note: newTrack.notes) note = note.shift_velocity_inplace(offset);
         return newTrack;
     };
 
     ControlChanges filter_controls(const std::function<bool(const ControlChange &)> &filter) const {
-        ControlChanges new_controls;
-        new_controls.reserve(controls.size());
-        std::copy_if(
-            controls.begin(), controls.end(), std::back_inserter(new_controls), filter
-        );
-        new_controls.shrink_to_fit();
-        return new_controls;
+        return utils::filter(controls, filter);
     }
 
     Notes filter_notes(const std::function<bool(const Note &)> &filter) const {
-        Notes new_notes;
-        new_notes.reserve(notes.size());
-        std::copy_if(
-            notes.begin(), notes.end(), std::back_inserter(new_notes), filter
-        );
-        new_notes.shrink_to_fit();
-        return new_notes;
+        return utils::filter(notes, filter);
+    };
+
+    PitchBends filter_pitch_bends(const std::function<bool(const PitchBend &)> &filter) const {
+        return utils::filter(pitch_bends, filter);
     };
 
     [[nodiscard]] ControlChanges get_control_changes(uint8_t control_number) const {
@@ -383,31 +649,52 @@ public:
     }
 
     [[nodiscard]] Notes clip_notes(float start, float end, bool clip_end) const {
+        if(notes.empty()) return {};
+
+        std::function<bool(const Note &)> filter;
+        std::function<Time(const Note &)> get_end;
+
         if (clip_end)
-            return this->filter_notes([start, end](const Note &n) { return (n.start >= start & n.end_time() < end); });
+            get_end = [](const Note &n) { return n.end_time(); };
         else
-            return this->filter_notes([start, end](const Note &n) { return (n.start >= start & n.start < end); });
+            get_end = [](const Note &n) { return n.start; };
+        switch (notes[0].timeUnit) {
+            case TimeUnit::Tick:
+                filter = [start, end, get_end](const Note &n) {
+                    return n.start.tick  >= (uint32_t) start && get_end(n).tick < (uint32_t) end;
+                };
+                break;
+            case TimeUnit::Quarter:
+                filter = [start, end, get_end](const Note &n) {
+                    return n.start.quarter >= start && get_end(n).quarter < end;
+                };
+                break;
+            case TimeUnit::Second:
+                filter = [start, end, get_end](const Note &n) {
+                    return n.start.second >= start && get_end(n).second < end;
+                };
+        }
+        return filter_notes(filter);
     };
 
     [[nodiscard]] ControlChanges clip_control_changes(float start, float end) const {
-        return this->filter_controls([start, end](const ControlChange &c) { return c.time >= start & c.time < end; });
+       return utils::clip(controls, start, end);
+    };
+
+    [[nodiscard]] PitchBends clip_pitch_bends(float start, float end) const {
+        return utils::clip(pitch_bends, start, end);
     };
 
     [[nodiscard]] Track clip(float start, float end, bool clip_end) const {
         Track newTrack(*this);
-
         newTrack.notes = clip_notes(start, end, clip_end);
         newTrack.controls = clip_control_changes(start, end);
-
+        newTrack.pitch_bends = clip_pitch_bends(start, end);
         return newTrack;
     };
 
     Track &sort() {
-        if (!notes.empty())
-            pdqsort_branchless(
-                notes.begin(), notes.end(),
-                [](const Note &a, const Note &b) { return a.start < b.start; }
-            );
+        utils::sort_by_start(notes);
         utils::sort_by_time(controls);
         utils::sort_by_time(pitch_bends);
         return *this;
@@ -420,33 +707,36 @@ public:
     [[nodiscard]] inline float end_time() const {
         float time = 0;
         for (auto const &note: this->notes)
-            time = std::max(time, note.end_time());
+            time = std::max(time, note.end_time_float());
         return time;
     };
 
     [[nodiscard]] inline float start_time() const {
         float time = FLT_MAX;
         for (auto const &note: this->notes)
-            time = std::min(time, note.start);
+            time = std::min(time, note.start_float());
         return time;
     }
 
-    [[nodiscard]] Pianoroll frame_pianoroll(uint16_t quantization = 16) const {
+    [[nodiscard]] Pianoroll frame_pianoroll(float tpq, uint16_t quantization = 16) const {
         Pianoroll pianoroll = empty_pianoroll(quantization);
+        if(notes.empty()) return pianoroll;
+        auto quantize = utils::get_quantize_func(notes[0].timeUnit, tpq, quantization);
         for (const auto &note: notes) {
-            uint64_t start = std::floor(note.start * (float) quantization / 4);
-            uint64_t duration = std::floor(note.duration * (float) quantization / 4);
+            uint64_t start = quantize(note.start);
+            uint64_t duration = quantize(note.duration);
             pianoroll.row(note.pitch).segment((long) start, duration) = true; // eigen index should be long
         }
 
         return pianoroll;
     };
 
-    [[nodiscard]] Pianoroll onset_pianoroll(uint16_t quantization = 16) const {
+    [[nodiscard]] Pianoroll onset_pianoroll(float tpq, uint16_t quantization = 16) const {
         Pianoroll pianoroll = empty_pianoroll(quantization);
-
+        if(notes.empty()) return pianoroll;
+        auto quantize = utils::get_quantize_func(notes[0].timeUnit, tpq, quantization);
         for (const auto &note: notes) {
-            uint64_t start = std::floor(note.start * (float) quantization / 4);
+            uint64_t start = quantize(note.start);
             pianoroll.row(note.pitch).col((long) start) = true; // eigen index should be long
         }
 
@@ -518,7 +808,7 @@ Track &get_track(
 
 class NoteOn {
 public:
-    float start = 0;
+    uint32_t start = 0;
     int8_t velocity = 0;
 
     NoteOn() = default;
@@ -543,7 +833,7 @@ public:
 
     [[nodiscard]] inline bool empty() const { return front.empty(); };
 
-    inline void emplace(float start, int8_t velocity) {
+    inline void emplace(uint32_t start, int8_t velocity) {
         if (!front.empty()) queue.push(front);
         front.start = start;
         front.velocity = velocity;
@@ -562,6 +852,7 @@ public:
 
 class Score {
 public:
+    uint16_t ticks_per_quarter;
     std::vector<Track> tracks;
     std::vector<Tempo> tempos;
     std::vector<TimeSignature> time_signatures;
@@ -574,9 +865,11 @@ public:
 
     [[nodiscard]] Score copy() const { return {*this}; }
 
-    explicit Score(minimidi::file::MidiFile &midi) {
+    explicit Score(minimidi::file::MidiFile &midi, TimeUnit time_unit = TimeUnit::Tick) {
         size_t track_num = midi.track_num();
-        float tpq = midi.get_tick_per_quarter();
+        ticks_per_quarter = midi.get_tick_per_quarter();
+        auto tpq = (float) ticks_per_quarter;
+
         using std::cout, std::endl;
         for (size_t i = 0; i < track_num; ++i) {
             auto &midi_track = midi.track(i);
@@ -590,7 +883,9 @@ public:
             size_t message_num = midi_track.message_num();
             for (size_t j = 0; j < message_num; ++j) {
                 auto &msg = midi_track.message(j);
-                float start = (float) msg.get_time() / tpq;
+//                float start = (float) msg.get_time() / tpq;
+                uint32_t cur_tick = msg.get_time();
+                TimeContainer start(cur_tick, tpq, time_unit);
                 switch (msg.get_type()) {
                     case (minimidi::message::MessageType::NoteOn): {
                         uint8_t velocity = msg.get_velocity();
@@ -600,7 +895,7 @@ public:
                                 throw std::range_error("Get pitch=" + std::to_string((int) pitch));
                             if (velocity >= 128)
                                 throw std::range_error("Get velocity=" + std::to_string((int) velocity));
-                            last_note_on[msg.get_channel()][pitch].emplace(start, (int8_t) velocity);
+                            last_note_on[msg.get_channel()][pitch].emplace(cur_tick, (int8_t) velocity);
                             break;
                         } // if velocity is zero, turn to note off case
                     }
@@ -612,10 +907,13 @@ public:
                         auto &note_on_queue = last_note_on[channel][pitch];
                         auto &track = utils::get_track(track_map, stragglers, channel, cur_instr[channel], message_num,
                                                        true);
-                        while ((!note_on_queue.empty()) && (start > note_on_queue.front.start)) {
+                        while ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front.start)) {
                             auto const &note_on = note_on_queue.front;
-                            float duration = start - note_on.start;
-                            track.notes.emplace_back(note_on.start, duration, (int8_t) pitch, note_on.velocity);
+                            uint32_t duration = cur_tick - note_on.start;
+                            track.notes.emplace_back(
+                                Time(note_on.start, tpq, time_unit),
+                                Time(duration, tpq, time_unit),
+                                time_unit, (int8_t) pitch, note_on.velocity);
                             note_on_queue.pop();
                         }
                         break;
@@ -701,11 +999,6 @@ public:
                 tracks.push_back(track);
             }
         }
-//        pdqsort_branchless(time_signatures.begin(), time_signatures.end(), utils::cmp_time<TimeSignature>);
-//        pdqsort_branchless(key_signatures.begin(), key_signatures.end(), utils::cmp_time<KeySignature>);
-//        pdqsort_branchless(tempos.begin(), tempos.end(), utils::cmp_time<Tempo>);
-//        pdqsort_branchless(lyrics.begin(), lyrics.end(), utils::cmp_time<TextMeta>);
-//        pdqsort_branchless(markers.begin(), markers.end(), utils::cmp_time<TextMeta>);
         utils::sort_by_time(time_signatures);
         utils::sort_by_time(key_signatures);
         utils::sort_by_time(tempos);
@@ -742,9 +1035,11 @@ public:
         Score new_score(*this);
 
         for (auto &track: new_score.tracks) track = track.shift_time(offset);
-        for (auto &tempo: new_score.tempos) tempo.time += offset;
-        for (auto &time_signature: new_score.time_signatures) time_signature.time += offset;
-        for (auto &key_signature: new_score.key_signatures) key_signature.time = offset;
+        for (auto &tempo: new_score.tempos) tempo.shift_time_inplace(offset);
+        for (auto &time_signature: new_score.time_signatures) time_signature.shift_time_inplace(offset);
+        for (auto &key_signature: new_score.key_signatures) key_signature.shift_time_inplace(offset);
+        for (auto &lyric: new_score.lyrics) lyric.shift_time_inplace(offset);
+        for (auto &marker: new_score.markers) marker.shift_time_inplace(offset);
 
         return new_score;
     };
@@ -764,7 +1059,11 @@ public:
     Score clip(float start, float end, bool clip_end) {
         Score new_score(*this);
         for (auto &track: new_score.tracks) track = track.clip(start, end, clip_end);
-        // TODO: clip tempo, time sig, key sig
+        new_score.tempos = utils::clip(tempos, start, end);
+        new_score.time_signatures = utils::clip(time_signatures, start, end);
+        new_score.key_signatures = utils::clip(key_signatures, start, end);
+        new_score.lyrics = utils::clip(lyrics, start, end);
+        new_score.markers = utils::clip(markers, start, end);
         return new_score;
     };
 
@@ -801,11 +1100,12 @@ NoteArray::NoteArray(const score::Track &track) {
 
     long i = 0;
     for (auto const &note: track.notes) {
-        start[i] = note.start;
-        duration[i] = note.duration;
+        start[i] = note.start_float();
+        duration[i] = note.duration_float();
         pitch[i] = note.pitch;
         velocity[i] = note.velocity;
         i++;
     }
 }
+
 }
