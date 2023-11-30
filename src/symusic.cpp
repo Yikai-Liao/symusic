@@ -123,32 +123,62 @@ PYBIND11_MODULE(symusic, m) {
         });
 
     py::bind_vector<std::vector<Note>>(m, "NoteList")
+        .def("sort", [](std::vector<Note> &self) {
+            std::sort(self.begin(), self.end(), [](const Note &a, const Note &b) {
+                return a.start < b.start;
+            }); // sort by start time
+            return self;
+        })
         .def("__repr__", [](const std::vector<Note> &self) {
             return "<NoteList length=" + std::to_string(self.size()) + ">";
         });
     py::bind_vector<std::vector<ControlChange>>(m, "ControlChangeList")
+        .def("sort", [](std::vector<ControlChange> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const std::vector<ControlChange> &self) {
             return "<ControlChangeList length=" + std::to_string(self.size()) + ">";
         });
     py::bind_vector<std::vector<TimeSignature>>(m, "TimeSignatureList")
+        .def("sort", [](std::vector<TimeSignature> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const std::vector<TimeSignature> &self) {
             return "<TimeSignatureList length=" + std::to_string(self.size()) + ">";
         });
     py::bind_vector<std::vector<KeySignature>>(m, "KeySignatureList")
+        .def("sort", [](std::vector<KeySignature> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const std::vector<KeySignature> &self) {
             return "<KeySignatureList length=" + std::to_string(self.size()) + ">";
         });
     py::bind_vector<std::vector<Tempo>>(m, "TempoList")
+        .def("sort", [](std::vector<Tempo> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const std::vector<Tempo> &self) {
             return "<TempoList length=" + std::to_string(self.size()) + ">";
         });
 
     py::bind_vector<PitchBends>(m, "PitchBendList")
+        .def("sort", [](PitchBends &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const PitchBends &self) {
             return "<PitchBendList length=" + std::to_string(self.size()) + ">";
         });
 
     py::bind_vector<std::vector<TextMeta>>(m, "TextMetaList")
+        .def("sort", [](std::vector<TextMeta> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
         .def("__repr__", [](const std::vector<TextMeta> &self) {
             return "<TextMetaList length=" + std::to_string(self.size()) + ">";
         });
