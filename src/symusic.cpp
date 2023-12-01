@@ -275,57 +275,39 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("copy", &score::Track<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &score::Track<T>::copy, "Deep copy")
         .def("__deepcopy__", &score::Track<T>::copy, "Deep copy")
-//        .def("sort", &score::Track<T>::sort, py::return_value_policy::move)
+        .def("sort", &score::Track<T>::sort, py::return_value_policy::move)
         .def("shift_pitch", &score::Track<T>::shift_pitch)
         .def("shift_time", &score::Track<T>::shift_time)
         .def("shift_velocity", &score::Track<T>::shift_velocity)
-//        .def("clip", &score::Track<T>::clip, "Clip notes and controls to a given time range")
-//        .def("filter_notes", &score::Track<T>::filter_notes, "Filter notes by a given function")
+        .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range")
         .def("note_num", &score::Track<T>::note_num)
         .def("start", &score::Track<T>::start)
-        .def("end", &score::Track<T>::end);
+        .def("end", &Track<T>::end);
 }
 
 // bind score::Score<T>
 template<typename T>
-py::class_<score::Score<T>> bind_score_class(py::module &m, const std::string & name_) {
+py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "Score" + name_;
-    return py::class_<score::Score<T>>(m, name.c_str())
+    return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<>())
-        .def(py::init<const score::Score<T> &>(), "Copy constructor")
-        .def(py::init(&score::Score<T>::from_file))
-        .def("copy", &score::Score<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::Score<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::Score<T>::copy, "Deep copy")
+        .def(py::init<const Score<T> &>(), "Copy constructor")
+        .def(py::init(&Score<T>::from_file))
+        .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &Score<T>::copy, "Deep copy")
+        .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def_property_readonly_static("from_file", [](const py::object &) {
-            return py::cpp_function([](std::string &x) { return score::Score<T>::from_file(x); });
+            return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
-        .def("sort", &score::Score<T>::sort, py::return_value_policy::move)
-        .def("shift_pitch", &score::Score<T>::shift_pitch)
-        .def("shift_time", &score::Score<T>::shift_time)
-        .def("shift_velocity", &score::Score<T>::shift_velocity);
+        .def("sort", &Score<T>::sort, py::return_value_policy::move)
+        .def("shift_pitch", &Score<T>::shift_pitch)
+        .def("shift_time", &Score<T>::shift_time)
+        .def("shift_velocity", &Score<T>::shift_velocity);
 }
-
-
-// enum for time unit
-enum class TimeUnitEnum {
-    Tick,
-    Quarter,
-    Second
-};
-
-
 
 PYBIND11_MODULE(symusic, m) {
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
-
-    // bind TimeUnit Enum
-    py::enum_<TimeUnitEnum>(m, "TimeUnit")
-        .value("Tick", TimeUnitEnum::Tick)
-        .value("Quarter", TimeUnitEnum::Quarter)
-        .value("Second", TimeUnitEnum::Second)
-        .export_values();
 
     bind_note_class<Tick>(m, tick);
     bind_note_class<Quarter>(m, quarter);

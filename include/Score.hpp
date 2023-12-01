@@ -357,12 +357,12 @@ void sort_by_time(vec<T> &events) {
 }
 
 template<typename T>
-inline vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> &filter) {
+inline vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> & _filter) {
     if (data.empty()) return {};
     vec<T> new_data;
     new_data.reserve(data.size());
     std::copy_if(
-        data.begin(), data.end(), std::back_inserter(new_data), filter
+        data.begin(), data.end(), std::back_inserter(new_data), _filter
     );
     new_data.shrink_to_fit();
     return new_data;
@@ -370,20 +370,22 @@ inline vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> &f
 
 template<typename T>
 vec<T> clip_by_time(const vec<T> &data, typename T::unit start, typename T::unit end) {
-    return filter(data, [start, end](const T &event) {
-        return event.time >= start && event.time < end;
-    });
+    std::function<bool(const T &)> func = [start, end](const T &event) {
+        return (event.time >= start) && (event.time < end);
+    };
+    return filter(data, func);
 }
 
 template<typename T>
 vec<Note<T>> clip_notes(
     const vec<Note<T>> &notes,
     typename T::unit start, typename T::unit end, bool clip_end) {
-    if (clip_end)
-        return filter(notes, [start, end](const Note<T> &note) {
-            return note.time >= start && note.time + note.duration <= end;
-        });
-    else
+    if (clip_end) {
+        std::function<bool(const Note<T> &)> func = [start, end](const Note<T> &note) {
+            return (note.time >= start) && (note.time + note.duration <= end);
+        };
+        return utils::filter(notes, func);
+    }else
         return clip_by_time(notes, start, end);
 }
 
@@ -468,10 +470,6 @@ struct Track{
         utils::sort_by_time(controls);
         utils::sort_by_time(pitch_bends);
         return *this;
-    }
-
-    Track sort() {
-        return copy().sort_inplace();
     }
 
     [[nodiscard]] Track sort() const { return copy().sort_inplace(); }
