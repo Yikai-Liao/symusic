@@ -306,8 +306,24 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def("shift_velocity", &Score<T>::shift_velocity);
 }
 
+const Tick tick_inst();
+const Quarter quarter_inst();
+const Second second_inst();
+
 PYBIND11_MODULE(symusic, m) {
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
+
+    py::class_<Tick>(m, "Tick")
+        .def(py::init<>())
+        .def("__repr__", [](const Tick &) { return "TimeUnit::Tick"; });
+
+    py::class_<Quarter>(m, "Quarter")
+        .def(py::init<>())
+        .def("__repr__", [](const Quarter &) { return "TimeUnit::Quarter"; });
+
+    py::class_<Second>(m, "Second")
+        .def(py::init<>())
+        .def("__repr__", [](const Second &) { return "TimeUnit::Second"; });
 
     bind_note_class<Tick>(m, tick);
     bind_note_class<Quarter>(m, quarter);
