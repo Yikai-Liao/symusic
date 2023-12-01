@@ -306,9 +306,9 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def("shift_velocity", &Score<T>::shift_velocity);
 }
 
-const Tick tick_inst();
-const Quarter quarter_inst();
-const Second second_inst();
+const Tick tick_inst;
+const Quarter quarter_inst;
+const Second second_inst;
 
 PYBIND11_MODULE(symusic, m) {
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
@@ -325,9 +325,21 @@ PYBIND11_MODULE(symusic, m) {
         .def(py::init<>())
         .def("__repr__", [](const Second &) { return "TimeUnit::Second"; });
 
+    auto typing = m.def_submodule("typing");
+    typing.attr("Tick") = &tick_inst;
+    typing.attr("Quarter") = &quarter_inst;
+    typing.attr("Second") = &second_inst;
+
     bind_note_class<Tick>(m, tick);
     bind_note_class<Quarter>(m, quarter);
 //    bind_note_class<Second>(m, second);
+    m.def("Note", [](const i32 &t, const i32 &d, i8 p, i8 v, Tick _) {
+        return Note<Tick>(t, d, p, v);
+    });
+
+    m.def("Note", [](const f32 &t, const f32 &d, i8 p, i8 v, Quarter _) {
+        return Note<Quarter>(t, d, p, v);
+    });
 
     bind_control_change_class<Tick>(m, tick);
     bind_control_change_class<Quarter>(m, quarter);
