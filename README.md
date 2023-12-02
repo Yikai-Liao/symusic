@@ -15,8 +15,8 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
 
 ## Features
 
-* You can just read a midi file like `score = symusic.Score("path to midi")`
-* The time unit of the parsed data is the quarter note.
+* You can just read a midi file like `score = symusic.Score("path to midi", time_unit="tick")`
+* Multiple `time unit` is now supported (currently `tick` and `quarter`)
 * The tempo attribute in the tempo event represents quarter per minute (qpm)
 * We offer some batch operation functions for both `Score` and `Track` class:
   * shift_pitch(offset: int)
@@ -24,16 +24,13 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
   * shift_time(offset: float)
   * sort()
 * You can operate each note just like you did before in python (like PrettyMidi)
-* There are interfaces for generating pianoroll with any quantizations using Eigen in cpp:
-  * Track.frame_pianoroll(quantization: int = 16)
-  * Track.onset_pianoroll(quantization: int = 16)
+
 
 ## TODO
 
 Notice that this libaray is under development:
 
 * Writing back to midi files is currently not supported
-* Not all features in midi are suppored, like lyrics and pitchbend
 
 ## Installation
 ### Use pre-compiled version
@@ -64,3 +61,11 @@ pip install ./symusic
 |[pretty_midi](https://github.com/craffel/pretty-midi)|5.59 s ± 844 ms|
 |[miditoolkit](https://github.com/YatingMusic/miditoolkit)|6.27 s ± 1.79 s|
 |[music21](https://github.com/cuthbertLab/music21)|8.59 s ± 1.2 s|
+
+## Acknowledgement
+
+* [pybind11](https://github.com/pybind/pybind11) : A great header-only library to help you create python binding for your cpp code
+* [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) : A fast and lightweight midi parsing library written in cpp
+* [eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) : A C++ template library for linear algebra: matrices, vectors, numerical solvers, and related algorithms. We use it for numpy array conversion.
+* [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
+  
