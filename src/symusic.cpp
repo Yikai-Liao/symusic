@@ -332,14 +332,38 @@ PYBIND11_MODULE(symusic, m) {
 
     bind_note_class<Tick>(m, tick);
     bind_note_class<Quarter>(m, quarter);
-//    bind_note_class<Second>(m, second);
+    bind_note_class<Second>(m, second);
     m.def("Note", [](const i32 &t, const i32 &d, i8 p, i8 v, Tick _) {
         return Note<Tick>(t, d, p, v);
-    });
+    }, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
 
     m.def("Note", [](const f32 &t, const f32 &d, i8 p, i8 v, Quarter _) {
         return Note<Quarter>(t, d, p, v);
-    });
+    }, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
+
+    m.def("Note", [](const f32 &t, const f32 &d, i8 p, i8 v, Second _) {
+        return Note<Second>(t, d, p, v);
+    },py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
+
+    m.def("Note", [](py::object &t, py::object &d, i8 p, i8 v, const py::str& time_unit){
+            // time_unit is a string, which can be "Tick", "Quarter", "Second"
+            // first call lower() to convert it to lower case
+            auto unit = time_unit.attr("lower")().cast<std::string>();
+            // switch the unit, and convert the corresponding Note to python object using cast
+            if (unit == "tick") {
+                return py::cast(Note<Tick>(t.cast<i32>(), d.cast<i32>(), p, v));
+            } else if (unit == "quarter") {
+                return py::cast(Note<Quarter>(t.cast<f32>(), d.cast<f32>(), p, v));
+            } else if (unit == "second") {
+                return py::cast(Note<Second>(t.cast<f32>(), d.cast<f32>(), p, v));
+            } else {
+                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
+            }
+        }, "Create a Note object from time, duration, pitch, velocity and time_unit",
+        py::arg("time"), py::arg("duration"), py::arg("pitch"),
+        py::arg("velocity"), py::arg("time_unit")
+    );
+
 
     bind_control_change_class<Tick>(m, tick);
     bind_control_change_class<Quarter>(m, quarter);
