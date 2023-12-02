@@ -1,5 +1,6 @@
 **/*build*
 **/.idea
+**/.cache
 **/.eggs
 **/*.egg-info
 **/*.DS_Store
