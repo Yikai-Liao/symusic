@@ -6,14 +6,6 @@
 using namespace score;
 using namespace minimidi;
 
-size_t count_note_num(const Score &score)
-{
-    size_t num = 0;
-    for(auto const &track : score.tracks)
-        num += track.notes.size();
-    return num;
-};
-
 size_t count_note_num(file::MidiFile& midifile)
 {
     size_t num = 0;
@@ -43,9 +35,9 @@ int main(int argc, char *argv[]) {
         std::cout << "Filename: " << filename << std::endl;
         try {
             auto midi = file::MidiFile::from_file(filename);
-            auto s = Score(midi);
+            auto s = Score<Tick>(midi);
             auto midi_notes = count_note_num(midi);
-            auto score_notes = count_note_num(s);
+            auto score_notes = s.note_num();
             std::cout << "Midi notes: " << midi_notes << std::endl;
             std::cout << "Score notes: " << score_notes << std::endl;
             assert(midi_notes == score_notes);
