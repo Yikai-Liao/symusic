@@ -2,6 +2,9 @@
 #include <map>
 #include <queue>
 #include <algorithm>
+#ifndef __SCORE_HPP__
+#define __SCORE_HPP__
+
 #include <cmath>
 #include <cfloat>
 #include <exception>
@@ -771,7 +774,7 @@ Track<T> &get_track(
 
 // read midi file using Score<Tick>
 template<>
-Score<Tick>::Score(minimidi::file::MidiFile &midi) {
+inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     size_t track_num = midi.track_num();
     ticks_per_quarter = midi.get_tick_per_quarter();
     auto tpq = (float) ticks_per_quarter;
@@ -912,14 +915,15 @@ Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     utils::sort_by_time(markers);
 }
 
-#define TICK2QUARTER(i, CLASS_NAME) \
-    vec<CLASS_NAME<Quarter>> to_quarter(const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) { \
-        vec<CLASS_NAME<Quarter>> new_data; \
-        new_data.reserve(data.size()); \
-        f32 tpq = static_cast<f32>(ticks_per_quarter); \
-        for(auto const &event: data) \
-            new_data.emplace_back(static_cast<f32>(event.time) / tpq, event); \
-        return new_data; \
+#define TICK2QUARTER(i, CLASS_NAME)                                             \
+    inline vec<CLASS_NAME<Quarter>> to_quarter(                                 \
+        const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) {             \
+        vec<CLASS_NAME<Quarter>> new_data;                                      \
+        new_data.reserve(data.size());                                          \
+        f32 tpq = static_cast<f32>(ticks_per_quarter);                          \
+        for(auto const &event: data)                                            \
+            new_data.emplace_back(static_cast<f32>(event.time) / tpq, event);   \
+        return new_data;                                                        \
     }
 
 REPEAT_ON(
@@ -931,7 +935,7 @@ REPEAT_ON(
 
 // tick to quarter
 template<> template<>
-void Score<Quarter>::from(Score<Tick> &other){
+inline void Score<Quarter>::from(Score<Tick> &other){
     this->ticks_per_quarter = other.ticks_per_quarter;
     time_signatures = to_quarter(other.time_signatures, ticks_per_quarter);
     key_signatures = to_quarter(other.key_signatures, ticks_per_quarter);
@@ -950,9 +954,9 @@ void Score<Quarter>::from(Score<Tick> &other){
 }
 
 template<>
-Score<Quarter>::Score(minimidi::file::MidiFile &midi) {
+inline Score<Quarter>::Score(minimidi::file::MidiFile &midi) {
     auto score_tick = Score<Tick>(midi);
     from(score_tick);
 }
-
 } // namespace score end
+#endif //MUSIC_SCORE_H
