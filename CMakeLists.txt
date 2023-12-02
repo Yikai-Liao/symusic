@@ -12,6 +12,7 @@ include_directories(3rdparty/pdqsort)
 add_subdirectory(3rdparty/eigen EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
+find_package (Python COMPONENTS Interpreter Development)
 pybind11_add_module(symusic src/symusic.cpp)
 target_link_libraries(symusic PRIVATE eigen)
 
