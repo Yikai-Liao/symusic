@@ -3,5 +3,5 @@ python3 setup.py build bdist_wheel
 pip install dist/*.whl
 pybind11-stubgen symusic --numpy-array-remove-parameters -o .
 pip uninstall -y symusic
+mv symusic symusic-stubs
 rm -rf dist build *.egg-info
-

@@ -67,7 +67,7 @@ pip install ./symusic
 * [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) : A fast and lightweight midi parsing library written in cpp, which is the foundation of this project.
 * [pybind11](https://github.com/pybind/pybind11) : A great header-only library to help you create python binding for your cpp code.
 * [eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) : A C++ template library for linear algebra: matrices, vectors, numerical solvers, and related algorithms. We use it for numpy array conversion.
-* [pybind11-stubgen](https://github.com/sizmailov/pybind11-stubgen) A nice tool to generate stub files for pybind11 projects. I use the following instruction for symusic: `pybind11-stubgen symusic --numpy-array-remove-parameters`
+* [pybind11-stubgen](https://github.com/sizmailov/pybind11-stubgen) A nice tool to generate stub files for pybind11 projects.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
 
   
