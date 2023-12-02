@@ -463,6 +463,9 @@ struct Track{
         name(std::move(name)), program(program), is_drum(is_drum),
         notes(std::move(notes)), controls(std::move(controls)), pitch_bends(std::move(pitch_bends)) {};
 
+    Track(std::string name, u8 program, bool is_drum) :
+        name(std::move(name)), program(program), is_drum(is_drum) {};
+
     [[nodiscard]] Track copy() const { return {*this}; }
 
     Track& sort_inplace() {
@@ -579,11 +582,11 @@ public:
 
     Score() = default;
     Score(const Score&) = default;
-    Score(Score&&) = default;
+    Score(Score&&)  noexcept = default;
     [[nodiscard]] Score copy() const { return {*this}; }
 
     template<typename U>
-    Score(const Score<U> &other) { from(other); }
+    explicit Score(const Score<U> &other) { from(other); }
 
     explicit Score(minimidi::file::MidiFile &midi);
 
@@ -622,10 +625,6 @@ public:
         for(auto const &track: tracks)
             new_score.tracks.emplace_back(track.clip(start, end, clip_end));
         return new_score;
-    }
-
-    [[nodiscard]] Score clip(typename T::unit start, typename T::unit end, bool clip_end = false) {
-        return copy().clip(start, end, clip_end);
     }
 
     // shift time pitch velocity
