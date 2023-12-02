@@ -24,23 +24,8 @@ template<typename T>
 py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "Note" + name_;
-    py::bind_vector<vec<Note<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<Note<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<Note<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
-        .def("__repr__", [](const vec<Note<T>> &self) {
-            return to_string(self);
-        });
-    
-    py::implicitly_convertible<py::list, vec<Note<T>>>();
-    
-    return py::class_<Note<T>>(m, name.c_str())
+
+    auto event = py::class_<Note<T>>(m, name.c_str())
         .def(py::init<unit, unit, int8_t, int8_t>())
         .def(py::init<const Note<T> &>(), "Copy constructor")
         .def_readwrite("start", &Note<T>::time)
@@ -62,6 +47,24 @@ py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
         .def("shift_velocity_inplace", &Note<T>::shift_velocity_inplace, py::return_value_policy::reference)
         .def("shift_time_inplace", &Note<T>::shift_time_inplace, py::return_value_policy::reference)
         .def("__repr__", &Note<T>::to_string);
+
+    py::bind_vector<vec<Note<T>>>(m, name + "List")
+        .def("sort_inplace", [](vec<Note<T>> &self) {
+            utils::sort_by_time(self);
+            return self;
+        })
+        .def("sort", [](const vec<Note<T>> &self) {
+            auto copy = self;
+            utils::sort_by_time(copy);
+            return copy;
+        })
+        .def("__repr__", [](const vec<Note<T>> &self) {
+            return to_string(self);
+        });
+    
+    py::implicitly_convertible<py::list, vec<Note<T>>>();
+    
+    return event;
 }
 
 // bind score::KeySignature<T>
@@ -69,6 +72,20 @@ template<typename T>
 py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "KeySignature" + name_;
+
+    auto event = py::class_<score::KeySignature<T>>(m, name.c_str())
+        .def(py::init<unit, i8, u8>())
+        .def(py::init<const score::KeySignature<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::KeySignature<T>::time)
+        .def_readwrite("key", &score::KeySignature<T>::key)
+        .def_readwrite("tonality", &score::KeySignature<T>::tonality)
+        .def("shift_time", &score::KeySignature<T>::shift_time)
+        .def("shift_time_inplace", &score::KeySignature<T>::shift_time_inplace)
+        .def("copy", &score::KeySignature<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::KeySignature<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::KeySignature<T>::copy, "Deep copy")
+        .def("__repr__", &score::KeySignature<T>::to_string);
+
     py::bind_vector<vec<score::KeySignature<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::KeySignature<T>> &self) {
             utils::sort_by_time(self);
@@ -85,18 +102,7 @@ py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const
 
     py::implicitly_convertible<py::list, vec<score::KeySignature<T>>>();
     
-    return py::class_<score::KeySignature<T>>(m, name.c_str())
-        .def(py::init<unit, i8, u8>())
-        .def(py::init<const score::KeySignature<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::KeySignature<T>::time)
-        .def_readwrite("key", &score::KeySignature<T>::key)
-        .def_readwrite("tonality", &score::KeySignature<T>::tonality)
-        .def("shift_time", &score::KeySignature<T>::shift_time)
-        .def("shift_time_inplace", &score::KeySignature<T>::shift_time_inplace)
-        .def("copy", &score::KeySignature<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::KeySignature<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::KeySignature<T>::copy, "Deep copy")
-        .def("__repr__", &score::KeySignature<T>::to_string);
+    return event;
 }
 
 // bind score::TimeSignature<T>
@@ -104,6 +110,20 @@ template<typename T>
 py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "TimeSignature" + name_;
+
+    auto event = py::class_<score::TimeSignature<T>>(m, name.c_str())
+        .def(py::init<unit, u8, u8>())
+        .def(py::init<const score::TimeSignature<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::TimeSignature<T>::time)
+        .def_readwrite("numerator", &score::TimeSignature<T>::numerator)
+        .def_readwrite("denominator", &score::TimeSignature<T>::denominator)
+        .def("shift_time", &score::TimeSignature<T>::shift_time)
+        .def("shift_time_inplace", &score::TimeSignature<T>::shift_time_inplace)
+        .def("copy", &score::TimeSignature<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::TimeSignature<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::TimeSignature<T>::copy, "Deep copy")
+        .def("__repr__", &score::TimeSignature<T>::to_string);
+
     py::bind_vector<vec<score::TimeSignature<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::TimeSignature<T>> &self) {
             utils::sort_by_time(self);
@@ -120,18 +140,7 @@ py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, con
 
     py::implicitly_convertible<py::list, vec<score::TimeSignature<T>>>();
     
-    return py::class_<score::TimeSignature<T>>(m, name.c_str())
-        .def(py::init<unit, u8, u8>())
-        .def(py::init<const score::TimeSignature<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::TimeSignature<T>::time)
-        .def_readwrite("numerator", &score::TimeSignature<T>::numerator)
-        .def_readwrite("denominator", &score::TimeSignature<T>::denominator)
-        .def("shift_time", &score::TimeSignature<T>::shift_time)
-        .def("shift_time_inplace", &score::TimeSignature<T>::shift_time_inplace)
-        .def("copy", &score::TimeSignature<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::TimeSignature<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::TimeSignature<T>::copy, "Deep copy")
-        .def("__repr__", &score::TimeSignature<T>::to_string);
+    return event;
 }
 
 // bind score::ControlChange<T>
@@ -139,6 +148,19 @@ template<typename T>
 py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "ControlChange" + name_;
+
+    auto event = py::class_<score::ControlChange<T>>(m, name.c_str())
+        .def(py::init<unit, u8, u8>())
+        .def(py::init<const score::ControlChange<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::ControlChange<T>::time)
+        .def_readwrite("value", &score::ControlChange<T>::value)
+        .def("shift_time", &score::ControlChange<T>::shift_time)
+        .def("shift_time_inplace", &score::ControlChange<T>::shift_time_inplace)
+        .def("copy", &score::ControlChange<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::ControlChange<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::ControlChange<T>::copy, "Deep copy")
+        .def("__repr__", &score::ControlChange<T>::to_string);
+
     py::bind_vector<vec<score::ControlChange<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::ControlChange<T>> &self) {
             utils::sort_by_time(self);
@@ -155,17 +177,7 @@ py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, con
 
     py::implicitly_convertible<py::list, vec<score::ControlChange<T>>>();
 
-    return py::class_<score::ControlChange<T>>(m, name.c_str())
-        .def(py::init<unit, u8, u8>())
-        .def(py::init<const score::ControlChange<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::ControlChange<T>::time)
-        .def_readwrite("value", &score::ControlChange<T>::value)
-        .def("shift_time", &score::ControlChange<T>::shift_time)
-        .def("shift_time_inplace", &score::ControlChange<T>::shift_time_inplace)
-        .def("copy", &score::ControlChange<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::ControlChange<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::ControlChange<T>::copy, "Deep copy")
-        .def("__repr__", &score::ControlChange<T>::to_string);
+    return event;
 }
 
 // bind score::Tempo<T>
@@ -173,6 +185,18 @@ template<typename T>
 py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "Tempo" + name_;
+    auto event = py::class_<score::Tempo<T>>(m, name.c_str())
+        .def(py::init<unit, float>())
+        .def(py::init<const score::Tempo<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::Tempo<T>::time)
+        .def_readwrite("tempo", &score::Tempo<T>::qpm)
+        .def("shift_time", &score::Tempo<T>::shift_time)
+        .def("shift_time_inplace", &score::Tempo<T>::shift_time_inplace)
+        .def("copy", &score::Tempo<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::Tempo<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::Tempo<T>::copy, "Deep copy")
+        .def("__repr__", &score::Tempo<T>::to_string);
+
     py::bind_vector<vec<score::Tempo<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::Tempo<T>> &self) {
             utils::sort_by_time(self);
@@ -188,18 +212,8 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
         });
 
     py::implicitly_convertible<py::list, vec<score::Tempo<T>>>();
-    
-    return py::class_<score::Tempo<T>>(m, name.c_str())
-        .def(py::init<unit, float>())
-        .def(py::init<const score::Tempo<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::Tempo<T>::time)
-        .def_readwrite("tempo", &score::Tempo<T>::qpm)
-        .def("shift_time", &score::Tempo<T>::shift_time)
-        .def("shift_time_inplace", &score::Tempo<T>::shift_time_inplace)
-        .def("copy", &score::Tempo<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::Tempo<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::Tempo<T>::copy, "Deep copy")
-        .def("__repr__", &score::Tempo<T>::to_string);
+
+    return event;
 }
 
 // bind score::PitchBend<T>
@@ -207,6 +221,18 @@ template<typename T>
 py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "PitchBend" + name_;
+
+    auto event = py::class_<score::PitchBend<T>>(m, name.c_str())
+        .def(py::init<unit, i32>())
+        .def(py::init<const score::PitchBend<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::PitchBend<T>::time)
+        .def_readwrite("value", &score::PitchBend<T>::value)
+        .def("shift_time", &score::PitchBend<T>::shift_time)
+        .def("shift_time_inplace", &score::PitchBend<T>::shift_time_inplace)
+        .def("copy", &score::PitchBend<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::PitchBend<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::PitchBend<T>::copy, "Deep copy")
+        .def("__repr__", &score::PitchBend<T>::to_string);
     
     py::bind_vector<vec<score::PitchBend<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::PitchBend<T>> &self) {
@@ -224,17 +250,7 @@ py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::
 
     py::implicitly_convertible<py::list, vec<score::PitchBend<T>>>();
     
-    return py::class_<score::PitchBend<T>>(m, name.c_str())
-        .def(py::init<unit, i32>())
-        .def(py::init<const score::PitchBend<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::PitchBend<T>::time)
-        .def_readwrite("value", &score::PitchBend<T>::value)
-        .def("shift_time", &score::PitchBend<T>::shift_time)
-        .def("shift_time_inplace", &score::PitchBend<T>::shift_time_inplace)
-        .def("copy", &score::PitchBend<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::PitchBend<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::PitchBend<T>::copy, "Deep copy")
-        .def("__repr__", &score::PitchBend<T>::to_string);
+    return event;
 }
 
 // bind score::TextMeta<T>
@@ -242,6 +258,18 @@ template<typename T>
 py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "TextMeta" + name_;
+
+    auto event = py::class_<score::TextMeta<T>>(m, name.c_str())
+        .def(py::init<unit, std::string &>())
+        .def(py::init<const score::TextMeta<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::TextMeta<T>::time)
+        .def_readwrite("text", &score::TextMeta<T>::text)
+        .def("shift_time", &score::TextMeta<T>::shift_time)
+        .def("shift_time_inplace", &score::TextMeta<T>::shift_time_inplace)
+        .def("copy", &score::TextMeta<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::TextMeta<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::TextMeta<T>::copy, "Deep copy")
+        .def("__repr__", &score::TextMeta<T>::to_string);
     
     py::bind_vector<vec<score::TextMeta<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::TextMeta<T>> &self) {
@@ -259,17 +287,7 @@ py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::st
 
     py::implicitly_convertible<py::list, vec<score::TextMeta<T>>>();
 
-    return py::class_<score::TextMeta<T>>(m, name.c_str())
-        .def(py::init<unit, std::string &>())
-        .def(py::init<const score::TextMeta<T> &>(), "Copy constructor")
-        .def_readwrite("time", &score::TextMeta<T>::time)
-        .def_readwrite("text", &score::TextMeta<T>::text)
-        .def("shift_time", &score::TextMeta<T>::shift_time)
-        .def("shift_time_inplace", &score::TextMeta<T>::shift_time_inplace)
-        .def("copy", &score::TextMeta<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::TextMeta<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::TextMeta<T>::copy, "Deep copy")
-        .def("__repr__", &score::TextMeta<T>::to_string);
+    return event;
 }
 
 // bind score::Track<T>
@@ -278,14 +296,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
     typedef typename T::unit unit;
     auto name = "Track" + name_;
 
-    py::bind_vector<vec<score::Track<T>>>(m, name + "List")
-        .def("__repr__", [](const vec<score::Track<T>> &self) {
-            return to_string(self);
-        });
-
-    py::implicitly_convertible<py::list, vec<score::Track<T>>>();
-
-    return py::class_<score::Track<T>>(m, name.c_str())
+    auto event = py::class_<score::Track<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const score::Track<T> &>(), "Copy constructor")
         .def("copy", &score::Track<T>::copy, "Deep copy", py::return_value_policy::move)
@@ -303,6 +314,15 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("note_num", &score::Track<T>::note_num)
         .def("start", &score::Track<T>::start)
         .def("end", &Track<T>::end);
+
+    py::bind_vector<vec<score::Track<T>>>(m, name + "List")
+        .def("__repr__", [](const vec<score::Track<T>> &self) {
+            return to_string(self);
+        });
+
+    py::implicitly_convertible<py::list, vec<score::Track<T>>>();
+
+    return event;
 }
 
 // bind score::Score<T>
@@ -683,7 +703,7 @@ PYBIND11_MODULE(symusic, m) {
     m.def("Score", []() {return Score<Tick>();});
     m.def("Score", [](Tick _) {return Score<Tick>();}, py::arg("time_unit"));
     m.def("Score", [](Quarter _) {return Score<Quarter>();}, py::arg("time_unit"));
-    m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
+    // m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
 
 
 
