@@ -1,6 +1,7 @@
 //
 // Created by lyk on 23-9-20.
 //
+#include <pybind11/cast.h>
 #include <string>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
@@ -33,11 +34,11 @@ py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
         .def_readwrite("duration", &Note<T>::duration)
         .def_readwrite("pitch", &Note<T>::pitch)
         .def_readwrite("velocity", &Note<T>::velocity)
+        .def_property_readonly("end", &Note<T>::end)
         .def("empty", &Note<T>::empty, "duration <= 0 or velocity <= 0")
         .def("copy", &Note<T>::copy, "Deep copy the note", py::return_value_policy::move)
         .def("__copy__", &Note<T>::copy, "Deep copy the note")
         .def("__deepcopy__", &Note<T>::copy, "Deep copy the note")
-        .def("end", &Note<T>::end)
         .def("end_time", &Note<T>::end)
         .def("shift_pitch", &Note<T>::shift_pitch, py::return_value_policy::move)
         .def("shift_velocity", &Note<T>::shift_velocity, py::return_value_policy::move)
@@ -154,6 +155,7 @@ py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, con
         .def(py::init<const score::ControlChange<T> &>(), "Copy constructor")
         .def_readwrite("time", &score::ControlChange<T>::time)
         .def_readwrite("value", &score::ControlChange<T>::value)
+        .def_readwrite("number", &score::ControlChange<T>::number)
         .def("shift_time", &score::ControlChange<T>::shift_time)
         .def("shift_time_inplace", &score::ControlChange<T>::shift_time_inplace)
         .def("copy", &score::ControlChange<T>::copy, "Deep copy", py::return_value_policy::move)
@@ -306,15 +308,23 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("notes", &score::Track<T>::notes)
         .def_readwrite("controls", &score::Track<T>::controls)
         .def_readwrite("pitch_bends", &score::Track<T>::pitch_bends)
+        .def_readwrite("is_drum", &score::Track<T>::is_drum)
+        .def_readwrite("program", &score::Track<T>::program)
+        .def_readwrite("name", &score::Track<T>::name)
+        .def("sort_inplace", &score::Track<T>::sort_inplace)
         .def("sort", &score::Track<T>::sort, py::return_value_policy::move)
-        .def("shift_pitch", &score::Track<T>::shift_pitch)
-        .def("shift_time", &score::Track<T>::shift_time)
-        .def("shift_velocity", &score::Track<T>::shift_velocity)
-        .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range")
-        .def("note_num", &score::Track<T>::note_num)
+        .def("end", &Track<T>::end)
         .def("start", &score::Track<T>::start)
-        .def("end", &Track<T>::end);
-
+        .def("note_num", &score::Track<T>::note_num)
+        .def("empty", &score::Track<T>::empty)
+        .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range")
+        .def("shift_time_inplace", &score::Track<T>::shift_time_inplace)
+        .def("shift_time", &score::Track<T>::shift_time, py::return_value_policy::move)
+        .def("shift_pitch_inplace", &score::Track<T>::shift_pitch_inplace)
+        .def("shift_pitch", &score::Track<T>::shift_pitch)
+        .def("shift_velocity_inplace", &score::Track<T>::shift_velocity_inplace)
+        .def("shift_velocity", &score::Track<T>::shift_velocity);
+        
     py::bind_vector<vec<score::Track<T>>>(m, name + "List")
         .def("__repr__", [](const vec<score::Track<T>> &self) {
             return to_string(self);
@@ -343,17 +353,24 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)
-        .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("time_signatures", &Score<T>::time_signatures)
         .def_readwrite("key_signatures", &Score<T>::key_signatures)
+        .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
-        .def("empty", &Score<T>::empty)
-        .def("sort", &Score<T>::sort, py::return_value_policy::move)
         .def("sort_inplace", &Score<T>::sort_inplace)
-        .def("shift_pitch", &Score<T>::shift_pitch)
+        .def("sort", &Score<T>::sort, py::return_value_policy::move)
+        .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
+        .def("shift_time_inplace", &Score<T>::shift_time_inplace)
         .def("shift_time", &Score<T>::shift_time)
-        .def("shift_velocity", &Score<T>::shift_velocity);
+        .def("shift_pitch_inplace", &Score<T>::shift_pitch_inplace)
+        .def("shift_pitch", &Score<T>::shift_pitch)
+        .def("shift_velocity_inplace", &Score<T>::shift_velocity_inplace)
+        .def("shift_velocity", &Score<T>::shift_velocity)
+        .def("start", &Score<T>::start)
+        .def("end", &Score<T>::end)
+        .def("note_num", &Score<T>::note_num)
+        .def("empty", &Score<T>::empty);
 }
 
 py::module & core_module(py::module & m){
@@ -392,9 +409,14 @@ py::module & core_module(py::module & m){
     bind_track_class<Quarter>(m, quarter);
     bind_track_class<Second>(m, second);
 
-    bind_score_class<Tick>(m, tick);
-    bind_score_class<Quarter>(m, quarter);
+    auto score_tick = bind_score_class<Tick>(m, tick);
+    auto score_quarter = bind_score_class<Quarter>(m, quarter);
     //    bind_score_class<Second>(m, second);
+
+    // score_quarter.def(
+    //     py::init<const score::Score<Tick> &>(), "Converting time unit from Tick to Quarter",
+    //     py::arg("score")
+    // );
 
     return m;
 }
@@ -705,11 +727,9 @@ PYBIND11_MODULE(symusic, m) {
     m.def("Score", [](Quarter _) {return Score<Quarter>();}, py::arg("time_unit"));
     // m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
 
-
-
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
-    m.attr("__version__") = "0.1.0";
+    m.attr("__version__") = "0.1.1";
 #endif
 }
