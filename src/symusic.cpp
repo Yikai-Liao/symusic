@@ -690,6 +690,6 @@ PYBIND11_MODULE(symusic, m) {
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
-    m.attr("__version__") = "0.0.6";
+    m.attr("__version__") = "0.1.0";
 #endif
 }
