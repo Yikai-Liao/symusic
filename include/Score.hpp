@@ -13,7 +13,7 @@
 #include <string>
 #include <iostream>
 #include <utility>
-#include <pdqsort.h>
+#include "pdqsort.h"
 //#include <Eigen/Core>
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"

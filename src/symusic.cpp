@@ -417,10 +417,10 @@ PYBIND11_MODULE(symusic, m) {
         .def(py::init<>())
         .def("__repr__", [](const Second &) { return "TimeUnit::Second"; });
 
-    auto typing = m.def_submodule("typing");
-    typing.attr("Tick") = &tick_inst;
-    typing.attr("Quarter") = &quarter_inst;
-    typing.attr("Second") = &second_inst;
+    auto unit = m.def_submodule("unit");
+    unit.attr("Tick") = &tick_inst;
+    unit.attr("Quarter") = &quarter_inst;
+    unit.attr("Second") = &second_inst;
 
     auto core = m.def_submodule("core");
     core_module(core);
