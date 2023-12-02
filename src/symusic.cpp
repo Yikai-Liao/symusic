@@ -349,6 +349,9 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
         .def("empty", &Score<T>::empty)
+        .def("end", &Score<T>::end)
+        .def("start", &Score<T>::start)
+        .def("note_num", &Score<T>::note_num)
         .def("sort", &Score<T>::sort, py::return_value_policy::move)
         .def("sort_inplace", &Score<T>::sort_inplace)
         .def("shift_pitch", &Score<T>::shift_pitch)
@@ -392,9 +395,14 @@ py::module & core_module(py::module & m){
     bind_track_class<Quarter>(m, quarter);
     bind_track_class<Second>(m, second);
 
-    bind_score_class<Tick>(m, tick);
-    bind_score_class<Quarter>(m, quarter);
+    auto score_tick = bind_score_class<Tick>(m, tick);
+    auto score_quarter = bind_score_class<Quarter>(m, quarter);
     //    bind_score_class<Second>(m, second);
+
+    // score_quarter.def(
+    //     py::init<const score::Score<Tick> &>(), "Converting time unit from Tick to Quarter",
+    //     py::arg("score")
+    // );
 
     return m;
 }
@@ -704,8 +712,6 @@ PYBIND11_MODULE(symusic, m) {
     m.def("Score", [](Tick _) {return Score<Tick>();}, py::arg("time_unit"));
     m.def("Score", [](Quarter _) {return Score<Quarter>();}, py::arg("time_unit"));
     // m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
-
-
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

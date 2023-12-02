@@ -721,29 +721,33 @@ struct NoteOn: public TimeStamp<T> {
 
 template<typename T>
 struct NoteOnQueue {
+private:
     typedef typename T::unit unit;
     std::queue<NoteOn<T>> queue;
-    NoteOn<T> front;
+    NoteOn<T> _front;
 
+public:
     NoteOnQueue() = default;
     [[nodiscard]] inline size_t size() const {
-        return front.empty() ? 0 : queue.size() + 1;
+        return _front.empty() ? 0 : queue.size() + 1;
     }
 
-    [[nodiscard]] inline bool empty() const { return front.empty();}
+    [[nodiscard]] inline bool empty() const { return _front.empty();}
 
     inline void emplace(unit time, i8 velocity) {
-        if(!front.empty()) queue.emplace(front);
-        front = NoteOn<T>{time, velocity};
+        if(_front.empty()) _front = NoteOn<T>{time, velocity};
+        else queue.emplace(time, velocity);
     }
 
     inline void pop() {
-        if (queue.empty()) front.reset();
+        if (queue.empty()) _front.reset();
         else {
-            front = queue.front();
+            _front = queue.front();
             queue.pop();
         }
     }
+
+    inline const NoteOn<T> &front() const { return _front; }
 };
 
 typedef std::tuple<u8, u8> TrackIdx;
@@ -786,6 +790,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
         Track<Tick> stragglers[16]; // channel -> Track
         uint8_t cur_instr[16] = {0}; // channel -> program
         std::string cur_name;
+        // std::queue<utils::NoteOn<Tick>> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
 
         utils::NoteOnQueue<Tick> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
         // iter midi messages in the track
@@ -816,8 +821,8 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     auto &track = utils::get_track(
                         track_map, stragglers, channel,
                         cur_instr[channel], message_num,true);
-                    while ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front.time)) {
-                        auto const &note_on = note_on_queue.front;
+                    if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
+                        auto const &note_on = note_on_queue.front();
                         uint32_t duration = cur_tick - note_on.time;
                         track.notes.emplace_back(
                             note_on.time, duration,
