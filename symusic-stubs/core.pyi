@@ -2,6 +2,7 @@ from __future__ import annotations
 import typing
 __all__ = ['ControlChangeQuarter', 'ControlChangeQuarterList', 'ControlChangeSecond', 'ControlChangeSecondList', 'ControlChangeTick', 'ControlChangeTickList', 'KeySignatureQuarter', 'KeySignatureQuarterList', 'KeySignatureSecond', 'KeySignatureSecondList', 'KeySignatureTick', 'KeySignatureTickList', 'NoteQuarter', 'NoteQuarterList', 'NoteSecond', 'NoteSecondList', 'NoteTick', 'NoteTickList', 'PitchBendQuarter', 'PitchBendQuarterList', 'PitchBendSecond', 'PitchBendSecondList', 'PitchBendTick', 'PitchBendTickList', 'ScoreQuarter', 'ScoreTick', 'TempoQuarter', 'TempoQuarterList', 'TempoSecond', 'TempoSecondList', 'TempoTick', 'TempoTickList', 'TextMetaQuarter', 'TextMetaQuarterList', 'TextMetaSecond', 'TextMetaSecondList', 'TextMetaTick', 'TextMetaTickList', 'TimeSignatureQuarter', 'TimeSignatureQuarterList', 'TimeSignatureSecond', 'TimeSignatureSecondList', 'TimeSignatureTick', 'TimeSignatureTickList', 'TrackQuarter', 'TrackQuarterList', 'TrackSecond', 'TrackSecondList', 'TrackTick', 'TrackTickList']
 class ControlChangeQuarter:
+    number: int
     time: float
     value: int
     def __copy__(self) -> ControlChangeQuarter:
@@ -121,6 +122,7 @@ class ControlChangeQuarterList:
     def sort_inplace(self) -> ControlChangeQuarterList:
         ...
 class ControlChangeSecond:
+    number: int
     time: float
     value: int
     def __copy__(self) -> ControlChangeSecond:
@@ -240,6 +242,7 @@ class ControlChangeSecondList:
     def sort_inplace(self) -> ControlChangeSecondList:
         ...
 class ControlChangeTick:
+    number: int
     time: int
     value: int
     def __copy__(self) -> ControlChangeTick:
@@ -750,8 +753,6 @@ class NoteQuarter:
         """
         duration <= 0 or velocity <= 0
         """
-    def end(self) -> float:
-        ...
     def end_time(self) -> float:
         ...
     def shift_pitch(self, arg0: float) -> NoteQuarter:
@@ -765,6 +766,9 @@ class NoteQuarter:
     def shift_velocity(self, arg0: float) -> NoteQuarter:
         ...
     def shift_velocity_inplace(self, arg0: float) -> NoteQuarter:
+        ...
+    @property
+    def end(self) -> float:
         ...
 class NoteQuarterList:
     def __bool__(self) -> bool:
@@ -888,8 +892,6 @@ class NoteSecond:
         """
         duration <= 0 or velocity <= 0
         """
-    def end(self) -> float:
-        ...
     def end_time(self) -> float:
         ...
     def shift_pitch(self, arg0: float) -> NoteSecond:
@@ -903,6 +905,9 @@ class NoteSecond:
     def shift_velocity(self, arg0: float) -> NoteSecond:
         ...
     def shift_velocity_inplace(self, arg0: float) -> NoteSecond:
+        ...
+    @property
+    def end(self) -> float:
         ...
 class NoteSecondList:
     def __bool__(self) -> bool:
@@ -1026,8 +1031,6 @@ class NoteTick:
         """
         duration <= 0 or velocity <= 0
         """
-    def end(self) -> int:
-        ...
     def end_time(self) -> int:
         ...
     def shift_pitch(self, arg0: int) -> NoteTick:
@@ -1041,6 +1044,9 @@ class NoteTick:
     def shift_velocity(self, arg0: int) -> NoteTick:
         ...
     def shift_velocity_inplace(self, arg0: int) -> NoteTick:
+        ...
+    @property
+    def end(self) -> int:
         ...
 class NoteTickList:
     def __bool__(self) -> bool:
@@ -1523,6 +1529,10 @@ class ScoreQuarter:
         ...
     def __repr__(self) -> str:
         ...
+    def clip(self, start: float, end: float, clip_end: bool = False) -> ScoreQuarter:
+        """
+        Clip events a given time range
+        """
     def copy(self) -> ScoreQuarter:
         """
         Deep copy
@@ -1535,9 +1545,15 @@ class ScoreQuarter:
         ...
     def shift_pitch(self, arg0: int) -> ScoreQuarter:
         ...
+    def shift_pitch_inplace(self, arg0: int) -> ScoreQuarter:
+        ...
     def shift_time(self, arg0: float) -> ScoreQuarter:
         ...
+    def shift_time_inplace(self, arg0: float) -> ScoreQuarter:
+        ...
     def shift_velocity(self, arg0: int) -> ScoreQuarter:
+        ...
+    def shift_velocity_inplace(self, arg0: int) -> ScoreQuarter:
         ...
     def sort(self) -> ScoreQuarter:
         ...
@@ -1579,6 +1595,10 @@ class ScoreTick:
         ...
     def __repr__(self) -> str:
         ...
+    def clip(self, start: int, end: int, clip_end: bool = False) -> ScoreTick:
+        """
+        Clip events a given time range
+        """
     def copy(self) -> ScoreTick:
         """
         Deep copy
@@ -1591,9 +1611,15 @@ class ScoreTick:
         ...
     def shift_pitch(self, arg0: int) -> ScoreTick:
         ...
+    def shift_pitch_inplace(self, arg0: int) -> ScoreTick:
+        ...
     def shift_time(self, arg0: int) -> ScoreTick:
         ...
+    def shift_time_inplace(self, arg0: int) -> ScoreTick:
+        ...
     def shift_velocity(self, arg0: int) -> ScoreTick:
+        ...
+    def shift_velocity_inplace(self, arg0: int) -> ScoreTick:
         ...
     def sort(self) -> ScoreTick:
         ...
@@ -2677,8 +2703,11 @@ class TimeSignatureTickList:
         ...
 class TrackQuarter:
     controls: ControlChangeQuarterList
+    is_drum: bool
+    name: str
     notes: NoteQuarterList
     pitch_bends: PitchBendQuarterList
+    program: int
     def __copy__(self) -> TrackQuarter:
         """
         Deep copy
@@ -2705,17 +2734,27 @@ class TrackQuarter:
         """
         Deep copy
         """
+    def empty(self) -> bool:
+        ...
     def end(self) -> float:
         ...
     def note_num(self) -> int:
         ...
     def shift_pitch(self, arg0: int) -> TrackQuarter:
         ...
+    def shift_pitch_inplace(self, arg0: int) -> TrackQuarter:
+        ...
     def shift_time(self, arg0: float) -> TrackQuarter:
+        ...
+    def shift_time_inplace(self, arg0: float) -> TrackQuarter:
         ...
     def shift_velocity(self, arg0: int) -> TrackQuarter:
         ...
+    def shift_velocity_inplace(self, arg0: int) -> TrackQuarter:
+        ...
     def sort(self) -> TrackQuarter:
+        ...
+    def sort_inplace(self) -> TrackQuarter:
         ...
     def start(self) -> float:
         ...
@@ -2807,8 +2846,11 @@ class TrackQuarterList:
         """
 class TrackSecond:
     controls: ControlChangeSecondList
+    is_drum: bool
+    name: str
     notes: NoteSecondList
     pitch_bends: PitchBendSecondList
+    program: int
     def __copy__(self) -> TrackSecond:
         """
         Deep copy
@@ -2835,17 +2877,27 @@ class TrackSecond:
         """
         Deep copy
         """
+    def empty(self) -> bool:
+        ...
     def end(self) -> float:
         ...
     def note_num(self) -> int:
         ...
     def shift_pitch(self, arg0: int) -> TrackSecond:
         ...
+    def shift_pitch_inplace(self, arg0: int) -> TrackSecond:
+        ...
     def shift_time(self, arg0: float) -> TrackSecond:
+        ...
+    def shift_time_inplace(self, arg0: float) -> TrackSecond:
         ...
     def shift_velocity(self, arg0: int) -> TrackSecond:
         ...
+    def shift_velocity_inplace(self, arg0: int) -> TrackSecond:
+        ...
     def sort(self) -> TrackSecond:
+        ...
+    def sort_inplace(self) -> TrackSecond:
         ...
     def start(self) -> float:
         ...
@@ -2937,8 +2989,11 @@ class TrackSecondList:
         """
 class TrackTick:
     controls: ControlChangeTickList
+    is_drum: bool
+    name: str
     notes: NoteTickList
     pitch_bends: PitchBendTickList
+    program: int
     def __copy__(self) -> TrackTick:
         """
         Deep copy
@@ -2965,17 +3020,27 @@ class TrackTick:
         """
         Deep copy
         """
+    def empty(self) -> bool:
+        ...
     def end(self) -> int:
         ...
     def note_num(self) -> int:
         ...
     def shift_pitch(self, arg0: int) -> TrackTick:
         ...
+    def shift_pitch_inplace(self, arg0: int) -> TrackTick:
+        ...
     def shift_time(self, arg0: int) -> TrackTick:
+        ...
+    def shift_time_inplace(self, arg0: int) -> TrackTick:
         ...
     def shift_velocity(self, arg0: int) -> TrackTick:
         ...
+    def shift_velocity_inplace(self, arg0: int) -> TrackTick:
+        ...
     def sort(self) -> TrackTick:
+        ...
+    def sort_inplace(self) -> TrackTick:
         ...
     def start(self) -> int:
         ...
