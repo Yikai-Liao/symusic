@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Set up QEMU
-        if: matrix.arch == 'aarch64' | matrix.arch == 'ppc64le' | matrix.arch == 's390x'
+        if: ${{ matrix.arch == 'aarch64' || matrix.arch == 'ppc64le' || matrix.arch == 's390x' }}
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
