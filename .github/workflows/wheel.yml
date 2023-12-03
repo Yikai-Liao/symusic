@@ -22,10 +22,6 @@ jobs:
           arch: 'i686'
         - os: ubuntu-latest
           arch: 'aarch64'
-        - os: ubuntu-latest
-          arch: 'ppc64le'
-        - os: ubuntu-latest
-          arch: 's390x'
         - os: macos-latest
           arch: 'x86_64'
         - os: macos-latest
