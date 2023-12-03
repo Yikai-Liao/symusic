@@ -11,26 +11,26 @@ jobs:
   build_wheels:
     # env:
       # CIBW_ARCHS: all
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.os }}, ${{ matrix.cibw_archs }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-20.04
-            cibw_archs: "x86_64"
-          - os: ubuntu-20.04
-            cibw_archs: "aarch64"
-          - os: windows-latest
             cibw_archs: "auto"
+          - os: ubuntu-20.04
+            cibw_archs: "aarch64 ppc64le s390x"
+          - os: windows-latest
+            cibw_archs: "all"
           - os: macos-11
-            cibw_archs: "x86_64 universal2 arm64"
+            cibw_archs: "all"
 
     steps:
       - name: Set up QEMU
-        if: matrix.cibw_archs == 'aarch64'
+        if: matrix.cibw_archs == 'aarch64 ppc64le s390x'
         uses: docker/setup-qemu-action@v2
         with:
-          platforms: arm64
+          platforms: all
 
       - name: Checkout
         uses: actions/checkout@v4
