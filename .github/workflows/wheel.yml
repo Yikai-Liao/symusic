@@ -1,4 +1,4 @@
-name: Build and upload to PyPI
+name: Build wheel
 
 on:
   workflow_dispatch:
@@ -11,29 +11,41 @@ jobs:
   build_wheels:
     # env:
       # CIBW_ARCHS: all
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.os }}, ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-11]
+        include:
+        - os: ubuntu-latest
+          arch: 'x86_64'
+        - os: ubuntu-latest
+          arch: 'i686'
+        - os: ubuntu-latest
+          arch: 'aarch64'
+        - os: ubuntu-latest
+          arch: 'ppc64le'
+        - os: ubuntu-latest
+          arch: 's390x'
+        - os: macos-latest
+          arch: 'x86_64'
+        - os: macos-latest
+          arch: 'arm64'
+        - os: macos-latest
+          arch: 'universal2'
+        - os: windows-latest
+          arch: 'x86'
+        - os: windows-latest
+          arch: 'AMD64'
+        - os: windows-latest
+          arch: 'ARM64'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Set up QEMU
+        if: ${{ matrix.arch == 'aarch64' || matrix.arch == 'ppc64le' || matrix.arch == 's390x' }}
+        uses: docker/setup-qemu-action@v2
         with:
-          submodules: true
+          platforms: all
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.1
-
-      - uses: actions/upload-artifact@v3
-        with:
-          path: ./wheelhouse/*.whl
-
-  build_wheels_apple_silicon:
-    name: Build wheels for the damn apple silicon
-    runs-on: macos-11
-    steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -42,7 +54,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.1
         env:
-          CIBW_ARCHS_MACOS: arm64
+          CIBW_ARCHS: ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v3
         with:
