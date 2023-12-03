@@ -9,11 +9,11 @@ include_directories(include)
 include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
+
 add_subdirectory(3rdparty/eigen EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
-
-find_package(Python REQUIRED COMPONENTS Interpreter Development)
-find_package(pybind11 REQUIRED CONFIG)
+# find_package(pybind11 REQUIRED CONFIG)
 
 pybind11_add_module(symusic src/symusic.cpp)
 target_link_libraries(symusic PRIVATE eigen)
