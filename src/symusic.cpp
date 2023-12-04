@@ -427,17 +427,34 @@ const Second second_inst;
 
 PYBIND11_MODULE(core, m) {
 
-    py::class_<Tick>(m, "Tick")
+    auto tick = py::class_<Tick>(m, "Tick")
         .def(py::init<>())
-        .def("__repr__", [](const Tick &) { return "TimeUnit::Tick"; });
+        .def("__repr__", [](const Tick &) { return "TimeUnit::Tick"; })
+        .def("is_time_unit", [](const Tick &) { return true; });
 
-    py::class_<Quarter>(m, "Quarter")
+    auto quarter = py::class_<Quarter>(m, "Quarter")
         .def(py::init<>())
-        .def("__repr__", [](const Quarter &) { return "TimeUnit::Quarter"; });
+        .def("__repr__", [](const Quarter &) { return "TimeUnit::Quarter"; })
+        .def("is_time_unit", [](const Quarter &) { return true; });
 
-    py::class_<Second>(m, "Second")
+    auto second = py::class_<Second>(m, "Second")
         .def(py::init<>())
-        .def("__repr__", [](const Second &) { return "TimeUnit::Second"; });
+        .def("__repr__", [](const Second &) { return "TimeUnit::Second"; })
+        .def("is_time_unit", [](const Second &) { return true; });
+
+    // def __eq__ for all time units
+    tick.def("__eq__", [](const Tick &, const Tick &) { return true; })
+        .def("__eq__", [](const Tick &, const Quarter &) { return false; })
+        .def("__eq__", [](const Tick &, const Second &) { return false; });
+    
+    quarter.def("__eq__", [](const Quarter &, const Tick &) { return false; })
+        .def("__eq__", [](const Quarter &, const Quarter &) { return true; })
+        .def("__eq__", [](const Quarter &, const Second &) { return false; });
+
+    second.def("__eq__", [](const Second &, const Tick &) { return false; })
+        .def("__eq__", [](const Second &, const Quarter &) { return false; })
+        .def("__eq__", [](const Second &, const Second &) { return true; });
+
 //
 //    auto unit = m.def_submodule("unit");
 //    unit.attr("Tick") = &tick_inst;
