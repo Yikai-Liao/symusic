@@ -137,7 +137,7 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     license=open('LICENSE', encoding="utf-8").read(),
-    package_dir={"symusic": "py_wrapper"},
+    package_dir={"symusic": "symusic"},
     packages=["symusic"],
     ext_modules=[CMakeExtension("symusic.core", ".")],
     cmdclass={"build_ext": CMakeBuild},
