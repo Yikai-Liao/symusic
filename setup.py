@@ -141,7 +141,7 @@ setup(
     packages=["symusic"],
     ext_modules=[CMakeExtension("symusic.core", ".")],
     cmdclass={"build_ext": CMakeBuild},
-    # package_data={".": ["symusic-stubs/**/*"]},
+    package_data={"symusic": ["**/*.pyi"]},
     zip_safe=False,
     install_requires=["numpy>=1.20"],
     setup_requires=["pybind11>=2.10"],
