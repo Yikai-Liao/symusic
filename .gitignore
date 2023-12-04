@@ -5,3 +5,5 @@
 **/*.egg-info
 **/*.DS_Store
 **/settings.json
+**/__pycache__
+**/*.pyc
