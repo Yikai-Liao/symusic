@@ -16,7 +16,7 @@ PLAT_TO_CMAKE = {
 }
 
 
-_TARGET_NAME = "symusic"
+_TARGET_NAME = "core"
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
@@ -137,10 +137,11 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     license=open('LICENSE', encoding="utf-8").read(),
-    packages=["."],
-    ext_modules=[CMakeExtension("")],
+    package_dir={"symusic": "py_wrapper"},
+    packages=["symusic"],
+    ext_modules=[CMakeExtension("symusic.core", ".")],
     cmdclass={"build_ext": CMakeBuild},
-    package_data={".": ["symusic-stubs/**/*"]},
+    # package_data={".": ["symusic-stubs/**/*"]},
     zip_safe=False,
     install_requires=["numpy>=1.20"],
     setup_requires=["pybind11>=2.10"],
