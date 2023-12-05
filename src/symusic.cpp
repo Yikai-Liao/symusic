@@ -2,6 +2,7 @@
 // Created by lyk on 23-9-20.
 //
 #include <pybind11/cast.h>
+#include <pybind11/pytypes.h>
 #include <string>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
@@ -443,23 +444,21 @@ PYBIND11_MODULE(core, m) {
         .def("is_time_unit", [](const Second &) { return true; });
 
     // def __eq__ for all time units
-    tick.def("__eq__", [](const Tick &, const Tick &) { return true; })
-        .def("__eq__", [](const Tick &, const Quarter &) { return false; })
-        .def("__eq__", [](const Tick &, const Second &) { return false; });
-    
-    quarter.def("__eq__", [](const Quarter &, const Tick &) { return false; })
-        .def("__eq__", [](const Quarter &, const Quarter &) { return true; })
-        .def("__eq__", [](const Quarter &, const Second &) { return false; });
+    tick.def("__eq__", [](const py::class_<Tick> &, const py::object &other) {
+        if (py::isinstance<Tick>(other)) return true;
+        return false;
+    });
 
-    second.def("__eq__", [](const Second &, const Tick &) { return false; })
-        .def("__eq__", [](const Second &, const Quarter &) { return false; })
-        .def("__eq__", [](const Second &, const Second &) { return true; });
+    quarter.def("__eq__", [](const py::class_<Quarter> &, const py::object &other) {
+        if (py::isinstance<Quarter>(other)) return true;
+        return false;
+    });
 
-//
-//    auto unit = m.def_submodule("unit");
-//    unit.attr("Tick") = &tick_inst;
-//    unit.attr("Quarter") = &quarter_inst;
-//    unit.attr("Second") = &second_inst;
+    second.def("__eq__", [](const py::object &other, const py::class_<Second> &) {
+        if (py::isinstance<Second>(other)) return true;
+        return false;
+    });
+
 
     core_module(m);
 //
