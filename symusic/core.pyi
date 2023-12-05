@@ -117,9 +117,9 @@ class ControlChangeQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> ControlChangeQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeQuarterList:
         ...
-    def sort_inplace(self) -> ControlChangeQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeQuarterList:
         ...
 class ControlChangeSecond:
     number: int
@@ -237,9 +237,9 @@ class ControlChangeSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> ControlChangeSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeSecondList:
         ...
-    def sort_inplace(self) -> ControlChangeSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeSecondList:
         ...
 class ControlChangeTick:
     number: int
@@ -357,9 +357,9 @@ class ControlChangeTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> ControlChangeTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeTickList:
         ...
-    def sort_inplace(self) -> ControlChangeTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeTickList:
         ...
 class KeySignatureQuarter:
     key: int
@@ -477,9 +477,9 @@ class KeySignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> KeySignatureQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureQuarterList:
         ...
-    def sort_inplace(self) -> KeySignatureQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureQuarterList:
         ...
 class KeySignatureSecond:
     key: int
@@ -597,9 +597,9 @@ class KeySignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> KeySignatureSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureSecondList:
         ...
-    def sort_inplace(self) -> KeySignatureSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureSecondList:
         ...
 class KeySignatureTick:
     key: int
@@ -717,9 +717,9 @@ class KeySignatureTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> KeySignatureTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureTickList:
         ...
-    def sort_inplace(self) -> KeySignatureTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureTickList:
         ...
 class NoteQuarter:
     duration: float
@@ -856,9 +856,9 @@ class NoteQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> NoteQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteQuarterList:
         ...
-    def sort_inplace(self) -> NoteQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteQuarterList:
         ...
 class NoteSecond:
     duration: float
@@ -995,9 +995,9 @@ class NoteSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> NoteSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteSecondList:
         ...
-    def sort_inplace(self) -> NoteSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteSecondList:
         ...
 class NoteTick:
     duration: int
@@ -1134,9 +1134,9 @@ class NoteTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> NoteTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
         ...
-    def sort_inplace(self) -> NoteTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
         ...
 class PitchBendQuarter:
     time: float
@@ -1253,9 +1253,9 @@ class PitchBendQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> PitchBendQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendQuarterList:
         ...
-    def sort_inplace(self) -> PitchBendQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendQuarterList:
         ...
 class PitchBendSecond:
     time: float
@@ -1372,9 +1372,9 @@ class PitchBendSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> PitchBendSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendSecondList:
         ...
-    def sort_inplace(self) -> PitchBendSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendSecondList:
         ...
 class PitchBendTick:
     time: int
@@ -1491,16 +1491,19 @@ class PitchBendTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> PitchBendTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendTickList:
         ...
-    def sort_inplace(self) -> PitchBendTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendTickList:
         ...
 class Quarter:
+    __hash__: typing.ClassVar[None] = None
+    def __eq__(self, arg0: typing.Any) -> bool:
+        ...
     def __init__(self) -> None:
         ...
     def __repr__(self) -> str:
         ...
-    def is_time_unit(self) -> bool: 
+    def is_time_unit(self) -> bool:
         ...
 class ScoreQuarter:
     key_signatures: KeySignatureQuarterList
@@ -1562,9 +1565,9 @@ class ScoreQuarter:
         ...
     def shift_velocity_inplace(self, arg0: int) -> ScoreQuarter:
         ...
-    def sort(self) -> ScoreQuarter:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> ScoreQuarter:
         ...
-    def sort_inplace(self) -> ScoreQuarter:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ScoreQuarter:
         ...
     def start(self) -> float:
         ...
@@ -1628,18 +1631,21 @@ class ScoreTick:
         ...
     def shift_velocity_inplace(self, arg0: int) -> ScoreTick:
         ...
-    def sort(self) -> ScoreTick:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> ScoreTick:
         ...
-    def sort_inplace(self) -> ScoreTick:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ScoreTick:
         ...
     def start(self) -> int:
         ...
 class Second:
+    __hash__: typing.ClassVar[None] = None
+    def __eq__(self, arg0: typing.Any) -> bool:
+        ...
     def __init__(self) -> None:
         ...
     def __repr__(self) -> str:
         ...
-    def is_time_unit(self) -> bool: 
+    def is_time_unit(self) -> bool:
         ...
 class TempoQuarter:
     tempo: float
@@ -1756,9 +1762,9 @@ class TempoQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TempoQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoQuarterList:
         ...
-    def sort_inplace(self) -> TempoQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoQuarterList:
         ...
 class TempoSecond:
     tempo: float
@@ -1875,9 +1881,9 @@ class TempoSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TempoSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoSecondList:
         ...
-    def sort_inplace(self) -> TempoSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoSecondList:
         ...
 class TempoTick:
     tempo: float
@@ -1994,9 +2000,9 @@ class TempoTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TempoTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoTickList:
         ...
-    def sort_inplace(self) -> TempoTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoTickList:
         ...
 class TextMetaQuarter:
     text: str
@@ -2113,9 +2119,9 @@ class TextMetaQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TextMetaQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaQuarterList:
         ...
-    def sort_inplace(self) -> TextMetaQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaQuarterList:
         ...
 class TextMetaSecond:
     text: str
@@ -2232,9 +2238,9 @@ class TextMetaSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TextMetaSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaSecondList:
         ...
-    def sort_inplace(self) -> TextMetaSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaSecondList:
         ...
 class TextMetaTick:
     text: str
@@ -2351,16 +2357,19 @@ class TextMetaTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TextMetaTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaTickList:
         ...
-    def sort_inplace(self) -> TextMetaTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaTickList:
         ...
 class Tick:
+    __hash__: typing.ClassVar[None] = None
+    def __eq__(self, arg0: typing.Any) -> bool:
+        ...
     def __init__(self) -> None:
         ...
     def __repr__(self) -> str:
         ...
-    def is_time_unit(self) -> bool: 
+    def is_time_unit(self) -> bool:
         ...
 class TimeSignatureQuarter:
     denominator: int
@@ -2478,9 +2487,9 @@ class TimeSignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TimeSignatureQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureQuarterList:
         ...
-    def sort_inplace(self) -> TimeSignatureQuarterList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureQuarterList:
         ...
 class TimeSignatureSecond:
     denominator: int
@@ -2598,9 +2607,9 @@ class TimeSignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TimeSignatureSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureSecondList:
         ...
-    def sort_inplace(self) -> TimeSignatureSecondList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureSecondList:
         ...
 class TimeSignatureTick:
     denominator: int
@@ -2718,9 +2727,9 @@ class TimeSignatureTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self) -> TimeSignatureTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureTickList:
         ...
-    def sort_inplace(self) -> TimeSignatureTickList:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureTickList:
         ...
 class TrackQuarter:
     controls: ControlChangeQuarterList
@@ -2773,9 +2782,9 @@ class TrackQuarter:
         ...
     def shift_velocity_inplace(self, arg0: int) -> TrackQuarter:
         ...
-    def sort(self) -> TrackQuarter:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackQuarter:
         ...
-    def sort_inplace(self) -> TrackQuarter:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackQuarter:
         ...
     def start(self) -> float:
         ...
@@ -2865,6 +2874,10 @@ class TrackQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def sort(self, key: typing.Any, reverse: bool = False) -> TrackQuarterList:
+        ...
+    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackQuarterList:
+        ...
 class TrackSecond:
     controls: ControlChangeSecondList
     is_drum: bool
@@ -2916,9 +2929,9 @@ class TrackSecond:
         ...
     def shift_velocity_inplace(self, arg0: int) -> TrackSecond:
         ...
-    def sort(self) -> TrackSecond:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackSecond:
         ...
-    def sort_inplace(self) -> TrackSecond:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackSecond:
         ...
     def start(self) -> float:
         ...
@@ -3008,6 +3021,10 @@ class TrackSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def sort(self, key: typing.Any, reverse: bool = False) -> TrackSecondList:
+        ...
+    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackSecondList:
+        ...
 class TrackTick:
     controls: ControlChangeTickList
     is_drum: bool
@@ -3059,9 +3076,9 @@ class TrackTick:
         ...
     def shift_velocity_inplace(self, arg0: int) -> TrackTick:
         ...
-    def sort(self) -> TrackTick:
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackTick:
         ...
-    def sort_inplace(self) -> TrackTick:
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackTick:
         ...
     def start(self) -> int:
         ...
@@ -3151,4 +3168,8 @@ class TrackTickList:
         """
         Remove and return the item at index ``i``
         """
+    def sort(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
+        ...
+    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
+        ...
 __version__: str = '0.1.1'
