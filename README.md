@@ -22,7 +22,7 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
   * shift_pitch(offset: int)
   * shift_velocity(offset: int)
   * shift_time(offset: float)
-  * sort()
+  * sort(key, reversse)
 * You can operate each note just like you did before in python (like PrettyMidi)
 
 
