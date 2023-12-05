@@ -9,7 +9,7 @@ include_directories(include)
 include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 
-set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
+# set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
 add_subdirectory(3rdparty/eigen EXCLUDE_FROM_ALL)
