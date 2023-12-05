@@ -1,6 +1,7 @@
 //
 // Created by lyk on 23-9-20.
 //
+#include <functional>
 #include <pybind11/cast.h>
 #include <pybind11/pytypes.h>
 #include <string>
@@ -20,6 +21,27 @@ using namespace score;
 
 REPEAT_ON(OPAQUE_VEC, Note, ControlChange, score::TimeSignature, score::KeySignature, Tempo, PitchBend, TextMeta, Track)
 
+template<typename T>
+void sort_by_py_key(vec<T> &self, const py::function &key) {
+    pdqsort(self.begin(), self.end(), [&key](const T &a, const T &b) {
+        return key(a) < key(b);
+    });
+}
+
+template<typename T>
+vec<T> & py_sort_inplace(vec<T> &self, py::object key, bool reverse) {
+    if (key.is_none()) utils::sort_by_time(self);
+    else sort_by_py_key(self, key.cast<py::function>());
+    if (reverse) std::reverse(self.begin(), self.end());
+    return self;
+}
+
+template<typename T>
+vec<T> py_sort(const vec<T> &self, py::object key, bool reverse) {
+    auto copy = self;
+    py_sort_inplace(copy, key, reverse);
+    return copy;
+}
 
 // a template functions for binding all specializations of Note, and return it
 template<typename T>
@@ -51,15 +73,8 @@ py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
         .def("__repr__", &Note<T>::to_string);
 
     py::bind_vector<vec<Note<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<Note<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<Note<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<Note<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<Note<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<Note<T>> &self) {
             return to_string(self);
         });
@@ -89,15 +104,8 @@ py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const
         .def("__repr__", &score::KeySignature<T>::to_string);
 
     py::bind_vector<vec<score::KeySignature<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::KeySignature<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::KeySignature<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<score::KeySignature<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<score::KeySignature<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::KeySignature<T>> &self) {
             return to_string(self);
         });
@@ -127,15 +135,8 @@ py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, con
         .def("__repr__", &score::TimeSignature<T>::to_string);
 
     py::bind_vector<vec<score::TimeSignature<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::TimeSignature<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::TimeSignature<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<score::TimeSignature<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<score::TimeSignature<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::TimeSignature<T>> &self) {
             return to_string(self);
         });
@@ -165,15 +166,8 @@ py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, con
         .def("__repr__", &score::ControlChange<T>::to_string);
 
     py::bind_vector<vec<score::ControlChange<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::ControlChange<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::ControlChange<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<score::ControlChange<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<score::ControlChange<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::ControlChange<T>> &self) {
             return to_string(self);
         });
@@ -201,15 +195,8 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
         .def("__repr__", &score::Tempo<T>::to_string);
 
     py::bind_vector<vec<score::Tempo<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::Tempo<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::Tempo<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<score::Tempo<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<score::Tempo<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::Tempo<T>> &self) {
             return to_string(self);
         });
@@ -238,15 +225,8 @@ py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::
         .def("__repr__", &score::PitchBend<T>::to_string);
     
     py::bind_vector<vec<score::PitchBend<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::PitchBend<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::PitchBend<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<PitchBend<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<PitchBend<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::PitchBend<T>> &self) {
             return to_string(self);
         });
@@ -275,15 +255,8 @@ py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::st
         .def("__repr__", &score::TextMeta<T>::to_string);
     
     py::bind_vector<vec<score::TextMeta<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::TextMeta<T>> &self) {
-            utils::sort_by_time(self);
-            return self;
-        })
-        .def("sort", [](const vec<score::TextMeta<T>> &self) {
-            auto copy = self;
-            utils::sort_by_time(copy);
-            return copy;
-        })
+        .def("sort_inplace", &py_sort_inplace<TextMeta<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<TextMeta<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::TextMeta<T>> &self) {
             return to_string(self);
         });
@@ -292,13 +265,27 @@ py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::st
 
     return event;
 }
+template<typename T>
+Track<T>&py_sort_track_inplace(Track<T> &self, py::object key, bool reverse) {
+    py_sort_inplace(self.notes, key, reverse);
+    py_sort_inplace(self.controls, key, reverse);
+    py_sort_inplace(self.pitch_bends, key, reverse);
+    return self;
+};
+
+template<typename T>
+Track<T> py_sort_track(const Track<T> &self, py::object key, bool reverse) {
+    auto copy = self;
+    return py_sort_track_inplace(copy, key, reverse);
+};
+
+
 
 // bind score::Track<T>
 template<typename T>
 py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "Track" + name_;
-
     auto event = py::class_<score::Track<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const score::Track<T> &>(), "Copy constructor")
@@ -312,8 +299,8 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("is_drum", &score::Track<T>::is_drum)
         .def_readwrite("program", &score::Track<T>::program)
         .def_readwrite("name", &score::Track<T>::name)
-        .def("sort_inplace", &score::Track<T>::sort_inplace)
-        .def("sort", &score::Track<T>::sort, py::return_value_policy::move)
+        .def("sort_inplace", &py_sort_track_inplace<T>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("end", &Track<T>::end)
         .def("start", &score::Track<T>::start)
         .def("note_num", &score::Track<T>::note_num)
@@ -327,6 +314,19 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("shift_velocity", &score::Track<T>::shift_velocity);
         
     py::bind_vector<vec<score::Track<T>>>(m, name + "List")
+        .def("sort_inplace", [](vec<score::Track<T>> &self, py::object key, bool reverse) {
+            if (key.is_none()) throw std::invalid_argument("key must be specified");
+            else sort_by_py_key(self, key.cast<py::function>());
+            if (reverse) std::reverse(self.begin(), self.end());
+            return self;
+        }, py::arg("key"), py::arg("reverse")=false)
+        .def("sort", [](const vec<score::Track<T>> &self, py::object key, bool reverse) {
+            auto copy = self;
+            if (key.is_none()) throw std::invalid_argument("key must be specified");
+            else sort_by_py_key(copy, key.cast<py::function>());
+            if (reverse) std::reverse(copy.begin(), copy.end());
+            return copy;
+        }, py::arg("key"), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::Track<T>> &self) {
             return to_string(self);
         });
@@ -336,11 +336,35 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
     return event;
 }
 
+
+// py sort score
+template<typename T>
+Score<T>& py_sort_score_inplace(Score<T> &self, py::object key, bool reverse) {
+    py_sort_inplace(self.time_signatures, key, reverse);
+    py_sort_inplace(self.key_signatures, key, reverse);
+    py_sort_inplace(self.tempos, key, reverse);
+    py_sort_inplace(self.lyrics, key, reverse);
+    py_sort_inplace(self.markers, key, reverse);
+    for(auto &track: self.tracks) 
+        py_sort_track_inplace(track, key, reverse);
+    return self;
+};
+
+template<typename T>
+Score<T> py_sort_score(const Score<T> &self, py::object key, bool reverse) {
+    auto copy = self;
+    return py_sort_score_inplace(copy, key, reverse);
+};
+
+
+
+
 // bind score::Score<T>
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     auto name = "Score" + name_;
+
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const Score<T> &>(), "Copy constructor")
@@ -359,8 +383,8 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
-        .def("sort_inplace", &Score<T>::sort_inplace)
-        .def("sort", &Score<T>::sort, py::return_value_policy::move)
+        .def("sort_inplace", &py_sort_score_inplace<T>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false)
         .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time_inplace", &Score<T>::shift_time_inplace)
         .def("shift_time", &Score<T>::shift_time)
@@ -444,17 +468,17 @@ PYBIND11_MODULE(core, m) {
         .def("is_time_unit", [](const Second &) { return true; });
 
     // def __eq__ for all time units
-    tick.def("__eq__", [](const py::class_<Tick> &, const py::object &other) {
+    tick.def("__eq__", [](const Tick &, const py::object &other) {
         if (py::isinstance<Tick>(other)) return true;
         return false;
     });
 
-    quarter.def("__eq__", [](const py::class_<Quarter> &, const py::object &other) {
+    quarter.def("__eq__", [](const Quarter &, const py::object &other) {
         if (py::isinstance<Quarter>(other)) return true;
         return false;
     });
 
-    second.def("__eq__", [](const py::object &other, const py::class_<Second> &) {
+    second.def("__eq__", [](const Second &, const py::object &other) {
         if (py::isinstance<Second>(other)) return true;
         return false;
     });
