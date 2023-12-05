@@ -11,8 +11,8 @@ jobs:
   build_wheels:
     # env:
       # CIBW_ARCHS: all
-    name: Build wheels on ${{ matrix.os }}, ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: Build wheel for ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+    runs-on: ${{ matrix.buildplat[0] }}
     strategy:
       matrix:
         # From wheel.yml of numpy (https://github.com/numpy/numpy/blob/main/.github/workflows/wheels.yml):
