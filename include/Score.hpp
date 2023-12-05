@@ -1,20 +1,16 @@
-#include <cmath>
+#ifndef SCORE_HPP
+#define SCORE_HPP
 #include <map>
 #include <queue>
 #include <algorithm>
-#ifndef __SCORE_HPP__
-#define __SCORE_HPP__
-
 #include <cmath>
 #include <cfloat>
-#include <exception>
 #include <functional>
 #include <sstream>
 #include <string>
 #include <iostream>
 #include <utility>
 #include "pdqsort.h"
-//#include <Eigen/Core>
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"
 namespace score {
@@ -29,12 +25,16 @@ typedef double      f64;
 
 #define SS_PRECISION 2
 
+using std::to_string;
+using std::ostream;
+using namespace minimidi;
+
 namespace utils {
-inline i8 safe_add(i8 a, i8 b) {
-    int ans = a + b;
+inline i8 safe_add(const i8 a, const i8 b) {
+    const int ans = a + b;
     if (ans > 127 || ans < 0)
         throw std::range_error("Overflow while adding " + std::to_string(a) + " and " + std::to_string(b));
-    return (int8_t) ans;
+    return static_cast<i8>(ans);
 }
 // NOLINTBEGIN
 std::string strip_non_utf_8(std::string *str) {
@@ -108,13 +108,13 @@ std::string strip_non_utf_8(std::string *str) {
                 continue;
             }
         }
-        //invalid UTF8, converting ASCII (c>245 || string too short for multibyte))
+        //invalid UTF8, converting ASCII (c>245 || string too short for multibyte)
         to.append(1, (unsigned char) 195);
         to.append(1, c - 64);
     }
     return to;
-}
 } // NOLINTEND
+} // namespace utils end
 
 template<typename T>
 struct TimeUnit {
@@ -131,7 +131,7 @@ TIME_UNIT_TYPE(Second,  f32)
 template<typename T>
 struct TimeStamp {
     typedef typename T::unit unit;
-    unit time;
+    unit time = 0;
 
     TimeStamp() = default;
     TimeStamp(const TimeStamp &) = default;
@@ -142,6 +142,7 @@ struct TimeStamp {
     template<typename T>                                                    \
     struct CLASS_NAME : public TimeStamp<T>
 
+// NOLINTBEGIN
 #define DEFAULT_METHODS                                                     \
     typedef typename T::unit unit;                                          \
     CLASS_NAME() = default;                                                 \
@@ -158,10 +159,10 @@ struct TimeStamp {
     CLASS_NAME & shift_##ATTR##_inplace (unit offset) {                     \
         ATTR = utils::safe_add(ATTR, offset); return *this;                 \
     }                                                                       \
-    [[nodiscard]] CLASS_NAME shift_##ATTR (unit offset) {                  \
+    [[nodiscard]] CLASS_NAME shift_##ATTR (unit offset) {                   \
         return copy().shift_##ATTR##_inplace(offset);                       \
     }
-
+// NOLINTEND
 
 #define CLASS_NAME Note
 TIME_EVENT {
@@ -190,10 +191,10 @@ TIME_EVENT {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Note"
-           << "(time="  << this->time
+           << "(time="      << this->time
            << ", duration=" << duration
-           << ", pitch="    << (i32) pitch
-           << ", velocity=" << (i32) velocity
+           << ", pitch="    << static_cast<i32>(pitch)
+           << ", velocity=" << static_cast<i32>(velocity)
            << ")";
         return ss.str();
     }
@@ -216,9 +217,9 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "ControlChange"
-           << "(time="  << this->time
-           << ", number=" << (i32) number
-           << ", value="    << (i32) value
+           << "(time="      << this->time
+           << ", number="   << static_cast<i32>(number)
+           << ", value="    << static_cast<i32>(value)
            << ")";
         return ss.str();
     }
@@ -230,23 +231,23 @@ TIME_EVENT{
     DEFAULT_METHODS
     u8 numerator{}, denominator{};
 
-    TimeSignature(unit time, u8 numerator, u8 denominator) :
+    TimeSignature(const unit time, const u8 numerator, const u8 denominator) :
         TimeStamp<T>(time), numerator(numerator), denominator(denominator) {};
 
-    TimeSignature(unit time, minimidi::message::TimeSignature msg) :
+    TimeSignature(const unit time, const minimidi::message::TimeSignature msg) :
         TimeStamp<T>(time), numerator(msg.numerator), denominator(msg.denominator) {};
 
     template<typename U>
-    TimeSignature(unit time, const TimeSignature<U>& other):
+    TimeSignature(const unit time, const TimeSignature<U>& other):
         TimeStamp<T>(time), numerator(other.numerator), denominator(other.denominator) {};
 
     [[nodiscard]] std::string to_string() const {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "TimeSignature"
-           << "(time="  << this->time
-           << ", numerator=" << (i32) numerator
-           << ", denominator="    << (i32) denominator
+           << "(time="          << this->time
+           << ", numerator="    << static_cast<i32>(numerator)
+           << ", denominator="  << static_cast<i32>(denominator)
            << ")";
         return ss.str();
     }
@@ -260,10 +261,10 @@ TIME_EVENT{
     i8 key{};
     u8 tonality{};
 
-    KeySignature(unit time, i8 key, u8 tonality) :
+    KeySignature(const unit time, const i8 key, const u8 tonality) :
         TimeStamp<T>(time), key(key), tonality(tonality) {};
 
-    KeySignature(unit time, minimidi::message::KeySignature msg) :
+    KeySignature(const unit time, const minimidi::message::KeySignature msg) :
         TimeStamp<T>(time), key(msg.key), tonality(msg.tonality) {};
 
     template<typename U>
@@ -274,9 +275,9 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "KeySignature"
-           << "(time="  << this->time
-           << ", key=" << (i32) key
-           << ", tonality="    << (i32) tonality
+           << "(time="          << this->time
+           << ", key="          << static_cast<i32>(key)
+           << ", tonality="     << static_cast<i32>(tonality)
            << ")";
         return ss.str();
     }
@@ -288,17 +289,17 @@ TIME_EVENT{
     DEFAULT_METHODS
     f32 qpm{};
 
-    Tempo(unit time, f32 qpm) : TimeStamp<T>(time), qpm(qpm) {};
+    Tempo(const unit time, const f32 qpm) : TimeStamp<T>(time), qpm(qpm) {};
 
     template<typename U>
-    Tempo(unit time, const Tempo<U>& other): TimeStamp<T>(time), qpm(other.qpm) {};
+    Tempo(const unit time, const Tempo<U>& other): TimeStamp<T>(time), qpm(other.qpm) {};
 
     [[nodiscard]] std::string to_string() const {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Tempo"
            << "(time="  << this->time
-           << ", qpm=" << qpm
+           << ", qpm="  << qpm
            << ")";
         return ss.str();
     }
@@ -319,13 +320,37 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "PitchBend"
-           << "(time="  << this->time
-           << ", value=" << value
+           << "(time="      << this->time
+           << ", value="    << value
            << ")";
         return ss.str();
     }
 };
 #undef CLASS_NAME // PitchBend
+
+#define CLASS_NAME Pedal
+TIME_EVENT{
+    DEFAULT_METHODS
+    unit duration;
+
+    Pedal(unit time, unit duration) : TimeStamp<T>(time), duration(duration) {};
+
+    template<typename U>
+    Pedal(unit time, const Pedal<U>& other): TimeStamp<T>(time), duration(other.duration) {};
+
+    [[nodiscard]] unit end() const { return this->time + duration; }
+
+    [[nodiscard]] std::string to_string() const {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(SS_PRECISION);
+        ss << "Pedal"
+           << "(time="  << this->time
+           << ", duration=" << duration
+           << ")";
+        return ss.str();
+    }
+};
+#undef CLASS_NAME // Pedal
 
 #define CLASS_NAME TextMeta
 TIME_EVENT{
@@ -397,7 +422,7 @@ vec<T> &shift_time_inplace(vec<T> &data, typename T::unit offset) {
     for (auto &event: data)
         event.shift_time_inplace(offset);
     return data;
-};
+}
 
 template<typename T>
 vec<T> shift_time(const vec<T> &data, typename T::unit offset) {
@@ -406,14 +431,11 @@ vec<T> shift_time(const vec<T> &data, typename T::unit offset) {
     for (auto &event: data)
         new_data.emplace_back(event.shift_time(offset));
     return new_data;
-};
 }
+} // namespace utils end
 
-using std::to_string;
-using std::ostream;
-using namespace minimidi::message;
-
-#define STRING_METHODS(i, CLASS_NAME)                                  \
+// overload operator<< and to_string for vec<T>
+#define STRING_METHODS(i, CLASS_NAME)                                   \
     template <typename T>                                               \
     std::string to_string(const CLASS_NAME<T> & data) {                 \
         return data.to_string();                                        \
@@ -423,7 +445,7 @@ using namespace minimidi::message;
              out <<data.to_string(); return out;                        \
     }                                                                   \
     template <typename T>                                               \
-    ostream& operator<<(ostream& out, const vec<CLASS_NAME<T>>& data) {     \
+    ostream& operator<<(ostream& out, const vec<CLASS_NAME<T>>& data) { \
         if(data.empty()){                                               \
             out << "[]"; return out;                                    \
         } size_t j = 0; out << "[";                                     \
@@ -433,7 +455,7 @@ using namespace minimidi::message;
         return out;                                                     \
     }                                                                   \
     template<typename T>                                                \
-    std::string to_string(const vec<CLASS_NAME<T>> & data){               \
+    std::string to_string(const vec<CLASS_NAME<T>> & data){             \
         std::stringstream ss;                                           \
         ss << data;                                                     \
         return ss.str();                                                \
@@ -442,9 +464,9 @@ using namespace minimidi::message;
 // avoid overload other types
 REPEAT_ON(
     STRING_METHODS,
-    Note, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
+    Note, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, Pedal, TextMeta
 )
-
+// overload operator<< and to_string for vec<T> end
 
 template <typename T>
 struct Track{
@@ -456,15 +478,19 @@ struct Track{
     vec<Note<T>> notes;
     vec<ControlChange<T>> controls;
     vec<PitchBend<T>> pitch_bends;
+    vec<Pedal<T>> pedals;
 
     Track() = default;
     Track(const Track&) = default;
-    Track(std::string name, u8 program, bool is_drum,
+    Track(std::string name,
+          const u8 program,
+          const bool is_drum,
           vec<Note<T>> notes,
           vec<ControlChange<T>> controls,
           vec<PitchBend<T>> pitch_bends) :
         name(std::move(name)), program(program), is_drum(is_drum),
-        notes(std::move(notes)), controls(std::move(controls)), pitch_bends(std::move(pitch_bends)) {};
+        notes(std::move(notes)), controls(std::move(controls)),
+        pitch_bends(std::move(pitch_bends)) {};
 
     Track(std::string name, u8 program, bool is_drum) :
         name(std::move(name)), program(program), is_drum(is_drum) {};
@@ -475,6 +501,7 @@ struct Track{
         utils::sort_by_time(notes);
         utils::sort_by_time(controls);
         utils::sort_by_time(pitch_bends);
+        utils::sort_by_time(pedals);
         return *this;
     }
 
@@ -511,6 +538,7 @@ struct Track{
         // clip others
         new_track.controls = utils::clip_by_time(controls, start, end);
         new_track.pitch_bends = utils::clip_by_time(pitch_bends, start, end);
+        new_track.pedals = utils::clip_by_time(pedals, start, end);
         return new_track;
     }
 
@@ -518,12 +546,13 @@ struct Track{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Track"
-           << "(name=\"" << name
-           << "\", program=" << (i32) program
-           << ", is_drum=" << (is_drum ? "True" : "False")
-           << ", notes=" << notes
-           << ", controls=" << controls
-           << ", pitch_bends=" << pitch_bends
+           << "(name=\""        << name
+           << "\", program="    << static_cast<i32>(program)
+           << ", is_drum="      << (is_drum ? "True" : "False")
+           << ", notes="        << notes
+           << ", controls="     << controls
+           << ", pitch_bends="  << pitch_bends
+           << ", pedals="       << pedals
            << ")";
         return ss.str();
     }
@@ -535,6 +564,8 @@ struct Track{
             control.shift_time_inplace(offset);
         for(auto &pitch_bend: pitch_bends)
             pitch_bend.shift_time_inplace(offset);
+        for(auto &pedal: pedals)
+            pedal.shift_time_inplace(offset);
         return *this;
     }
 
@@ -548,17 +579,17 @@ struct Track{
         return *this;
     }
 
-    [[nodiscard]] Track shift_pitch(i8 offset) const {
+    [[nodiscard]] Track shift_pitch(const i8 offset) const {
         return copy().shift_pitch_inplace(offset);
     }
 
-    Track& shift_velocity_inplace(i8 offset) {
+    Track& shift_velocity_inplace(const i8 offset) {
         for(auto &note: notes)
             note.shift_velocity_inplace(offset);
         return *this;
     }
 
-    [[nodiscard]] Track shift_velocity(i8 offset) const {
+    [[nodiscard]] Track shift_velocity(const i8 offset) const {
         return copy().shift_velocity_inplace(offset);
     }
 };
@@ -697,16 +728,16 @@ public:
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Score"
            << "(ticks_per_quarter=" << ticks_per_quarter
-           << ", time_signatures=" << time_signatures
-           << ", key_signatures=" << key_signatures
-           << ", tempos=" << tempos
-           << ", lyrics=" << lyrics
-           << ", markers=" << markers
-           << ", tracks=" << tracks
+           << ", time_signatures="  << time_signatures
+           << ", key_signatures="   << key_signatures
+           << ", tempos="           << tempos
+           << ", lyrics="           << lyrics
+           << ", markers="          << markers
+           << ", tracks="           << tracks
            << ")";
         return ss.str();
     }
-};
+}; // Score end
 
 namespace utils {
 template<typename T>
@@ -747,7 +778,7 @@ public:
         }
     }
 
-    inline const NoteOn<T> &front() const { return _front; }
+    [[nodiscard]] inline const NoteOn<T> &front() const { return _front; }
 };
 
 typedef std::tuple<u8, u8> TrackIdx;
@@ -774,14 +805,13 @@ Track<T> &get_track(
     }
     return track_map[track_idx];
 }
-}
+} // namespace utils end
 
 // read midi file using Score<Tick>
 template<>
 inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     size_t track_num = midi.track_num();
     ticks_per_quarter = midi.get_tick_per_quarter();
-    auto tpq = (float) ticks_per_quarter;
 
     using std::cout, std::endl;
     for (size_t i = 0; i < track_num; ++i) {
@@ -790,33 +820,30 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
         Track<Tick> stragglers[16]; // channel -> Track
         uint8_t cur_instr[16] = {0}; // channel -> program
         std::string cur_name;
-        // std::queue<utils::NoteOn<Tick>> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
-
         utils::NoteOnQueue<Tick> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
         // iter midi messages in the track
         size_t message_num = midi_track.message_num();
         for (size_t j = 0; j < message_num; ++j) {
             auto &msg = midi_track.message(j);
-//                float start = (float) msg.get_time() / tpq;
             auto cur_tick = static_cast<i32>(msg.get_time());
             switch (msg.get_type()) {
                 case (minimidi::message::MessageType::NoteOn): {
-                    uint8_t velocity = msg.get_velocity();
-                    if (velocity != 0) {
+                    if (uint8_t velocity = msg.get_velocity(); velocity != 0) {
                         auto pitch = msg.get_pitch();
-                        if (pitch >= 128)
-                            throw std::range_error("Get pitch=" + std::to_string((int) pitch));
-                        if (velocity >= 128)
-                            throw std::range_error("Get velocity=" + std::to_string((int) velocity));
-                        last_note_on[msg.get_channel()][pitch].emplace(cur_tick, (i8) velocity);
+                        if (pitch >= 128) throw std::range_error(
+                            "Get pitch=" + std::to_string(static_cast<int>(pitch)));
+                        if (velocity >= 128) throw std::range_error(
+                            "Get velocity=" + std::to_string(static_cast<int>(velocity)));
+                        last_note_on[msg.get_channel()][pitch].emplace(
+                            cur_tick, static_cast<i8>(velocity));
                         break;
                     } // if velocity is zero, turn to note off case
                 }
                 case (minimidi::message::MessageType::NoteOff): {
                     uint8_t channel = msg.get_channel();
                     uint8_t pitch = msg.get_pitch();
-                    if (pitch >= 128)
-                        throw std::range_error("Get pitch=" + std::to_string((int) pitch));
+                    if (pitch >= 128) throw std::range_error(
+                        "Get pitch=" + std::to_string((int) pitch));
                     auto &note_on_queue = last_note_on[channel][pitch];
                     auto &track = utils::get_track(
                         track_map, stragglers, channel,
@@ -835,29 +862,32 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                 case (minimidi::message::MessageType::ProgramChange): {
                     uint8_t channel = msg.get_channel();
                     uint8_t program = msg.get_program();
-                    if (program >= 128)
-                        throw std::range_error("Get program=" + std::to_string((int) program));
+                    if (program >= 128) throw std::range_error(
+                        "Get program=" + std::to_string((int) program));
                     cur_instr[channel] = program;
                     break;
                 }
                 case (minimidi::message::MessageType::ControlChange): {
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
-                    auto &track = utils::get_track(track_map, stragglers, channel, program, message_num, false);
+                    auto &track = utils::get_track(
+                        track_map, stragglers, channel, program, message_num, false);
                     uint8_t control_number = msg.get_control_number();
                     uint8_t control_value = msg.get_control_value();
-                    if (control_number >= 128)
-                        throw std::range_error("Get control_number=" + std::to_string((int) control_number));
-                    if (control_value >= 128)
-                        throw std::range_error("Get control_value=" + std::to_string((int) control_value));
-                    track.controls.emplace_back(cur_tick, msg.get_control_number(), msg.get_control_value());
+                    if (control_number >= 128) throw std::range_error(
+                        "Get control_number=" + std::to_string((int) control_number));
+                    if (control_value >= 128) throw std::range_error(
+                        "Get control_value=" + std::to_string((int) control_value));
+                    track.controls.emplace_back(
+                        cur_tick, msg.get_control_number(), msg.get_control_value());
                     break;
                 }
                 case (minimidi::message::MessageType::PitchBend): {
                     cout << "PitchBend" << endl;
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
-                    auto &track = utils::get_track(track_map, stragglers, channel, program, message_num, false);
+                    auto &track = utils::get_track(
+                        track_map, stragglers, channel, program, message_num, false);
                     auto value = msg.get_pitch_bend();
                     if (value < minimidi::message::MIN_PITCHBEND || value > minimidi::message::MAX_PITCHBEND)
                         throw std::range_error("Get pitch_bend=" + std::to_string((int) value));
@@ -877,7 +907,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                             break;
                         }
                         case (minimidi::message::MetaType::SetTempo): {
-                            tempos.emplace_back(cur_tick, (float) ((double) 60000000. / (double) msg.get_tempo()));
+                            tempos.emplace_back(cur_tick, 60000000.f / static_cast<float>(msg.get_tempo()));
                             break;
                         }
                         case (minimidi::message::MetaType::KeySignature): {
@@ -920,6 +950,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     utils::sort_by_time(markers);
 }
 
+// Define converts from Tick to Quarter
 #define TICK2QUARTER(i, CLASS_NAME)                                             \
     inline vec<CLASS_NAME<Quarter>> to_quarter(                                 \
         const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) {             \
@@ -934,7 +965,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
 REPEAT_ON(
     TICK2QUARTER,
     Note, TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta
-)
+) // Converts definition end
 
 #undef TICK2QUARTER
 
@@ -964,4 +995,4 @@ inline Score<Quarter>::Score(minimidi::file::MidiFile &midi) {
     from(score_tick);
 }
 } // namespace score end
-#endif //MUSIC_SCORE_H
+#endif //SCORE_HPP
