@@ -1,14 +1,11 @@
 //
 // Created by lyk on 23-9-20.
 //
-#include <functional>
+#include <string>
 #include <pybind11/cast.h>
 #include <pybind11/pytypes.h>
-#include <string>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
-//#include <pybind11/functional.h>
-//#include <pybind11/eigen.h>
 #include "Score.hpp"
 
 namespace py = pybind11;
@@ -22,24 +19,24 @@ using namespace score;
 REPEAT_ON(OPAQUE_VEC, Note, ControlChange, score::TimeSignature, score::KeySignature, Tempo, PitchBend, TextMeta, Track)
 
 template<typename T>
-void sort_by_py_key(vec<T> &self, const py::function &key) {
+void sort_by_py_key(vec<T> &self, const py::function & key) {
     pdqsort(self.begin(), self.end(), [&key](const T &a, const T &b) {
         return key(a) < key(b);
     });
 }
 
 template<typename T>
-vec<T> & py_sort_inplace(vec<T> &self, py::object key, bool reverse) {
-    if (key.is_none()) utils::sort_by_time(self);
+vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool reverse) {
+    if (key.is_none()) score::utils::sort_by_time(self);
     else sort_by_py_key(self, key.cast<py::function>());
     if (reverse) std::reverse(self.begin(), self.end());
     return self;
 }
 
 template<typename T>
-vec<T> py_sort(const vec<T> &self, py::object key, bool reverse) {
+vec<T> py_sort(const vec<T> &self, const py::object & key, bool reverse) {
     auto copy = self;
-    py_sort_inplace(copy, key, reverse);
+    py_sort_inplace<T>(copy, key, reverse);
     return copy;
 }
 
@@ -47,7 +44,7 @@ vec<T> py_sort(const vec<T> &self, py::object key, bool reverse) {
 template<typename T>
 py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "Note" + name_;
+    const auto name = "Note" + name_;
 
     auto event = py::class_<Note<T>>(m, name.c_str())
         .def(py::init<unit, unit, int8_t, int8_t>())
@@ -88,7 +85,7 @@ py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
 template<typename T>
 py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "KeySignature" + name_;
+    const auto name = "KeySignature" + name_;
 
     auto event = py::class_<score::KeySignature<T>>(m, name.c_str())
         .def(py::init<unit, i8, u8>())
@@ -119,7 +116,7 @@ py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const
 template<typename T>
 py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "TimeSignature" + name_;
+    const auto name = "TimeSignature" + name_;
 
     auto event = py::class_<score::TimeSignature<T>>(m, name.c_str())
         .def(py::init<unit, u8, u8>())
@@ -150,7 +147,7 @@ py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, con
 template<typename T>
 py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "ControlChange" + name_;
+    const auto name = "ControlChange" + name_;
 
     auto event = py::class_<score::ControlChange<T>>(m, name.c_str())
         .def(py::init<unit, u8, u8>())
@@ -181,7 +178,7 @@ py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, con
 template<typename T>
 py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "Tempo" + name_;
+    const auto name = "Tempo" + name_;
     auto event = py::class_<score::Tempo<T>>(m, name.c_str())
         .def(py::init<unit, float>())
         .def(py::init<const score::Tempo<T> &>(), "Copy constructor")
@@ -210,7 +207,7 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
 template<typename T>
 py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "PitchBend" + name_;
+    const auto name = "PitchBend" + name_;
 
     auto event = py::class_<score::PitchBend<T>>(m, name.c_str())
         .def(py::init<unit, i32>())
@@ -240,7 +237,7 @@ py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::
 template<typename T>
 py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
-    auto name = "TextMeta" + name_;
+    const auto name = "TextMeta" + name_;
 
     auto event = py::class_<score::TextMeta<T>>(m, name.c_str())
         .def(py::init<unit, std::string &>())
@@ -279,13 +276,10 @@ Track<T> py_sort_track(const Track<T> &self, py::object key, bool reverse) {
     return py_sort_track_inplace(copy, key, reverse);
 };
 
-
-
 // bind score::Track<T>
 template<typename T>
 py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & name_) {
-    typedef typename T::unit unit;
-    auto name = "Track" + name_;
+    const auto name = "Track" + name_;
     auto event = py::class_<score::Track<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const score::Track<T> &>(), "Copy constructor")
@@ -314,13 +308,13 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("shift_velocity", &score::Track<T>::shift_velocity);
         
     py::bind_vector<vec<score::Track<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::Track<T>> &self, py::object key, bool reverse) {
+        .def("sort_inplace", [](vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
             if (key.is_none()) throw std::invalid_argument("key must be specified");
             else sort_by_py_key(self, key.cast<py::function>());
             if (reverse) std::reverse(self.begin(), self.end());
             return self;
         }, py::arg("key"), py::arg("reverse")=false)
-        .def("sort", [](const vec<score::Track<T>> &self, py::object key, bool reverse) {
+        .def("sort", [](const vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
             auto copy = self;
             if (key.is_none()) throw std::invalid_argument("key must be specified");
             else sort_by_py_key(copy, key.cast<py::function>());
@@ -335,7 +329,6 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
 
     return event;
 }
-
 
 // py sort score
 template<typename T>
@@ -356,14 +349,10 @@ Score<T> py_sort_score(const Score<T> &self, py::object key, bool reverse) {
     return py_sort_score_inplace(copy, key, reverse);
 };
 
-
-
-
 // bind score::Score<T>
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) {
-    typedef typename T::unit unit;
-    auto name = "Score" + name_;
+    const auto name = "Score" + name_;
 
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<>())
@@ -437,18 +426,8 @@ py::module & core_module(py::module & m){
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
     //    bind_score_class<Second>(m, second);
-
-    // score_quarter.def(
-    //     py::init<const score::Score<Tick> &>(), "Converting time unit from Tick to Quarter",
-    //     py::arg("score")
-    // );
-
     return m;
 }
-
-const Tick tick_inst;
-const Quarter quarter_inst;
-const Second second_inst;
 
 PYBIND11_MODULE(core, m) {
 
@@ -483,292 +462,6 @@ PYBIND11_MODULE(core, m) {
         return false;
     });
 
-
     core_module(m);
-//
-//    m.def("Note", [](i32 t, const i32 &d, i8 p, i8 v, Tick _) {
-//        return Note<Tick>(t, d, p, v);
-//    }, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
-//
-//    m.def("Note", [](f32 t, const f32 &d, i8 p, i8 v, Quarter _) {
-//        return Note<Quarter>(t, d, p, v);
-//    }, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
-//
-//    m.def("Note", [](f32 t, const f32 &d, i8 p, i8 v, Second _) {
-//        return Note<Second>(t, d, p, v);
-//    },py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"), py::arg("time_unit"));
-//
-//    m.def("Note", [](py::object &t, py::object &d, i8 p, i8 v, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(Note<Tick>(t.cast<i32>(), d.cast<i32>(), p, v));
-//            } else if (unit == "quarter") {
-//                return py::cast(Note<Quarter>(t.cast<f32>(), d.cast<f32>(), p, v));
-//            } else if (unit == "second") {
-//                return py::cast(Note<Second>(t.cast<f32>(), d.cast<f32>(), p, v));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a Note object from time, duration, pitch, velocity and time_unit",
-//        py::arg("time"), py::arg("duration"), py::arg("pitch"),
-//        py::arg("velocity"), py::arg("time_unit")
-//    );
-//
-//    m.def("ControlChange", [](i32 t, u8 n, u8 v, Tick _) {
-//        return ControlChange<Tick>(t, n, v);
-//    }, py::arg("time"), py::arg("number"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("ControlChange", [](f32 t, u8 n, u8 v, Quarter _) {
-//        return ControlChange<Quarter>(t, n, v);
-//    }, py::arg("time"), py::arg("number"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("ControlChange", [](f32 t, u8 n, u8 v, Second _) {
-//        return ControlChange<Second>(t, n, v);
-//    }, py::arg("time"), py::arg("number"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("ControlChange", [](py::object &t, u8 n, u8 v, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(ControlChange<Tick>(t.cast<i32>(), n, v));
-//            } else if (unit == "quarter") {
-//                return py::cast(ControlChange<Quarter>(t.cast<f32>(), n, v));
-//            } else if (unit == "second") {
-//                return py::cast(ControlChange<Second>(t.cast<f32>(), n, v));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a ControlChange object from time, number, value and time_unit",
-//        py::arg("time"), py::arg("number"), py::arg("value"), py::arg("time_unit")
-//    );
-//
-//    m.def("KeySignature", [](i32 time, i8 key, u8 tonality, Tick _) {
-//        return score::KeySignature<Tick>(time, key, tonality);
-//    }, py::arg("time"), py::arg("key"), py::arg("tonality"), py::arg("time_unit"));
-//
-//    m.def("KeySignature", [](f32 time, i8 key, u8 tonality, Quarter _) {
-//        return score::KeySignature<Quarter>(time, key, tonality);
-//    }, py::arg("time"), py::arg("key"), py::arg("tonality"), py::arg("time_unit"));
-//
-//    m.def("KeySignature", [](f32 time, i8 key, u8 tonality, Second _) {
-//        return score::KeySignature<Second>(time, key, tonality);
-//    }, py::arg("time"), py::arg("key"), py::arg("tonality"), py::arg("time_unit"));
-//
-//    m.def("KeySignature", [](py::object &time, i8 key, u8 tonality, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::KeySignature<Tick>(time.cast<i32>(), key, tonality));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::KeySignature<Quarter>(time.cast<f32>(), key, tonality));
-//            } else if (unit == "second") {
-//                return py::cast(score::KeySignature<Second>(time.cast<f32>(), key, tonality));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a KeySignature object from time, key, tonality and time_unit",
-//        py::arg("time"), py::arg("key"), py::arg("tonality"), py::arg("time_unit")
-//    );
-//
-//    m.def("TimeSignature", [](i32 time, u8 numerator, u8 denominator, Tick _) {
-//        return score::TimeSignature<Tick>(time, numerator, denominator);
-//    }, py::arg("time"), py::arg("numerator"), py::arg("denominator"), py::arg("time_unit"));
-//
-//    m.def("TimeSignature", [](f32 time, u8 numerator, u8 denominator, Quarter _) {
-//        return score::TimeSignature<Quarter>(time, numerator, denominator);
-//    }, py::arg("time"), py::arg("numerator"), py::arg("denominator"), py::arg("time_unit"));
-//
-//    m.def("TimeSignature", [](f32 time, u8 numerator, u8 denominator, Second _) {
-//        return score::TimeSignature<Second>(time, numerator, denominator);
-//    }, py::arg("time"), py::arg("numerator"), py::arg("denominator"), py::arg("time_unit"));
-//
-//    m.def("TimeSignature", [](py::object &time, u8 numerator, u8 denominator, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::TimeSignature<Tick>(time.cast<i32>(), numerator, denominator));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::TimeSignature<Quarter>(time.cast<f32>(), numerator, denominator));
-//            } else if (unit == "second") {
-//                return py::cast(score::TimeSignature<Second>(time.cast<f32>(), numerator, denominator));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a TimeSignature object from time, numerator, denominator and time_unit",
-//        py::arg("time"), py::arg("numerator"), py::arg("denominator"), py::arg("time_unit")
-//    );
-//
-//    m.def("Tempo", [](i32 time, float qpm, Tick _) {
-//        return score::Tempo<Tick>(time, qpm);
-//    }, py::arg("time"), py::arg("qpm"), py::arg("time_unit"));
-//
-//    m.def("Tempo", [](f32 time, float qpm, Quarter _) {
-//        return score::Tempo<Quarter>(time, qpm);
-//    }, py::arg("time"), py::arg("qpm"), py::arg("time_unit"));
-//
-//    m.def("Tempo", [](f32 time, float qpm, Second _) {
-//        return score::Tempo<Second>(time, qpm);
-//    }, py::arg("time"), py::arg("qpm"), py::arg("time_unit"));
-//
-//    m.def("Tempo", [](py::object &time, float qpm, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::Tempo<Tick>(time.cast<i32>(), qpm));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::Tempo<Quarter>(time.cast<f32>(), qpm));
-//            } else if (unit == "second") {
-//                return py::cast(score::Tempo<Second>(time.cast<f32>(), qpm));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a Tempo object from time, qpm and time_unit",
-//        py::arg("time"), py::arg("qpm"), py::arg("time_unit")
-//    );
-//
-//    m.def("PitchBend", [](i32 time, i32 value, Tick _) {
-//        return score::PitchBend<Tick>(time, value);
-//    }, py::arg("time"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("PitchBend", [](f32 time, i32 value, Quarter _) {
-//        return score::PitchBend<Quarter>(time, value);
-//    }, py::arg("time"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("PitchBend", [](f32 time, i32 value, Second _) {
-//        return score::PitchBend<Second>(time, value);
-//    }, py::arg("time"), py::arg("value"), py::arg("time_unit"));
-//
-//    m.def("PitchBend", [](py::object &time, i32 value, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::PitchBend<Tick>(time.cast<i32>(), value));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::PitchBend<Quarter>(time.cast<f32>(), value));
-//            } else if (unit == "second") {
-//                return py::cast(score::PitchBend<Second>(time.cast<f32>(), value));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a PitchBend object from time, value and time_unit",
-//        py::arg("time"), py::arg("value"), py::arg("time_unit")
-//    );
-//
-//    m.def("TextMeta", [](i32 time, std::string &text, Tick _) {
-//        return score::TextMeta<Tick>(time, text);
-//    }, py::arg("time"), py::arg("text"), py::arg("time_unit"));
-//
-//    m.def("TextMeta", [](f32 time, std::string &text, Quarter _) {
-//        return score::TextMeta<Quarter>(time, text);
-//    }, py::arg("time"), py::arg("text"), py::arg("time_unit"));
-//
-//    m.def("TextMeta", [](f32 time, std::string &text, Second _) {
-//        return score::TextMeta<Second>(time, text);
-//    }, py::arg("time"), py::arg("text"), py::arg("time_unit"));
-//
-//    m.def("TextMeta", [](py::object &time, std::string &text, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::TextMeta<Tick>(time.cast<i32>(), text));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::TextMeta<Quarter>(time.cast<f32>(), text));
-//            } else if (unit == "second") {
-//                return py::cast(score::TextMeta<Second>(time.cast<f32>(), text));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a TextMeta object from time, text and time_unit",
-//        py::arg("time"), py::arg("text"), py::arg("time_unit")
-//    );
-//
-//    m.def("Track", [](const std::string& name, u8 program, bool is_drum, Tick _) {
-//        return score::Track<Tick>(name, program, is_drum);
-//    }, py::arg("name"), py::arg("program"), py::arg("is_drum"), py::arg("time_unit"));
-//
-//    m.def("Track", [](const std::string& name, u8 program, bool is_drum, Quarter _) {
-//        return score::Track<Quarter>(name, program, is_drum);
-//    }, py::arg("name"), py::arg("program"), py::arg("is_drum"), py::arg("time_unit"));
-//
-//    m.def("Track", [](const std::string& name, u8 program, bool is_drum, Second _) {
-//        return score::Track<Second>(name, program, is_drum);
-//    }, py::arg("name"), py::arg("program"), py::arg("is_drum"), py::arg("time_unit"));
-//
-//    m.def("Track", [](const std::string& name, u8 program, bool is_drum, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(score::Track<Tick>(name, program, is_drum));
-//            } else if (unit == "quarter") {
-//                return py::cast(score::Track<Quarter>(name, program, is_drum));
-//            } else if (unit == "second") {
-//                return py::cast(score::Track<Second>(name, program, is_drum));
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a Track object from name, program, is_drum and time_unit",
-//        py::arg("name"), py::arg("program"), py::arg("is_drum"), py::arg("time_unit")
-//    );
-//
-//    m.def("Score", [](const std::string & filename) {
-//        return Score<Tick>::from_file(filename);
-//    }, py::arg("filename"));
-//
-//    m.def("Score", [](const std::string & filename, Tick _) {
-//        return Score<Tick>::from_file(filename);
-//    }, py::arg("filename"), py::arg("time_unit"));
-//
-//    m.def("Score", [](const std::string & filename, Quarter _) {
-//        return Score<Quarter>::from_file(filename);
-//    }, py::arg("filename"), py::arg("time_unit"));
-//
-////    m.def("Score", [](const std::string & filename, Second _) {
-////        return Score<Second>::from_file(filename);
-////    }, py::arg("filename"), py::arg("time_unit"));
-//
-//    m.def("Score", [](const std::string & filename, const py::str& time_unit){
-//            // time_unit is a string, which can be "Tick", "Quarter", "Second"
-//            // first call lower() to convert it to lower case
-//            auto unit = time_unit.attr("lower")().cast<std::string>();
-//            // switch the unit, and convert the corresponding Note to python object using cast
-//            if (unit == "tick") {
-//                return py::cast(Score<Tick>::from_file(filename));
-//            } else if (unit == "quarter") {
-//                return py::cast(Score<Quarter>::from_file(filename));
-//            } else if (unit == "second") {
-//                throw std::invalid_argument("Second is not supported yet.");
-//            } else {
-//                throw std::invalid_argument("time_unit must be one of 'tick', 'quarter', 'second', not '" + unit + "'.");
-//            }
-//        }, "Create a Score object from filename and time_unit",
-//        py::arg("filename"), py::arg("time_unit")
-//    );
-//
-//    m.def("Score", []() {return Score<Tick>();});
-//    m.def("Score", [](Tick _) {return Score<Tick>();}, py::arg("time_unit"));
-//    m.def("Score", [](Quarter _) {return Score<Quarter>();}, py::arg("time_unit"));
-    // m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
 
-// #ifdef VERSION_INFO
-//     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
-// #else
-//     m.attr("__version__") = "0.1.1";
-// #endif
 }
