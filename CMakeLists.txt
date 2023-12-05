@@ -11,7 +11,7 @@ include_directories(3rdparty/pdqsort)
 
 # set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
 # find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-find_package (Python COMPONENTS Interpreter Development)
+
 add_subdirectory(3rdparty/eigen EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
