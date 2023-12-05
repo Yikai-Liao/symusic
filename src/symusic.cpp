@@ -766,9 +766,9 @@ PYBIND11_MODULE(core, m) {
 //    m.def("Score", [](Quarter _) {return Score<Quarter>();}, py::arg("time_unit"));
     // m.def("Score", [](Second _) {return Score<Second>();}, py::arg("time_unit"));
 
-#ifdef VERSION_INFO
-    m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
-#else
-    m.attr("__version__") = "0.1.1";
-#endif
+// #ifdef VERSION_INFO
+//     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
+// #else
+//     m.attr("__version__") = "0.1.1";
+// #endif
 }
