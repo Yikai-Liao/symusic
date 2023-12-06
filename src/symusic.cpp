@@ -16,7 +16,7 @@ using namespace score;
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Quarter>>) \
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Second>>)
 
-REPEAT_ON(OPAQUE_VEC, Note, ControlChange, score::TimeSignature, score::KeySignature, Tempo, PitchBend, TextMeta, Track)
+REPEAT_ON(OPAQUE_VEC, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track)
 
 template<typename T>
 void sort_by_py_key(vec<T> &self, const py::function & key) {
@@ -174,6 +174,36 @@ py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, con
     return event;
 }
 
+// bind Pedal<T>
+template<typename T>
+py::class_<score::Pedal<T>> bind_pedal_class(py::module &m, const std::string & name_) {
+    typedef typename T::unit unit;
+    const auto name = "Pedal" + name_;
+
+    auto event = py::class_<score::Pedal<T>>(m, name.c_str())
+        .def(py::init<unit, bool>())
+        .def(py::init<const score::Pedal<T> &>(), "Copy constructor")
+        .def_readwrite("time", &score::Pedal<T>::time)
+        .def_readwrite("duration", &score::Pedal<T>::duration)
+        .def("shift_time", &score::Pedal<T>::shift_time)
+        .def("shift_time_inplace", &score::Pedal<T>::shift_time_inplace)
+        .def("copy", &score::Pedal<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &score::Pedal<T>::copy, "Deep copy")
+        .def("__deepcopy__", &score::Pedal<T>::copy, "Deep copy")
+        .def("__repr__", &score::Pedal<T>::to_string);
+
+    py::bind_vector<vec<score::Pedal<T>>>(m, name + "List")
+        .def("sort_inplace", &py_sort_inplace<score::Pedal<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("sort", &py_sort<score::Pedal<T>>, py::arg("key")=py::none(), py::arg("reverse")=false)
+        .def("__repr__", [](const vec<score::Pedal<T>> &self) {
+            return to_string(self);
+        });
+
+    py::implicitly_convertible<py::list, vec<score::Pedal<T>>>();
+
+    return event;
+}
+
 // bind score::Tempo<T>
 template<typename T>
 py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & name_) {
@@ -267,6 +297,7 @@ Track<T>&py_sort_track_inplace(Track<T> &self, py::object key, bool reverse) {
     py_sort_inplace(self.notes, key, reverse);
     py_sort_inplace(self.controls, key, reverse);
     py_sort_inplace(self.pitch_bends, key, reverse);
+    py_sort_inplace(self.pedals, key, reverse);
     return self;
 };
 
@@ -290,6 +321,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("notes", &score::Track<T>::notes)
         .def_readwrite("controls", &score::Track<T>::controls)
         .def_readwrite("pitch_bends", &score::Track<T>::pitch_bends)
+        .def_readwrite("pedals", &score::Track<T>::pedals)
         .def_readwrite("is_drum", &score::Track<T>::is_drum)
         .def_readwrite("program", &score::Track<T>::program)
         .def_readwrite("name", &score::Track<T>::name)
@@ -398,6 +430,10 @@ py::module & core_module(py::module & m){
     bind_control_change_class<Tick>(m, tick);
     bind_control_change_class<Quarter>(m, quarter);
     bind_control_change_class<Second>(m, second);
+
+    bind_pedal_class<Tick>(m, tick);
+    bind_pedal_class<Quarter>(m, quarter);
+    bind_pedal_class<Second>(m, second);
 
     bind_tempo_class<Tick>(m, tick);
     bind_tempo_class<Quarter>(m, quarter);
