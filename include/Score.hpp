@@ -911,7 +911,6 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     break;
                 }
                 case (message::MessageType::PitchBend): {
-                    cout << "PitchBend" << endl;
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
                     auto &track = utils::get_track(
