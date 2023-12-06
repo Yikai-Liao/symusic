@@ -200,7 +200,7 @@ class ScoreFactory:
     
     def from_file(self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
         a = self.__core_classes.dispatch(ttype)
-        return a.from_file(path)
+        return a.from_file(str(path))
 
 
 Note = NoteFactory()
