@@ -134,7 +134,7 @@ setup(
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
-    long_description=open('README.md').read(),
+    long_description=open('README.md', encoding="utf-8").read(),
     long_description_content_type='text/markdown',
     license=open('LICENSE', encoding="utf-8").read(),
     package_dir={"symusic": "symusic"},
@@ -143,7 +143,8 @@ setup(
     cmdclass={"build_ext": CMakeBuild},
     package_data={"symusic": ["**/*.pyi"]},
     zip_safe=False,
-    install_requires=["numpy>=1.20", 'typing_extensions;python_version<"3.8"'],
+    # install_requires=["numpy>=1.20", 'typing_extensions;python_version<"3.8"'],
+    install_requires=['typing_extensions;python_version<"3.8"'],    # don't need numpy currently
     setup_requires=["pybind11>=2.10"],
     python_requires=">=3.7",
     #extras_require={"test": ["pytest>=6.0"]},
