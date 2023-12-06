@@ -4,12 +4,10 @@
 #include <queue>
 #include <algorithm>
 #include <cmath>
-#include <cfloat>
 #include <functional>
 #include <sstream>
 #include <string>
-#include <iostream>
-#include <utility>
+#include <iosfwd>
 #include "pdqsort.h"
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"
@@ -27,7 +25,7 @@ typedef double      f64;
 
 using std::to_string;
 using std::ostream;
-using namespace minimidi;
+namespace message= minimidi::message;
 
 namespace utils {
 inline i8 safe_add(const i8 a, const i8 b) {
@@ -37,53 +35,54 @@ inline i8 safe_add(const i8 a, const i8 b) {
     return static_cast<i8>(ans);
 }
 // NOLINTBEGIN
-std::string strip_non_utf_8(std::string *str) {
-    int i, f_size = str->size();
-    unsigned char c, c2, c3, c4;
+inline std::string strip_non_utf_8(const std::string *str) {
+    const size_t f_size = str->size();
+    // unsigned char c2{};
     std::string to;
     to.reserve(f_size);
-
-    for (i = 0; i < f_size; i++) {
+    for (size_t i = 0; i < f_size; i++) {
         //control char
-        c = (unsigned char) (*str)[i]; 
+        const u8 c = static_cast<u8>((*str)[i]);
         if (c < 32) {
             //allow only \t \n \r
             if (c == 9 || c == 10 || c == 13) {
                 to.append(1, c);
             } continue;
-        } else if (c < 127) {  //normal ASCII
+        }
+
+        if (c < 127) {  //normal ASCII
             to.append(1, c); 
             continue;
         } 
         //control char (nothing should be defined here either ASCII, ISO_8859-1 or UTF8, so skipping)
-        else if (c < 160) {
+        if (c < 160) {
             //fix microsoft mess, add euro
-            if (c2 == 128) { 
+            if (c == 128) {
                 to.append(1, -30);  // 226 for unsigned
                 to.append(1, -126); // 130 for unsigned
                 to.append(1, -84);  // 172 for unsigned
             }
             //fix IBM mess, add NEL = \n\r
-            if (c2 == 133) {
+            if (c == 133) {
                 to.append(1, 10);
                 to.append(1, 13);
             } continue;
         } 
         //invalid for UTF8, converting ASCII
-        else if (c < 192) {
+        if (c < 192) {
             to.append(1, (unsigned char) 194);
             to.append(1, c);
             continue;
         } 
         //invalid for UTF8, converting ASCII
-        else if (c < 194) {
+        if (c < 194) {
             to.append(1, (unsigned char) 195);
             to.append(1, c - 64);
             continue;
         } 
         //possibly 2byte UTF8
-        else if (c < 224 && i + 1 < f_size) {
-            c2 = (unsigned char) (*str)[i + 1];
+        if (c < 224 && i + 1 < f_size) {
+            const u8 c2 = static_cast<u8>((*str)[i + 1]);
             //valid 2byte UTF8
             if (c2 > 127 && c2 < 192) {
                 //control char, skipping
@@ -95,8 +94,8 @@ std::string strip_non_utf_8(std::string *str) {
         } 
         //possibly 3byte UTF8
         else if (c < 240 && i + 2 < f_size) {
-            c2 = (unsigned char) (*str)[i + 1];
-            c3 = (unsigned char) (*str)[i + 2];
+            const u8 c2 = static_cast<u8> ((*str)[i + 1]),
+                     c3 = static_cast<u8> ((*str)[i + 2]);
             //valid 3byte UTF8
             if (c2 > 127 && c2 < 192 && c3 > 127 && c3 < 192) {
                 to.append(1, c);
@@ -107,10 +106,12 @@ std::string strip_non_utf_8(std::string *str) {
         } 
         //possibly 4byte UTF8
         else if (c < 245 && i + 3 < f_size) {
-            c2 = (unsigned char) (*str)[i + 1];
-            c3 = (unsigned char) (*str)[i + 2];
-            c4 = (unsigned char) (*str)[i + 3];
-            if (c2 > 127 && c2 < 192 && c3 > 127 && c3 < 192 && c4 > 127 && c4 < 192) {//valid 4byte UTF8
+
+            const u8 c2 = static_cast<u8> ((*str)[i + 1]),
+                     c3 = static_cast<u8> ((*str)[i + 2]),
+                     c4 = static_cast<u8> ((*str)[i + 3]);
+            //valid 4byte UTF8
+            if (c2 > 127 && c2 < 192 && c3 > 127 && c3 < 192 && c4 > 127 && c4 < 192) {
                 to.append(1, c);
                 to.append(1, c2);
                 to.append(1, c3);
@@ -796,23 +797,23 @@ template <typename T>
 Track<T> &get_track(
     std::map<TrackIdx, Track<T>> &track_map,
     Track<T> (& stragglers)[16],
-    uint8_t channel, uint8_t program,
-    size_t message_num, bool create_new) {
-    // TrackIdx track_idx = {channel, program};
+    const uint8_t channel, const uint8_t program,
+    const size_t message_num, const bool create_new) {
     auto track_idx = std::make_tuple(channel, program);
-    if (track_map.find(track_idx) == track_map.end()) {
+    const auto & entry = track_map.find(track_idx);
+    if (entry == track_map.end()) {
         auto &track = stragglers[channel];
         if (!create_new) return track;
         Track<T> new_track;
         if (!track.empty()) {
-            new_track = Track(stragglers[channel]); // copy from stragglers
+            new_track = Track(track); // copy from stragglers
         }
         new_track.program = program;
         new_track.is_drum = channel == 9;
         new_track.notes.reserve(message_num / 2 + 10);
-        track_map[track_idx] = new_track;
+        return track_map[track_idx] = new_track;
     }
-    return track_map[track_idx];
+    return entry->second;
 }
 } // namespace utils end
 
@@ -825,18 +826,24 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     using std::cout, std::endl;
     for (size_t i = 0; i < track_num; ++i) {
         auto &midi_track = midi.track(i);
-        std::map<utils::TrackIdx, Track<Tick>> track_map; // (channel, program) -> Track
-        Track<Tick> stragglers[16]; // channel -> Track
-        uint8_t cur_instr[16] = {0}; // channel -> program
+        // (channel, program) -> Track
+        std::map<utils::TrackIdx, Track<Tick>> track_map;
+        // channel -> Track
+        Track<Tick> stragglers[16];
+        // channel -> program
+        uint8_t cur_instr[16] = {0};
         std::string cur_name;
-        utils::NoteOnQueue<Tick> last_note_on[16][128]; // (channel, pitch) -> (start, velocity)
+        // (channel, pitch) -> (start, velocity)
+        utils::NoteOnQueue<Tick> last_note_on[16][128] = {};
+        // channel -> pedal_on
+        i32 last_pedal_on[16] = {-1};
         // iter midi messages in the track
         size_t message_num = midi_track.message_num();
         for (size_t j = 0; j < message_num; ++j) {
             auto &msg = midi_track.message(j);
             auto cur_tick = static_cast<i32>(msg.get_time());
             switch (msg.get_type()) {
-                case (minimidi::message::MessageType::NoteOn): {
+                case (message::MessageType::NoteOn): {
                     if (uint8_t velocity = msg.get_velocity(); velocity != 0) {
                         auto pitch = msg.get_pitch();
                         if (pitch >= 128) throw std::range_error(
@@ -848,7 +855,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                         break;
                     } // if velocity is zero, turn to note off case
                 }
-                case (minimidi::message::MessageType::NoteOff): {
+                case (message::MessageType::NoteOff): {
                     uint8_t channel = msg.get_channel();
                     uint8_t pitch = msg.get_pitch();
                     if (pitch >= 128) throw std::range_error(
@@ -868,7 +875,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     }
                     break;
                 }
-                case (minimidi::message::MessageType::ProgramChange): {
+                case (message::MessageType::ProgramChange): {
                     uint8_t channel = msg.get_channel();
                     uint8_t program = msg.get_program();
                     if (program >= 128) throw std::range_error(
@@ -876,7 +883,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     cur_instr[channel] = program;
                     break;
                 }
-                case (minimidi::message::MessageType::ControlChange): {
+                case (message::MessageType::ControlChange): {
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
                     auto &track = utils::get_track(
@@ -889,9 +896,21 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                         "Get control_value=" + std::to_string((int) control_value));
                     track.controls.emplace_back(
                         cur_tick, msg.get_control_number(), msg.get_control_value());
+                    // Pedal Part
+                    if (control_number == 64) {
+                        if (control_value >= 64) {
+                            if (last_pedal_on[channel] < 0) last_pedal_on[channel] = cur_tick;
+                        } else {
+                            if (last_pedal_on[channel] >= 0) {
+                                track.pedals.emplace_back(
+                                    last_pedal_on[channel], cur_tick - last_pedal_on[channel]);
+                                last_pedal_on[channel] = -1;
+                            }
+                        }
+                    }
                     break;
                 }
-                case (minimidi::message::MessageType::PitchBend): {
+                case (message::MessageType::PitchBend): {
                     cout << "PitchBend" << endl;
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
@@ -903,33 +922,33 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     track.pitch_bends.emplace_back(cur_tick, value);
                 }
                     // Meta Message
-                case (minimidi::message::MessageType::Meta): {
+                case (message::MessageType::Meta): {
                     switch (msg.get_meta_type()) {
-                        case (minimidi::message::MetaType::TrackName): {
+                        case (message::MetaType::TrackName): {
                             auto data = msg.get_meta_value();
                             auto tmp = std::string(data.begin(), data.end());
                             cur_name = utils::strip_non_utf_8(&tmp);
                             break;
                         }
-                        case (minimidi::message::MetaType::TimeSignature): {
+                        case (message::MetaType::TimeSignature): {
                             time_signatures.emplace_back(cur_tick, msg.get_time_signature());
                             break;
                         }
-                        case (minimidi::message::MetaType::SetTempo): {
+                        case (message::MetaType::SetTempo): {
                             tempos.emplace_back(cur_tick, 60000000.f / static_cast<float>(msg.get_tempo()));
                             break;
                         }
-                        case (minimidi::message::MetaType::KeySignature): {
+                        case (message::MetaType::KeySignature): {
                             key_signatures.emplace_back(cur_tick, msg.get_key_signature());
                             break;
                         }
-                        case (minimidi::message::MetaType::Lyric): {
+                        case (message::MetaType::Lyric): {
                             auto data = msg.get_meta_value();
                             auto tmp = std::string(data.begin(), data.end());
                             lyrics.emplace_back(cur_tick, utils::strip_non_utf_8(&tmp));
                             break;
                         }
-                        case (minimidi::message::MetaType::Marker): {
+                        case (message::MetaType::Marker): {
                             auto data = msg.get_meta_value();
                             auto tmp = std::string(data.begin(), data.end());
                             markers.emplace_back(cur_tick, utils::strip_non_utf_8(&tmp));
@@ -944,12 +963,11 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     break;
             }
         }
-        for (auto &track_pair: std::move(track_map)) {
-            Track track = track_pair.second;
+        for (auto [_, track]: std::move(track_map)) {
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();
-            tracks.push_back(track);
+            tracks.push_back(std::move(track));
         }
     }
     utils::sort_by_time(time_signatures);
