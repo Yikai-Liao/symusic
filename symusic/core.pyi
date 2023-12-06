@@ -1,6 +1,6 @@
 from __future__ import annotations
 import typing
-__all__ = ['ControlChangeQuarter', 'ControlChangeQuarterList', 'ControlChangeSecond', 'ControlChangeSecondList', 'ControlChangeTick', 'ControlChangeTickList', 'KeySignatureQuarter', 'KeySignatureQuarterList', 'KeySignatureSecond', 'KeySignatureSecondList', 'KeySignatureTick', 'KeySignatureTickList', 'NoteQuarter', 'NoteQuarterList', 'NoteSecond', 'NoteSecondList', 'NoteTick', 'NoteTickList', 'PitchBendQuarter', 'PitchBendQuarterList', 'PitchBendSecond', 'PitchBendSecondList', 'PitchBendTick', 'PitchBendTickList', 'Quarter', 'ScoreQuarter', 'ScoreTick', 'Second', 'TempoQuarter', 'TempoQuarterList', 'TempoSecond', 'TempoSecondList', 'TempoTick', 'TempoTickList', 'TextMetaQuarter', 'TextMetaQuarterList', 'TextMetaSecond', 'TextMetaSecondList', 'TextMetaTick', 'TextMetaTickList', 'Tick', 'TimeSignatureQuarter', 'TimeSignatureQuarterList', 'TimeSignatureSecond', 'TimeSignatureSecondList', 'TimeSignatureTick', 'TimeSignatureTickList', 'TrackQuarter', 'TrackQuarterList', 'TrackSecond', 'TrackSecondList', 'TrackTick', 'TrackTickList']
+__all__ = ['ControlChangeQuarter', 'ControlChangeQuarterList', 'ControlChangeSecond', 'ControlChangeSecondList', 'ControlChangeTick', 'ControlChangeTickList', 'KeySignatureQuarter', 'KeySignatureQuarterList', 'KeySignatureSecond', 'KeySignatureSecondList', 'KeySignatureTick', 'KeySignatureTickList', 'NoteQuarter', 'NoteQuarterList', 'NoteSecond', 'NoteSecondList', 'NoteTick', 'NoteTickList', 'PedalQuarter', 'PedalQuarterList', 'PedalSecond', 'PedalSecondList', 'PedalTick', 'PedalTickList', 'PitchBendQuarter', 'PitchBendQuarterList', 'PitchBendSecond', 'PitchBendSecondList', 'PitchBendTick', 'PitchBendTickList', 'Quarter', 'ScoreQuarter', 'ScoreTick', 'Second', 'TempoQuarter', 'TempoQuarterList', 'TempoSecond', 'TempoSecondList', 'TempoTick', 'TempoTickList', 'TextMetaQuarter', 'TextMetaQuarterList', 'TextMetaSecond', 'TextMetaSecondList', 'TextMetaTick', 'TextMetaTickList', 'Tick', 'TimeSignatureQuarter', 'TimeSignatureQuarterList', 'TimeSignatureSecond', 'TimeSignatureSecondList', 'TimeSignatureTick', 'TimeSignatureTickList', 'TrackQuarter', 'TrackQuarterList', 'TrackSecond', 'TrackSecondList', 'TrackTick', 'TrackTickList']
 class ControlChangeQuarter:
     number: int
     time: float
@@ -1137,6 +1137,363 @@ class NoteTickList:
     def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
         ...
     def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
+        ...
+class PedalQuarter:
+    duration: float
+    time: float
+    def __copy__(self) -> PedalQuarter:
+        """
+        Deep copy
+        """
+    def __deepcopy__(self) -> PedalQuarter:
+        """
+        Deep copy
+        """
+    @typing.overload
+    def __init__(self, arg0: float, arg1: bool) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalQuarter) -> None:
+        """
+        Copy constructor
+        """
+    def __repr__(self) -> str:
+        ...
+    def copy(self) -> PedalQuarter:
+        """
+        Deep copy
+        """
+    def shift_time(self, arg0: float) -> PedalQuarter:
+        ...
+    def shift_time_inplace(self, arg0: float) -> PedalQuarter:
+        ...
+class PedalQuarterList:
+    def __bool__(self) -> bool:
+        """
+        Check whether the list is nonempty
+        """
+    @typing.overload
+    def __delitem__(self, arg0: int) -> None:
+        """
+        Delete the list elements at index ``i``
+        """
+    @typing.overload
+    def __delitem__(self, arg0: slice) -> None:
+        """
+        Delete list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, s: slice) -> PedalQuarterList:
+        """
+        Retrieve list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, arg0: int) -> PedalQuarter:
+        ...
+    @typing.overload
+    def __init__(self) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalQuarterList) -> None:
+        """
+        Copy constructor
+        """
+    @typing.overload
+    def __init__(self, arg0: typing.Iterable) -> None:
+        ...
+    def __iter__(self) -> typing.Iterator:
+        ...
+    def __len__(self) -> int:
+        ...
+    @typing.overload
+    def __repr__(self) -> str:
+        """
+        Return the canonical string representation of this list.
+        """
+    @typing.overload
+    def __repr__(self) -> str:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: int, arg1: PedalQuarter) -> None:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: slice, arg1: PedalQuarterList) -> None:
+        """
+        Assign list elements using a slice object
+        """
+    def append(self, x: PedalQuarter) -> None:
+        """
+        Add an item to the end of the list
+        """
+    def clear(self) -> None:
+        """
+        Clear the contents
+        """
+    @typing.overload
+    def extend(self, L: PedalQuarterList) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    @typing.overload
+    def extend(self, L: typing.Iterable) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    def insert(self, i: int, x: PedalQuarter) -> None:
+        """
+        Insert an item at a given position.
+        """
+    @typing.overload
+    def pop(self) -> PedalQuarter:
+        """
+        Remove and return the last item
+        """
+    @typing.overload
+    def pop(self, i: int) -> PedalQuarter:
+        """
+        Remove and return the item at index ``i``
+        """
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalQuarterList:
+        ...
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalQuarterList:
+        ...
+class PedalSecond:
+    duration: float
+    time: float
+    def __copy__(self) -> PedalSecond:
+        """
+        Deep copy
+        """
+    def __deepcopy__(self) -> PedalSecond:
+        """
+        Deep copy
+        """
+    @typing.overload
+    def __init__(self, arg0: float, arg1: bool) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalSecond) -> None:
+        """
+        Copy constructor
+        """
+    def __repr__(self) -> str:
+        ...
+    def copy(self) -> PedalSecond:
+        """
+        Deep copy
+        """
+    def shift_time(self, arg0: float) -> PedalSecond:
+        ...
+    def shift_time_inplace(self, arg0: float) -> PedalSecond:
+        ...
+class PedalSecondList:
+    def __bool__(self) -> bool:
+        """
+        Check whether the list is nonempty
+        """
+    @typing.overload
+    def __delitem__(self, arg0: int) -> None:
+        """
+        Delete the list elements at index ``i``
+        """
+    @typing.overload
+    def __delitem__(self, arg0: slice) -> None:
+        """
+        Delete list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, s: slice) -> PedalSecondList:
+        """
+        Retrieve list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, arg0: int) -> PedalSecond:
+        ...
+    @typing.overload
+    def __init__(self) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalSecondList) -> None:
+        """
+        Copy constructor
+        """
+    @typing.overload
+    def __init__(self, arg0: typing.Iterable) -> None:
+        ...
+    def __iter__(self) -> typing.Iterator:
+        ...
+    def __len__(self) -> int:
+        ...
+    @typing.overload
+    def __repr__(self) -> str:
+        """
+        Return the canonical string representation of this list.
+        """
+    @typing.overload
+    def __repr__(self) -> str:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: int, arg1: PedalSecond) -> None:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: slice, arg1: PedalSecondList) -> None:
+        """
+        Assign list elements using a slice object
+        """
+    def append(self, x: PedalSecond) -> None:
+        """
+        Add an item to the end of the list
+        """
+    def clear(self) -> None:
+        """
+        Clear the contents
+        """
+    @typing.overload
+    def extend(self, L: PedalSecondList) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    @typing.overload
+    def extend(self, L: typing.Iterable) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    def insert(self, i: int, x: PedalSecond) -> None:
+        """
+        Insert an item at a given position.
+        """
+    @typing.overload
+    def pop(self) -> PedalSecond:
+        """
+        Remove and return the last item
+        """
+    @typing.overload
+    def pop(self, i: int) -> PedalSecond:
+        """
+        Remove and return the item at index ``i``
+        """
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalSecondList:
+        ...
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalSecondList:
+        ...
+class PedalTick:
+    duration: int
+    time: int
+    def __copy__(self) -> PedalTick:
+        """
+        Deep copy
+        """
+    def __deepcopy__(self) -> PedalTick:
+        """
+        Deep copy
+        """
+    @typing.overload
+    def __init__(self, arg0: int, arg1: bool) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalTick) -> None:
+        """
+        Copy constructor
+        """
+    def __repr__(self) -> str:
+        ...
+    def copy(self) -> PedalTick:
+        """
+        Deep copy
+        """
+    def shift_time(self, arg0: int) -> PedalTick:
+        ...
+    def shift_time_inplace(self, arg0: int) -> PedalTick:
+        ...
+class PedalTickList:
+    def __bool__(self) -> bool:
+        """
+        Check whether the list is nonempty
+        """
+    @typing.overload
+    def __delitem__(self, arg0: int) -> None:
+        """
+        Delete the list elements at index ``i``
+        """
+    @typing.overload
+    def __delitem__(self, arg0: slice) -> None:
+        """
+        Delete list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, s: slice) -> PedalTickList:
+        """
+        Retrieve list elements using a slice object
+        """
+    @typing.overload
+    def __getitem__(self, arg0: int) -> PedalTick:
+        ...
+    @typing.overload
+    def __init__(self) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: PedalTickList) -> None:
+        """
+        Copy constructor
+        """
+    @typing.overload
+    def __init__(self, arg0: typing.Iterable) -> None:
+        ...
+    def __iter__(self) -> typing.Iterator:
+        ...
+    def __len__(self) -> int:
+        ...
+    @typing.overload
+    def __repr__(self) -> str:
+        """
+        Return the canonical string representation of this list.
+        """
+    @typing.overload
+    def __repr__(self) -> str:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: int, arg1: PedalTick) -> None:
+        ...
+    @typing.overload
+    def __setitem__(self, arg0: slice, arg1: PedalTickList) -> None:
+        """
+        Assign list elements using a slice object
+        """
+    def append(self, x: PedalTick) -> None:
+        """
+        Add an item to the end of the list
+        """
+    def clear(self) -> None:
+        """
+        Clear the contents
+        """
+    @typing.overload
+    def extend(self, L: PedalTickList) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    @typing.overload
+    def extend(self, L: typing.Iterable) -> None:
+        """
+        Extend the list by appending all the items in the given list
+        """
+    def insert(self, i: int, x: PedalTick) -> None:
+        """
+        Insert an item at a given position.
+        """
+    @typing.overload
+    def pop(self) -> PedalTick:
+        """
+        Remove and return the last item
+        """
+    @typing.overload
+    def pop(self, i: int) -> PedalTick:
+        """
+        Remove and return the item at index ``i``
+        """
+    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalTickList:
+        ...
+    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalTickList:
         ...
 class PitchBendQuarter:
     time: float
@@ -2736,6 +3093,7 @@ class TrackQuarter:
     is_drum: bool
     name: str
     notes: NoteQuarterList
+    pedals: PedalQuarterList
     pitch_bends: PitchBendQuarterList
     program: int
     def __copy__(self) -> TrackQuarter:
@@ -2883,6 +3241,7 @@ class TrackSecond:
     is_drum: bool
     name: str
     notes: NoteSecondList
+    pedals: PedalSecondList
     pitch_bends: PitchBendSecondList
     program: int
     def __copy__(self) -> TrackSecond:
@@ -3030,6 +3389,7 @@ class TrackTick:
     is_drum: bool
     name: str
     notes: NoteTickList
+    pedals: PedalTickList
     pitch_bends: PitchBendTickList
     program: int
     def __copy__(self) -> TrackTick:
@@ -3172,4 +3532,3 @@ class TrackTickList:
         ...
     def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
         ...
-__version__: str = '0.1.1'
