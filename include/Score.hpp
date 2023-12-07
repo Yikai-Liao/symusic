@@ -12,6 +12,7 @@
 #include "pdqsort.h"
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"
+#include "zpp_bits.h"
 namespace score {
 
 typedef uint8_t     u8;
@@ -242,6 +243,10 @@ TIME_EVENT {
     DEFAULT_METHODS
     unit duration;
     i8 pitch{}, velocity{};
+
+    using serialize = zpp::bits::members<4>;
+
+    explicit Note(auto && ...) {}
 
     Note(unit time, unit duration, i8 pitch, i8 velocity) :
         TimeStamp<T>(time), duration(duration), pitch(pitch), velocity(velocity) {};
