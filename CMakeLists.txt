@@ -12,15 +12,12 @@ include_directories(3rdparty/pdqsort)
 # set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
 # find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
-# add_subdirectory(3rdparty/eigen EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
 pybind11_add_module(core src/symusic.cpp)
-# target_link_libraries(core PRIVATE eigen)
 
 if(BUILD_TEST)
     add_executable(note_count test/note_count.cpp)
-    # target_link_libraries(note_count PRIVATE eigen)
 endif()
 
 if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
