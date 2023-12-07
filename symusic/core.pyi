@@ -14,23 +14,23 @@ class ControlChangeQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeQuarter) -> None:
+    def __init__(self, other: ControlChangeQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, number: int, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> ControlChangeQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> ControlChangeQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> ControlChangeQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> ControlChangeQuarter:
+        """
+        Shift the event time by offset
+        """
 class ControlChangeQuarterList:
     def __bool__(self) -> bool:
         """
@@ -117,9 +117,7 @@ class ControlChangeQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class ControlChangeSecond:
     number: int
@@ -134,23 +132,23 @@ class ControlChangeSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeSecond) -> None:
+    def __init__(self, other: ControlChangeSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, number: int, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> ControlChangeSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> ControlChangeSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> ControlChangeSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> ControlChangeSecond:
+        """
+        Shift the event time by offset
+        """
 class ControlChangeSecondList:
     def __bool__(self) -> bool:
         """
@@ -237,9 +235,7 @@ class ControlChangeSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class ControlChangeTick:
     number: int
@@ -254,23 +250,23 @@ class ControlChangeTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeTick) -> None:
+    def __init__(self, other: ControlChangeTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, number: int, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> ControlChangeTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> ControlChangeTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> ControlChangeTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> ControlChangeTick:
+        """
+        Shift the event time by offset
+        """
 class ControlChangeTickList:
     def __bool__(self) -> bool:
         """
@@ -357,9 +353,7 @@ class ControlChangeTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ControlChangeTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class KeySignatureQuarter:
     key: int
@@ -374,23 +368,23 @@ class KeySignatureQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureQuarter) -> None:
+    def __init__(self, other: KeySignatureQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, key: int, tonality: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> KeySignatureQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> KeySignatureQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> KeySignatureQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> KeySignatureQuarter:
+        """
+        Shift the event time by offset
+        """
 class KeySignatureQuarterList:
     def __bool__(self) -> bool:
         """
@@ -477,9 +471,7 @@ class KeySignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class KeySignatureSecond:
     key: int
@@ -494,23 +486,23 @@ class KeySignatureSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureSecond) -> None:
+    def __init__(self, other: KeySignatureSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, key: int, tonality: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> KeySignatureSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> KeySignatureSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> KeySignatureSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> KeySignatureSecond:
+        """
+        Shift the event time by offset
+        """
 class KeySignatureSecondList:
     def __bool__(self) -> bool:
         """
@@ -597,9 +589,7 @@ class KeySignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class KeySignatureTick:
     key: int
@@ -614,23 +604,23 @@ class KeySignatureTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureTick) -> None:
+    def __init__(self, other: KeySignatureTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, key: int, tonality: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> KeySignatureTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> KeySignatureTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> KeySignatureTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> KeySignatureTick:
+        """
+        Shift the event time by offset
+        """
 class KeySignatureTickList:
     def __bool__(self) -> bool:
         """
@@ -717,9 +707,7 @@ class KeySignatureTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> KeySignatureTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class NoteQuarter:
     duration: float
@@ -729,25 +717,25 @@ class NoteQuarter:
     velocity: int
     def __copy__(self) -> NoteQuarter:
         """
-        Deep copy the note
+        Deep copy
         """
     def __deepcopy__(self) -> NoteQuarter:
         """
-        Deep copy the note
+        Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: float, arg2: int, arg3: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: NoteQuarter) -> None:
+    def __init__(self, other: NoteQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> NoteQuarter:
         """
-        Deep copy the note
+        Deep copy
         """
     def empty(self) -> bool:
         """
@@ -755,18 +743,18 @@ class NoteQuarter:
         """
     def end_time(self) -> float:
         ...
-    def shift_pitch(self, arg0: float) -> NoteQuarter:
-        ...
-    def shift_pitch_inplace(self, arg0: float) -> NoteQuarter:
-        ...
-    def shift_time(self, arg0: float) -> NoteQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> NoteQuarter:
-        ...
-    def shift_velocity(self, arg0: float) -> NoteQuarter:
-        ...
-    def shift_velocity_inplace(self, arg0: float) -> NoteQuarter:
-        ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the pitch by offset
+        """
+    def shift_time(self, offset: float, inplace: bool = False) -> NoteQuarter:
+        """
+        Shift the event time by offset
+        """
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the velocity by offset
+        """
     @property
     def end(self) -> float:
         ...
@@ -856,9 +844,7 @@ class NoteQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class NoteSecond:
     duration: float
@@ -868,25 +854,25 @@ class NoteSecond:
     velocity: int
     def __copy__(self) -> NoteSecond:
         """
-        Deep copy the note
+        Deep copy
         """
     def __deepcopy__(self) -> NoteSecond:
         """
-        Deep copy the note
+        Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: float, arg2: int, arg3: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: NoteSecond) -> None:
+    def __init__(self, other: NoteSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> NoteSecond:
         """
-        Deep copy the note
+        Deep copy
         """
     def empty(self) -> bool:
         """
@@ -894,18 +880,18 @@ class NoteSecond:
         """
     def end_time(self) -> float:
         ...
-    def shift_pitch(self, arg0: float) -> NoteSecond:
-        ...
-    def shift_pitch_inplace(self, arg0: float) -> NoteSecond:
-        ...
-    def shift_time(self, arg0: float) -> NoteSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> NoteSecond:
-        ...
-    def shift_velocity(self, arg0: float) -> NoteSecond:
-        ...
-    def shift_velocity_inplace(self, arg0: float) -> NoteSecond:
-        ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the pitch by offset
+        """
+    def shift_time(self, offset: float, inplace: bool = False) -> NoteSecond:
+        """
+        Shift the event time by offset
+        """
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the velocity by offset
+        """
     @property
     def end(self) -> float:
         ...
@@ -995,9 +981,7 @@ class NoteSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class NoteTick:
     duration: int
@@ -1007,25 +991,25 @@ class NoteTick:
     velocity: int
     def __copy__(self) -> NoteTick:
         """
-        Deep copy the note
+        Deep copy
         """
     def __deepcopy__(self) -> NoteTick:
         """
-        Deep copy the note
+        Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: int, arg2: int, arg3: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: NoteTick) -> None:
+    def __init__(self, other: NoteTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, start: int, duration: int, pitch: int, velocity: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> NoteTick:
         """
-        Deep copy the note
+        Deep copy
         """
     def empty(self) -> bool:
         """
@@ -1033,18 +1017,18 @@ class NoteTick:
         """
     def end_time(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> NoteTick:
-        ...
-    def shift_pitch_inplace(self, arg0: int) -> NoteTick:
-        ...
-    def shift_time(self, arg0: int) -> NoteTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> NoteTick:
-        ...
-    def shift_velocity(self, arg0: int) -> NoteTick:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> NoteTick:
-        ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the pitch by offset
+        """
+    def shift_time(self, offset: int, inplace: bool = False) -> NoteTick:
+        """
+        Shift the event time by offset
+        """
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        """
+        Shift the velocity by offset
+        """
     @property
     def end(self) -> int:
         ...
@@ -1134,9 +1118,7 @@ class NoteTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> NoteTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PedalQuarter:
     duration: float
@@ -1150,23 +1132,23 @@ class PedalQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: bool) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PedalQuarter) -> None:
+    def __init__(self, other: PedalQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, duration: float) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PedalQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> PedalQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> PedalQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> PedalQuarter:
+        """
+        Shift the event time by offset
+        """
 class PedalQuarterList:
     def __bool__(self) -> bool:
         """
@@ -1253,9 +1235,7 @@ class PedalQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PedalSecond:
     duration: float
@@ -1269,23 +1249,23 @@ class PedalSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: bool) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PedalSecond) -> None:
+    def __init__(self, other: PedalSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, duration: float) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PedalSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> PedalSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> PedalSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> PedalSecond:
+        """
+        Shift the event time by offset
+        """
 class PedalSecondList:
     def __bool__(self) -> bool:
         """
@@ -1372,9 +1352,7 @@ class PedalSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PedalTick:
     duration: int
@@ -1388,23 +1366,23 @@ class PedalTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: bool) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PedalTick) -> None:
+    def __init__(self, other: PedalTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, duration: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PedalTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> PedalTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> PedalTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> PedalTick:
+        """
+        Shift the event time by offset
+        """
 class PedalTickList:
     def __bool__(self) -> bool:
         """
@@ -1491,9 +1469,7 @@ class PedalTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PedalTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PedalTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PitchBendQuarter:
     time: float
@@ -1507,23 +1483,23 @@ class PitchBendQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendQuarter) -> None:
+    def __init__(self, other: PitchBendQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PitchBendQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> PitchBendQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> PitchBendQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> PitchBendQuarter:
+        """
+        Shift the event time by offset
+        """
 class PitchBendQuarterList:
     def __bool__(self) -> bool:
         """
@@ -1610,9 +1586,7 @@ class PitchBendQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PitchBendSecond:
     time: float
@@ -1626,23 +1600,23 @@ class PitchBendSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendSecond) -> None:
+    def __init__(self, other: PitchBendSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PitchBendSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> PitchBendSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> PitchBendSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> PitchBendSecond:
+        """
+        Shift the event time by offset
+        """
 class PitchBendSecondList:
     def __bool__(self) -> bool:
         """
@@ -1729,9 +1703,7 @@ class PitchBendSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class PitchBendTick:
     time: int
@@ -1745,23 +1717,23 @@ class PitchBendTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendTick) -> None:
+    def __init__(self, other: PitchBendTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, value: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> PitchBendTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> PitchBendTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> PitchBendTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> PitchBendTick:
+        """
+        Shift the event time by offset
+        """
 class PitchBendTickList:
     def __bool__(self) -> bool:
         """
@@ -1848,9 +1820,7 @@ class PitchBendTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> PitchBendTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> PitchBendTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class Quarter:
     __hash__: typing.ClassVar[None] = None
@@ -1887,13 +1857,15 @@ class ScoreQuarter:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, arg0: ScoreQuarter) -> None:
+    def __init__(self, other: ScoreQuarter) -> None:
         """
         Copy constructor
         """
     @typing.overload
-    def __init__(self, arg0: str) -> None:
-        ...
+    def __init__(self, path: str) -> None:
+        """
+        Load from midi file
+        """
     def __repr__(self) -> str:
         ...
     def clip(self, start: float, end: float, clip_end: bool = False) -> ScoreQuarter:
@@ -1910,21 +1882,13 @@ class ScoreQuarter:
         ...
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> ScoreQuarter:
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_pitch_inplace(self, arg0: int) -> ScoreQuarter:
+    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time(self, arg0: float) -> ScoreQuarter:
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time_inplace(self, arg0: float) -> ScoreQuarter:
-        ...
-    def shift_velocity(self, arg0: int) -> ScoreQuarter:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> ScoreQuarter:
-        ...
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> ScoreQuarter:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ScoreQuarter:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     def start(self) -> float:
         ...
@@ -1953,13 +1917,15 @@ class ScoreTick:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, arg0: ScoreTick) -> None:
+    def __init__(self, other: ScoreTick) -> None:
         """
         Copy constructor
         """
     @typing.overload
-    def __init__(self, arg0: str) -> None:
-        ...
+    def __init__(self, path: str) -> None:
+        """
+        Load from midi file
+        """
     def __repr__(self) -> str:
         ...
     def clip(self, start: int, end: int, clip_end: bool = False) -> ScoreTick:
@@ -1976,21 +1942,13 @@ class ScoreTick:
         ...
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> ScoreTick:
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_pitch_inplace(self, arg0: int) -> ScoreTick:
+    def shift_time(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time(self, arg0: int) -> ScoreTick:
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time_inplace(self, arg0: int) -> ScoreTick:
-        ...
-    def shift_velocity(self, arg0: int) -> ScoreTick:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> ScoreTick:
-        ...
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> ScoreTick:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> ScoreTick:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     def start(self) -> int:
         ...
@@ -2016,23 +1974,23 @@ class TempoQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: float) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TempoQuarter) -> None:
+    def __init__(self, other: TempoQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, qpm: float) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TempoQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TempoQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TempoQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TempoQuarter:
+        """
+        Shift the event time by offset
+        """
 class TempoQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2119,9 +2077,7 @@ class TempoQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TempoSecond:
     tempo: float
@@ -2135,23 +2091,23 @@ class TempoSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: float) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TempoSecond) -> None:
+    def __init__(self, other: TempoSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, qpm: float) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TempoSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TempoSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TempoSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TempoSecond:
+        """
+        Shift the event time by offset
+        """
 class TempoSecondList:
     def __bool__(self) -> bool:
         """
@@ -2238,9 +2194,7 @@ class TempoSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TempoTick:
     tempo: float
@@ -2254,23 +2208,23 @@ class TempoTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: float) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TempoTick) -> None:
+    def __init__(self, other: TempoTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, qpm: float) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TempoTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> TempoTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> TempoTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> TempoTick:
+        """
+        Shift the event time by offset
+        """
 class TempoTickList:
     def __bool__(self) -> bool:
         """
@@ -2357,9 +2311,7 @@ class TempoTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TempoTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TempoTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TextMetaQuarter:
     text: str
@@ -2373,23 +2325,23 @@ class TextMetaQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: str) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaQuarter) -> None:
+    def __init__(self, other: TextMetaQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, text: str) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TextMetaQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TextMetaQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TextMetaQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TextMetaQuarter:
+        """
+        Shift the event time by offset
+        """
 class TextMetaQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2476,9 +2428,7 @@ class TextMetaQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TextMetaSecond:
     text: str
@@ -2492,23 +2442,23 @@ class TextMetaSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: str) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaSecond) -> None:
+    def __init__(self, other: TextMetaSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: float, text: str) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TextMetaSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TextMetaSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TextMetaSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TextMetaSecond:
+        """
+        Shift the event time by offset
+        """
 class TextMetaSecondList:
     def __bool__(self) -> bool:
         """
@@ -2595,9 +2545,7 @@ class TextMetaSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TextMetaTick:
     text: str
@@ -2611,23 +2559,23 @@ class TextMetaTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: str) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaTick) -> None:
+    def __init__(self, other: TextMetaTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, time: int, text: str) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TextMetaTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> TextMetaTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> TextMetaTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> TextMetaTick:
+        """
+        Shift the event time by offset
+        """
 class TextMetaTickList:
     def __bool__(self) -> bool:
         """
@@ -2714,9 +2662,7 @@ class TextMetaTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TextMetaTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TextMetaTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class Tick:
     __hash__: typing.ClassVar[None] = None
@@ -2741,23 +2687,23 @@ class TimeSignatureQuarter:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureQuarter) -> None:
+    def __init__(self, other: TimeSignatureQuarter) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TimeSignatureQuarter:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TimeSignatureQuarter:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TimeSignatureQuarter:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TimeSignatureQuarter:
+        """
+        Shift the event time by offset
+        """
 class TimeSignatureQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2844,9 +2790,7 @@ class TimeSignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureQuarterList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TimeSignatureSecond:
     denominator: int
@@ -2861,23 +2805,23 @@ class TimeSignatureSecond:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureSecond) -> None:
+    def __init__(self, other: TimeSignatureSecond) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TimeSignatureSecond:
         """
         Deep copy
         """
-    def shift_time(self, arg0: float) -> TimeSignatureSecond:
-        ...
-    def shift_time_inplace(self, arg0: float) -> TimeSignatureSecond:
-        ...
+    def shift_time(self, offset: float, inplace: bool = False) -> TimeSignatureSecond:
+        """
+        Shift the event time by offset
+        """
 class TimeSignatureSecondList:
     def __bool__(self) -> bool:
         """
@@ -2964,9 +2908,7 @@ class TimeSignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureSecondList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TimeSignatureTick:
     denominator: int
@@ -2981,23 +2923,23 @@ class TimeSignatureTick:
         Deep copy
         """
     @typing.overload
-    def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureTick) -> None:
+    def __init__(self, other: TimeSignatureTick) -> None:
         """
         Copy constructor
         """
+    @typing.overload
+    def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
+        ...
     def __repr__(self) -> str:
         ...
     def copy(self) -> TimeSignatureTick:
         """
         Deep copy
         """
-    def shift_time(self, arg0: int) -> TimeSignatureTick:
-        ...
-    def shift_time_inplace(self, arg0: int) -> TimeSignatureTick:
-        ...
+    def shift_time(self, offset: int, inplace: bool = False) -> TimeSignatureTick:
+        """
+        Shift the event time by offset
+        """
 class TimeSignatureTickList:
     def __bool__(self) -> bool:
         """
@@ -3084,9 +3026,7 @@ class TimeSignatureTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureTickList:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TimeSignatureTickList:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
 class TrackQuarter:
     controls: ControlChangeQuarterList
@@ -3108,13 +3048,13 @@ class TrackQuarter:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, arg0: TrackQuarter) -> None:
+    def __init__(self, other: TrackQuarter) -> None:
         """
         Copy constructor
         """
     def __repr__(self) -> str:
         ...
-    def clip(self, arg0: float, arg1: float, arg2: bool) -> TrackQuarter:
+    def clip(self, start: float, end: float, clip_end: bool = False) -> TrackQuarter:
         """
         Clip notes and controls to a given time range
         """
@@ -3128,21 +3068,13 @@ class TrackQuarter:
         ...
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> TrackQuarter:
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_pitch_inplace(self, arg0: int) -> TrackQuarter:
+    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time(self, arg0: float) -> TrackQuarter:
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time_inplace(self, arg0: float) -> TrackQuarter:
-        ...
-    def shift_velocity(self, arg0: int) -> TrackQuarter:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> TrackQuarter:
-        ...
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackQuarter:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackQuarter:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     def start(self) -> float:
         ...
@@ -3256,13 +3188,13 @@ class TrackSecond:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, arg0: TrackSecond) -> None:
+    def __init__(self, other: TrackSecond) -> None:
         """
         Copy constructor
         """
     def __repr__(self) -> str:
         ...
-    def clip(self, arg0: float, arg1: float, arg2: bool) -> TrackSecond:
+    def clip(self, start: float, end: float, clip_end: bool = False) -> TrackSecond:
         """
         Clip notes and controls to a given time range
         """
@@ -3276,21 +3208,13 @@ class TrackSecond:
         ...
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> TrackSecond:
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_pitch_inplace(self, arg0: int) -> TrackSecond:
+    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time(self, arg0: float) -> TrackSecond:
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time_inplace(self, arg0: float) -> TrackSecond:
-        ...
-    def shift_velocity(self, arg0: int) -> TrackSecond:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> TrackSecond:
-        ...
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackSecond:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackSecond:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     def start(self) -> float:
         ...
@@ -3404,13 +3328,13 @@ class TrackTick:
     def __init__(self) -> None:
         ...
     @typing.overload
-    def __init__(self, arg0: TrackTick) -> None:
+    def __init__(self, other: TrackTick) -> None:
         """
         Copy constructor
         """
     def __repr__(self) -> str:
         ...
-    def clip(self, arg0: int, arg1: int, arg2: bool) -> TrackTick:
+    def clip(self, start: int, end: int, clip_end: bool = False) -> TrackTick:
         """
         Clip notes and controls to a given time range
         """
@@ -3424,21 +3348,13 @@ class TrackTick:
         ...
     def note_num(self) -> int:
         ...
-    def shift_pitch(self, arg0: int) -> TrackTick:
+    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_pitch_inplace(self, arg0: int) -> TrackTick:
+    def shift_time(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time(self, arg0: int) -> TrackTick:
+    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
-    def shift_time_inplace(self, arg0: int) -> TrackTick:
-        ...
-    def shift_velocity(self, arg0: int) -> TrackTick:
-        ...
-    def shift_velocity_inplace(self, arg0: int) -> TrackTick:
-        ...
-    def sort(self, key: typing.Any = None, reverse: bool = False) -> TrackTick:
-        ...
-    def sort_inplace(self, key: typing.Any = None, reverse: bool = False) -> TrackTick:
+    def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     def start(self) -> int:
         ...
