@@ -219,6 +219,10 @@ TIME_EVENT {
     Note(unit time, const Note<U>& other):
         TimeStamp<T>(time), duration(other.duration), pitch(other.pitch), velocity(other.velocity) {};
 
+    template<typename U>
+    Note(unit time, unit duration, const Note<U>& other):
+        TimeStamp<T>(time), duration(duration), pitch(other.pitch), velocity(other.velocity) {};
+
     SHIFT_I8(pitch)
 
     SHIFT_I8(velocity)
@@ -379,6 +383,9 @@ TIME_EVENT{
 
     template<typename U>
     Pedal(unit time, const Pedal<U>& other): TimeStamp<T>(time), duration(other.duration) {};
+
+    template<typename U>
+    Pedal(unit time, unit duration, const Pedal<U>& other): TimeStamp<T>(time), duration(duration) {};
 
     [[nodiscard]] unit end() const { return this->time + duration; }
 
@@ -1044,7 +1051,28 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
 
 REPEAT_ON(
     TICK2QUARTER,
-    Note, TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta, Pedal
+    TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta
+) // Converts definition end
+
+#undef TICK2QUARTER
+
+// Define converts from Tick to Quarter
+#define TICK2QUARTER(i, CLASS_NAME)                                             \
+    inline vec<CLASS_NAME<Quarter>> to_quarter(                                 \
+        const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) {             \
+        vec<CLASS_NAME<Quarter>> new_data;                                      \
+        new_data.reserve(data.size());                                          \
+        f32 tpq = static_cast<f32>(ticks_per_quarter);                          \
+        for(auto const &event: data)                                            \
+            new_data.emplace_back(static_cast<f32>(event.time) / tpq,           \
+                                static_cast<f32>(event.duration) / tpq,         \
+                                event);                                         \
+        return new_data;                                                        \
+    }
+
+REPEAT_ON(
+    TICK2QUARTER,
+    Note, Pedal
 ) // Converts definition end
 
 #undef TICK2QUARTER
