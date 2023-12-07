@@ -712,7 +712,10 @@ template<typename T>
 struct Score{
 protected:
     template<typename U>
-    void from(U& other);
+    void from(U&) {             // general case, raise error
+        ticks_per_quarter = -1; // avoid warning of setting the method to static
+        throw std::runtime_error("Not Implemented");
+    }
 
 public:
     i32 ticks_per_quarter{};
@@ -1140,7 +1143,7 @@ REPEAT_ON(
 
 #undef TICK2QUARTER
 
-// tick to quarter
+// tick to quarter, specialization
 template<> template<>
 inline void Score<Quarter>::from(Score<Tick> &other){
     this->ticks_per_quarter = other.ticks_per_quarter;
