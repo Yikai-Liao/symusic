@@ -243,7 +243,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("is_drum", &score::Track<T>::is_drum)
         .def_readwrite("program", &score::Track<T>::program)
         .def_readwrite("name", &score::Track<T>::name)
-        .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
+        .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("end", &Track<T>::end)
         .def("start", &score::Track<T>::start)
         .def("note_num", &score::Track<T>::note_num)
@@ -264,7 +264,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
                 { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
                 sizeof(pianoroll::pianoroll_t) }
             });
-        })
+        }, py::arg("quantization"))
         .def("frame_pianoroll", [](score::Track<T> &self, float quantization) {
             score::pianoroll::TrackPianoRoll pianoroll = self.frame_pianoroll(quantization);
 
@@ -277,7 +277,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
                 { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
                 sizeof(pianoroll::pianoroll_t) }
             });
-        });
+        }, py::arg("quantization"));
         
     py::bind_vector<vec<score::Track<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
@@ -381,7 +381,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
-        .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
+        .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_score<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_score<T>, py::arg("offset"), py::arg("inplace")=false)
@@ -403,7 +403,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
                 sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
                 sizeof(pianoroll::pianoroll_t) }
             });
-        })
+        }, py::arg("quantization"))
         .def("frame_pianoroll", [](score::Score<T> &self, float quantization) {
             score::pianoroll::ScorePianoRoll pianoroll = self.frame_pianoroll(quantization);
 
@@ -417,7 +417,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
                 sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
                 sizeof(pianoroll::pianoroll_t) }
             });
-        });
+        }, py::arg("quantization"));
 }
 
 py::module & core_module(py::module & m){
