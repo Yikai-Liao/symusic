@@ -126,6 +126,38 @@ inline std::string strip_non_utf_8(const std::string *str) {
 } // NOLINTEND
 } // namespace utils end
 
+namespace pianoroll {
+
+#define PITCH_NUM 128
+
+class TrackPianoRoll {
+public:
+    size_t pitch_dim;
+    size_t time_dim;
+    float *data;
+
+    TrackPianoRoll(size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+        this->pitch_dim = pitch_dim;
+        this->time_dim = time_dim;
+        this->data = new float[pitch_dim * time_dim];
+
+        this->clear();
+    };
+
+    void set(size_t start, size_t duration, size_t pitch) {
+        std::fill_n(this->data + pitch * this->time_dim + start,
+                    duration,
+                    1);
+    };
+
+    void clear() {
+        std::fill_n(this->data,
+                    this->pitch_dim * this->time_dim,
+                    0);
+    };
+};
+} // namespace pianoroll end
+
 template<typename T>
 struct TimeUnit {
     typedef T unit;
@@ -602,6 +634,28 @@ struct Track{
     [[nodiscard]] Track shift_velocity(const i8 offset) const {
         return copy().shift_velocity_inplace(offset);
     }
+
+    pianoroll::TrackPianoRoll onset_pianoroll(float quantization) const {
+        pianoroll::TrackPianoRoll pianoroll(ceil(this->end() / quantization));
+
+        for(auto &note: notes)
+            pianoroll.set(floor(note.time / quantization),
+                        1,
+                        note.pitch);
+
+        return pianoroll;
+    }
+
+    pianoroll::TrackPianoRoll frame_pianoroll(float quantization) const {
+        pianoroll::TrackPianoRoll pianoroll(ceil(this->end() / quantization));
+
+        for(auto &note: notes)
+            pianoroll.set(floor(note.time / quantization),
+                        floor(note.duration / quantization),
+                        note.pitch);
+
+        return pianoroll;
+    }
 };
 
 // get to_string and overload operator<< for Track and vec<Track>
@@ -990,7 +1044,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
 
 REPEAT_ON(
     TICK2QUARTER,
-    Note, TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta
+    Note, TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta, Pedal
 ) // Converts definition end
 
 #undef TICK2QUARTER
