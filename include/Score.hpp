@@ -478,7 +478,7 @@ inline vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> & 
     std::copy_if(
         data.begin(), data.end(), std::back_inserter(new_data), _filter
     );
-    new_data.shrink_to_fit();
+    vec<T>(new_data).swap(new_data);
     return new_data;
 }
 
