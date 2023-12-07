@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <iosfwd>
+#include <limits>
 #include "pdqsort.h"
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"
@@ -261,6 +262,8 @@ TIME_EVENT {
         return duration <= 0 || velocity <= 0 || this->time <= 0;
     }
 
+    [[nodiscard]] unit start() const { return this->time; }
+
     [[nodiscard]] unit end() const { return this->time + duration; }
 
     [[nodiscard]] std::string to_string() const {
@@ -456,11 +459,15 @@ TIME_EVENT{
 #undef DEFAULT_METHODS
 
 namespace utils {
+
+template<typename T>
+auto time_cmp = [](const T &a, const T &b) {
+        return a.time < b.time;
+    };
+
 template<typename T>
 void sort_by_time(vec<T> &events) {
-    pdqsort(events.begin(), events.end(), [](const T &a, const T &b) {
-        return a.time < b.time;
-    });
+    pdqsort(events.begin(), events.end(), time_cmp<T>);
 }
 
 template<typename T>
@@ -594,10 +601,10 @@ struct Track{
     }
 
     [[nodiscard]] unit start() const {
-        unit t = 0; // using 0 to avoid get unit max
+        unit t = std::numeric_limits<unit>::max();
         for (auto const &note: notes)
-            t = std::min(t, -note.time);
-        return -t;
+            t = std::min(t, note.start());
+        return t;
     }
 
     [[nodiscard]] size_t note_num() const { return notes.size(); }
@@ -803,10 +810,10 @@ public:
     }
 
     [[nodiscard]] typename T::unit start() const {
-        typename T::unit t = 0;
+        typename T::unit t = std::numeric_limits<typename T::unit>::max();
         for(auto const &track: tracks)
-            t = std::min(t, -track.start());
-        return -t;
+            t = std::min(t, track.start());
+        return t;
     }
 
     [[nodiscard]] size_t note_num() const {
