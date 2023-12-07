@@ -42,13 +42,21 @@ jobs:
         with:
           architecture: 'x86'
 
-      - name: Build wheels
-        if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' || matrix.buildplat[1] == 'musllinux_x86_64'}}
+      - name: Build wheels for manylinux
+        if: ${{ matrix.buildplat[1] == 'manylinux_x86_64'}}
         uses: pypa/cibuildwheel@v2.16.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+
+      - name: Build wheels for musllinux
+        if: ${{ matrix.buildplat[1] == 'musllinux_x86_64'}}
+        uses: pypa/cibuildwheel@v2.16.1
+        env:
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+          CIBW_MUSLLINUX_X86_64_IMAGE: quay.io/pypa/musllinux_1_2_x86_64
 
       - name: Build wheels
         if: ${{ matrix.buildplat[1] != 'manylinux_x86_64' && matrix.buildplat[1] != 'musllinux_x86_64'}}
