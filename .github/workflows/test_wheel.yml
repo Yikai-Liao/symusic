@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
   release:
-    types:
-      - published
 
 jobs:
   build_wheels:
