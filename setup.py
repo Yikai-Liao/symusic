@@ -130,7 +130,7 @@ class CMakeBuild(build_ext):
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
     name="symusic",
-    version="0.1.3",
+    version="0.1.4",
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
