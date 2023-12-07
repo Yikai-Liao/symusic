@@ -6,6 +6,7 @@
 #include <pybind11/pytypes.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/numpy.h>
 #include "Score.hpp"
 
 namespace py = pybind11;
@@ -337,7 +338,33 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("shift_pitch_inplace", &score::Track<T>::shift_pitch_inplace)
         .def("shift_pitch", &score::Track<T>::shift_pitch)
         .def("shift_velocity_inplace", &score::Track<T>::shift_velocity_inplace)
-        .def("shift_velocity", &score::Track<T>::shift_velocity);
+        .def("shift_velocity", &score::Track<T>::shift_velocity)
+        .def("onset_pianoroll", [](score::Track<T> &self, float quantization) {
+            score::pianoroll::TrackPianoRoll pianoroll = self.onset_pianoroll(quantization);
+
+            return py::array_t<float>(py::buffer_info{
+                pianoroll.data,
+                sizeof(float),
+                py::format_descriptor<float>::format(),
+                2,
+                { pianoroll.pitch_dim, pianoroll.time_dim },
+                { sizeof(float) * pianoroll.time_dim,
+                sizeof(float) }
+            });
+        })
+        .def("frame_pianoroll", [](score::Track<T> &self, float quantization) {
+            score::pianoroll::TrackPianoRoll pianoroll = self.frame_pianoroll(quantization);
+
+            return py::array_t<float>(py::buffer_info{
+                pianoroll.data,
+                sizeof(float),
+                py::format_descriptor<float>::format(),
+                2,
+                { pianoroll.pitch_dim, pianoroll.time_dim },
+                { sizeof(float) * pianoroll.time_dim,
+                sizeof(float) }
+            });
+        });
         
     py::bind_vector<vec<score::Track<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
