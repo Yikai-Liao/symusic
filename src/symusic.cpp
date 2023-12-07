@@ -255,27 +255,27 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("onset_pianoroll", [](score::Track<T> &self, float quantization) {
             score::pianoroll::TrackPianoRoll pianoroll = self.onset_pianoroll(quantization);
 
-            return py::array_t<float>(py::buffer_info{
+            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
                 pianoroll.data,
-                sizeof(float),
-                py::format_descriptor<float>::format(),
+                sizeof(pianoroll::pianoroll_t),
+                py::format_descriptor<pianoroll::pianoroll_t>::format(),
                 2,
                 { pianoroll.pitch_dim, pianoroll.time_dim },
-                { sizeof(float) * pianoroll.time_dim,
-                sizeof(float) }
+                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+                sizeof(pianoroll::pianoroll_t) }
             });
         })
         .def("frame_pianoroll", [](score::Track<T> &self, float quantization) {
             score::pianoroll::TrackPianoRoll pianoroll = self.frame_pianoroll(quantization);
 
-            return py::array_t<float>(py::buffer_info{
+            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
                 pianoroll.data,
-                sizeof(float),
-                py::format_descriptor<float>::format(),
+                sizeof(pianoroll::pianoroll_t),
+                py::format_descriptor<pianoroll::pianoroll_t>::format(),
                 2,
                 { pianoroll.pitch_dim, pianoroll.time_dim },
-                { sizeof(float) * pianoroll.time_dim,
-                sizeof(float) }
+                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+                sizeof(pianoroll::pianoroll_t) }
             });
         });
         
@@ -389,7 +389,35 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def("start", &Score<T>::start)
         .def("end", &Score<T>::end)
         .def("note_num", &Score<T>::note_num)
-        .def("empty", &Score<T>::empty);
+        .def("empty", &Score<T>::empty)
+        .def("onset_pianoroll", [](score::Score<T> &self, float quantization) {
+            score::pianoroll::ScorePianoRoll pianoroll = self.onset_pianoroll(quantization);
+
+            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
+                pianoroll.data,
+                sizeof(pianoroll::pianoroll_t),
+                py::format_descriptor<pianoroll::pianoroll_t>::format(),
+                3,
+                { pianoroll.track_dim, pianoroll.pitch_dim, pianoroll.time_dim },
+                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
+                sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+                sizeof(pianoroll::pianoroll_t) }
+            });
+        })
+        .def("frame_pianoroll", [](score::Score<T> &self, float quantization) {
+            score::pianoroll::ScorePianoRoll pianoroll = self.frame_pianoroll(quantization);
+
+            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
+                pianoroll.data,
+                sizeof(pianoroll::pianoroll_t),
+                py::format_descriptor<pianoroll::pianoroll_t>::format(),
+                3,
+                { pianoroll.track_dim, pianoroll.pitch_dim, pianoroll.time_dim },
+                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
+                sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+                sizeof(pianoroll::pianoroll_t) }
+            });
+        });
 }
 
 py::module & core_module(py::module & m){

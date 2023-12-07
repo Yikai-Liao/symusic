@@ -129,17 +129,18 @@ inline std::string strip_non_utf_8(const std::string *str) {
 namespace pianoroll {
 
 #define PITCH_NUM 128
+typedef float pianoroll_t;
 
 class TrackPianoRoll {
 public:
     size_t pitch_dim;
     size_t time_dim;
-    float *data;
+    pianoroll_t *data;
 
     TrackPianoRoll(size_t time_dim, size_t pitch_dim=PITCH_NUM) {
         this->pitch_dim = pitch_dim;
         this->time_dim = time_dim;
-        this->data = new float[pitch_dim * time_dim];
+        this->data = new pianoroll_t[pitch_dim * time_dim];
 
         this->clear();
     };
@@ -153,6 +154,35 @@ public:
     void clear() {
         std::fill_n(this->data,
                     this->pitch_dim * this->time_dim,
+                    0);
+    };
+};
+
+class ScorePianoRoll {
+public:
+    size_t track_dim;
+    size_t pitch_dim;
+    size_t time_dim;
+    pianoroll_t *data;
+
+    ScorePianoRoll(size_t track_dim, size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+        this->track_dim = track_dim;
+        this->pitch_dim = pitch_dim;
+        this->time_dim = time_dim;
+        this->data = new pianoroll_t[track_dim * pitch_dim * time_dim];
+
+        this->clear();
+    };
+
+    void set(size_t track, size_t start, size_t duration, size_t pitch) {
+        std::fill_n(this->data + track * this->pitch_dim * this->time_dim + pitch * this->time_dim + start,
+                    duration,
+                    1);
+    };
+
+    void clear() {
+        std::fill_n(this->data,
+                    this->track_dim * this->pitch_dim * this->time_dim,
                     0);
     };
 };
@@ -807,6 +837,32 @@ public:
            << ", tracks="           << tracks
            << ")";
         return ss.str();
+    }
+
+    pianoroll::ScorePianoRoll onset_pianoroll(float quantization) const {
+        pianoroll::ScorePianoRoll pianoroll(tracks.size(), ceil(this->end() / quantization));
+
+        for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
+            for(auto &note: tracks[track_idx].notes)
+                pianoroll.set(track_idx,
+                            floor(note.time / quantization),
+                            1,
+                            note.pitch);
+
+        return pianoroll;
+    }
+
+    pianoroll::ScorePianoRoll frame_pianoroll(float quantization) const {
+        pianoroll::ScorePianoRoll pianoroll(tracks.size(), ceil(this->end() / quantization));
+
+        for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
+            for(auto &note: tracks[track_idx].notes)
+                pianoroll.set(track_idx,
+                            floor(note.time / quantization),
+                            floor(note.duration / quantization),
+                            note.pitch);
+
+        return pianoroll;
     }
 }; // Score end
 
