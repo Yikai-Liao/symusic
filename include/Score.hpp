@@ -229,6 +229,11 @@ struct TimeStamp {
         return copy().shift_time_inplace(offset);                           \
     }
 
+#define ZPP_INIT(ATTR_NUM)                                                  \
+    using serialize = zpp::bits::members<ATTR_NUM>;                         \
+    // explicit CLASS_NAME(auto && ...) {}                                  \
+
+
 #define SHIFT_I8(ATTR)                                                      \
     CLASS_NAME & shift_##ATTR##_inplace (unit offset) {                     \
         ATTR = utils::safe_add(ATTR, offset); return *this;                 \
@@ -244,9 +249,9 @@ TIME_EVENT {
     unit duration;
     i8 pitch{}, velocity{};
 
-    using serialize = zpp::bits::members<4>;
-
-    explicit Note(auto && ...) {}
+    constexpr static auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.duration, event.pitch, event.velocity);
+    }
 
     Note(unit time, unit duration, i8 pitch, i8 velocity) :
         TimeStamp<T>(time), duration(duration), pitch(pitch), velocity(velocity) {};
@@ -290,6 +295,10 @@ TIME_EVENT{
     DEFAULT_METHODS
     u8 number{}, value{};
 
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.number, event.value);
+    }
+
     ControlChange(unit time, u8 number, u8 value) :
         TimeStamp<T>(time), number(number), value(value) {};
 
@@ -315,6 +324,9 @@ TIME_EVENT{
     DEFAULT_METHODS
     u8 numerator{}, denominator{};
 
+    constexpr static auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.numerator, event.denominator);
+    }
     TimeSignature(const unit time, const u8 numerator, const u8 denominator) :
         TimeStamp<T>(time), numerator(numerator), denominator(denominator) {};
 
@@ -345,6 +357,10 @@ TIME_EVENT{
     i8 key{};
     u8 tonality{};
 
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.key, event.tonality);
+    }
+
     KeySignature(const unit time, const i8 key, const u8 tonality) :
         TimeStamp<T>(time), key(key), tonality(tonality) {};
 
@@ -373,6 +389,10 @@ TIME_EVENT{
     DEFAULT_METHODS
     f32 qpm{};
 
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.qpm);
+    }
+
     Tempo(const unit time, const f32 qpm) : TimeStamp<T>(time), qpm(qpm) {};
 
     template<typename U>
@@ -395,6 +415,10 @@ TIME_EVENT{
     DEFAULT_METHODS
     i32 value{};
 
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.value);
+    }
+
     PitchBend(unit time, i32 value) : TimeStamp<T>(time), value(value) {};
 
     template<typename U>
@@ -416,6 +440,10 @@ TIME_EVENT{
 TIME_EVENT{
     DEFAULT_METHODS
     unit duration;
+
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.duration);
+    }
 
     Pedal(unit time, unit duration) : TimeStamp<T>(time), duration(duration) {};
 
@@ -444,6 +472,10 @@ TIME_EVENT{
     DEFAULT_METHODS
     std::string text{};
 
+    static constexpr auto serialize(auto & archive, auto & event){
+        return archive(event.time, event.text);
+    }
+
     TextMeta(unit time, std::string text) : TimeStamp<T>(time), text(std::move(text)) {};
 
     template<typename U>
@@ -462,13 +494,14 @@ TIME_EVENT{
 #undef CLASS_NAME // TextMeta
 #undef TIME_EVENT
 #undef DEFAULT_METHODS
+#undef ZPP_INIT
 
 namespace utils {
 
 template<typename T>
-auto time_cmp = [](const T &a, const T &b) {
+bool time_cmp(const T &a, const T &b) {
         return a.time < b.time;
-    };
+};
 
 template<typename T>
 void sort_by_time(vec<T> &events) {
@@ -571,8 +604,17 @@ struct Track{
     vec<PitchBend<T>> pitch_bends;
     vec<Pedal<T>> pedals;
 
+    static constexpr auto serialize(auto & archive, auto & track){
+        return archive(
+            track.name, track.program, track.is_drum, track.notes,
+            track.controls, track.pitch_bends, track.pedals
+        );
+    }
+
     Track() = default;
     Track(const Track&) = default;
+    // explicit Track(auto && ...) {}
+
     Track(std::string name,
           const u8 program,
           const bool is_drum,
@@ -730,9 +772,17 @@ public:
     vec<Tempo<T>> tempos;
     vec<TextMeta<T>> lyrics, markers;
 
+    static constexpr auto serialize(auto & archive, auto & score) {
+        return archive(
+            score.ticks_per_quarter, score.tracks, score.time_signatures,
+            score.key_signatures, score.tempos, score.lyrics, score.markers
+        );
+    }
+
     Score() = default;
     Score(const Score&) = default;
     Score(Score&&)  noexcept = default;
+    // explicit Score(auto && ...) {}
     [[nodiscard]] Score copy() const { return {*this}; }
 
     template<typename U>
