@@ -18,6 +18,7 @@ pybind11_add_module(core src/symusic.cpp)
 
 if(BUILD_TEST)
     add_executable(note_count test/note_count.cpp)
+    add_executable(dump test/dump.cpp)
 endif()
 
 if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
