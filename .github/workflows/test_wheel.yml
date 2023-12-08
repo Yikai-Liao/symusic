@@ -25,10 +25,11 @@ jobs:
           - [windows-2019, win32]
         python: ["cp39", "cp310", "cp311", "cp312", "pp39"]
         exclude:
-          # Don't build PyPy 32-bit windows
           - buildplat: [windows-2019, win32]
             python: "pp39"
           - buildplat: [ ubuntu-20.04, musllinux_x86_64 ]
+            python: "pp39"
+          - buildplat: [macos-12, macosx_arm64]
             python: "pp39"
 
     steps:
