@@ -65,7 +65,7 @@ jobs:
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
-          CIBW_ARCHS: auto
+          CIBW_ARCHS: 'all'
 
       - uses: actions/upload-artifact@v3
         with:
