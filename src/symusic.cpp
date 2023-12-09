@@ -386,7 +386,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
     const auto name = "Score" + name_;
 
     return py::class_<Score<T>>(m, name.c_str())
-        .def(py::init<>())
+        .def(py::init<const i32>(), py::arg("tpq"))
         .def(py::init<const Score<T> &>(), "Copy constructor", py::arg("other"))
         .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)

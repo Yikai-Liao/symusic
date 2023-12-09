@@ -244,16 +244,20 @@ class ScoreFactory:
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
 
     def __call__(
-        self, file: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self, x: Union[str, Path, int], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ):
-        if isinstance(file, str) or isinstance(file, Path):
-            return self.from_file(file, ttype)
+        if isinstance(x, str) or isinstance(x, Path):
+            return self.from_file(x, ttype)
+        elif isinstance(x, int):
+            return self.from_tpq(x, ttype)
 
     def from_file(
         self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
-        a = self.__core_classes.dispatch(ttype)
-        return a.from_file(str(path))
+        return self.__core_classes.dispatch(ttype).from_file(str(path))
+
+    def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
+        return self.__core_classes.dispatch(ttype)(tpq)
 
 
 Note = NoteFactory()
