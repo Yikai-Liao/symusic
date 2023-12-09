@@ -8,6 +8,7 @@ option(BUILD_TEST "Build the test target" OFF)
 include_directories(include)
 include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
+include_directories(3rdparty/zpp_bits)
 
 # set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
 # find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
