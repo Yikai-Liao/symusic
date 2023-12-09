@@ -47,6 +47,24 @@ py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, con
 }
 
 template<typename T>
+py::bytes py_to_bytes(const T &self) {
+    auto [data, out] = zpp::bits::data_out();
+    out(self);
+    return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
+}
+
+template <typename T>
+T py_from_bytes(const py::bytes &bytes) {
+    // cast bytes to string_view
+    auto data = std::string_view(bytes);
+    auto in = zpp::bits::in(data);
+    T self;
+    in(self).or_throw();
+    return self;
+}
+
+
+template<typename T>
 py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
     typedef typename T::unit unit;
     auto event = py::class_<T>(m, name.c_str())
@@ -60,11 +78,13 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def("copy", &T::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &T::copy, "Deep copy")
         .def("__deepcopy__", &T::copy, "Deep copy")
-        .def("__repr__", &T::to_string);
+        .def("__repr__", &T::to_string)
+        .def(py::pickle( &py_to_bytes<T>, &py_from_bytes<T>));
 
     py::bind_vector<vec<T>>(m, name + "List")
-    .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
-    .def("__repr__", [](const vec<T> &self) { return to_string(self);});
+        .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
+        .def("__repr__", [](const vec<T> &self) { return to_string(self);})
+        .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
     
     py::implicitly_convertible<py::list, vec<T>>();
     return event;
@@ -243,6 +263,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("is_drum", &score::Track<T>::is_drum)
         .def_readwrite("program", &score::Track<T>::program)
         .def_readwrite("name", &score::Track<T>::name)
+        .def(py::pickle( &py_to_bytes<score::Track<T>>, &py_from_bytes<score::Track<T>>))
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("end", &Track<T>::end)
         .def("start", &score::Track<T>::start)
@@ -295,7 +316,8 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         }, py::arg("key"), py::arg("reverse")=false)
         .def("__repr__", [](const vec<score::Track<T>> &self) {
             return to_string(self);
-        });
+        })
+        .def(py::pickle( &py_to_bytes<vec<score::Track<T>>>, &py_from_bytes<vec<score::Track<T>>>));
 
     py::implicitly_convertible<py::list, vec<score::Track<T>>>();
 
@@ -381,6 +403,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
+        .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
         .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_score<T>, py::arg("offset"), py::arg("inplace")=false)
