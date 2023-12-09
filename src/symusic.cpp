@@ -49,7 +49,7 @@ py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, con
 template<typename T>
 py::bytes py_to_bytes(const T &self) {
     auto [data, out] = zpp::bits::data_out();
-    out(self);
+    out(self).or_throw();
     return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
 }
 
@@ -69,6 +69,7 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
     typedef typename T::unit unit;
     auto event = py::class_<T>(m, name.c_str())
         .def_readwrite("time", &T::time)
+        .def_property_readonly("ttype", [](const T &) { return typename T::ttype(); })
         .def("shift_time", [](T &self, const unit offset, const bool inplace) {
                 if (inplace) return self.shift_time_inplace(offset);
                 else return self.shift_time(offset);
@@ -82,10 +83,11 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def(py::pickle( &py_to_bytes<T>, &py_from_bytes<T>));
 
     py::bind_vector<vec<T>>(m, name + "List")
+        .def_property_readonly("ttype", [](const T &) { return typename T::ttype(); })
         .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<T> &self) { return to_string(self);})
         .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
-    
+
     py::implicitly_convertible<py::list, vec<T>>();
     return event;
 }
@@ -263,6 +265,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("is_drum", &score::Track<T>::is_drum)
         .def_readwrite("program", &score::Track<T>::program)
         .def_readwrite("name", &score::Track<T>::name)
+        .def_property_readonly("ttype", []{ return T(); })
         .def(py::pickle( &py_to_bytes<score::Track<T>>, &py_from_bytes<score::Track<T>>))
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("end", &Track<T>::end)
@@ -300,7 +303,7 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
             });
         }, py::arg("quantization"));
         
-    py::bind_vector<vec<score::Track<T>>>(m, name + "List")
+    py::bind_vector<vec<Track<T>>>(m, name + "List")
         .def("sort_inplace", [](vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
             if (key.is_none()) throw std::invalid_argument("key must be specified");
             else sort_by_py_key(self, key.cast<py::function>());
@@ -317,7 +320,8 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def("__repr__", [](const vec<score::Track<T>> &self) {
             return to_string(self);
         })
-        .def(py::pickle( &py_to_bytes<vec<score::Track<T>>>, &py_from_bytes<vec<score::Track<T>>>));
+        .def(py::pickle( &py_to_bytes<vec<score::Track<T>>>, &py_from_bytes<vec<score::Track<T>>>))
+        .def_property_readonly("ttype", []{ return T(); });
 
     py::implicitly_convertible<py::list, vec<score::Track<T>>>();
 
@@ -403,6 +407,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("tempos", &Score<T>::tempos)
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
+        .def_property_readonly("ttype", []{ return T(); })
         .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
         .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
@@ -493,17 +498,17 @@ PYBIND11_MODULE(core, m) {
 
     auto tick = py::class_<Tick>(m, "Tick")
         .def(py::init<>())
-        .def("__repr__", [](const Tick &) { return "TimeUnit::Tick"; })
+        .def("__repr__", [](const Tick &) { return "symsuic.core.Tick"; })
         .def("is_time_unit", [](const Tick &) { return true; });
 
     auto quarter = py::class_<Quarter>(m, "Quarter")
         .def(py::init<>())
-        .def("__repr__", [](const Quarter &) { return "TimeUnit::Quarter"; })
+        .def("__repr__", [](const Quarter &) { return "symsuic.core.Quarter"; })
         .def("is_time_unit", [](const Quarter &) { return true; });
 
     auto second = py::class_<Second>(m, "Second")
         .def(py::init<>())
-        .def("__repr__", [](const Second &) { return "TimeUnit::Second"; })
+        .def("__repr__", [](const Second &) { return "symsuic.core.Second"; })
         .def("is_time_unit", [](const Second &) { return true; });
 
     // def __eq__ for all time units
