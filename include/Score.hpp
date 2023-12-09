@@ -782,6 +782,7 @@ public:
     Score() = default;
     Score(const Score&) = default;
     Score(Score&&)  noexcept = default;
+    explicit Score(const i32 tpq) : ticks_per_quarter(tpq) {};
     // explicit Score(auto && ...) {}
     [[nodiscard]] Score copy() const { return {*this}; }
 
