@@ -14,6 +14,8 @@ class ControlChangeQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: ControlChangeQuarter) -> None:
         """
@@ -23,6 +25,8 @@ class ControlChangeQuarter:
     def __init__(self, time: float, number: int, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> ControlChangeQuarter:
         """
@@ -55,6 +59,8 @@ class ControlChangeQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> ControlChangeQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -86,6 +92,8 @@ class ControlChangeQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: ControlChangeQuarter) -> None:
         """
         Add an item to the end of the list
@@ -132,6 +140,8 @@ class ControlChangeSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: ControlChangeSecond) -> None:
         """
@@ -141,6 +151,8 @@ class ControlChangeSecond:
     def __init__(self, time: float, number: int, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> ControlChangeSecond:
         """
@@ -173,6 +185,8 @@ class ControlChangeSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> ControlChangeSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -204,6 +218,8 @@ class ControlChangeSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: ControlChangeSecond) -> None:
         """
         Add an item to the end of the list
@@ -250,6 +266,8 @@ class ControlChangeTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: ControlChangeTick) -> None:
         """
@@ -259,6 +277,8 @@ class ControlChangeTick:
     def __init__(self, time: int, number: int, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> ControlChangeTick:
         """
@@ -291,6 +311,8 @@ class ControlChangeTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> ControlChangeTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -322,6 +344,8 @@ class ControlChangeTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: ControlChangeTick) -> None:
         """
         Add an item to the end of the list
@@ -368,6 +392,8 @@ class KeySignatureQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: KeySignatureQuarter) -> None:
         """
@@ -377,6 +403,8 @@ class KeySignatureQuarter:
     def __init__(self, time: float, key: int, tonality: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> KeySignatureQuarter:
         """
@@ -409,6 +437,8 @@ class KeySignatureQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> KeySignatureQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -440,6 +470,8 @@ class KeySignatureQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: KeySignatureQuarter) -> None:
         """
         Add an item to the end of the list
@@ -486,6 +518,8 @@ class KeySignatureSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: KeySignatureSecond) -> None:
         """
@@ -495,6 +529,8 @@ class KeySignatureSecond:
     def __init__(self, time: float, key: int, tonality: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> KeySignatureSecond:
         """
@@ -527,6 +563,8 @@ class KeySignatureSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> KeySignatureSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -558,6 +596,8 @@ class KeySignatureSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: KeySignatureSecond) -> None:
         """
         Add an item to the end of the list
@@ -604,6 +644,8 @@ class KeySignatureTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: KeySignatureTick) -> None:
         """
@@ -613,6 +655,8 @@ class KeySignatureTick:
     def __init__(self, time: int, key: int, tonality: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> KeySignatureTick:
         """
@@ -645,6 +689,8 @@ class KeySignatureTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> KeySignatureTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -676,6 +722,8 @@ class KeySignatureTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: KeySignatureTick) -> None:
         """
         Add an item to the end of the list
@@ -724,6 +772,8 @@ class NoteQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: NoteQuarter) -> None:
         """
@@ -733,6 +783,8 @@ class NoteQuarter:
     def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> NoteQuarter:
         """
@@ -782,6 +834,8 @@ class NoteQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> NoteQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -813,6 +867,8 @@ class NoteQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: NoteQuarter) -> None:
         """
         Add an item to the end of the list
@@ -861,6 +917,8 @@ class NoteSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: NoteSecond) -> None:
         """
@@ -870,6 +928,8 @@ class NoteSecond:
     def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> NoteSecond:
         """
@@ -919,6 +979,8 @@ class NoteSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> NoteSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -950,6 +1012,8 @@ class NoteSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: NoteSecond) -> None:
         """
         Add an item to the end of the list
@@ -998,6 +1062,8 @@ class NoteTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: NoteTick) -> None:
         """
@@ -1007,6 +1073,8 @@ class NoteTick:
     def __init__(self, start: int, duration: int, pitch: int, velocity: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> NoteTick:
         """
@@ -1056,6 +1124,8 @@ class NoteTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> NoteTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1087,6 +1157,8 @@ class NoteTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: NoteTick) -> None:
         """
         Add an item to the end of the list
@@ -1132,6 +1204,8 @@ class PedalQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PedalQuarter) -> None:
         """
@@ -1141,6 +1215,8 @@ class PedalQuarter:
     def __init__(self, time: float, duration: float) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PedalQuarter:
         """
@@ -1173,6 +1249,8 @@ class PedalQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PedalQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1204,6 +1282,8 @@ class PedalQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PedalQuarter) -> None:
         """
         Add an item to the end of the list
@@ -1249,6 +1329,8 @@ class PedalSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PedalSecond) -> None:
         """
@@ -1258,6 +1340,8 @@ class PedalSecond:
     def __init__(self, time: float, duration: float) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PedalSecond:
         """
@@ -1290,6 +1374,8 @@ class PedalSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PedalSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1321,6 +1407,8 @@ class PedalSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PedalSecond) -> None:
         """
         Add an item to the end of the list
@@ -1366,6 +1454,8 @@ class PedalTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PedalTick) -> None:
         """
@@ -1375,6 +1465,8 @@ class PedalTick:
     def __init__(self, time: int, duration: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PedalTick:
         """
@@ -1407,6 +1499,8 @@ class PedalTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PedalTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1438,6 +1532,8 @@ class PedalTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PedalTick) -> None:
         """
         Add an item to the end of the list
@@ -1483,6 +1579,8 @@ class PitchBendQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PitchBendQuarter) -> None:
         """
@@ -1492,6 +1590,8 @@ class PitchBendQuarter:
     def __init__(self, time: float, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PitchBendQuarter:
         """
@@ -1524,6 +1624,8 @@ class PitchBendQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PitchBendQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1555,6 +1657,8 @@ class PitchBendQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PitchBendQuarter) -> None:
         """
         Add an item to the end of the list
@@ -1600,6 +1704,8 @@ class PitchBendSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PitchBendSecond) -> None:
         """
@@ -1609,6 +1715,8 @@ class PitchBendSecond:
     def __init__(self, time: float, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PitchBendSecond:
         """
@@ -1641,6 +1749,8 @@ class PitchBendSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PitchBendSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1672,6 +1782,8 @@ class PitchBendSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PitchBendSecond) -> None:
         """
         Add an item to the end of the list
@@ -1717,6 +1829,8 @@ class PitchBendTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: PitchBendTick) -> None:
         """
@@ -1726,6 +1840,8 @@ class PitchBendTick:
     def __init__(self, time: int, value: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> PitchBendTick:
         """
@@ -1758,6 +1874,8 @@ class PitchBendTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> PitchBendTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1789,6 +1907,8 @@ class PitchBendTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: PitchBendTick) -> None:
         """
         Add an item to the end of the list
@@ -1854,6 +1974,8 @@ class ScoreQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1868,6 +1990,8 @@ class ScoreQuarter:
         Load from midi file
         """
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def clip(self, start: float, end: float, clip_end: bool = False) -> ScoreQuarter:
         """
@@ -1918,6 +2042,8 @@ class ScoreTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -1932,6 +2058,8 @@ class ScoreTick:
         Load from midi file
         """
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def clip(self, start: int, end: int, clip_end: bool = False) -> ScoreTick:
         """
@@ -1982,6 +2110,8 @@ class TempoQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TempoQuarter) -> None:
         """
@@ -1991,6 +2121,8 @@ class TempoQuarter:
     def __init__(self, time: float, qpm: float) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TempoQuarter:
         """
@@ -2023,6 +2155,8 @@ class TempoQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TempoQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2054,6 +2188,8 @@ class TempoQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TempoQuarter) -> None:
         """
         Add an item to the end of the list
@@ -2099,6 +2235,8 @@ class TempoSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TempoSecond) -> None:
         """
@@ -2108,6 +2246,8 @@ class TempoSecond:
     def __init__(self, time: float, qpm: float) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TempoSecond:
         """
@@ -2140,6 +2280,8 @@ class TempoSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TempoSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2171,6 +2313,8 @@ class TempoSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TempoSecond) -> None:
         """
         Add an item to the end of the list
@@ -2216,6 +2360,8 @@ class TempoTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TempoTick) -> None:
         """
@@ -2225,6 +2371,8 @@ class TempoTick:
     def __init__(self, time: int, qpm: float) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TempoTick:
         """
@@ -2257,6 +2405,8 @@ class TempoTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TempoTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2288,6 +2438,8 @@ class TempoTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TempoTick) -> None:
         """
         Add an item to the end of the list
@@ -2333,6 +2485,8 @@ class TextMetaQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TextMetaQuarter) -> None:
         """
@@ -2342,6 +2496,8 @@ class TextMetaQuarter:
     def __init__(self, time: float, text: str) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TextMetaQuarter:
         """
@@ -2374,6 +2530,8 @@ class TextMetaQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TextMetaQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2405,6 +2563,8 @@ class TextMetaQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TextMetaQuarter) -> None:
         """
         Add an item to the end of the list
@@ -2450,6 +2610,8 @@ class TextMetaSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TextMetaSecond) -> None:
         """
@@ -2459,6 +2621,8 @@ class TextMetaSecond:
     def __init__(self, time: float, text: str) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TextMetaSecond:
         """
@@ -2491,6 +2655,8 @@ class TextMetaSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TextMetaSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2522,6 +2688,8 @@ class TextMetaSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TextMetaSecond) -> None:
         """
         Add an item to the end of the list
@@ -2567,6 +2735,8 @@ class TextMetaTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TextMetaTick) -> None:
         """
@@ -2576,6 +2746,8 @@ class TextMetaTick:
     def __init__(self, time: int, text: str) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TextMetaTick:
         """
@@ -2608,6 +2780,8 @@ class TextMetaTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TextMetaTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2639,6 +2813,8 @@ class TextMetaTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TextMetaTick) -> None:
         """
         Add an item to the end of the list
@@ -2695,6 +2871,8 @@ class TimeSignatureQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TimeSignatureQuarter) -> None:
         """
@@ -2704,6 +2882,8 @@ class TimeSignatureQuarter:
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TimeSignatureQuarter:
         """
@@ -2736,6 +2916,8 @@ class TimeSignatureQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TimeSignatureQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2767,6 +2949,8 @@ class TimeSignatureQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TimeSignatureQuarter) -> None:
         """
         Add an item to the end of the list
@@ -2813,6 +2997,8 @@ class TimeSignatureSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TimeSignatureSecond) -> None:
         """
@@ -2822,6 +3008,8 @@ class TimeSignatureSecond:
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TimeSignatureSecond:
         """
@@ -2854,6 +3042,8 @@ class TimeSignatureSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TimeSignatureSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -2885,6 +3075,8 @@ class TimeSignatureSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TimeSignatureSecond) -> None:
         """
         Add an item to the end of the list
@@ -2931,6 +3123,8 @@ class TimeSignatureTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self, other: TimeSignatureTick) -> None:
         """
@@ -2940,6 +3134,8 @@ class TimeSignatureTick:
     def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
         ...
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def copy(self) -> TimeSignatureTick:
         """
@@ -2972,6 +3168,8 @@ class TimeSignatureTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TimeSignatureTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3003,6 +3201,8 @@ class TimeSignatureTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TimeSignatureTick) -> None:
         """
         Add an item to the end of the list
@@ -3053,6 +3253,8 @@ class TrackQuarter:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3062,6 +3264,8 @@ class TrackQuarter:
         Copy constructor
         """
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def clip(self, start: float, end: float, clip_end: bool = False) -> TrackQuarter:
         """
@@ -3114,6 +3318,8 @@ class TrackQuarterList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TrackQuarter:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3145,6 +3351,8 @@ class TrackQuarterList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TrackQuarter) -> None:
         """
         Add an item to the end of the list
@@ -3197,6 +3405,8 @@ class TrackSecond:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3206,6 +3416,8 @@ class TrackSecond:
         Copy constructor
         """
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def clip(self, start: float, end: float, clip_end: bool = False) -> TrackSecond:
         """
@@ -3258,6 +3470,8 @@ class TrackSecondList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TrackSecond:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3289,6 +3503,8 @@ class TrackSecondList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TrackSecond) -> None:
         """
         Add an item to the end of the list
@@ -3341,6 +3557,8 @@ class TrackTick:
         """
         Deep copy
         """
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3350,6 +3568,8 @@ class TrackTick:
         Copy constructor
         """
     def __repr__(self) -> str:
+        ...
+    def __setstate__(self, arg0: bytes) -> None:
         ...
     def clip(self, start: int, end: int, clip_end: bool = False) -> TrackTick:
         """
@@ -3402,6 +3622,8 @@ class TrackTickList:
     @typing.overload
     def __getitem__(self, arg0: int) -> TrackTick:
         ...
+    def __getstate__(self) -> bytes:
+        ...
     @typing.overload
     def __init__(self) -> None:
         ...
@@ -3433,6 +3655,8 @@ class TrackTickList:
         """
         Assign list elements using a slice object
         """
+    def __setstate__(self, arg0: bytes) -> None:
+        ...
     def append(self, x: TrackTick) -> None:
         """
         Add an item to the end of the list
