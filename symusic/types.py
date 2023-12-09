@@ -14,6 +14,7 @@ __all__ = [
     'TimeSignature',
     'ControlChange',
     'Tempo',
+    "Pedal",
     'PitchBend',
     'TextMeta',
     'Track',
@@ -43,6 +44,7 @@ KeySignature = Union[core.KeySignatureTick, core.KeySignatureQuarter, core.KeySi
 TimeSignature = Union[core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond]
 ControlChange = Union[core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond]
 Tempo = Union[core.TempoTick, core.TempoQuarter, core.TempoSecond]
+Pedal = Union[core.PedalTick, core.PedalQuarter, core.PedalSecond]
 PitchBend = Union[core.PitchBendTick, core.PitchBendQuarter, core.PitchBendSecond]
 TextMeta = Union[core.TextMetaTick, core.TextMetaQuarter, core.TextMetaSecond]
 Track = Union[core.TrackTick, core.TrackQuarter, core.TrackSecond]
