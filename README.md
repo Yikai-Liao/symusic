@@ -3,11 +3,11 @@
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
-**Sy**music("**Sy**bolic **Music**") is a cross platform `note level` midi decoding libaray with lightening speed, which is over 100 times faster than [mido](https://github.com/mido/mido), the main midi parsing library in python.
+**Sy**music("**Sy**bolic **Music**") is a cross-platform `note level` midi decoding library with lightening speed, which is over 100 times faster than [mido](https://github.com/mido/mido), the main midi parsing library in python.
 
-The libaray is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
+The library is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
 
-Here, we have added a tutorial.ipynb for you to learn about how to use the libaray. 
+Here, we have added a tutorial.ipynb for you to learn about how to use the library. 
 
 Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.com/github/Yikai-Liao/symusic/blob/main/tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
@@ -22,13 +22,13 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
   * shift_pitch(offset: int)
   * shift_velocity(offset: int)
   * shift_time(offset: float)
-  * sort(key, reversse)
+  * sort(key, reverse)
 * You can operate each note just like you did before in python (like PrettyMidi)
 
 
 ## TODO
 
-Notice that this libaray is under development:
+Notice that this library is under development:
 
 * Writing back to midi files is currently not supported
 * Re-implement `filter_notes` and `Note Array`.
@@ -54,14 +54,14 @@ pip install ./symusic
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 
-|libarary| time |
-| -- | -- |
-|[**symusic**](https://github.com/Yikai-Liao/symusic)|21.8 ms ± 11.7 ms|
-|[MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)|128.024 ms|
-|[mido](https://github.com/mido/mido)|5.68 s ± 2 s|
-|[pretty_midi](https://github.com/craffel/pretty-midi)|5.59 s ± 844 ms|
-|[miditoolkit](https://github.com/YatingMusic/miditoolkit)|6.27 s ± 1.79 s|
-|[music21](https://github.com/cuthbertLab/music21)|8.59 s ± 1.2 s|
+| library                                                   | time              |
+|-----------------------------------------------------------|-------------------|
+| [**symusic**](https://github.com/Yikai-Liao/symusic)      | 21.8 ms ± 11.7 ms |
+| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)          | 128.024 ms        |
+| [mido](https://github.com/mido/mido)                      | 5.68 s ± 2 s      |
+| [pretty_midi](https://github.com/craffel/pretty-midi)     | 5.59 s ± 844 ms   |
+| [miditoolkit](https://github.com/YatingMusic/miditoolkit) | 6.27 s ± 1.79 s   |
+| [music21](https://github.com/cuthbertLab/music21)         | 8.59 s ± 1.2 s    |
 
 ## Acknowledgement
 
