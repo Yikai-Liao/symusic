@@ -195,8 +195,14 @@ struct TimeUnit {
     typedef T unit;
 };
 
-#define TIME_UNIT_TYPE(UNIT_NAME, UNIT_TYPE) \
-    struct UNIT_NAME: public TimeUnit<UNIT_TYPE> {};
+#define TIME_UNIT_TYPE(UNIT_NAME, UNIT_TYPE)                                \
+    struct UNIT_NAME: public TimeUnit<UNIT_TYPE> {};                        \
+    inline std::string to_string(const UNIT_NAME) {                         \
+        return std::string(#UNIT_NAME);                                     \
+    }                                                                       \
+    inline std::ostream& operator<<(std::ostream& out, const UNIT_NAME) {   \
+        out << #UNIT_NAME; return out;                                      \
+    }
 
 TIME_UNIT_TYPE(Tick,    i32)
 TIME_UNIT_TYPE(Quarter, f32)
@@ -204,6 +210,7 @@ TIME_UNIT_TYPE(Second,  f32)
 
 template<typename T>
 struct TimeStamp {
+    typedef T ttype;
     typedef typename T::unit unit;
     unit time = 0;
 
@@ -218,6 +225,7 @@ struct TimeStamp {
 
 // NOLINTBEGIN
 #define DEFAULT_METHODS                                                     \
+    typedef T ttype;                                                        \
     typedef typename T::unit unit;                                          \
     CLASS_NAME() = default;                                                 \
     CLASS_NAME(const CLASS_NAME &) = default;                               \
@@ -284,6 +292,7 @@ TIME_EVENT {
            << ", duration=" << duration
            << ", pitch="    << static_cast<i32>(pitch)
            << ", velocity=" << static_cast<i32>(velocity)
+           << ", ttype="    << ttype()
            << ")";
         return ss.str();
     }
@@ -313,6 +322,7 @@ TIME_EVENT{
            << "(time="      << this->time
            << ", number="   << static_cast<i32>(number)
            << ", value="    << static_cast<i32>(value)
+           << ", ttype="    << ttype()
            << ")";
         return ss.str();
     }
@@ -344,6 +354,7 @@ TIME_EVENT{
            << "(time="          << this->time
            << ", numerator="    << static_cast<i32>(numerator)
            << ", denominator="  << static_cast<i32>(denominator)
+           << ", ttype="        << ttype()
            << ")";
         return ss.str();
     }
@@ -378,6 +389,7 @@ TIME_EVENT{
            << "(time="          << this->time
            << ", key="          << static_cast<i32>(key)
            << ", tonality="     << static_cast<i32>(tonality)
+           << ", ttype="        << ttype()
            << ")";
         return ss.str();
     }
@@ -402,8 +414,9 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Tempo"
-           << "(time="  << this->time
-           << ", qpm="  << qpm
+           << "(time="      << this->time
+           << ", qpm="      << qpm
+           << ", ttype="    << ttype()
            << ")";
         return ss.str();
     }
@@ -430,6 +443,7 @@ TIME_EVENT{
         ss << "PitchBend"
            << "(time="      << this->time
            << ", value="    << value
+           << ", ttype="    << ttype()
            << ")";
         return ss.str();
     }
@@ -459,8 +473,9 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Pedal"
-           << "(time="  << this->time
+           << "(time="      << this->time
            << ", duration=" << duration
+           << ", ttype="    << ttype()
            << ")";
         return ss.str();
     }
@@ -485,8 +500,9 @@ TIME_EVENT{
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "TextMeta"
-           << "(time="  << this->time
-           << ", text=\"" << text
+           << "(time="      << this->time
+           << ", text=\""   << text
+           << ", ttype="    << ttype()
            << "\")";
         return ss.str();
     }
@@ -682,6 +698,7 @@ struct Track{
            << "(name=\""        << name
            << "\", program="    << static_cast<i32>(program)
            << ", is_drum="      << (is_drum ? "True" : "False")
+           << ", ttype="        << T()
            << ", notes="        << notes
            << ", controls="     << controls
            << ", pitch_bends="  << pitch_bends
@@ -895,6 +912,7 @@ public:
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Score"
            << "(ticks_per_quarter=" << ticks_per_quarter
+           << ", ttype="            << T()
            << ", time_signatures="  << time_signatures
            << ", key_signatures="   << key_signatures
            << ", tempos="           << tempos
