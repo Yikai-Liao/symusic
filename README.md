@@ -15,8 +15,8 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
 
 ## Features
 
-* You can just read a midi file like `score = symusic.Score("path to midi", time_unit="tick")`
-* Multiple `time unit` is now supported (currently `tick` and `quarter`)
+* You can just read a midi file like `score = symusic.Score("path to midi", ttype="tick")`
+* Multiple `time unit (ttype)` is now supported (currently `tick` and `quarter`)
 * The tempo attribute in the tempo event represents quarter per minute (qpm)
 * We offer some batch operation functions for both `Score` and `Track` class:
   * shift_pitch(offset: int)
@@ -24,6 +24,7 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
   * shift_time(offset: float)
   * sort(key, reverse)
 * You can operate each note just like you did before in python (like PrettyMidi)
+* Extremely fast `pickle` is now supported
 
 
 ## TODO
