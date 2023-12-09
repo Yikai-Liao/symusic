@@ -9,3 +9,6 @@
 	path = 3rdparty/pybind11
 	url = https://github.com/pybind/pybind11.git
 	branch = stable
+[submodule "zpp_bits"]
+	path = 3rdparty/zpp_bits
+	url = https://github.com/eyalz800/zpp_bits.git
