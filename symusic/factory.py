@@ -24,6 +24,8 @@ All the Factory classes are initialized when the module is imported.
 And the objects are created when the factory is called.
 Note that the factory can not be created again by users,
 because the factory is not exposed to the users by setting __all__ manually.
+
+The __isinstancecheck__ method is overrided to make isinstance() work.
 """
 
 
@@ -85,7 +87,7 @@ class CoreClasses(Generic[T, Q, S]):
     second: S
 
     def dispatch(
-        self: "CoreClasses[T, Q, S]", ttype: smt.GeneralTimeUnit
+            self: "CoreClasses[T, Q, S]", ttype: smt.GeneralTimeUnit
     ) -> Union[T, Q, S]:
         """
         Dispatch the correct Core class according to the ttype.
@@ -108,18 +110,21 @@ class CoreClasses(Generic[T, Q, S]):
         else:
             raise ValueError(f"Invalid time unit: {ttype}")
 
+    def __instancecheck__(self, instance):
+        return isinstance(instance, (self.tick, self.quarter, self.second))  # type: ignore
+
 
 @dataclass(frozen=True)
 class NoteFactory:
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        duration: smt.TimeDtype,
-        pitch: int,
-        velocity: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            duration: smt.TimeDtype,
+            pitch: int,
+            velocity: int,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Note:
         """
         Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires `int` or `float` as time.
@@ -129,6 +134,9 @@ class NoteFactory:
         """
         return self.__core_classes.dispatch(ttype)(time, duration, pitch, velocity)  # type: ignore
 
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
+
 
 @dataclass(frozen=True)
 class KeySignatureFactory:
@@ -137,13 +145,16 @@ class KeySignatureFactory:
     )
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        key: int,
-        tonality: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            key: int,
+            tonality: int,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.KeySignature:
         return self.__core_classes.dispatch(ttype)(time, key, tonality)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -153,13 +164,16 @@ class TimeSignatureFactory:
     )
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        numerator: int,
-        denominator: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            numerator: int,
+            denominator: int,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.TimeSignature:
         return self.__core_classes.dispatch(ttype)(time, numerator, denominator)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -169,13 +183,16 @@ class ControlChangeFactory:
     )
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        number: int,
-        value: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            number: int,
+            value: int,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.ControlChange:
         return self.__core_classes.dispatch(ttype)(time, number, value)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -183,12 +200,15 @@ class TempoFactory:
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        tempo: float,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            tempo: float,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Tempo:
         return self.__core_classes.dispatch(ttype)(time, tempo)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -196,12 +216,15 @@ class PedalFactory:
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        duration: smt.TimeDtype,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            duration: smt.TimeDtype,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.PitchBend:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -211,12 +234,15 @@ class PitchBendFactory:
     )
 
     def __call__(
-        self,
-        time: smt.TimeDtype,
-        value: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+            self,
+            time: smt.TimeDtype,
+            value: int,
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.PitchBend:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -226,9 +252,12 @@ class TextMetaFactory:
     )
 
     def __call__(
-        self, time: smt.TimeDtype, text: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+            self, time: smt.TimeDtype, text: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.TextMeta:
         return self.__core_classes.dispatch(ttype)(time, text)  # type: ignore
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 @dataclass(frozen=True)
@@ -238,13 +267,16 @@ class TrackFactory:
     def __call__(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
         return self.__core_classes.dispatch(ttype)()
 
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
+
 
 @dataclass(frozen=True)
 class ScoreFactory:
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
 
     def __call__(
-        self, x: Union[str, Path, int], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+            self, x: Union[str, Path, int], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ):
         if isinstance(x, str) or isinstance(x, Path):
             return self.from_file(x, ttype)
@@ -252,12 +284,15 @@ class ScoreFactory:
             return self.from_tpq(x, ttype)
 
     def from_file(
-        self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+            self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype).from_file(str(path))
 
     def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.__core_classes)
 
 
 Note = NoteFactory()
