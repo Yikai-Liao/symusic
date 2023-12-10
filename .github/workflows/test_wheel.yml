@@ -65,10 +65,7 @@ jobs:
           CIBW_MUSLLINUX_X86_64_IMAGE: quay.io/pypa/musllinux_1_2_x86_64
 
       - name: Build wheels
-        if: ${{ matrix.buildplat[1] != 'manylinux_x86_64' && \
-              matrix.buildplat[1] != 'musllinux_x86_64' && \
-              matrix.buildplat[1] != 'manylinux_aarch64' && \
-              matrix.buildplat[1] != 'musllinux_aarch64' }}
+        if: ${{ contains(matrix.buildplat[1], 'linux') }}
         uses: pypa/cibuildwheel@v2.16.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
