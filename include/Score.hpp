@@ -133,58 +133,81 @@ namespace pianoroll {
 #define PITCH_NUM 128
 typedef float pianoroll_t;
 
+#define PIANOROLL_MODES                            \
+    PIANOROLL_MODE(std::string("onset"), 1)        \
+    PIANOROLL_MODE(std::string("frame"), 2)        \
+    PIANOROLL_MODE(std::string("both"), 3)         \
+
+uint8_t mode_flag(const std::string& mode) {
+    #define PIANOROLL_MODE(name, flag)             \
+        if(name == mode) return flag;
+        PIANOROLL_MODES
+    #undef PIANOROLL_MODE
+
+    throw std::invalid_argument("The mode of pianoroll must be \"onset\", \"frame\" or \"both\"!");
+}
+#undef PIANOROLL_MODES
+
 class TrackPianoRoll {
 public:
+    size_t channel_dim;
     size_t pitch_dim;
     size_t time_dim;
     pianoroll_t *data;
 
-    TrackPianoRoll(size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+    TrackPianoRoll() = default;
+
+    TrackPianoRoll(size_t channel_dim, size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+        this->channel_dim = channel_dim;
         this->pitch_dim = pitch_dim;
         this->time_dim = time_dim;
-        this->data = new pianoroll_t[pitch_dim * time_dim];
+        this->data = new pianoroll_t[channel_dim * pitch_dim * time_dim];
 
         this->clear();
     };
 
-    void set(size_t start, size_t duration, size_t pitch) {
-        std::fill_n(this->data + pitch * this->time_dim + start,
+    void set(size_t channel, size_t start, size_t duration, size_t pitch) {
+        std::fill_n(this->data + channel * this->pitch_dim * this->time_dim + pitch * this->time_dim + start,
                     duration,
                     1);
     };
 
     void clear() {
         std::fill_n(this->data,
-                    this->pitch_dim * this->time_dim,
+                    this->channel_dim * this->pitch_dim * this->time_dim,
                     0);
     };
 };
 
 class ScorePianoRoll {
 public:
+    size_t channel_dim;
     size_t track_dim;
     size_t pitch_dim;
     size_t time_dim;
     pianoroll_t *data;
 
-    ScorePianoRoll(size_t track_dim, size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+    ScorePianoRoll() = default;
+
+    ScorePianoRoll(size_t channel_dim, size_t track_dim, size_t time_dim, size_t pitch_dim=PITCH_NUM) {
+        this->channel_dim = channel_dim;
         this->track_dim = track_dim;
         this->pitch_dim = pitch_dim;
         this->time_dim = time_dim;
-        this->data = new pianoroll_t[track_dim * pitch_dim * time_dim];
+        this->data = new pianoroll_t[channel_dim * track_dim * pitch_dim * time_dim];
 
         this->clear();
     };
 
-    void set(size_t track, size_t start, size_t duration, size_t pitch) {
-        std::fill_n(this->data + track * this->pitch_dim * this->time_dim + pitch * this->time_dim + start,
+    void set(size_t channel, size_t track, size_t start, size_t duration, size_t pitch) {
+        std::fill_n(this->data + channel * this->track_dim * this->pitch_dim * this->time_dim + track * this->pitch_dim * this->time_dim + pitch * this->time_dim + start,
                     duration,
                     1);
     };
 
     void clear() {
         std::fill_n(this->data,
-                    this->track_dim * this->pitch_dim * this->time_dim,
+                    this->channel_dim * this->track_dim * this->pitch_dim * this->time_dim,
                     0);
     };
 };
@@ -743,24 +766,35 @@ struct Track{
         return copy().shift_velocity_inplace(offset);
     }
 
-    pianoroll::TrackPianoRoll onset_pianoroll(float quantization) const {
-        pianoroll::TrackPianoRoll pianoroll(ceil(this->end() / quantization));
+    pianoroll::TrackPianoRoll pianoroll(float quantization,
+                                        const std::string& mode=std::string("both")) const {
+        uint8_t modeFlag = pianoroll::mode_flag(mode);
+        pianoroll::TrackPianoRoll pianoroll(modeFlag == 3 ? 2 : 1, ceil(this->end() / quantization));
 
-        for(auto &note: notes)
-            pianoroll.set(floor(note.time / quantization),
-                        1,
-                        note.pitch);
-
-        return pianoroll;
-    }
-
-    pianoroll::TrackPianoRoll frame_pianoroll(float quantization) const {
-        pianoroll::TrackPianoRoll pianoroll(ceil(this->end() / quantization));
-
-        for(auto &note: notes)
-            pianoroll.set(floor(note.time / quantization),
-                        floor(note.duration / quantization),
-                        note.pitch);
+        if(modeFlag == 3)
+            for(auto &note: notes) {
+                uint32_t start = floor(note.time / quantization);
+                pianoroll.set(0,
+                            start,
+                            1,
+                            note.pitch);
+                pianoroll.set(1,
+                            start,
+                            std::max(1, static_cast<int>(floor(note.duration / quantization))),
+                            note.pitch);
+            }
+        else if(modeFlag == 1)
+            for(auto &note: notes)
+                pianoroll.set(0,
+                            floor(note.time / quantization),
+                            1,
+                            note.pitch);
+        else if(modeFlag == 2)
+            for(auto &note: notes)
+                pianoroll.set(0,
+                            floor(note.time / quantization),
+                            std::max(1, static_cast<int>(floor(note.duration / quantization))),
+                            note.pitch);
 
         return pianoroll;
     }
@@ -923,31 +957,48 @@ public:
         return ss.str();
     }
 
-    pianoroll::ScorePianoRoll onset_pianoroll(float quantization) const {
-        pianoroll::ScorePianoRoll pianoroll(tracks.size(), ceil(this->end() / quantization));
+    pianoroll::ScorePianoRoll pianoroll(float quantization,
+                                        const std::string& mode=std::string("both")) const {
+        uint8_t modeFlag = pianoroll::mode_flag(mode);
+        pianoroll::ScorePianoRoll pianoroll(modeFlag == 3 ? 2 : 1,
+                                            tracks.size(),
+                                            ceil(this->end() / quantization));
 
-        for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
-            for(auto &note: tracks[track_idx].notes)
-                pianoroll.set(track_idx,
-                            floor(note.time / quantization),
-                            1,
-                            note.pitch);
+        if(modeFlag == 3)
+            for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
+                for(auto &note: tracks[track_idx].notes) {
+                    uint32_t start = floor(note.time / quantization);
+                    pianoroll.set(0,
+                                track_idx,
+                                start,
+                                1,
+                                note.pitch);
+                    pianoroll.set(1,
+                                track_idx,
+                                start,
+                                std::max(1, static_cast<int>(floor(note.duration / quantization))),
+                                note.pitch);
+                }
+        else if(modeFlag == 1)
+            for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
+                for(auto &note: tracks[track_idx].notes)
+                    pianoroll.set(0,
+                                track_idx,
+                                floor(note.time / quantization),
+                                1,
+                                note.pitch);
+        else if(modeFlag == 2)
+            for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
+                for(auto &note: tracks[track_idx].notes)
+                    pianoroll.set(0,
+                                track_idx,
+                                floor(note.time / quantization),
+                                std::max(1, static_cast<int>(floor(note.duration / quantization))),
+                                note.pitch);
 
         return pianoroll;
     }
 
-    pianoroll::ScorePianoRoll frame_pianoroll(float quantization) const {
-        pianoroll::ScorePianoRoll pianoroll(tracks.size(), ceil(this->end() / quantization));
-
-        for(auto track_idx = 0; track_idx < tracks.size(); ++track_idx)
-            for(auto &note: tracks[track_idx].notes)
-                pianoroll.set(track_idx,
-                            floor(note.time / quantization),
-                            floor(note.duration / quantization),
-                            note.pitch);
-
-        return pianoroll;
-    }
 }; // Score end
 
 namespace utils {
