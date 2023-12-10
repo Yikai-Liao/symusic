@@ -76,7 +76,7 @@ jobs:
           CIBW_MUSLLINUX_X86_64_IMAGE: quay.io/pypa/musllinux_1_2_x86_64
 
       - name: Build wheels for musllinux aarch64
-        if: ${{ matrix.buildplat[1] == 'musllinux_aarch64
+        if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
         uses: pypa/cibuildwheel@v2.16.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
