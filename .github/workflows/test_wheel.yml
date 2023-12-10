@@ -28,6 +28,7 @@ jobs:
           - buildplat: [ ubuntu-22.04, musllinux_x86_64 ]
             python: "pp39"
           - buildplat: [ ubuntu-22.04, musllinux_aarch64 ]
+            python: "pp39"
           - buildplat: [macos-12, macosx_arm64]
             python: "pp39"
 
@@ -38,7 +39,7 @@ jobs:
           submodules: true
 
       - name: Set up QEMU
-        if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' || matrix.buildplat[1] == 'musllinux_aarch64' }}
+        if: ${{ contains(matrix.buildplat[1], 'linux_aarch64') }}
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
@@ -63,16 +64,24 @@ jobs:
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
-          CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_aarch64
+          CIBW_MANYLINUX_AARCH64_IMAGE: quay.io/pypa/manylinux_2_28_aarch64
           CIBW_ARCHS: 'aarch64'
 
-      - name: Build wheels for musllinux
+      - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
         uses: pypa/cibuildwheel@v2.16.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MUSLLINUX_X86_64_IMAGE: quay.io/pypa/musllinux_1_2_x86_64
+
+      - name: Build wheels for musllinux aarch64
+        if: ${{ matrix.buildplat[1] == 'musllinux_aarch64
+        uses: pypa/cibuildwheel@v2.16.1
+        env:
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+          CIBW_MUSLLINUX_AARCH64_IMAGE: quay.io/pypa/musllinux_1_2_aarch64
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
