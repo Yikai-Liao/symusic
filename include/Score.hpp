@@ -235,6 +235,9 @@ struct TimeStamp {
     }                                                                       \
     [[nodiscard]] CLASS_NAME shift_time(unit offset) const {                \
         return copy().shift_time_inplace(offset);                           \
+    }                                                                       \
+    bool operator!=(const CLASS_NAME &other) const {                        \
+        return !(*this == other);                                           \
     }
 
 #define ZPP_INIT(ATTR_NUM)                                                  \
@@ -259,6 +262,11 @@ TIME_EVENT {
 
     constexpr static auto serialize(auto & archive, auto & event){
         return archive(event.time, event.duration, event.pitch, event.velocity);
+    }
+
+    bool operator==(const Note &other) const {
+        return this->time == other.time && this->duration == other.duration &&
+               this->pitch == other.pitch && this->velocity == other.velocity;
     }
 
     Note(unit time, unit duration, i8 pitch, i8 velocity) :
@@ -308,6 +316,11 @@ TIME_EVENT{
         return archive(event.time, event.number, event.value);
     }
 
+    bool operator==(const ControlChange &other) const {
+        return this->time == other.time && this->number == other.number &&
+               this->value == other.value;
+    }
+
     ControlChange(unit time, u8 number, u8 value) :
         TimeStamp<T>(time), number(number), value(value) {};
 
@@ -337,6 +350,12 @@ TIME_EVENT{
     constexpr static auto serialize(auto & archive, auto & event){
         return archive(event.time, event.numerator, event.denominator);
     }
+
+    bool operator==(const TimeSignature &other) const {
+        return this->time == other.time && this->numerator == other.numerator &&
+               this->denominator == other.denominator;
+    }
+
     TimeSignature(const unit time, const u8 numerator, const u8 denominator) :
         TimeStamp<T>(time), numerator(numerator), denominator(denominator) {};
 
@@ -372,6 +391,11 @@ TIME_EVENT{
         return archive(event.time, event.key, event.tonality);
     }
 
+    bool operator==(const KeySignature &other) const {
+        return this->time == other.time && this->key == other.key &&
+               this->tonality == other.tonality;
+    }
+
     KeySignature(const unit time, const i8 key, const u8 tonality) :
         TimeStamp<T>(time), key(key), tonality(tonality) {};
 
@@ -405,6 +429,10 @@ TIME_EVENT{
         return archive(event.time, event.qpm);
     }
 
+    bool operator==(const Tempo &other) const {
+        return this->time == other.time && this->qpm == other.qpm;
+    }
+
     Tempo(const unit time, const f32 qpm) : TimeStamp<T>(time), qpm(qpm) {};
 
     template<typename U>
@@ -432,6 +460,10 @@ TIME_EVENT{
         return archive(event.time, event.value);
     }
 
+    bool operator==(const PitchBend &other) const {
+        return this->time == other.time && this->value == other.value;
+    }
+
     PitchBend(unit time, i32 value) : TimeStamp<T>(time), value(value) {};
 
     template<typename U>
@@ -457,6 +489,10 @@ TIME_EVENT{
 
     static constexpr auto serialize(auto & archive, auto & event){
         return archive(event.time, event.duration);
+    }
+
+    bool operator==(const Pedal &other) const {
+        return this->time == other.time && this->duration == other.duration;
     }
 
     Pedal(unit time, unit duration) : TimeStamp<T>(time), duration(duration) {};
@@ -491,6 +527,10 @@ TIME_EVENT{
         return archive(event.time, event.text);
     }
 
+    bool operator==(const TextMeta &other) const {
+        return this->time == other.time && this->text == other.text;
+    }
+
     TextMeta(unit time, std::string text) : TimeStamp<T>(time), text(std::move(text)) {};
 
     template<typename U>
@@ -517,7 +557,7 @@ namespace utils {
 template<typename T>
 bool time_cmp(const T &a, const T &b) {
         return a.time < b.time;
-};
+}
 
 template<typename T>
 void sort_by_time(vec<T> &events) {
@@ -625,6 +665,13 @@ struct Track{
             track.name, track.program, track.is_drum, track.notes,
             track.controls, track.pitch_bends, track.pedals
         );
+    }
+
+    bool operator==(const Track &other) const {
+        return this->name == other.name && this->program == other.program &&
+               this->is_drum == other.is_drum && this->notes == other.notes &&
+               this->controls == other.controls && this->pitch_bends == other.pitch_bends &&
+               this->pedals == other.pedals;
     }
 
     Track() = default;
@@ -794,6 +841,16 @@ public:
             score.ticks_per_quarter, score.tracks, score.time_signatures,
             score.key_signatures, score.tempos, score.lyrics, score.markers
         );
+    }
+
+    bool operator==(const Score &other) const {
+        return this->ticks_per_quarter == other.ticks_per_quarter &&
+               this->tracks == other.tracks &&
+               this->time_signatures == other.time_signatures &&
+               this->key_signatures == other.key_signatures &&
+               this->tempos == other.tempos &&
+               this->lyrics == other.lyrics &&
+               this->markers == other.markers;
     }
 
     Score() = default;
