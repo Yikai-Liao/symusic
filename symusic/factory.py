@@ -220,8 +220,8 @@ class PedalFactory:
             time: smt.TimeDtype,
             duration: smt.TimeDtype,
             ttype: smt.GeneralTimeUnit = TimeUnit.tick,
-    ) -> smt.PitchBend:
-        return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
+    ) -> smt.Pedal:
+        return self.__core_classes.dispatch(ttype)(time, duration)  # type: ignore
 
     def __instancecheck__(self, instance):
         return isinstance(instance, self.__core_classes)
