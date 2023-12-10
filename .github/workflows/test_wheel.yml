@@ -64,6 +64,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_aarch64
+          CIBW_ARCHS: 'aarch64'
 
       - name: Build wheels for musllinux
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
