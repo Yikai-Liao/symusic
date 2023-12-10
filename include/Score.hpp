@@ -542,8 +542,8 @@ TIME_EVENT{
         ss << "TextMeta"
            << "(time="      << this->time
            << ", text=\""   << text
-           << ", ttype="    << ttype()
-           << "\")";
+           << "\", ttype="  << ttype()
+           << ")";
         return ss.str();
     }
 };
@@ -593,8 +593,7 @@ vec<Note<T>> clip_notes(
             return (note.time >= start) && (note.time + note.duration <= end);
         };
         return utils::filter(notes, func);
-    }else
-        return clip_by_time(notes, start, end);
+    }   return clip_by_time(notes, start, end);
 }
 
 template<typename T>
@@ -1202,13 +1201,17 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                         case (message::MetaType::Lyric): {
                             auto data = msg.get_meta_value();
                             auto tmp = std::string(data.begin(), data.end());
-                            lyrics.emplace_back(cur_tick, utils::strip_non_utf_8(&tmp));
+                            auto text = utils::strip_non_utf_8(&tmp);
+                            if (text.empty()) break;
+                            lyrics.emplace_back(cur_tick, std::move(text));
                             break;
                         }
                         case (message::MetaType::Marker): {
                             auto data = msg.get_meta_value();
                             auto tmp = std::string(data.begin(), data.end());
-                            markers.emplace_back(cur_tick, utils::strip_non_utf_8(&tmp));
+                            auto text = utils::strip_non_utf_8(&tmp);
+                            if (text.empty()) break;
+                            markers.emplace_back(cur_tick, std::move(text));
                             break;
                         }
                         default:
