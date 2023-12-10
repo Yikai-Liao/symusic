@@ -36,6 +36,9 @@ class ControlChangeQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class ControlChangeQuarterList:
     def __bool__(self) -> bool:
         """
@@ -128,6 +131,9 @@ class ControlChangeQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class ControlChangeSecond:
     number: int
     time: float
@@ -162,6 +168,9 @@ class ControlChangeSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class ControlChangeSecondList:
     def __bool__(self) -> bool:
         """
@@ -254,6 +263,9 @@ class ControlChangeSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class ControlChangeTick:
     number: int
     time: int
@@ -288,6 +300,9 @@ class ControlChangeTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class ControlChangeTickList:
     def __bool__(self) -> bool:
         """
@@ -380,6 +395,9 @@ class ControlChangeTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class KeySignatureQuarter:
     key: int
     time: float
@@ -414,6 +432,9 @@ class KeySignatureQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class KeySignatureQuarterList:
     def __bool__(self) -> bool:
         """
@@ -506,6 +527,9 @@ class KeySignatureQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class KeySignatureSecond:
     key: int
     time: float
@@ -540,6 +564,9 @@ class KeySignatureSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class KeySignatureSecondList:
     def __bool__(self) -> bool:
         """
@@ -632,6 +659,9 @@ class KeySignatureSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class KeySignatureTick:
     key: int
     time: int
@@ -666,6 +696,9 @@ class KeySignatureTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class KeySignatureTickList:
     def __bool__(self) -> bool:
         """
@@ -758,6 +791,9 @@ class KeySignatureTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class NoteQuarter:
     duration: float
     pitch: int
@@ -810,6 +846,9 @@ class NoteQuarter:
         """
     @property
     def end(self) -> float:
+        ...
+    @property
+    def ttype(self) -> Quarter:
         ...
 class NoteQuarterList:
     def __bool__(self) -> bool:
@@ -903,6 +942,9 @@ class NoteQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class NoteSecond:
     duration: float
     pitch: int
@@ -955,6 +997,9 @@ class NoteSecond:
         """
     @property
     def end(self) -> float:
+        ...
+    @property
+    def ttype(self) -> Second:
         ...
 class NoteSecondList:
     def __bool__(self) -> bool:
@@ -1048,6 +1093,9 @@ class NoteSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class NoteTick:
     duration: int
     pitch: int
@@ -1100,6 +1148,9 @@ class NoteTick:
         """
     @property
     def end(self) -> int:
+        ...
+    @property
+    def ttype(self) -> Tick:
         ...
 class NoteTickList:
     def __bool__(self) -> bool:
@@ -1193,6 +1244,9 @@ class NoteTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class PedalQuarter:
     duration: float
     time: float
@@ -1226,6 +1280,9 @@ class PedalQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class PedalQuarterList:
     def __bool__(self) -> bool:
         """
@@ -1318,6 +1375,9 @@ class PedalQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class PedalSecond:
     duration: float
     time: float
@@ -1351,6 +1411,9 @@ class PedalSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class PedalSecondList:
     def __bool__(self) -> bool:
         """
@@ -1443,6 +1506,9 @@ class PedalSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class PedalTick:
     duration: int
     time: int
@@ -1476,6 +1542,9 @@ class PedalTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class PedalTickList:
     def __bool__(self) -> bool:
         """
@@ -1568,6 +1637,9 @@ class PedalTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class PitchBendQuarter:
     time: float
     value: int
@@ -1601,6 +1673,9 @@ class PitchBendQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class PitchBendQuarterList:
     def __bool__(self) -> bool:
         """
@@ -1693,6 +1768,9 @@ class PitchBendQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class PitchBendSecond:
     time: float
     value: int
@@ -1726,6 +1804,9 @@ class PitchBendSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class PitchBendSecondList:
     def __bool__(self) -> bool:
         """
@@ -1818,6 +1899,9 @@ class PitchBendSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class PitchBendTick:
     time: int
     value: int
@@ -1851,6 +1935,9 @@ class PitchBendTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class PitchBendTickList:
     def __bool__(self) -> bool:
         """
@@ -1943,6 +2030,9 @@ class PitchBendTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class Quarter:
     __hash__: typing.ClassVar[None] = None
     def __eq__(self, arg0: typing.Any) -> bool:
@@ -1977,7 +2067,7 @@ class ScoreQuarter:
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
-    def __init__(self) -> None:
+    def __init__(self, tpq: int) -> None:
         ...
     @typing.overload
     def __init__(self, other: ScoreQuarter) -> None:
@@ -2005,11 +2095,9 @@ class ScoreQuarter:
         ...
     def end(self) -> float:
         ...
-    def frame_pianoroll(self, quantization: float) -> numpy.ndarray:
-        ...
     def note_num(self) -> int:
         ...
-    def onset_pianoroll(self, quantization: float) -> numpy.ndarray:
+    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray:
         ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
@@ -2020,6 +2108,9 @@ class ScoreQuarter:
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = False) -> typing.Any:
         ...
     def start(self) -> float:
+        ...
+    @property
+    def ttype() -> Quarter:
         ...
 class ScoreTick:
     key_signatures: KeySignatureTickList
@@ -2045,7 +2136,7 @@ class ScoreTick:
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
-    def __init__(self) -> None:
+    def __init__(self, tpq: int) -> None:
         ...
     @typing.overload
     def __init__(self, other: ScoreTick) -> None:
@@ -2073,11 +2164,9 @@ class ScoreTick:
         ...
     def end(self) -> int:
         ...
-    def frame_pianoroll(self, quantization: float) -> numpy.ndarray:
-        ...
     def note_num(self) -> int:
         ...
-    def onset_pianoroll(self, quantization: float) -> numpy.ndarray:
+    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray:
         ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
@@ -2088,6 +2177,9 @@ class ScoreTick:
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = False) -> typing.Any:
         ...
     def start(self) -> int:
+        ...
+    @property
+    def ttype() -> Tick:
         ...
 class Second:
     __hash__: typing.ClassVar[None] = None
@@ -2132,6 +2224,9 @@ class TempoQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TempoQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2224,6 +2319,9 @@ class TempoQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TempoSecond:
     tempo: float
     time: float
@@ -2257,6 +2355,9 @@ class TempoSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class TempoSecondList:
     def __bool__(self) -> bool:
         """
@@ -2349,6 +2450,9 @@ class TempoSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class TempoTick:
     tempo: float
     time: int
@@ -2382,6 +2486,9 @@ class TempoTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class TempoTickList:
     def __bool__(self) -> bool:
         """
@@ -2474,6 +2581,9 @@ class TempoTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class TextMetaQuarter:
     text: str
     time: float
@@ -2507,6 +2617,9 @@ class TextMetaQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TextMetaQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2599,6 +2712,9 @@ class TextMetaQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TextMetaSecond:
     text: str
     time: float
@@ -2632,6 +2748,9 @@ class TextMetaSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class TextMetaSecondList:
     def __bool__(self) -> bool:
         """
@@ -2724,6 +2843,9 @@ class TextMetaSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class TextMetaTick:
     text: str
     time: int
@@ -2757,6 +2879,9 @@ class TextMetaTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class TextMetaTickList:
     def __bool__(self) -> bool:
         """
@@ -2849,6 +2974,9 @@ class TextMetaTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class Tick:
     __hash__: typing.ClassVar[None] = None
     def __eq__(self, arg0: typing.Any) -> bool:
@@ -2893,6 +3021,9 @@ class TimeSignatureQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TimeSignatureQuarterList:
     def __bool__(self) -> bool:
         """
@@ -2985,6 +3116,9 @@ class TimeSignatureQuarterList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Quarter:
+        ...
 class TimeSignatureSecond:
     denominator: int
     numerator: int
@@ -3019,6 +3153,9 @@ class TimeSignatureSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Second:
+        ...
 class TimeSignatureSecondList:
     def __bool__(self) -> bool:
         """
@@ -3111,6 +3248,9 @@ class TimeSignatureSecondList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Second:
+        ...
 class TimeSignatureTick:
     denominator: int
     numerator: int
@@ -3145,6 +3285,9 @@ class TimeSignatureTick:
         """
         Shift the event time by offset
         """
+    @property
+    def ttype(self) -> Tick:
+        ...
 class TimeSignatureTickList:
     def __bool__(self) -> bool:
         """
@@ -3237,6 +3380,9 @@ class TimeSignatureTickList:
         """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
+    @property
+    def ttype(self) -> Tick:
+        ...
 class TrackQuarter:
     controls: ControlChangeQuarterList
     is_drum: bool
@@ -3279,11 +3425,9 @@ class TrackQuarter:
         ...
     def end(self) -> float:
         ...
-    def frame_pianoroll(self, quantization: float) -> numpy.ndarray:
-        ...
     def note_num(self) -> int:
         ...
-    def onset_pianoroll(self, quantization: float) -> numpy.ndarray:
+    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray:
         ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
@@ -3294,6 +3438,9 @@ class TrackQuarter:
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = False) -> typing.Any:
         ...
     def start(self) -> float:
+        ...
+    @property
+    def ttype() -> Quarter:
         ...
 class TrackQuarterList:
     def __bool__(self) -> bool:
@@ -3389,6 +3536,9 @@ class TrackQuarterList:
         ...
     def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackQuarterList:
         ...
+    @property
+    def ttype() -> Quarter:
+        ...
 class TrackSecond:
     controls: ControlChangeSecondList
     is_drum: bool
@@ -3431,11 +3581,9 @@ class TrackSecond:
         ...
     def end(self) -> float:
         ...
-    def frame_pianoroll(self, quantization: float) -> numpy.ndarray:
-        ...
     def note_num(self) -> int:
         ...
-    def onset_pianoroll(self, quantization: float) -> numpy.ndarray:
+    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray:
         ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
@@ -3446,6 +3594,9 @@ class TrackSecond:
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = False) -> typing.Any:
         ...
     def start(self) -> float:
+        ...
+    @property
+    def ttype() -> Second:
         ...
 class TrackSecondList:
     def __bool__(self) -> bool:
@@ -3541,6 +3692,9 @@ class TrackSecondList:
         ...
     def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackSecondList:
         ...
+    @property
+    def ttype() -> Second:
+        ...
 class TrackTick:
     controls: ControlChangeTickList
     is_drum: bool
@@ -3583,11 +3737,9 @@ class TrackTick:
         ...
     def end(self) -> int:
         ...
-    def frame_pianoroll(self, quantization: float) -> numpy.ndarray:
-        ...
     def note_num(self) -> int:
         ...
-    def onset_pianoroll(self, quantization: float) -> numpy.ndarray:
+    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray:
         ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
         ...
@@ -3598,6 +3750,9 @@ class TrackTick:
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = False) -> typing.Any:
         ...
     def start(self) -> int:
+        ...
+    @property
+    def ttype() -> Tick:
         ...
 class TrackTickList:
     def __bool__(self) -> bool:
@@ -3692,4 +3847,7 @@ class TrackTickList:
     def sort(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
         ...
     def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
+        ...
+    @property
+    def ttype() -> Tick:
         ...
