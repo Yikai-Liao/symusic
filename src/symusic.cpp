@@ -7,15 +7,16 @@
 #include <pybind11/pytypes.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/operators.h>
 #include <pybind11/numpy.h>
 #include "Score.hpp"
 
 namespace py = pybind11;
 using namespace score;
 
-#define OPAQUE_VEC(i, TYPE) \
-    PYBIND11_MAKE_OPAQUE(vec<TYPE<Tick>>) \
-    PYBIND11_MAKE_OPAQUE(vec<TYPE<Quarter>>) \
+#define OPAQUE_VEC(i, TYPE)                     \
+    PYBIND11_MAKE_OPAQUE(vec<TYPE<Tick>>)       \
+    PYBIND11_MAKE_OPAQUE(vec<TYPE<Quarter>>)    \
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Second>>)
 
 REPEAT_ON(OPAQUE_VEC, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track)
@@ -82,6 +83,8 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def("__copy__", &T::copy, "Deep copy")
         .def("__deepcopy__", &T::copy, "Deep copy")
         .def("__repr__", &T::to_string)
+        .def(py::self == py::self)  // NOLINT
+        .def(py::self != py::self)  // NOLINT
         .def(py::pickle( &py_to_bytes<T>, &py_from_bytes<T>));
 
     py::bind_vector<vec<T>>(m, name + "List")
@@ -269,6 +272,8 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         .def_readwrite("name", &score::Track<T>::name)
         .def_property_readonly("ttype", []{ return T(); })
         .def(py::pickle( &py_to_bytes<score::Track<T>>, &py_from_bytes<score::Track<T>>))
+        .def(py::self == py::self)  // NOLINT
+        .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("end", &Track<T>::end)
         .def("start", &score::Track<T>::start)
@@ -411,6 +416,8 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("markers", &Score<T>::markers)
         .def_property_readonly("ttype", []{ return T(); })
         .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
+        .def(py::self == py::self)  // NOLINT
+        .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("clip", &Score<T>::clip, "Clip events a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_score<T>, py::arg("offset"), py::arg("inplace")=false)
