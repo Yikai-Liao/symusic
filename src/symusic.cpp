@@ -299,19 +299,19 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
         }, py::arg("quantization"), py::arg("mode"));
 
     py::bind_vector<vec<Track<T>>>(m, name + "List")
-        .def("sort_inplace", [](vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
+        .def("sort", [](vec<Track<T>> &self, const py::object & key, const bool reverse, const bool inplace) {
             if (key.is_none()) throw std::invalid_argument("key must be specified");
-            else sort_by_py_key(self, key.cast<py::function>());
-            if (reverse) std::reverse(self.begin(), self.end());
-            return self;
-        }, py::arg("key"), py::arg("reverse")=false)
-        .def("sort", [](const vec<score::Track<T>> &self, const py::object & key, const bool reverse) {
-            auto copy = self;
-            if (key.is_none()) throw std::invalid_argument("key must be specified");
-            else sort_by_py_key(copy, key.cast<py::function>());
-            if (reverse) std::reverse(copy.begin(), copy.end());
-            return copy;
-        }, py::arg("key"), py::arg("reverse")=false)
+            if (inplace) {
+                sort_by_py_key(self, key.cast<py::function>());
+                if (reverse) std::reverse(self.begin(), self.end());
+                return py::cast(self, py::return_value_policy::reference);
+            } else { // copy
+                auto copy = vec(self);
+                sort_by_py_key(copy, key.cast<py::function>());
+                if (reverse) std::reverse(copy.begin(), copy.end());
+                return py::cast(copy, py::return_value_policy::move);
+            }
+        }, py::arg("key"), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<score::Track<T>> &self) {
             return to_string(self);
         })
