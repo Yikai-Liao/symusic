@@ -57,6 +57,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+          CIBW_ARCHS: 'all'
 
       - name: Build wheels for manylinux aarch64
         if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' }}
@@ -65,7 +66,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MANYLINUX_AARCH64_IMAGE: quay.io/pypa/manylinux_2_28_aarch64
-          CIBW_ARCHS: 'aarch64'
+          CIBW_ARCHS: 'all'
 
       - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
@@ -74,6 +75,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MUSLLINUX_X86_64_IMAGE: quay.io/pypa/musllinux_1_2_x86_64
+          CIBW_ARCHS: 'all'
 
       - name: Build wheels for musllinux aarch64
         if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
@@ -82,6 +84,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_MUSLLINUX_AARCH64_IMAGE: quay.io/pypa/musllinux_1_2_aarch64
+          CIBW_ARCHS: 'all'
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
