@@ -1227,6 +1227,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     if (value < minimidi::message::MIN_PITCHBEND || value > minimidi::message::MAX_PITCHBEND)
                         throw std::range_error("Get pitch_bend=" + std::to_string((int) value));
                     track.pitch_bends.emplace_back(cur_tick, value);
+                    break;
                 }
                     // Meta Message
                 case (message::MessageType::Meta): {
