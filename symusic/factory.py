@@ -1,3 +1,4 @@
+import os.path
 from typing import Union, TypeVar, Generic
 from dataclasses import dataclass
 from pathlib import Path
@@ -318,6 +319,7 @@ class ScoreFactory:
     def from_file(
             self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
+        assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype).from_file(str(path))
 
     def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:

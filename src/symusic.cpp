@@ -400,6 +400,11 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_property_readonly_static("from_file", [](const py::object &) {
             return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
+        .def("dump_midi", &Score<T>::dump_midi, "Dump to midi file", py::arg("path"))
+        .def("dump_midi", [](const Score<T>& self, const py::object &path) {
+            auto filename = py::cast<std::string>(py::str(path));
+            return self.dump_midi(filename);
+        }, py::arg("path"))
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)
         .def_readwrite("time_signatures", &Score<T>::time_signatures)
