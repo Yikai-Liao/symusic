@@ -1471,34 +1471,35 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
     for(const auto &track: tracks) {
         message::Messages msgs{};
         msgs.reserve(track.note_num() * 2 + track.controls.size() + track.pitch_bends.size() + 10);
+        u8 channel = this->is_drum ? 9 : 0;
         // add track name
         if(!track.name.empty())
             msgs.emplace_back(message::Message::TrackName(0, track.name));
         // add program change
-        msgs.emplace_back(message::Message::ProgramChange(0, 0, track.program));
+        msgs.emplace_back(message::Message::ProgramChange(0, channel, track.program));
         // Todo add check for Pedal
         // add control change
         for(const auto &control: track.controls) {
             msgs.emplace_back(message::Message::ControlChange(
-                this->convert_ttype<Tick>(control.time), 0,
+                this->convert_ttype<Tick>(control.time), channel,
                 control.number, control.value
             ));
         }
         // add pitch bend
         for(const auto &pitch_bend: track.pitch_bends) {
             msgs.emplace_back(message::Message::PitchBend(
-                this->convert_ttype<Tick>(pitch_bend.time), 0,
+                this->convert_ttype<Tick>(pitch_bend.time), channel,
                 pitch_bend.value
             ));
         }
         // add notes
         for(const auto &note: track.notes) {
             msgs.emplace_back(message::Message::NoteOn(
-                this->convert_ttype<Tick>(note.time), 0,
+                this->convert_ttype<Tick>(note.time), channel,
                 note.pitch, note.velocity
             ));
             msgs.emplace_back(message::Message::NoteOff(
-                this->convert_ttype<Tick>(note.end()), 0,
+                this->convert_ttype<Tick>(note.end()), channel,
                 note.pitch, note.velocity
             ));
         }
