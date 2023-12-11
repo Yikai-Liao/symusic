@@ -3,7 +3,7 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from typing import Union
+from typing import Union, List
 from . import core  # type: ignore
 
 __all__ = [
@@ -50,6 +50,27 @@ PitchBend = Union[core.PitchBendTick, core.PitchBendQuarter, core.PitchBendSecon
 TextMeta = Union[core.TextMetaTick, core.TextMetaQuarter, core.TextMetaSecond]
 Track = Union[core.TrackTick, core.TrackQuarter, core.TrackSecond]
 Score = Union[core.ScoreTick, core.ScoreQuarter, ScoreSecond]
+
+NoteList = Union[core.NoteTickList, core.NoteQuarterList, core.NoteSecondList]
+KeySignatureList = Union[core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList]
+TimeSignatureList = Union[core.TimeSignatureTickList, core.TimeSignatureQuarterList, core.TimeSignatureSecondList]
+ControlChangeList = Union[core.ControlChangeTickList, core.ControlChangeQuarterList, core.ControlChangeSecondList]
+TempoList = Union[core.TempoTickList, core.TempoQuarterList, core.TempoSecondList]
+PedalList = Union[core.PedalTickList, core.PedalQuarterList, core.PedalSecondList]
+PitchBendList = Union[core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList]
+TextMetaList = Union[core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList]
+TrackList = Union[core.TrackTickList, core.TrackQuarterList, core.TrackSecondList]
+
+GeneralNoteList = Union[NoteList, List[Note]]
+GeneralKeySignatureList = Union[KeySignatureList, List[KeySignature]]
+GeneralTimeSignatureList = Union[TimeSignatureList, List[TimeSignature]]
+GeneralControlChangeList = Union[ControlChangeList, List[ControlChange]]
+GeneralTempoList = Union[TempoList, List[Tempo]]
+GeneralPedalList = Union[PedalList, List[Pedal]]
+GeneralPitchBendList = Union[PitchBendList, List[PitchBend]]
+GeneralTextMetaList = Union[TextMetaList, List[TextMeta]]
+GeneralTrackList = Union[TrackList, List[Track]]
+
 
 # TimeDtype = Union[int, float]
 # TimeDtype = TypeVar('TimeDtype', bound=Union[int, float])
