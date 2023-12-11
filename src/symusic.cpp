@@ -134,7 +134,8 @@ py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const
     return time_stamp_base<score::KeySignature<T>>(m, name)
         .def(py::init<unit, i8, u8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
         .def_readwrite("key", &score::KeySignature<T>::key)
-        .def_readwrite("tonality", &score::KeySignature<T>::tonality);
+        .def_readwrite("tonality", &score::KeySignature<T>::tonality)
+        .def_property_readonly("degree", &score::KeySignature<T>::degree);
 }
 
 // bind score::TimeSignature<T>
