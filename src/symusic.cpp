@@ -3,11 +3,14 @@
 //
 #include <pybind11/detail/common.h>
 #include <string>
+#include <format>
 #include <pybind11/cast.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
 #include <pybind11/operators.h>
+#include <pybind11/stl.h>
+#include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include "Score.hpp"
 
@@ -386,7 +389,8 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
 
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<const i32>(), py::arg("tpq"))
-        .def(py::init<const Score<T> &>(), "Copy constructor", py::arg("other"))
+        .def(py::init<const Score<Tick> &>(), "Convert from other", py::arg("other"))
+        .def(py::init<const Score<Quarter> &>(), "Convert from other", py::arg("other"))
         .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")

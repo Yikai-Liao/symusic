@@ -1,7 +1,6 @@
 from typing import Union, TypeVar, Generic
 from dataclasses import dataclass
 from pathlib import Path
-
 from . import core  # type: ignore
 from . import types as smt
 
@@ -304,12 +303,17 @@ class ScoreFactory:
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
 
     def __call__(
-            self, x: Union[str, Path, int], ttype: smt.GeneralTimeUnit = TimeUnit.tick
-    ):
+            self, x: Union[int, str, Path, smt.Score] = 0, 
+            ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.Score:  
         if isinstance(x, str) or isinstance(x, Path):
             return self.from_file(x, ttype)
         elif isinstance(x, int):
             return self.from_tpq(x, ttype)
+        elif isinstance(x, self):   # type: ignore
+            return self.from_other(x, ttype)
+        else:
+            raise TypeError(f"Invalid type: {type(x)}")
 
     def from_file(
             self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
@@ -318,6 +322,10 @@ class ScoreFactory:
 
     def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
+    
+    def from_other(self, other: smt.Score, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
+        assert other.ticks_per_quarter > 0, f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
+        return self.__core_classes.dispatch(ttype)(other)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  #type: ignore
