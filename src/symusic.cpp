@@ -3,7 +3,6 @@
 //
 #include <pybind11/detail/common.h>
 #include <string>
-#include <format>
 #include <pybind11/cast.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/pybind11.h>
