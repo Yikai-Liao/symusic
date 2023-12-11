@@ -504,6 +504,9 @@ class KeySignatureQuarter:
         Shift the event time by offset
         """
     @property
+    def degree(self) -> int:
+        ...
+    @property
     def ttype(self) -> Quarter:
         ...
 class KeySignatureQuarterList:
@@ -658,6 +661,9 @@ class KeySignatureSecond:
         Shift the event time by offset
         """
     @property
+    def degree(self) -> int:
+        ...
+    @property
     def ttype(self) -> Second:
         ...
 class KeySignatureSecondList:
@@ -811,6 +817,9 @@ class KeySignatureTick:
         """
         Shift the event time by offset
         """
+    @property
+    def degree(self) -> int:
+        ...
     @property
     def ttype(self) -> Tick:
         ...
@@ -2412,6 +2421,11 @@ class ScoreQuarter:
         """
         Load from midi file
         """
+    @typing.overload
+    def __init__(self, other: ScoreTick) -> None:
+        """
+        Convert Tick to Quarter
+        """
     def __ne__(self, arg0: ScoreQuarter) -> bool:
         ...
     def __repr__(self) -> str:
@@ -2426,6 +2440,14 @@ class ScoreQuarter:
         """
         Deep copy
         """
+    @typing.overload
+    def dump_midi(self, path: str) -> None:
+        """
+        Dump to midi file
+        """
+    @typing.overload
+    def dump_midi(self, path: typing.Any) -> None:
+        ...
     def empty(self) -> bool:
         ...
     def end(self) -> float:
@@ -2444,6 +2466,10 @@ class ScoreQuarter:
         ...
     def start(self) -> float:
         ...
+    def to(self, ttype: typing.Any) -> typing.Any:
+        """
+        Convert to another time unit
+        """
     @property
     def ttype() -> Quarter:
         ...
@@ -2486,6 +2512,11 @@ class ScoreTick:
         """
         Load from midi file
         """
+    @typing.overload
+    def __init__(self, other: ScoreQuarter) -> None:
+        """
+        Convert Quarter to Tick
+        """
     def __ne__(self, arg0: ScoreTick) -> bool:
         ...
     def __repr__(self) -> str:
@@ -2500,6 +2531,14 @@ class ScoreTick:
         """
         Deep copy
         """
+    @typing.overload
+    def dump_midi(self, path: str) -> None:
+        """
+        Dump to midi file
+        """
+    @typing.overload
+    def dump_midi(self, path: typing.Any) -> None:
+        ...
     def empty(self) -> bool:
         ...
     def end(self) -> int:
@@ -2518,6 +2557,10 @@ class ScoreTick:
         ...
     def start(self) -> int:
         ...
+    def to(self, ttype: typing.Any) -> typing.Any:
+        """
+        Convert to another time unit
+        """
     @property
     def ttype() -> Tick:
         ...
