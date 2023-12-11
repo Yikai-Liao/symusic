@@ -252,38 +252,38 @@ py::object py_shift_velocity_track(Track<T> &self, const int8_t offset, const bo
     }
 };
 
-// bind score::Track<T>
+// bind Track<T>
 template<typename T>
-py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & name_) {
+py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) {
     const auto name = "Track" + name_;
-    auto event = py::class_<score::Track<T>>(m, name.c_str())
+    auto event = py::class_<Track<T>>(m, name.c_str())
         .def(py::init<>())
-        .def(py::init<const score::Track<T> &>(), "Copy constructor", py::arg("other"))
-        .def("copy", &score::Track<T>::copy, "Deep copy", py::return_value_policy::move)
-        .def("__copy__", &score::Track<T>::copy, "Deep copy")
-        .def("__deepcopy__", &score::Track<T>::copy, "Deep copy")
-        .def("__repr__", &score::Track<T>::to_string)
-        .def_readwrite("notes", &score::Track<T>::notes)
-        .def_readwrite("controls", &score::Track<T>::controls)
-        .def_readwrite("pitch_bends", &score::Track<T>::pitch_bends)
-        .def_readwrite("pedals", &score::Track<T>::pedals)
-        .def_readwrite("is_drum", &score::Track<T>::is_drum)
-        .def_readwrite("program", &score::Track<T>::program)
-        .def_readwrite("name", &score::Track<T>::name)
+        .def(py::init<const Track<T> &>(), "Copy constructor", py::arg("other"))
+        .def("copy", &Track<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &Track<T>::copy, "Deep copy")
+        .def("__deepcopy__", &Track<T>::copy, "Deep copy")
+        .def("__repr__", &Track<T>::to_string)
+        .def_readwrite("notes", &Track<T>::notes)
+        .def_readwrite("controls", &Track<T>::controls)
+        .def_readwrite("pitch_bends", &Track<T>::pitch_bends)
+        .def_readwrite("pedals", &Track<T>::pedals)
+        .def_readwrite("is_drum", &Track<T>::is_drum)
+        .def_readwrite("program", &Track<T>::program)
+        .def_readwrite("name", &Track<T>::name)
         .def_property_readonly("ttype", []{ return T(); })
-        .def(py::pickle( &py_to_bytes<score::Track<T>>, &py_from_bytes<score::Track<T>>))
+        .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
         .def(py::self == py::self)  // NOLINT
         .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
         .def("end", &Track<T>::end)
-        .def("start", &score::Track<T>::start)
-        .def("note_num", &score::Track<T>::note_num)
-        .def("empty", &score::Track<T>::empty)
+        .def("start", &Track<T>::start)
+        .def("note_num", &Track<T>::note_num)
+        .def("empty", &Track<T>::empty)
         .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("pianoroll", [](score::Track<T> &self, float quantization, const std::string& mode) {
+        .def("pianoroll", [](Track<T> &self, float quantization, const std::string& mode) {
             score::pianoroll::TrackPianoRoll pianoroll = self.pianoroll(quantization, mode);
 
             return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
@@ -312,13 +312,13 @@ py::class_<score::Track<T>> bind_track_class(py::module &m, const std::string & 
                 return py::cast(copy, py::return_value_policy::move);
             }
         }, py::arg("key"), py::arg("reverse")=false, py::arg("inplace")=true)
-        .def("__repr__", [](const vec<score::Track<T>> &self) {
+        .def("__repr__", [](const vec<Track<T>> &self) {
             return to_string(self);
         })
-        .def(py::pickle( &py_to_bytes<vec<score::Track<T>>>, &py_from_bytes<vec<score::Track<T>>>))
+        .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
         .def_property_readonly("ttype", []{ return T(); });
 
-    py::implicitly_convertible<py::list, vec<score::Track<T>>>();
+    py::implicitly_convertible<py::list, vec<Track<T>>>();
 
     return event;
 }
