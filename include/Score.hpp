@@ -1196,7 +1196,7 @@ inline vec<Container<target_ttype>> Score<raw_ttype>::convert_ttype(
     vec<Container<target_ttype>> new_data;
     new_data.reserve(data.size());
     for (auto &event: data)
-        new_data.emplace_back(this->convert_ttype<Container, target_ttype>(event));
+        new_data.emplace_back(convert_ttype<Container, target_ttype>(event));
     return new_data;
 }
 // convert_ttype end
