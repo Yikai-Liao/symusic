@@ -702,17 +702,21 @@ struct Track{
 
     Track() = default;
     Track(const Track&) = default;
-    // explicit Track(auto && ...) {}
 
     Track(std::string name,
           const u8 program,
           const bool is_drum,
           vec<Note<T>> notes,
           vec<ControlChange<T>> controls,
-          vec<PitchBend<T>> pitch_bends) :
-        name(std::move(name)), program(program), is_drum(is_drum),
-        notes(std::move(notes)), controls(std::move(controls)),
-        pitch_bends(std::move(pitch_bends)) {};
+          vec<PitchBend<T>> pitch_bends,
+          vec<Pedal<T>> pedals):
+        name(std::move(name)),
+        program(program),
+        is_drum(is_drum),
+        notes(std::move(notes)),
+        controls(std::move(controls)),
+        pitch_bends(std::move(pitch_bends)),
+        pedals(std::move(pedals)) {};
 
     Track(std::string name, u8 program, bool is_drum) :
         name(std::move(name)), program(program), is_drum(is_drum) {};
@@ -1138,62 +1142,50 @@ Track<T> &get_track(
 } // namespace utils end
 
 // Define all the convert_ttype functions in Score<T>
-
-// tick -> quarter
-template<> template<>
+template<> template<> // tick -> quarter
 inline Quarter::unit Score<Tick>::convert_ttype<Quarter>(const Tick::unit &data) const {
-    return static_cast<f32>(data) / this->ticks_per_quarter;
+    return static_cast<f32>(data) / static_cast<f32>(this->ticks_per_quarter);
 }
 
-// quarter -> tick
-template<> template<>
+template<> template<> // quarter -> tick
 inline Tick::unit Score<Quarter>::convert_ttype<Tick>(const Quarter::unit &data) const {
-    return static_cast<i32>(std::round(data * this->ticks_per_quarter));
+    return static_cast<i32>(std::round(data * static_cast<f32>(this->ticks_per_quarter)));
 }
 
-// tick -> tick
-template<> template<>
-inline Tick::unit Score<Tick>::convert_ttype<Tick>(const Tick::unit &data) const {
-    return data;
+template<> template<> // tick -> tick
+inline Tick::unit Score<Tick>::convert_ttype<Tick>(const Tick::unit &data) const {return data;}
+
+template<> template<> // quarter -> quarter
+inline Quarter::unit Score<Quarter>::convert_ttype<Quarter>(const Quarter::unit &data) const {return data;}
+
+template<> template<> // special case for Note
+[[maybe_unused]] inline Note<Quarter> Score<Tick>::convert_ttype<Note, Quarter>(const Note<Tick> &data) const {
+    return {convert_ttype<Quarter>(data.time), convert_ttype<Quarter>(data.duration), data};
 }
 
-// quarter -> quarter
-template<> template<>
-inline Quarter::unit Score<Quarter>::convert_ttype<Quarter>(const Quarter::unit &data) const {
-    return data;
+template<> template<> // special case for Note
+[[maybe_unused]] inline Note<Tick> Score<Quarter>::convert_ttype<Note, Tick>(const Note<Quarter> &data) const {
+    return {convert_ttype<Tick>(data.time), convert_ttype<Tick>(data.duration), data};
 }
 
-
-// sepcial case for Note
-template<> template<>
-inline Note<Quarter> Score<Tick>::convert_ttype<Note, Quarter>(const Note<Tick> &data) const {
-    return Note<Quarter>(
-        convert_ttype<Quarter>(data.time),
-        convert_ttype<Quarter>(data.duration),
-        data
-    );
+template<> template<> // special case for Pedal
+[[maybe_unused]] inline Pedal<Quarter> Score<Tick>::convert_ttype<Pedal, Quarter>(const Pedal<Tick> &data) const {
+    return {convert_ttype<Quarter>(data.time), convert_ttype<Quarter>(data.duration), data};
 }
 
-// sepcial case for Pedal
-template<> template<>
-inline Pedal<Quarter> Score<Tick>::convert_ttype<Pedal, Quarter>(const Pedal<Tick> &data) const {
-    return Pedal<Quarter>(
-        convert_ttype<Tick>(data.time),
-        convert_ttype<Tick>(data.duration),
-        data
-    );
+template<> template<> // special case for Pedal
+[[maybe_unused]] inline Pedal<Tick> Score<Quarter>::convert_ttype<Pedal, Tick>(const Pedal<Quarter> &data) const {
+    return {convert_ttype<Tick>(data.time), convert_ttype<Tick>(data.duration), data};
 }
 
-// general case
-template<typename raw_ttype> 
+template<typename raw_ttype> // general case
 template<template<class> class Container, class target_ttype>
 inline Container<target_ttype> Score<raw_ttype>::convert_ttype(
     const Container<raw_ttype> &data) const {
     return Container<target_ttype>(convert_ttype<raw_ttype>(data.time), data);
 }
 
-// vector general case
-template<typename raw_ttype>
+template<typename raw_ttype> // vector general case
 template<template<class> class Container, class target_ttype>
 inline vec<Container<target_ttype>> Score<raw_ttype>::convert_ttype(
     const vec<Container<raw_ttype>> &data) const {
@@ -1404,7 +1396,8 @@ inline void Score<T>::from(const Score<U> &other) {
             track.is_drum,
             other.template convert_ttype<Note, T>(track.notes),
             other.template convert_ttype<ControlChange, T>(track.controls),
-            other.template convert_ttype<PitchBend, T>(track.pitch_bends)
+            other.template convert_ttype<PitchBend, T>(track.pitch_bends),
+            other.template convert_ttype<Pedal, T>(track.pedals)
         );
     }
 }
