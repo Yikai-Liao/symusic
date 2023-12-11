@@ -110,7 +110,7 @@ class CoreClasses(Generic[T, Q, S]):
         else:
             raise ValueError(f"Invalid time unit: {ttype}")
 
-    def __instancecheck__(self, instance):
+    def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, (self.tick, self.quarter, self.second))  # type: ignore
 
 
@@ -134,8 +134,8 @@ class NoteFactory:
         """
         return self.__core_classes.dispatch(ttype)(time, duration, pitch, velocity)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -153,8 +153,8 @@ class KeySignatureFactory:
     ) -> smt.KeySignature:
         return self.__core_classes.dispatch(ttype)(time, key, tonality)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -172,8 +172,8 @@ class TimeSignatureFactory:
     ) -> smt.TimeSignature:
         return self.__core_classes.dispatch(ttype)(time, numerator, denominator)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -191,8 +191,8 @@ class ControlChangeFactory:
     ) -> smt.ControlChange:
         return self.__core_classes.dispatch(ttype)(time, number, value)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -207,8 +207,8 @@ class TempoFactory:
     ) -> smt.Tempo:
         return self.__core_classes.dispatch(ttype)(time, tempo)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -223,8 +223,8 @@ class PedalFactory:
     ) -> smt.Pedal:
         return self.__core_classes.dispatch(ttype)(time, duration)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -241,8 +241,8 @@ class PitchBendFactory:
     ) -> smt.PitchBend:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
@@ -256,19 +256,47 @@ class TextMetaFactory:
     ) -> smt.TextMeta:
         return self.__core_classes.dispatch(ttype)(time, text)  # type: ignore
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 @dataclass(frozen=True)
 class TrackFactory:
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
-    def __call__(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
-        return self.__core_classes.dispatch(ttype)()
+    def __call__(
+        self, name: str = "", program: int = 0, is_drum: bool = False, 
+        notes: smt.GeneralNoteList = [],
+        controls: smt.GeneralControlChangeList = [],
+        pitch_bends: smt.GeneralPitchBendList = [],
+        pedals: smt.GeneralPedalList = [],
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.Track:
+        r"""
+        Create a Track object with the given parameters.
+        Note that all of this parameters are optional,
+        and they will be copied to the new Track object.
+        So it is safe to use `[]` in the default value.
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+        Of couse, copy will cause a little overhead, but it is acceptable.
+        And create a `Note` object (binded by pybind11) is much more expensive.
+        """
+        new_track = self.empty(ttype)
+        new_track.name = name
+        new_track.program = program
+        new_track.is_drum = is_drum
+        new_track.notes = notes                 # type: ignore
+        new_track.controls = controls           # type: ignore
+        new_track.pitch_bends = pitch_bends     # type: ignore
+        new_track.pedals = pedals               # type: ignore
+        return new_track
+
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
+    
+    def empty(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
+        # create a empty track
+        return self.__core_classes.dispatch(ttype)()
 
 
 @dataclass(frozen=True)
@@ -291,8 +319,8 @@ class ScoreFactory:
     def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
 
-    def __instancecheck__(self, instance):
-        return isinstance(instance, self.__core_classes)
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  #type: ignore
 
 
 Note = NoteFactory()
