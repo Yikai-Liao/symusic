@@ -855,11 +855,9 @@ STRING_METHODS(0, Track)
 template<typename T>
 struct Score{
 protected:
+
     template<typename U>
-    void from(U&) {             // general case, raise error
-        ticks_per_quarter = -1; // avoid warning of setting the method to static
-        throw std::runtime_error("Not Implemented");
-    }
+    inline void from(const Score<U>& other);
 
 public:
     i32 ticks_per_quarter{};
@@ -906,6 +904,16 @@ public:
     static Score from_midi(minimidi::file::MidiFile &midi) {
         return Score(midi);
     }
+
+    template<class target_ttype>
+    typename target_ttype::unit convert_ttype(const typename T::unit &data) const;
+
+    template<template<class> class Container, class target_ttype>
+    Container<target_ttype> convert_ttype(const Container<T> &data) const;
+
+    template<template<class> class Container, class target_ttype>
+    vec<Container<target_ttype>> convert_ttype(const vec<Container<T>> &data) const;
+
 
     Score& sort_inplace() {
         utils::sort_by_time(time_signatures);
@@ -1125,19 +1133,91 @@ Track<T> &get_track(
 }
 } // namespace utils end
 
+// Define all the convert_ttype functions in Score<T>
+
+// tick -> quarter
+template<> template<>
+inline Quarter::unit Score<Tick>::convert_ttype<Quarter>(const Tick::unit &data) const {
+    return static_cast<f32>(data) / this->ticks_per_quarter;
+}
+
+// quarter -> tick
+template<> template<>
+inline Tick::unit Score<Quarter>::convert_ttype<Tick>(const Quarter::unit &data) const {
+    return static_cast<i32>(std::round(data * this->ticks_per_quarter));
+}
+
+// tick -> tick
+template<> template<>
+inline Tick::unit Score<Tick>::convert_ttype<Tick>(const Tick::unit &data) const {
+    return data;
+}
+
+// quarter -> quarter
+template<> template<>
+inline Quarter::unit Score<Quarter>::convert_ttype<Quarter>(const Quarter::unit &data) const {
+    return data;
+}
+
+
+// sepcial case for Note
+template<> template<>
+inline Note<Quarter> Score<Tick>::convert_ttype<Note, Quarter>(const Note<Tick> &data) const {
+    return Note<Quarter>(
+        convert_ttype<Quarter>(data.time),
+        convert_ttype<Quarter>(data.duration),
+        data
+    );
+}
+
+// sepcial case for Pedal
+template<> template<>
+inline Pedal<Quarter> Score<Tick>::convert_ttype<Pedal, Quarter>(const Pedal<Tick> &data) const {
+    return Pedal<Quarter>(
+        convert_ttype<Tick>(data.time),
+        convert_ttype<Tick>(data.duration),
+        data
+    );
+}
+
+// general case
+template<typename raw_ttype> 
+template<template<class> class Container, class target_ttype>
+inline Container<target_ttype> Score<raw_ttype>::convert_ttype(
+    const Container<raw_ttype> &data) const {
+    return Container<target_ttype>(convert_ttype<raw_ttype>(data.time), data);
+}
+
+// vector general case
+template<typename raw_ttype>
+template<template<class> class Container, class target_ttype>
+inline vec<Container<target_ttype>> Score<raw_ttype>::convert_ttype(
+    const vec<Container<raw_ttype>> &data) const {
+    vec<Container<target_ttype>> new_data;
+    new_data.reserve(data.size());
+    for (auto &event: data)
+        new_data.emplace_back(this->convert_ttype<Container, target_ttype>(event));
+    return new_data;
+}
+// convert_ttype end
+
+
 // read midi file using Score<Tick>
-template<>
-inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
+// TODO this may not work for Second
+template<typename T>
+inline Score<T>::Score(minimidi::file::MidiFile &midi) {
     size_t track_num = midi.track_num();
     ticks_per_quarter = midi.get_tick_per_quarter();
+    // create a helper for converting tick to T
+    const Score<Tick> helper(ticks_per_quarter);
 
     using std::cout, std::endl;
     for (size_t i = 0; i < track_num; ++i) {
         auto &midi_track = midi.track(i);
         // (channel, program) -> Track
-        std::map<utils::TrackIdx, Track<Tick>> track_map;
+        std::map<utils::TrackIdx, Track<T>> track_map;
         // channel -> Track
-        Track<Tick> stragglers[16];
+        Track<T> stragglers[16];
         // channel -> program
         uint8_t cur_instr[16] = {0};
         std::string cur_name;
@@ -1150,6 +1230,8 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
         for (size_t j = 0; j < message_num; ++j) {
             auto &msg = midi_track.message(j);
             auto cur_tick = static_cast<i32>(msg.get_time());
+            typename T::unit cur_time = helper.convert_ttype<T>(cur_tick);
+
             switch (msg.get_type()) {
                 case (message::MessageType::NoteOn): {
                     if (uint8_t velocity = msg.get_velocity(); velocity != 0) {
@@ -1176,7 +1258,9 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                         auto const &note_on = note_on_queue.front();
                         uint32_t duration = cur_tick - note_on.time;
                         track.notes.emplace_back(
-                            note_on.time, duration,
+                            // note_on.time, duration,
+                            helper.convert_ttype<T>(note_on.time), 
+                            helper.convert_ttype<T>(duration),
                             pitch, note_on.velocity
                         );
                         note_on_queue.pop();
@@ -1211,7 +1295,10 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                         } else {
                             if (last_pedal_on[channel] >= 0) {
                                 track.pedals.emplace_back(
-                                    last_pedal_on[channel], cur_tick - last_pedal_on[channel]);
+                                    // last_pedal_on[channel], cur_tick - last_pedal_on[channel]
+                                    helper.convert_ttype<T>(last_pedal_on[channel]),
+                                    helper.convert_ttype<T>(cur_tick - last_pedal_on[channel])
+                                );
                                 last_pedal_on[channel] = -1;
                             }
                         }
@@ -1226,7 +1313,10 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                     auto value = msg.get_pitch_bend();
                     if (value < minimidi::message::MIN_PITCHBEND || value > minimidi::message::MAX_PITCHBEND)
                         throw std::range_error("Get pitch_bend=" + std::to_string((int) value));
-                    track.pitch_bends.emplace_back(cur_tick, value);
+                    track.pitch_bends.emplace_back(
+                        // cur_tick, value
+                        cur_time, value
+                    );
                     break;
                 }
                     // Meta Message
@@ -1239,15 +1329,15 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                             break;
                         }
                         case (message::MetaType::TimeSignature): {
-                            time_signatures.emplace_back(cur_tick, msg.get_time_signature());
+                            time_signatures.emplace_back(cur_time, msg.get_time_signature());
                             break;
                         }
                         case (message::MetaType::SetTempo): {
-                            tempos.emplace_back(cur_tick, 60000000.f / static_cast<float>(msg.get_tempo()));
+                            tempos.emplace_back(cur_time, 60000000.f / static_cast<float>(msg.get_tempo()));
                             break;
                         }
                         case (message::MetaType::KeySignature): {
-                            key_signatures.emplace_back(cur_tick, msg.get_key_signature());
+                            key_signatures.emplace_back(cur_time, msg.get_key_signature());
                             break;
                         }
                         case (message::MetaType::Lyric): {
@@ -1255,7 +1345,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                             auto tmp = std::string(data.begin(), data.end());
                             auto text = utils::strip_non_utf_8(&tmp);
                             if (text.empty()) break;
-                            lyrics.emplace_back(cur_tick, std::move(text));
+                            lyrics.emplace_back(cur_time, std::move(text));
                             break;
                         }
                         case (message::MetaType::Marker): {
@@ -1263,7 +1353,7 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
                             auto tmp = std::string(data.begin(), data.end());
                             auto text = utils::strip_non_utf_8(&tmp);
                             if (text.empty()) break;
-                            markers.emplace_back(cur_tick, std::move(text));
+                            markers.emplace_back(cur_time, std::move(text));
                             break;
                         }
                         default:
@@ -1289,70 +1379,30 @@ inline Score<Tick>::Score(minimidi::file::MidiFile &midi) {
     utils::sort_by_time(markers);
 }
 
-// Define converts from Tick to Quarter
-#define TICK2QUARTER(i, CLASS_NAME)                                             \
-    inline vec<CLASS_NAME<Quarter>> to_quarter(                                 \
-        const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) {             \
-        vec<CLASS_NAME<Quarter>> new_data;                                      \
-        new_data.reserve(data.size());                                          \
-        f32 tpq = static_cast<f32>(ticks_per_quarter);                          \
-        for(auto const &event: data)                                            \
-            new_data.emplace_back(static_cast<f32>(event.time) / tpq, event);   \
-        return new_data;                                                        \
-    }
+// define score -> score
+template<typename T>
+template<typename U>
+inline void Score<T>::from(const Score<U> &other) {
+    if(other.ticks_per_quarter <= 0)
+        throw std::invalid_argument("ticks_per_quarter must be positive, please specify it first!");
 
-REPEAT_ON(
-    TICK2QUARTER,
-    TimeSignature, KeySignature, ControlChange, Tempo, PitchBend, TextMeta
-) // Converts definition end
-
-#undef TICK2QUARTER
-
-// Define converts from Tick to Quarter
-#define TICK2QUARTER(i, CLASS_NAME)                                             \
-    inline vec<CLASS_NAME<Quarter>> to_quarter(                                 \
-        const vec<CLASS_NAME<Tick>>& data, i32 ticks_per_quarter) {             \
-        vec<CLASS_NAME<Quarter>> new_data;                                      \
-        new_data.reserve(data.size());                                          \
-        f32 tpq = static_cast<f32>(ticks_per_quarter);                          \
-        for(auto const &event: data)                                            \
-            new_data.emplace_back(static_cast<f32>(event.time) / tpq,           \
-                                static_cast<f32>(event.duration) / tpq,         \
-                                event);                                         \
-        return new_data;                                                        \
-    }
-
-REPEAT_ON(
-    TICK2QUARTER,
-    Note, Pedal
-) // Converts definition end
-
-#undef TICK2QUARTER
-
-// tick to quarter, specialization
-template<> template<>
-inline void Score<Quarter>::from(Score<Tick> &other){
     this->ticks_per_quarter = other.ticks_per_quarter;
-    time_signatures = to_quarter(other.time_signatures, ticks_per_quarter);
-    key_signatures = to_quarter(other.key_signatures, ticks_per_quarter);
-    tempos = to_quarter(other.tempos, ticks_per_quarter);
-    lyrics = to_quarter(other.lyrics, ticks_per_quarter);
-    markers = to_quarter(other.markers, ticks_per_quarter);
-    tracks = vec<Track<Quarter>>(other.tracks.size());
-    for(size_t i=0; i<other.tracks.size(); ++i){
-        tracks[i].name = other.tracks[i].name;
-        tracks[i].program = other.tracks[i].program;
-        tracks[i].is_drum = other.tracks[i].is_drum;
-        tracks[i].notes = to_quarter(other.tracks[i].notes, ticks_per_quarter);
-        tracks[i].controls = to_quarter(other.tracks[i].controls, ticks_per_quarter);
-        tracks[i].pitch_bends = to_quarter(other.tracks[i].pitch_bends, ticks_per_quarter);
+    this->time_signatures = other.template convert_ttype<TimeSignature, T>(other.time_signatures);
+    this->key_signatures = other.template convert_ttype<KeySignature, T>(other.key_signatures);
+    this->tempos = other.template convert_ttype<Tempo, T>(other.tempos);
+    this->lyrics = other.template convert_ttype<TextMeta, T>(other.lyrics);
+    this->markers = other.template convert_ttype<TextMeta, T>(other.markers);
+    this->tracks.reserve(other.tracks.size());
+    for (const Track<U> &track: other.tracks){
+        this->tracks.emplace_back(
+            track.name,
+            track.program,
+            track.is_drum,
+            other.template convert_ttype<Note, T>(track.notes),
+            other.template convert_ttype<ControlChange, T>(track.controls),
+            other.template convert_ttype<PitchBend, T>(track.pitch_bends)
+        );
     }
-}
-
-template<>
-inline Score<Quarter>::Score(minimidi::file::MidiFile &midi) {
-    auto score_tick = Score<Tick>(midi);
-    from(score_tick);
 }
 } // namespace score end
 #endif //SCORE_HPP
