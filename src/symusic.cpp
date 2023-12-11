@@ -390,8 +390,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
 
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<const i32>(), py::arg("tpq"))
-        .def(py::init<const Score<Tick> &>(), "Convert from other", py::arg("other"))
-        .def(py::init<const Score<Quarter> &>(), "Convert from other", py::arg("other"))
+        .def(py::init([](const Score<T> &other) { return other.copy(); }), "Copy constructor", py::arg("other"))
         .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")
@@ -445,6 +444,22 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         }, py::arg("quantization"), py::arg("mode"));
 }
 
+template<typename T>
+py::object convert_score(const Score<T> &self, py::object ttype) {
+    if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
+    if (py::isinstance<Tick>(ttype)) return py::cast(Score<Tick>(self), py::return_value_policy::move);
+    else if (py::isinstance<Quarter>(ttype)) return py::cast(Score<Quarter>(self), py::return_value_policy::move);
+    else if (py::isinstance<Second>(ttype)) throw std::invalid_argument("Second is not supported yet");
+    else if (py::isinstance<py::str>(ttype)) {
+        // convert ttype to lower case
+        auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
+        if (ttype_str == "tick") return py::cast(Score<Tick>(self), py::return_value_policy::move);
+        else if (ttype_str == "quarter") return py::cast(Score<Quarter>(self), py::return_value_policy::move);
+        else if (ttype_str == "second") throw std::invalid_argument("Second is not supported yet");
+        else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
+    } else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
+}
+
 py::module & core_module(py::module & m){
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
 
@@ -487,6 +502,12 @@ py::module & core_module(py::module & m){
 
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
+    score_tick.def(
+        py::init<const Score<Quarter> &>(), "Convert Quarter to Tick", py::arg("other"))
+        .def("to", &convert_score<Tick>, py::arg("ttype"), "Convert to another time unit");
+    score_quarter.def(
+        py::init<const Score<Tick> &>(), "Convert Tick to Quarter", py::arg("other"))
+        .def("to", &convert_score<Quarter>, py::arg("ttype"), "Convert to another time unit");
     //    bind_score_class<Second>(m, second);
     return m;
 }

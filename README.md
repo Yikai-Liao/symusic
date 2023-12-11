@@ -16,6 +16,7 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
 ## Features
 
 * You can just read a midi file like `score = symusic.Score("path to midi", ttype="tick")`
+* Writing back to midi is now supported! `score.dump_midi("path")`
 * Multiple `time unit (ttype)` is now supported (currently `tick` and `quarter`)
 * The tempo attribute in the tempo event represents quarter per minute (qpm)
 * We offer some batch operation functions for both `Score` and `Track` class:
