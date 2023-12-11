@@ -440,6 +440,10 @@ TIME_EVENT{
            << ")";
         return ss.str();
     }
+
+    uint8_t degree() const {
+        return (key * 5) % 12 + tonality * 12;
+    }
 };
 #undef CLASS_NAME // KeySignature
 
