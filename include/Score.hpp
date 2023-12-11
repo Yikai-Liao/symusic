@@ -17,6 +17,7 @@ namespace score {
 
 typedef uint8_t     u8;
 typedef int8_t      i8;
+typedef uint16_t    u16;
 typedef uint32_t    u32;
 typedef int32_t     i32;
 typedef float       f32;
@@ -588,11 +589,17 @@ bool time_cmp(const T &a, const T &b) {
 
 template<typename T>
 void sort_by_time(vec<T> &events) {
-    pdqsort(events.begin(), events.end(), time_cmp<T>);
+    pdqsort_branchless(events.begin(), events.end(), time_cmp<T>);
+}
+
+inline void sort_msgs(message::Messages & msgs) {
+    pdqsort_branchless(msgs.begin(), msgs.end(), [](const auto &a, const auto &b) {
+        return a.get_time() < b.get_time();
+    });
 }
 
 template<typename T>
-inline vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> & _filter) {
+vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> & _filter) {
     if (data.empty()) return {};
     vec<T> new_data;
     new_data.reserve(data.size());
@@ -902,7 +909,7 @@ public:
     template<typename U>
     explicit Score(const Score<U> &other) { from(other); }
 
-    explicit Score(minimidi::file::MidiFile &midi);
+    explicit Score(const minimidi::file::MidiFile &midi);
 
     static Score from_file(const std::string &filename) {
         auto midi = minimidi::file::MidiFile::from_file(filename);
@@ -914,6 +921,18 @@ public:
     }
 
     [[nodiscard]] minimidi::file::MidiFile to_midi() const;
+
+    [[nodiscard]] minimidi::container::Bytes to_midi_bytes() const {
+        return to_midi().to_bytes();
+    };
+
+    void dump_midi(const std::string &filename) const {
+        auto midi = to_midi();
+        for(const auto &track: midi.tracks) {
+            std::cout << "Track: " << track.message_num() << std::endl;
+        }
+        midi.write_file(filename);
+    }
 
     template<class target_ttype>
     typename target_ttype::unit convert_ttype(const typename T::unit &data) const;
@@ -1203,15 +1222,14 @@ inline vec<Container<target_ttype>> Score<raw_ttype>::convert_ttype(
 // read midi file using Score<Tick>
 // TODO this may not work for Second
 template<typename T>
-inline Score<T>::Score(minimidi::file::MidiFile &midi) {
+Score<T>::Score(const minimidi::file::MidiFile &midi) {
     size_t track_num = midi.track_num();
     ticks_per_quarter = midi.get_tick_per_quarter();
     // create a helper for converting tick to T
     const Score<Tick> helper(ticks_per_quarter);
 
     using std::cout, std::endl;
-    for (size_t i = 0; i < track_num; ++i) {
-        auto &midi_track = midi.track(i);
+    for(const auto &midi_track: midi.tracks) {
         // (channel, program) -> Track
         std::map<utils::TrackIdx, Track<T>> track_map;
         // channel -> Track
@@ -1225,8 +1243,7 @@ inline Score<T>::Score(minimidi::file::MidiFile &midi) {
         i32 last_pedal_on[16] = {-1};
         // iter midi messages in the track
         size_t message_num = midi_track.message_num();
-        for (size_t j = 0; j < message_num; ++j) {
-            auto &msg = midi_track.message(j);
+        for(const auto &msg: midi_track.messages) {
             auto cur_tick = static_cast<i32>(msg.get_time());
             typename T::unit cur_time = helper.convert_ttype<T>(cur_tick);
 
@@ -1380,7 +1397,7 @@ inline Score<T>::Score(minimidi::file::MidiFile &midi) {
 // define score -> score
 template<typename T>
 template<typename U>
-inline void Score<T>::from(const Score<U> &other) {
+void Score<T>::from(const Score<U> &other) {
     if(other.ticks_per_quarter <= 0)
         throw std::invalid_argument("ticks_per_quarter must be positive, please specify it first!");
 
@@ -1404,12 +1421,13 @@ inline void Score<T>::from(const Score<U> &other) {
     }
 }
 
-// TODO push tracks to midi
 template<typename T>
 minimidi::file::MidiFile Score<T>::to_midi() const {
-    minimidi::file::MidiFile midi{};
-    minimidi::track::Tracks midi_tracks{};
-    midi_tracks.reserve(tracks.size() + 1);
+    minimidi::file::MidiFile midi{
+        minimidi::file::MidiFormat::MultiTrack, 0,
+        static_cast<u16>(ticks_per_quarter)
+    };
+    midi.tracks.reserve(tracks.size() + 1);
     {   // add meta messages
         message::Messages msgs{};
         msgs.reserve(time_signatures.size() + key_signatures.size() + tempos.size() + lyrics.size() + markers.size() + 10);
@@ -1446,8 +1464,8 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
                 this->convert_ttype<Tick>(marker.time), marker.text
             ));
         }
-        utils::sort_by_time(msgs);
-        midi_tracks.emplace_back(std::move(msgs));
+        utils::sort_msgs(msgs);
+        midi.tracks.emplace_back(std::move(msgs));
     }
 
     for(const auto &track: tracks) {
@@ -1484,8 +1502,8 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
                 note.pitch, note.velocity
             ));
         }
-        utils::sort_by_time(msgs);
-        midi_tracks.emplace_back(std::move(msgs));
+        utils::sort_msgs(msgs);
+        midi.tracks.emplace_back(std::move(msgs));
     }
     return midi;
 } // Score<T>::to_midi end
