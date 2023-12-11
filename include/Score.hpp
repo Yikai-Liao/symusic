@@ -927,11 +927,7 @@ public:
     };
 
     void dump_midi(const std::string &filename) const {
-        auto midi = to_midi();
-        for(const auto &track: midi.tracks) {
-            std::cout << "Track: " << track.message_num() << std::endl;
-        }
-        midi.write_file(filename);
+        to_midi().write_file(filename);
     }
 
     template<class target_ttype>
@@ -1471,7 +1467,7 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
     for(const auto &track: tracks) {
         message::Messages msgs{};
         msgs.reserve(track.note_num() * 2 + track.controls.size() + track.pitch_bends.size() + 10);
-        u8 channel = this->is_drum ? 9 : 0;
+        u8 channel = track.is_drum ? 9 : 0;
         // add track name
         if(!track.name.empty())
             msgs.emplace_back(message::Message::TrackName(0, track.name));
