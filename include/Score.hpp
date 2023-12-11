@@ -913,6 +913,8 @@ public:
         return Score(midi);
     }
 
+    [[nodiscard]] minimidi::file::MidiFile to_midi() const;
+
     template<class target_ttype>
     typename target_ttype::unit convert_ttype(const typename T::unit &data) const;
 
@@ -1401,5 +1403,91 @@ inline void Score<T>::from(const Score<U> &other) {
         );
     }
 }
+
+// TODO push tracks to midi
+template<typename T>
+minimidi::file::MidiFile Score<T>::to_midi() const {
+    minimidi::file::MidiFile midi{};
+    minimidi::track::Tracks midi_tracks{};
+    midi_tracks.reserve(tracks.size() + 1);
+    {   // add meta messages
+        message::Messages msgs{};
+        msgs.reserve(time_signatures.size() + key_signatures.size() + tempos.size() + lyrics.size() + markers.size() + 10);
+        // add time signatures
+        for(const auto &time_signature: time_signatures) {
+            msgs.emplace_back(message::Message::TimeSignature(
+                this->convert_ttype<Tick>(time_signature.time),
+                time_signature.numerator, time_signature.denominator
+            ));
+        }
+        // add key signatures
+        for(const auto &key_signature: key_signatures) {
+            msgs.emplace_back(message::Message::KeySignature(
+                this->convert_ttype<Tick>(key_signature.time),
+                key_signature.key, key_signature.tonality
+            ));
+        }
+        // add tempos
+        for(const auto &tempo: tempos) {
+            msgs.emplace_back(message::Message::SetTempo(
+                this->convert_ttype<Tick>(tempo.time),
+                static_cast<u32>(60000000.f / tempo.qpm)
+            ));
+        }
+        // add lyrics
+        for(const auto &lyric: lyrics) {
+            msgs.emplace_back(message::Message::Lyric(
+                this->convert_ttype<Tick>(lyric.time), lyric.text
+            ));
+        }
+        // add markers
+        for(const auto &marker: markers) {
+            msgs.emplace_back(message::Message::Marker(
+                this->convert_ttype<Tick>(marker.time), marker.text
+            ));
+        }
+        utils::sort_by_time(msgs);
+        midi_tracks.emplace_back(std::move(msgs));
+    }
+
+    for(const auto &track: tracks) {
+        message::Messages msgs{};
+        msgs.reserve(track.note_num() * 2 + track.controls.size() + track.pitch_bends.size() + 10);
+        // add track name
+        if(!track.name.empty())
+            msgs.emplace_back(message::Message::TrackName(0, track.name));
+        // add program change
+        msgs.emplace_back(message::Message::ProgramChange(0, 0, track.program));
+        // Todo add check for Pedal
+        // add control change
+        for(const auto &control: track.controls) {
+            msgs.emplace_back(message::Message::ControlChange(
+                this->convert_ttype<Tick>(control.time), 0,
+                control.number, control.value
+            ));
+        }
+        // add pitch bend
+        for(const auto &pitch_bend: track.pitch_bends) {
+            msgs.emplace_back(message::Message::PitchBend(
+                this->convert_ttype<Tick>(pitch_bend.time), 0,
+                pitch_bend.value
+            ));
+        }
+        // add notes
+        for(const auto &note: track.notes) {
+            msgs.emplace_back(message::Message::NoteOn(
+                this->convert_ttype<Tick>(note.time), 0,
+                note.pitch, note.velocity
+            ));
+            msgs.emplace_back(message::Message::NoteOff(
+                this->convert_ttype<Tick>(note.end()), 0,
+                note.pitch, note.velocity
+            ));
+        }
+        utils::sort_by_time(msgs);
+        midi_tracks.emplace_back(std::move(msgs));
+    }
+    return midi;
+} // Score<T>::to_midi end
 } // namespace score end
 #endif //SCORE_HPP
