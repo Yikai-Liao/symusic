@@ -3,6 +3,7 @@ import numpy
 import typing
 __all__ = ['ControlChangeQuarter', 'ControlChangeQuarterList', 'ControlChangeSecond', 'ControlChangeSecondList', 'ControlChangeTick', 'ControlChangeTickList', 'KeySignatureQuarter', 'KeySignatureQuarterList', 'KeySignatureSecond', 'KeySignatureSecondList', 'KeySignatureTick', 'KeySignatureTickList', 'NoteQuarter', 'NoteQuarterList', 'NoteSecond', 'NoteSecondList', 'NoteTick', 'NoteTickList', 'PedalQuarter', 'PedalQuarterList', 'PedalSecond', 'PedalSecondList', 'PedalTick', 'PedalTickList', 'PitchBendQuarter', 'PitchBendQuarterList', 'PitchBendSecond', 'PitchBendSecondList', 'PitchBendTick', 'PitchBendTickList', 'Quarter', 'ScoreQuarter', 'ScoreTick', 'Second', 'TempoQuarter', 'TempoQuarterList', 'TempoSecond', 'TempoSecondList', 'TempoTick', 'TempoTickList', 'TextMetaQuarter', 'TextMetaQuarterList', 'TextMetaSecond', 'TextMetaSecondList', 'TextMetaTick', 'TextMetaTickList', 'Tick', 'TimeSignatureQuarter', 'TimeSignatureQuarterList', 'TimeSignatureSecond', 'TimeSignatureSecondList', 'TimeSignatureTick', 'TimeSignatureTickList', 'TrackQuarter', 'TrackQuarterList', 'TrackSecond', 'TrackSecondList', 'TrackTick', 'TrackTickList']
 class ControlChangeQuarter:
+    __hash__: typing.ClassVar[None] = None
     number: int
     time: float
     value: int
@@ -14,6 +15,8 @@ class ControlChangeQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: ControlChangeQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -23,6 +26,8 @@ class ControlChangeQuarter:
         """
     @typing.overload
     def __init__(self, time: float, number: int, value: int) -> None:
+        ...
+    def __ne__(self, arg0: ControlChangeQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -40,9 +45,14 @@ class ControlChangeQuarter:
     def ttype(self) -> Quarter:
         ...
 class ControlChangeQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: ControlChangeQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -54,6 +64,8 @@ class ControlChangeQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: ControlChangeQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> ControlChangeQuarterList:
         """
@@ -78,6 +90,8 @@ class ControlChangeQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: ControlChangeQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -105,6 +119,10 @@ class ControlChangeQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: ControlChangeQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: ControlChangeQuarterList) -> None:
         """
@@ -129,12 +147,17 @@ class ControlChangeQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: ControlChangeQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class ControlChangeSecond:
+    __hash__: typing.ClassVar[None] = None
     number: int
     time: float
     value: int
@@ -146,6 +169,8 @@ class ControlChangeSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: ControlChangeSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -155,6 +180,8 @@ class ControlChangeSecond:
         """
     @typing.overload
     def __init__(self, time: float, number: int, value: int) -> None:
+        ...
+    def __ne__(self, arg0: ControlChangeSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -172,9 +199,14 @@ class ControlChangeSecond:
     def ttype(self) -> Second:
         ...
 class ControlChangeSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: ControlChangeSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -186,6 +218,8 @@ class ControlChangeSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: ControlChangeSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> ControlChangeSecondList:
         """
@@ -210,6 +244,8 @@ class ControlChangeSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: ControlChangeSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -237,6 +273,10 @@ class ControlChangeSecondList:
         """
         Clear the contents
         """
+    def count(self, x: ControlChangeSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: ControlChangeSecondList) -> None:
         """
@@ -261,12 +301,17 @@ class ControlChangeSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: ControlChangeSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class ControlChangeTick:
+    __hash__: typing.ClassVar[None] = None
     number: int
     time: int
     value: int
@@ -278,6 +323,8 @@ class ControlChangeTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: ControlChangeTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -287,6 +334,8 @@ class ControlChangeTick:
         """
     @typing.overload
     def __init__(self, time: int, number: int, value: int) -> None:
+        ...
+    def __ne__(self, arg0: ControlChangeTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -304,9 +353,14 @@ class ControlChangeTick:
     def ttype(self) -> Tick:
         ...
 class ControlChangeTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: ControlChangeTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -318,6 +372,8 @@ class ControlChangeTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: ControlChangeTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> ControlChangeTickList:
         """
@@ -342,6 +398,8 @@ class ControlChangeTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: ControlChangeTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -369,6 +427,10 @@ class ControlChangeTickList:
         """
         Clear the contents
         """
+    def count(self, x: ControlChangeTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: ControlChangeTickList) -> None:
         """
@@ -393,12 +455,17 @@ class ControlChangeTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: ControlChangeTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class KeySignatureQuarter:
+    __hash__: typing.ClassVar[None] = None
     key: int
     time: float
     tonality: int
@@ -410,6 +477,8 @@ class KeySignatureQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: KeySignatureQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -419,6 +488,8 @@ class KeySignatureQuarter:
         """
     @typing.overload
     def __init__(self, time: float, key: int, tonality: int) -> None:
+        ...
+    def __ne__(self, arg0: KeySignatureQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -436,9 +507,14 @@ class KeySignatureQuarter:
     def ttype(self) -> Quarter:
         ...
 class KeySignatureQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: KeySignatureQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -450,6 +526,8 @@ class KeySignatureQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: KeySignatureQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> KeySignatureQuarterList:
         """
@@ -474,6 +552,8 @@ class KeySignatureQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: KeySignatureQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -501,6 +581,10 @@ class KeySignatureQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: KeySignatureQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: KeySignatureQuarterList) -> None:
         """
@@ -525,12 +609,17 @@ class KeySignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: KeySignatureQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class KeySignatureSecond:
+    __hash__: typing.ClassVar[None] = None
     key: int
     time: float
     tonality: int
@@ -542,6 +631,8 @@ class KeySignatureSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: KeySignatureSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -551,6 +642,8 @@ class KeySignatureSecond:
         """
     @typing.overload
     def __init__(self, time: float, key: int, tonality: int) -> None:
+        ...
+    def __ne__(self, arg0: KeySignatureSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -568,9 +661,14 @@ class KeySignatureSecond:
     def ttype(self) -> Second:
         ...
 class KeySignatureSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: KeySignatureSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -582,6 +680,8 @@ class KeySignatureSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: KeySignatureSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> KeySignatureSecondList:
         """
@@ -606,6 +706,8 @@ class KeySignatureSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: KeySignatureSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -633,6 +735,10 @@ class KeySignatureSecondList:
         """
         Clear the contents
         """
+    def count(self, x: KeySignatureSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: KeySignatureSecondList) -> None:
         """
@@ -657,12 +763,17 @@ class KeySignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: KeySignatureSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class KeySignatureTick:
+    __hash__: typing.ClassVar[None] = None
     key: int
     time: int
     tonality: int
@@ -674,6 +785,8 @@ class KeySignatureTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: KeySignatureTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -683,6 +796,8 @@ class KeySignatureTick:
         """
     @typing.overload
     def __init__(self, time: int, key: int, tonality: int) -> None:
+        ...
+    def __ne__(self, arg0: KeySignatureTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -700,9 +815,14 @@ class KeySignatureTick:
     def ttype(self) -> Tick:
         ...
 class KeySignatureTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: KeySignatureTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -714,6 +834,8 @@ class KeySignatureTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: KeySignatureTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> KeySignatureTickList:
         """
@@ -738,6 +860,8 @@ class KeySignatureTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: KeySignatureTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -765,6 +889,10 @@ class KeySignatureTickList:
         """
         Clear the contents
         """
+    def count(self, x: KeySignatureTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: KeySignatureTickList) -> None:
         """
@@ -789,12 +917,17 @@ class KeySignatureTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: KeySignatureTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class NoteQuarter:
+    __hash__: typing.ClassVar[None] = None
     duration: float
     pitch: int
     start: float
@@ -808,6 +941,8 @@ class NoteQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: NoteQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -817,6 +952,8 @@ class NoteQuarter:
         """
     @typing.overload
     def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
+        ...
+    def __ne__(self, arg0: NoteQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -851,9 +988,14 @@ class NoteQuarter:
     def ttype(self) -> Quarter:
         ...
 class NoteQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: NoteQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -865,6 +1007,8 @@ class NoteQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: NoteQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> NoteQuarterList:
         """
@@ -889,6 +1033,8 @@ class NoteQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: NoteQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -916,6 +1062,10 @@ class NoteQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: NoteQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: NoteQuarterList) -> None:
         """
@@ -940,12 +1090,17 @@ class NoteQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: NoteQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class NoteSecond:
+    __hash__: typing.ClassVar[None] = None
     duration: float
     pitch: int
     start: float
@@ -959,6 +1114,8 @@ class NoteSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: NoteSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -968,6 +1125,8 @@ class NoteSecond:
         """
     @typing.overload
     def __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None:
+        ...
+    def __ne__(self, arg0: NoteSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1002,9 +1161,14 @@ class NoteSecond:
     def ttype(self) -> Second:
         ...
 class NoteSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: NoteSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1016,6 +1180,8 @@ class NoteSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: NoteSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> NoteSecondList:
         """
@@ -1040,6 +1206,8 @@ class NoteSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: NoteSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1067,6 +1235,10 @@ class NoteSecondList:
         """
         Clear the contents
         """
+    def count(self, x: NoteSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: NoteSecondList) -> None:
         """
@@ -1091,12 +1263,17 @@ class NoteSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: NoteSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class NoteTick:
+    __hash__: typing.ClassVar[None] = None
     duration: int
     pitch: int
     start: int
@@ -1110,6 +1287,8 @@ class NoteTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: NoteTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1119,6 +1298,8 @@ class NoteTick:
         """
     @typing.overload
     def __init__(self, start: int, duration: int, pitch: int, velocity: int) -> None:
+        ...
+    def __ne__(self, arg0: NoteTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1153,9 +1334,14 @@ class NoteTick:
     def ttype(self) -> Tick:
         ...
 class NoteTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: NoteTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1167,6 +1353,8 @@ class NoteTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: NoteTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> NoteTickList:
         """
@@ -1191,6 +1379,8 @@ class NoteTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: NoteTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1218,6 +1408,10 @@ class NoteTickList:
         """
         Clear the contents
         """
+    def count(self, x: NoteTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: NoteTickList) -> None:
         """
@@ -1242,12 +1436,17 @@ class NoteTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: NoteTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class PedalQuarter:
+    __hash__: typing.ClassVar[None] = None
     duration: float
     time: float
     def __copy__(self) -> PedalQuarter:
@@ -1258,6 +1457,8 @@ class PedalQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PedalQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1267,6 +1468,8 @@ class PedalQuarter:
         """
     @typing.overload
     def __init__(self, time: float, duration: float) -> None:
+        ...
+    def __ne__(self, arg0: PedalQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1284,9 +1487,14 @@ class PedalQuarter:
     def ttype(self) -> Quarter:
         ...
 class PedalQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PedalQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1298,6 +1506,8 @@ class PedalQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PedalQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PedalQuarterList:
         """
@@ -1322,6 +1532,8 @@ class PedalQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PedalQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1349,6 +1561,10 @@ class PedalQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: PedalQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PedalQuarterList) -> None:
         """
@@ -1373,12 +1589,17 @@ class PedalQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PedalQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class PedalSecond:
+    __hash__: typing.ClassVar[None] = None
     duration: float
     time: float
     def __copy__(self) -> PedalSecond:
@@ -1389,6 +1610,8 @@ class PedalSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PedalSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1398,6 +1621,8 @@ class PedalSecond:
         """
     @typing.overload
     def __init__(self, time: float, duration: float) -> None:
+        ...
+    def __ne__(self, arg0: PedalSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1415,9 +1640,14 @@ class PedalSecond:
     def ttype(self) -> Second:
         ...
 class PedalSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PedalSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1429,6 +1659,8 @@ class PedalSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PedalSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PedalSecondList:
         """
@@ -1453,6 +1685,8 @@ class PedalSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PedalSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1480,6 +1714,10 @@ class PedalSecondList:
         """
         Clear the contents
         """
+    def count(self, x: PedalSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PedalSecondList) -> None:
         """
@@ -1504,12 +1742,17 @@ class PedalSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PedalSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class PedalTick:
+    __hash__: typing.ClassVar[None] = None
     duration: int
     time: int
     def __copy__(self) -> PedalTick:
@@ -1520,6 +1763,8 @@ class PedalTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PedalTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1529,6 +1774,8 @@ class PedalTick:
         """
     @typing.overload
     def __init__(self, time: int, duration: int) -> None:
+        ...
+    def __ne__(self, arg0: PedalTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1546,9 +1793,14 @@ class PedalTick:
     def ttype(self) -> Tick:
         ...
 class PedalTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PedalTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1560,6 +1812,8 @@ class PedalTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PedalTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PedalTickList:
         """
@@ -1584,6 +1838,8 @@ class PedalTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PedalTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1611,6 +1867,10 @@ class PedalTickList:
         """
         Clear the contents
         """
+    def count(self, x: PedalTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PedalTickList) -> None:
         """
@@ -1635,12 +1895,17 @@ class PedalTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PedalTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class PitchBendQuarter:
+    __hash__: typing.ClassVar[None] = None
     time: float
     value: int
     def __copy__(self) -> PitchBendQuarter:
@@ -1651,6 +1916,8 @@ class PitchBendQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PitchBendQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1660,6 +1927,8 @@ class PitchBendQuarter:
         """
     @typing.overload
     def __init__(self, time: float, value: int) -> None:
+        ...
+    def __ne__(self, arg0: PitchBendQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1677,9 +1946,14 @@ class PitchBendQuarter:
     def ttype(self) -> Quarter:
         ...
 class PitchBendQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PitchBendQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1691,6 +1965,8 @@ class PitchBendQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PitchBendQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PitchBendQuarterList:
         """
@@ -1715,6 +1991,8 @@ class PitchBendQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PitchBendQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1742,6 +2020,10 @@ class PitchBendQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: PitchBendQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PitchBendQuarterList) -> None:
         """
@@ -1766,12 +2048,17 @@ class PitchBendQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PitchBendQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class PitchBendSecond:
+    __hash__: typing.ClassVar[None] = None
     time: float
     value: int
     def __copy__(self) -> PitchBendSecond:
@@ -1782,6 +2069,8 @@ class PitchBendSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PitchBendSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1791,6 +2080,8 @@ class PitchBendSecond:
         """
     @typing.overload
     def __init__(self, time: float, value: int) -> None:
+        ...
+    def __ne__(self, arg0: PitchBendSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1808,9 +2099,14 @@ class PitchBendSecond:
     def ttype(self) -> Second:
         ...
 class PitchBendSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PitchBendSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1822,6 +2118,8 @@ class PitchBendSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PitchBendSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PitchBendSecondList:
         """
@@ -1846,6 +2144,8 @@ class PitchBendSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PitchBendSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -1873,6 +2173,10 @@ class PitchBendSecondList:
         """
         Clear the contents
         """
+    def count(self, x: PitchBendSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PitchBendSecondList) -> None:
         """
@@ -1897,12 +2201,17 @@ class PitchBendSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PitchBendSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class PitchBendTick:
+    __hash__: typing.ClassVar[None] = None
     time: int
     value: int
     def __copy__(self) -> PitchBendTick:
@@ -1913,6 +2222,8 @@ class PitchBendTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: PitchBendTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -1922,6 +2233,8 @@ class PitchBendTick:
         """
     @typing.overload
     def __init__(self, time: int, value: int) -> None:
+        ...
+    def __ne__(self, arg0: PitchBendTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -1939,9 +2252,14 @@ class PitchBendTick:
     def ttype(self) -> Tick:
         ...
 class PitchBendTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: PitchBendTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -1953,6 +2271,8 @@ class PitchBendTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: PitchBendTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> PitchBendTickList:
         """
@@ -1977,6 +2297,8 @@ class PitchBendTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: PitchBendTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2004,6 +2326,10 @@ class PitchBendTickList:
         """
         Clear the contents
         """
+    def count(self, x: PitchBendTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: PitchBendTickList) -> None:
         """
@@ -2028,6 +2354,10 @@ class PitchBendTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: PitchBendTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
@@ -2044,6 +2374,7 @@ class Quarter:
     def is_time_unit(self) -> bool:
         ...
 class ScoreQuarter:
+    __hash__: typing.ClassVar[None] = None
     key_signatures: KeySignatureQuarterList
     lyrics: TextMetaQuarterList
     markers: TextMetaQuarterList
@@ -2064,6 +2395,8 @@ class ScoreQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: ScoreQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2079,6 +2412,8 @@ class ScoreQuarter:
         """
         Load from midi file
         """
+    def __ne__(self, arg0: ScoreQuarter) -> bool:
+        ...
     def __repr__(self) -> str:
         ...
     def __setstate__(self, arg0: bytes) -> None:
@@ -2113,6 +2448,7 @@ class ScoreQuarter:
     def ttype() -> Quarter:
         ...
 class ScoreTick:
+    __hash__: typing.ClassVar[None] = None
     key_signatures: KeySignatureTickList
     lyrics: TextMetaTickList
     markers: TextMetaTickList
@@ -2133,6 +2469,8 @@ class ScoreTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: ScoreTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2148,6 +2486,8 @@ class ScoreTick:
         """
         Load from midi file
         """
+    def __ne__(self, arg0: ScoreTick) -> bool:
+        ...
     def __repr__(self) -> str:
         ...
     def __setstate__(self, arg0: bytes) -> None:
@@ -2192,6 +2532,7 @@ class Second:
     def is_time_unit(self) -> bool:
         ...
 class TempoQuarter:
+    __hash__: typing.ClassVar[None] = None
     tempo: float
     time: float
     def __copy__(self) -> TempoQuarter:
@@ -2202,6 +2543,8 @@ class TempoQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TempoQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2211,6 +2554,8 @@ class TempoQuarter:
         """
     @typing.overload
     def __init__(self, time: float, qpm: float) -> None:
+        ...
+    def __ne__(self, arg0: TempoQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2228,9 +2573,14 @@ class TempoQuarter:
     def ttype(self) -> Quarter:
         ...
 class TempoQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TempoQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2242,6 +2592,8 @@ class TempoQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TempoQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TempoQuarterList:
         """
@@ -2266,6 +2618,8 @@ class TempoQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TempoQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2293,6 +2647,10 @@ class TempoQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: TempoQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TempoQuarterList) -> None:
         """
@@ -2317,12 +2675,17 @@ class TempoQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TempoQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class TempoSecond:
+    __hash__: typing.ClassVar[None] = None
     tempo: float
     time: float
     def __copy__(self) -> TempoSecond:
@@ -2333,6 +2696,8 @@ class TempoSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TempoSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2342,6 +2707,8 @@ class TempoSecond:
         """
     @typing.overload
     def __init__(self, time: float, qpm: float) -> None:
+        ...
+    def __ne__(self, arg0: TempoSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2359,9 +2726,14 @@ class TempoSecond:
     def ttype(self) -> Second:
         ...
 class TempoSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TempoSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2373,6 +2745,8 @@ class TempoSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TempoSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TempoSecondList:
         """
@@ -2397,6 +2771,8 @@ class TempoSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TempoSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2424,6 +2800,10 @@ class TempoSecondList:
         """
         Clear the contents
         """
+    def count(self, x: TempoSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TempoSecondList) -> None:
         """
@@ -2448,12 +2828,17 @@ class TempoSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TempoSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class TempoTick:
+    __hash__: typing.ClassVar[None] = None
     tempo: float
     time: int
     def __copy__(self) -> TempoTick:
@@ -2464,6 +2849,8 @@ class TempoTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TempoTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2473,6 +2860,8 @@ class TempoTick:
         """
     @typing.overload
     def __init__(self, time: int, qpm: float) -> None:
+        ...
+    def __ne__(self, arg0: TempoTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2490,9 +2879,14 @@ class TempoTick:
     def ttype(self) -> Tick:
         ...
 class TempoTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TempoTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2504,6 +2898,8 @@ class TempoTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TempoTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TempoTickList:
         """
@@ -2528,6 +2924,8 @@ class TempoTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TempoTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2555,6 +2953,10 @@ class TempoTickList:
         """
         Clear the contents
         """
+    def count(self, x: TempoTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TempoTickList) -> None:
         """
@@ -2579,12 +2981,17 @@ class TempoTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TempoTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class TextMetaQuarter:
+    __hash__: typing.ClassVar[None] = None
     text: str
     time: float
     def __copy__(self) -> TextMetaQuarter:
@@ -2595,6 +3002,8 @@ class TextMetaQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TextMetaQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2604,6 +3013,8 @@ class TextMetaQuarter:
         """
     @typing.overload
     def __init__(self, time: float, text: str) -> None:
+        ...
+    def __ne__(self, arg0: TextMetaQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2621,9 +3032,14 @@ class TextMetaQuarter:
     def ttype(self) -> Quarter:
         ...
 class TextMetaQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TextMetaQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2635,6 +3051,8 @@ class TextMetaQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TextMetaQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TextMetaQuarterList:
         """
@@ -2659,6 +3077,8 @@ class TextMetaQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TextMetaQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2686,6 +3106,10 @@ class TextMetaQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: TextMetaQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TextMetaQuarterList) -> None:
         """
@@ -2710,12 +3134,17 @@ class TextMetaQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TextMetaQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class TextMetaSecond:
+    __hash__: typing.ClassVar[None] = None
     text: str
     time: float
     def __copy__(self) -> TextMetaSecond:
@@ -2726,6 +3155,8 @@ class TextMetaSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TextMetaSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2735,6 +3166,8 @@ class TextMetaSecond:
         """
     @typing.overload
     def __init__(self, time: float, text: str) -> None:
+        ...
+    def __ne__(self, arg0: TextMetaSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2752,9 +3185,14 @@ class TextMetaSecond:
     def ttype(self) -> Second:
         ...
 class TextMetaSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TextMetaSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2766,6 +3204,8 @@ class TextMetaSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TextMetaSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TextMetaSecondList:
         """
@@ -2790,6 +3230,8 @@ class TextMetaSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TextMetaSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2817,6 +3259,10 @@ class TextMetaSecondList:
         """
         Clear the contents
         """
+    def count(self, x: TextMetaSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TextMetaSecondList) -> None:
         """
@@ -2841,12 +3287,17 @@ class TextMetaSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TextMetaSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class TextMetaTick:
+    __hash__: typing.ClassVar[None] = None
     text: str
     time: int
     def __copy__(self) -> TextMetaTick:
@@ -2857,6 +3308,8 @@ class TextMetaTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TextMetaTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -2866,6 +3319,8 @@ class TextMetaTick:
         """
     @typing.overload
     def __init__(self, time: int, text: str) -> None:
+        ...
+    def __ne__(self, arg0: TextMetaTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -2883,9 +3338,14 @@ class TextMetaTick:
     def ttype(self) -> Tick:
         ...
 class TextMetaTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TextMetaTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -2897,6 +3357,8 @@ class TextMetaTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TextMetaTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TextMetaTickList:
         """
@@ -2921,6 +3383,8 @@ class TextMetaTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TextMetaTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -2948,6 +3412,10 @@ class TextMetaTickList:
         """
         Clear the contents
         """
+    def count(self, x: TextMetaTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TextMetaTickList) -> None:
         """
@@ -2972,6 +3440,10 @@ class TextMetaTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TextMetaTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
@@ -2988,6 +3460,7 @@ class Tick:
     def is_time_unit(self) -> bool:
         ...
 class TimeSignatureQuarter:
+    __hash__: typing.ClassVar[None] = None
     denominator: int
     numerator: int
     time: float
@@ -2999,6 +3472,8 @@ class TimeSignatureQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TimeSignatureQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3008,6 +3483,8 @@ class TimeSignatureQuarter:
         """
     @typing.overload
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
+        ...
+    def __ne__(self, arg0: TimeSignatureQuarter) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -3025,9 +3502,14 @@ class TimeSignatureQuarter:
     def ttype(self) -> Quarter:
         ...
 class TimeSignatureQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TimeSignatureQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3039,6 +3521,8 @@ class TimeSignatureQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TimeSignatureQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TimeSignatureQuarterList:
         """
@@ -3063,6 +3547,8 @@ class TimeSignatureQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TimeSignatureQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3090,6 +3576,10 @@ class TimeSignatureQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: TimeSignatureQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TimeSignatureQuarterList) -> None:
         """
@@ -3114,12 +3604,17 @@ class TimeSignatureQuarterList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TimeSignatureQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Quarter:
         ...
 class TimeSignatureSecond:
+    __hash__: typing.ClassVar[None] = None
     denominator: int
     numerator: int
     time: float
@@ -3131,6 +3626,8 @@ class TimeSignatureSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TimeSignatureSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3140,6 +3637,8 @@ class TimeSignatureSecond:
         """
     @typing.overload
     def __init__(self, arg0: float, arg1: int, arg2: int) -> None:
+        ...
+    def __ne__(self, arg0: TimeSignatureSecond) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -3157,9 +3656,14 @@ class TimeSignatureSecond:
     def ttype(self) -> Second:
         ...
 class TimeSignatureSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TimeSignatureSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3171,6 +3675,8 @@ class TimeSignatureSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TimeSignatureSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TimeSignatureSecondList:
         """
@@ -3195,6 +3701,8 @@ class TimeSignatureSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TimeSignatureSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3222,6 +3730,10 @@ class TimeSignatureSecondList:
         """
         Clear the contents
         """
+    def count(self, x: TimeSignatureSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TimeSignatureSecondList) -> None:
         """
@@ -3246,12 +3758,17 @@ class TimeSignatureSecondList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TimeSignatureSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Second:
         ...
 class TimeSignatureTick:
+    __hash__: typing.ClassVar[None] = None
     denominator: int
     numerator: int
     time: int
@@ -3263,6 +3780,8 @@ class TimeSignatureTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TimeSignatureTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3272,6 +3791,8 @@ class TimeSignatureTick:
         """
     @typing.overload
     def __init__(self, arg0: int, arg1: int, arg2: int) -> None:
+        ...
+    def __ne__(self, arg0: TimeSignatureTick) -> bool:
         ...
     def __repr__(self) -> str:
         ...
@@ -3289,9 +3810,14 @@ class TimeSignatureTick:
     def ttype(self) -> Tick:
         ...
 class TimeSignatureTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TimeSignatureTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3303,6 +3829,8 @@ class TimeSignatureTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TimeSignatureTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TimeSignatureTickList:
         """
@@ -3327,6 +3855,8 @@ class TimeSignatureTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TimeSignatureTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3354,6 +3884,10 @@ class TimeSignatureTickList:
         """
         Clear the contents
         """
+    def count(self, x: TimeSignatureTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TimeSignatureTickList) -> None:
         """
@@ -3378,12 +3912,17 @@ class TimeSignatureTickList:
         """
         Remove and return the item at index ``i``
         """
+    def remove(self, x: TimeSignatureTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
     def sort(self, key: typing.Any = None, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype(self) -> Tick:
         ...
 class TrackQuarter:
+    __hash__: typing.ClassVar[None] = None
     controls: ControlChangeQuarterList
     is_drum: bool
     name: str
@@ -3399,6 +3938,8 @@ class TrackQuarter:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TrackQuarter) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3409,6 +3950,8 @@ class TrackQuarter:
         """
         Copy constructor
         """
+    def __ne__(self, arg0: TrackQuarter) -> bool:
+        ...
     def __repr__(self) -> str:
         ...
     def __setstate__(self, arg0: bytes) -> None:
@@ -3443,9 +3986,14 @@ class TrackQuarter:
     def ttype() -> Quarter:
         ...
 class TrackQuarterList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TrackQuarter) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3457,6 +4005,8 @@ class TrackQuarterList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TrackQuarterList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TrackQuarterList:
         """
@@ -3481,6 +4031,8 @@ class TrackQuarterList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TrackQuarterList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3508,6 +4060,10 @@ class TrackQuarterList:
         """
         Clear the contents
         """
+    def count(self, x: TrackQuarter) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TrackQuarterList) -> None:
         """
@@ -3532,14 +4088,17 @@ class TrackQuarterList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any, reverse: bool = False) -> TrackQuarterList:
-        ...
-    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackQuarterList:
+    def remove(self, x: TrackQuarter) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
+    def sort(self, key: typing.Any, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype() -> Quarter:
         ...
 class TrackSecond:
+    __hash__: typing.ClassVar[None] = None
     controls: ControlChangeSecondList
     is_drum: bool
     name: str
@@ -3555,6 +4114,8 @@ class TrackSecond:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TrackSecond) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3565,6 +4126,8 @@ class TrackSecond:
         """
         Copy constructor
         """
+    def __ne__(self, arg0: TrackSecond) -> bool:
+        ...
     def __repr__(self) -> str:
         ...
     def __setstate__(self, arg0: bytes) -> None:
@@ -3599,9 +4162,14 @@ class TrackSecond:
     def ttype() -> Second:
         ...
 class TrackSecondList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TrackSecond) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3613,6 +4181,8 @@ class TrackSecondList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TrackSecondList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TrackSecondList:
         """
@@ -3637,6 +4207,8 @@ class TrackSecondList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TrackSecondList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3664,6 +4236,10 @@ class TrackSecondList:
         """
         Clear the contents
         """
+    def count(self, x: TrackSecond) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TrackSecondList) -> None:
         """
@@ -3688,14 +4264,17 @@ class TrackSecondList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any, reverse: bool = False) -> TrackSecondList:
-        ...
-    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackSecondList:
+    def remove(self, x: TrackSecond) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
+    def sort(self, key: typing.Any, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype() -> Second:
         ...
 class TrackTick:
+    __hash__: typing.ClassVar[None] = None
     controls: ControlChangeTickList
     is_drum: bool
     name: str
@@ -3711,6 +4290,8 @@ class TrackTick:
         """
         Deep copy
         """
+    def __eq__(self, arg0: TrackTick) -> bool:
+        ...
     def __getstate__(self) -> bytes:
         ...
     @typing.overload
@@ -3721,6 +4302,8 @@ class TrackTick:
         """
         Copy constructor
         """
+    def __ne__(self, arg0: TrackTick) -> bool:
+        ...
     def __repr__(self) -> str:
         ...
     def __setstate__(self, arg0: bytes) -> None:
@@ -3755,9 +4338,14 @@ class TrackTick:
     def ttype() -> Tick:
         ...
 class TrackTickList:
+    __hash__: typing.ClassVar[None] = None
     def __bool__(self) -> bool:
         """
         Check whether the list is nonempty
+        """
+    def __contains__(self, x: TrackTick) -> bool:
+        """
+        Return true the container contains ``x``
         """
     @typing.overload
     def __delitem__(self, arg0: int) -> None:
@@ -3769,6 +4357,8 @@ class TrackTickList:
         """
         Delete list elements using a slice object
         """
+    def __eq__(self, arg0: TrackTickList) -> bool:
+        ...
     @typing.overload
     def __getitem__(self, s: slice) -> TrackTickList:
         """
@@ -3793,6 +4383,8 @@ class TrackTickList:
     def __iter__(self) -> typing.Iterator:
         ...
     def __len__(self) -> int:
+        ...
+    def __ne__(self, arg0: TrackTickList) -> bool:
         ...
     @typing.overload
     def __repr__(self) -> str:
@@ -3820,6 +4412,10 @@ class TrackTickList:
         """
         Clear the contents
         """
+    def count(self, x: TrackTick) -> int:
+        """
+        Return the number of times ``x`` appears in the list
+        """
     @typing.overload
     def extend(self, L: TrackTickList) -> None:
         """
@@ -3844,9 +4440,11 @@ class TrackTickList:
         """
         Remove and return the item at index ``i``
         """
-    def sort(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
-        ...
-    def sort_inplace(self, key: typing.Any, reverse: bool = False) -> TrackTickList:
+    def remove(self, x: TrackTick) -> None:
+        """
+        Remove the first item from the list whose value is x. It is an error if there is no such item.
+        """
+    def sort(self, key: typing.Any, reverse: bool = False, inplace: bool = True) -> typing.Any:
         ...
     @property
     def ttype() -> Tick:
