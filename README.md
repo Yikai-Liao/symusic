@@ -32,7 +32,6 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
 
 Notice that this library is under development:
 
-* Writing back to midi files is currently not supported
 * Re-implement `filter_notes` and `Note Array`.
 
 ## Installation
