@@ -1488,6 +1488,9 @@ class PedalQuarter:
         """
         Deep copy
         """
+    @property
+    def end(self) -> float:
+        ...
     def shift_time(self, offset: float, inplace: bool = False) -> PedalQuarter:
         """
         Shift the event time by offset
@@ -1641,6 +1644,9 @@ class PedalSecond:
         """
         Deep copy
         """
+    @property
+    def end(self) -> float:
+        ...
     def shift_time(self, offset: float, inplace: bool = False) -> PedalSecond:
         """
         Shift the event time by offset
@@ -1794,6 +1800,9 @@ class PedalTick:
         """
         Deep copy
         """
+    @property
+    def end(self) -> int:
+        ...
     def shift_time(self, offset: int, inplace: bool = False) -> PedalTick:
         """
         Shift the event time by offset
