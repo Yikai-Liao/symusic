@@ -169,7 +169,8 @@ py::class_<score::Pedal<T>> bind_pedal_class(py::module &m, const std::string & 
 
     return time_stamp_base<score::Pedal<T>>(m, name)
         .def(py::init<unit, unit>(), py::arg("time"), py::arg("duration"))
-        .def_readwrite("duration", &score::Pedal<T>::duration);
+        .def_readwrite("duration", &score::Pedal<T>::duration)
+        .def_property_readonly("end", &score::Pedal<T>::end);
 }
 
 // bind score::Tempo<T>
