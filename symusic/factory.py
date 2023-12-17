@@ -1,7 +1,8 @@
 import os.path
-from typing import Union, TypeVar, Generic
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Generic, TypeVar, Union
+
 from . import core  # type: ignore
 from . import types as smt
 
@@ -59,8 +60,8 @@ class TimeUnitFactory:
         try:
             ttype.is_time_unit()
             return ttype
-        except AttributeError:
-            raise TypeError(f"{ttype} is not a TimeUnit object")
+        except AttributeError as e:
+            raise TypeError(f"{ttype} is not a TimeUnit object") from e
 
     def from_str(self, ttype: str) -> smt.TimeUnit:
         ttype = ttype.lower()
@@ -127,15 +128,15 @@ class NoteFactory:
             ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Note:
         """
-        Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires `int` or `float` as time.
-        So Type Checker like MyPy will complain about the type of `time` argument.
-        However, float and int can be converted to each other implicitly.
-        So I just add a `# type: ignore` to ignore the type checking.
+        Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
+        `int` or `float` as time. So Type Checker like MyPy will complain about the
+        type of `time` argument. However, float and int can be converted to each other
+        implicitly. So I just add a `# type: ignore` to ignore the type checking.
         """
         return self.__core_classes.dispatch(ttype)(time, duration, pitch, velocity)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -154,7 +155,7 @@ class KeySignatureFactory:
         return self.__core_classes.dispatch(ttype)(time, key, tonality)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -173,7 +174,7 @@ class TimeSignatureFactory:
         return self.__core_classes.dispatch(ttype)(time, numerator, denominator)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -192,7 +193,7 @@ class ControlChangeFactory:
         return self.__core_classes.dispatch(ttype)(time, number, value)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -208,7 +209,7 @@ class TempoFactory:
         return self.__core_classes.dispatch(ttype)(time, tempo)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -224,7 +225,7 @@ class PedalFactory:
         return self.__core_classes.dispatch(ttype)(time, duration)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -242,7 +243,7 @@ class PitchBendFactory:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -252,12 +253,15 @@ class TextMetaFactory:
     )
 
     def __call__(
-            self, time: smt.TimeDtype, text: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        time: smt.TimeDtype,
+        text: str,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.TextMeta:
         return self.__core_classes.dispatch(ttype)(time, text)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -265,11 +269,11 @@ class TrackFactory:
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
     def __call__(
-        self, name: str = "", program: int = 0, is_drum: bool = False, 
-        notes: smt.GeneralNoteList = [],
-        controls: smt.GeneralControlChangeList = [],
-        pitch_bends: smt.GeneralPitchBendList = [],
-        pedals: smt.GeneralPedalList = [],
+        self, name: str = "", program: int = 0, is_drum: bool = False,
+        notes: smt.GeneralNoteList = None,
+        controls: smt.GeneralControlChangeList = None,
+        pitch_bends: smt.GeneralPitchBendList = None,
+        pedals: smt.GeneralPedalList = None,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Track:
         r"""
@@ -285,15 +289,15 @@ class TrackFactory:
         new_track.name = name
         new_track.program = program
         new_track.is_drum = is_drum
-        new_track.notes = notes                 # type: ignore
-        new_track.controls = controls           # type: ignore
-        new_track.pitch_bends = pitch_bends     # type: ignore
-        new_track.pedals = pedals               # type: ignore
+        new_track.notes = notes if notes else []
+        new_track.controls = controls if controls else []
+        new_track.pitch_bends = pitch_bends if pitch_bends else []
+        new_track.pedals = pedals if pedals else []
         return new_track
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
-    
+        return isinstance(instance, self.__core_classes)  # type: ignore
+
     def empty(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
         # create a empty track
         return self.__core_classes.dispatch(ttype)()
@@ -304,9 +308,9 @@ class ScoreFactory:
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
 
     def __call__(
-            self, x: Union[int, str, Path, smt.Score] = 0, 
+            self, x: Union[int, str, Path, smt.Score] = 0,
             ttype: smt.GeneralTimeUnit = TimeUnit.tick
-    ) -> smt.Score:  
+    ) -> smt.Score:
         if isinstance(x, str) or isinstance(x, Path):
             return self.from_file(x, ttype)
         elif isinstance(x, int):
@@ -322,15 +326,22 @@ class ScoreFactory:
         assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype).from_file(str(path))
 
-    def from_tpq(self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
+    def from_tpq(
+        self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
-    
-    def from_other(self, other: smt.Score, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
-        assert other.ticks_per_quarter > 0, f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
+
+    def from_other(
+        self, other: smt.Score, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.Score:
+        if other.ticks_per_quarter <= 0:
+            raise ValueError(
+                f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
+            )
         return self.__core_classes.dispatch(ttype)(other)
 
     def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  #type: ignore
+        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 Note = NoteFactory()

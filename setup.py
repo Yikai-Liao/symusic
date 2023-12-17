@@ -122,7 +122,9 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
         )
         subprocess.run(
-            ["cmake", "--build", ".", "--target", _TARGET_NAME, *build_args], cwd=build_temp, check=True
+            ["cmake", "--build", ".", "--target", _TARGET_NAME, *build_args],
+            cwd=build_temp,
+            check=True,
         )
 
 
@@ -134,9 +136,9 @@ setup(
     author="Yikai Liao",
     author_email="lyk-boya@outlook.com",
     description="A high performance MIDI file parser with comprehensible interface.",
-    long_description=open('README.md', encoding="utf-8").read(),
-    long_description_content_type='text/markdown',
-    license=open('LICENSE', encoding="utf-8").read(),
+    long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
+    license=open("LICENSE", encoding="utf-8").read(),
     package_dir={"symusic": "symusic"},
     packages=["symusic"],
     ext_modules=[CMakeExtension("symusic.core", ".")],
