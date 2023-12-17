@@ -3,7 +3,8 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from typing import Union, List
+from typing import List, Union
+
 from . import core  # type: ignore
 
 __all__ = [
@@ -25,14 +26,14 @@ __all__ = [
 
 class TimeUnit(Protocol):
     def __repr__(self) -> str: ...
-    
+
     def is_time_unit(self) -> bool: ...
 
 
 class ScoreSecond:
     def __init__(self, *args, **kwargs):
         raise NotImplementedError
-    
+
     @classmethod
     def from_file(cls, *args, **kwargs):
         raise NotImplementedError

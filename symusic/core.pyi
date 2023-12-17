@@ -1,7 +1,10 @@
 from __future__ import annotations
-import numpy
+
 import typing
-__all__ = ['ControlChangeQuarter', 'ControlChangeQuarterList', 'ControlChangeSecond', 'ControlChangeSecondList', 'ControlChangeTick', 'ControlChangeTickList', 'KeySignatureQuarter', 'KeySignatureQuarterList', 'KeySignatureSecond', 'KeySignatureSecondList', 'KeySignatureTick', 'KeySignatureTickList', 'NoteQuarter', 'NoteQuarterList', 'NoteSecond', 'NoteSecondList', 'NoteTick', 'NoteTickList', 'PedalQuarter', 'PedalQuarterList', 'PedalSecond', 'PedalSecondList', 'PedalTick', 'PedalTickList', 'PitchBendQuarter', 'PitchBendQuarterList', 'PitchBendSecond', 'PitchBendSecondList', 'PitchBendTick', 'PitchBendTickList', 'Quarter', 'ScoreQuarter', 'ScoreTick', 'Second', 'TempoQuarter', 'TempoQuarterList', 'TempoSecond', 'TempoSecondList', 'TempoTick', 'TempoTickList', 'TextMetaQuarter', 'TextMetaQuarterList', 'TextMetaSecond', 'TextMetaSecondList', 'TextMetaTick', 'TextMetaTickList', 'Tick', 'TimeSignatureQuarter', 'TimeSignatureQuarterList', 'TimeSignatureSecond', 'TimeSignatureSecondList', 'TimeSignatureTick', 'TimeSignatureTickList', 'TrackQuarter', 'TrackQuarterList', 'TrackSecond', 'TrackSecondList', 'TrackTick', 'TrackTickList']
+
+import numpy
+
+__all__ = ["ControlChangeQuarter", "ControlChangeQuarterList", "ControlChangeSecond", "ControlChangeSecondList", "ControlChangeTick", "ControlChangeTickList", "KeySignatureQuarter", "KeySignatureQuarterList", "KeySignatureSecond", "KeySignatureSecondList", "KeySignatureTick", "KeySignatureTickList", "NoteQuarter", "NoteQuarterList", "NoteSecond", "NoteSecondList", "NoteTick", "NoteTickList", "PedalQuarter", "PedalQuarterList", "PedalSecond", "PedalSecondList", "PedalTick", "PedalTickList", "PitchBendQuarter", "PitchBendQuarterList", "PitchBendSecond", "PitchBendSecondList", "PitchBendTick", "PitchBendTickList", "Quarter", "ScoreQuarter", "ScoreTick", "Second", "TempoQuarter", "TempoQuarterList", "TempoSecond", "TempoSecondList", "TempoTick", "TempoTickList", "TextMetaQuarter", "TextMetaQuarterList", "TextMetaSecond", "TextMetaSecondList", "TextMetaTick", "TextMetaTickList", "Tick", "TimeSignatureQuarter", "TimeSignatureQuarterList", "TimeSignatureSecond", "TimeSignatureSecondList", "TimeSignatureTick", "TimeSignatureTickList", "TrackQuarter", "TrackQuarterList", "TrackSecond", "TrackSecondList", "TrackTick", "TrackTickList"]
 class ControlChangeQuarter:
     __hash__: typing.ClassVar[None] = None
     number: int
