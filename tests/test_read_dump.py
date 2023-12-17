@@ -11,7 +11,7 @@ def test_load_dump(midi_path, tmp_path):
     """Test that a MIDI loaded and saved unchanged is indeed the save as before."""
     midi1 = Score(midi_path)
     dump_path = tmp_path / midi_path.name
-    midi1.dump(dump_path)  # Writing it unchanged
+    midi1.dump_midi(dump_path)  # Writing it unchanged
     midi2 = Score(dump_path)  # Loading it back
 
     # Sorting the notes, as after dump the order might have changed

@@ -60,8 +60,8 @@ class TimeUnitFactory:
         try:
             ttype.is_time_unit()
             return ttype
-        except AttributeError:
-            raise TypeError(f"{ttype} is not a TimeUnit object") from None
+        except AttributeError as e:
+            raise TypeError(f"{ttype} is not a TimeUnit object") from e
 
     def from_str(self, ttype: str) -> smt.TimeUnit:
         ttype = ttype.lower()
