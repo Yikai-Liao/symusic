@@ -1,0 +1,29 @@
+target-version = "py38"
+extend-select = [
+    "ARG",
+    "A",
+    "B",
+    # "E",
+    "F",
+    "G",
+    "I",
+    "INT",
+    # "N",
+    "NPY",
+    "PERF",
+    # "PTH",
+    "PIE",
+    "Q",
+    "RUF",
+    # "S",
+    # "SIM",
+    "T",
+    "UP",
+    "W",
+]
+
+[per-file-ignores]
+"tests/**" = [
+    "S101",  # allow assertions in tests
+    "T201",  # print allowed
+]
