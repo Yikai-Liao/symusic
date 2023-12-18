@@ -7,7 +7,7 @@
 
 The library is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
 
-Here, we have added a tutorial.ipynb for you to learn about how to use the library. 
+Here, we have added a tutorial.ipynb for you to learn about how to use the library.
 
 Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.com/github/Yikai-Liao/symusic/blob/main/tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
@@ -71,5 +71,3 @@ pip install ./symusic
 * [pybind11-stubgen](https://github.com/sizmailov/pybind11-stubgen) A nice tool to generate stub files for pybind11 projects.
 * [zpp_bits](https://github.com/eyalz800/zpp_bits) : An extraordinary fast and lightweight single header library for serialization and deserialization. I use it to support pickle.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
-
-  
