@@ -25,9 +25,11 @@ __all__ = [
 
 
 class TimeUnit(Protocol):
-    def __repr__(self) -> str: ...
+    def __repr__(self) -> str:
+        ...
 
-    def is_time_unit(self) -> bool: ...
+    def is_time_unit(self) -> bool:
+        ...
 
 
 class ScoreSecond:
@@ -42,9 +44,15 @@ class ScoreSecond:
 GeneralTimeUnit = Union[TimeUnit, str]
 TimeDtype = Union[int, float]
 Note = Union[core.NoteTick, core.NoteQuarter, core.NoteSecond]
-KeySignature = Union[core.KeySignatureTick, core.KeySignatureQuarter, core.KeySignatureSecond]
-TimeSignature = Union[core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond]
-ControlChange = Union[core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond]
+KeySignature = Union[
+    core.KeySignatureTick, core.KeySignatureQuarter, core.KeySignatureSecond
+]
+TimeSignature = Union[
+    core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond
+]
+ControlChange = Union[
+    core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond
+]
 Tempo = Union[core.TempoTick, core.TempoQuarter, core.TempoSecond]
 Pedal = Union[core.PedalTick, core.PedalQuarter, core.PedalSecond]
 PitchBend = Union[core.PitchBendTick, core.PitchBendQuarter, core.PitchBendSecond]
@@ -53,13 +61,27 @@ Track = Union[core.TrackTick, core.TrackQuarter, core.TrackSecond]
 Score = Union[core.ScoreTick, core.ScoreQuarter, ScoreSecond]
 
 NoteList = Union[core.NoteTickList, core.NoteQuarterList, core.NoteSecondList]
-KeySignatureList = Union[core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList]
-TimeSignatureList = Union[core.TimeSignatureTickList, core.TimeSignatureQuarterList, core.TimeSignatureSecondList]
-ControlChangeList = Union[core.ControlChangeTickList, core.ControlChangeQuarterList, core.ControlChangeSecondList]
+KeySignatureList = Union[
+    core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList
+]
+TimeSignatureList = Union[
+    core.TimeSignatureTickList,
+    core.TimeSignatureQuarterList,
+    core.TimeSignatureSecondList,
+]
+ControlChangeList = Union[
+    core.ControlChangeTickList,
+    core.ControlChangeQuarterList,
+    core.ControlChangeSecondList,
+]
 TempoList = Union[core.TempoTickList, core.TempoQuarterList, core.TempoSecondList]
 PedalList = Union[core.PedalTickList, core.PedalQuarterList, core.PedalSecondList]
-PitchBendList = Union[core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList]
-TextMetaList = Union[core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList]
+PitchBendList = Union[
+    core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList
+]
+TextMetaList = Union[
+    core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList
+]
 TrackList = Union[core.TrackTickList, core.TrackQuarterList, core.TrackSecondList]
 
 GeneralNoteList = Union[NoteList, List[Note]]

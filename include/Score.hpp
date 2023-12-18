@@ -54,9 +54,9 @@ inline std::string strip_non_utf_8(const std::string *str) {
         }
 
         if (c < 127) {  //normal ASCII
-            to.append(1, c); 
+            to.append(1, c);
             continue;
-        } 
+        }
         //control char (nothing should be defined here either ASCII, ISO_8859-1 or UTF8, so skipping)
         if (c < 160) {
             //fix microsoft mess, add euro
@@ -70,19 +70,19 @@ inline std::string strip_non_utf_8(const std::string *str) {
                 to.append(1, 10);
                 to.append(1, 13);
             } continue;
-        } 
+        }
         //invalid for UTF8, converting ASCII
         if (c < 192) {
             to.append(1, (unsigned char) 194);
             to.append(1, c);
             continue;
-        } 
+        }
         //invalid for UTF8, converting ASCII
         if (c < 194) {
             to.append(1, (unsigned char) 195);
             to.append(1, c - 64);
             continue;
-        } 
+        }
         //possibly 2byte UTF8
         if (c < 224 && i + 1 < f_size) {
             const u8 c2 = static_cast<u8>((*str)[i + 1]);
@@ -94,7 +94,7 @@ inline std::string strip_non_utf_8(const std::string *str) {
                     to.append(1, c2);
                 } i++; continue;
             }
-        } 
+        }
         //possibly 3byte UTF8
         else if (c < 240 && i + 2 < f_size) {
             const u8 c2 = static_cast<u8> ((*str)[i + 1]),
@@ -106,7 +106,7 @@ inline std::string strip_non_utf_8(const std::string *str) {
                 to.append(1, c3);
                 i += 2; continue;
             }
-        } 
+        }
         //possibly 4byte UTF8
         else if (c < 245 && i + 3 < f_size) {
 
@@ -1270,7 +1270,7 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
                         uint32_t duration = cur_tick - note_on.time;
                         track.notes.emplace_back(
                             // note_on.time, duration,
-                            helper.convert_ttype<T>(note_on.time), 
+                            helper.convert_ttype<T>(note_on.time),
                             helper.convert_ttype<T>(duration),
                             pitch, note_on.velocity
                         );

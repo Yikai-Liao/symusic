@@ -88,7 +88,7 @@ class CoreClasses(Generic[T, Q, S]):
     second: S
 
     def dispatch(
-            self: "CoreClasses[T, Q, S]", ttype: smt.GeneralTimeUnit
+        self: "CoreClasses[T, Q, S]", ttype: smt.GeneralTimeUnit
     ) -> Union[T, Q, S]:
         """
         Dispatch the correct Core class according to the ttype.
@@ -120,12 +120,12 @@ class NoteFactory:
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            duration: smt.TimeDtype,
-            pitch: int,
-            velocity: int,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        duration: smt.TimeDtype,
+        pitch: int,
+        velocity: int,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Note:
         """
         Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
@@ -146,11 +146,11 @@ class KeySignatureFactory:
     )
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            key: int,
-            tonality: int,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        key: int,
+        tonality: int,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.KeySignature:
         return self.__core_classes.dispatch(ttype)(time, key, tonality)  # type: ignore
 
@@ -165,11 +165,11 @@ class TimeSignatureFactory:
     )
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            numerator: int,
-            denominator: int,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        numerator: int,
+        denominator: int,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.TimeSignature:
         return self.__core_classes.dispatch(ttype)(time, numerator, denominator)  # type: ignore
 
@@ -184,11 +184,11 @@ class ControlChangeFactory:
     )
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            number: int,
-            value: int,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        number: int,
+        value: int,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.ControlChange:
         return self.__core_classes.dispatch(ttype)(time, number, value)  # type: ignore
 
@@ -201,10 +201,10 @@ class TempoFactory:
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            tempo: float,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        tempo: float,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Tempo:
         return self.__core_classes.dispatch(ttype)(time, tempo)  # type: ignore
 
@@ -217,10 +217,10 @@ class PedalFactory:
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            duration: smt.TimeDtype,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        duration: smt.TimeDtype,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Pedal:
         return self.__core_classes.dispatch(ttype)(time, duration)  # type: ignore
 
@@ -235,10 +235,10 @@ class PitchBendFactory:
     )
 
     def __call__(
-            self,
-            time: smt.TimeDtype,
-            value: int,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        self,
+        time: smt.TimeDtype,
+        value: int,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.PitchBend:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
 
@@ -269,12 +269,15 @@ class TrackFactory:
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
     def __call__(
-        self, name: str = "", program: int = 0, is_drum: bool = False,
+        self,
+        name: str = "",
+        program: int = 0,
+        is_drum: bool = False,
         notes: smt.GeneralNoteList = None,
         controls: smt.GeneralControlChangeList = None,
         pitch_bends: smt.GeneralPitchBendList = None,
         pedals: smt.GeneralPedalList = None,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Track:
         r"""
         Create a Track object with the given parameters.
@@ -308,20 +311,21 @@ class ScoreFactory:
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
 
     def __call__(
-            self, x: Union[int, str, Path, smt.Score] = 0,
-            ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        x: Union[int, str, Path, smt.Score] = 0,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Score:
         if isinstance(x, str) or isinstance(x, Path):
             return self.from_file(x, ttype)
         elif isinstance(x, int):
             return self.from_tpq(x, ttype)
-        elif isinstance(x, self):   # type: ignore
+        elif isinstance(x, self):  # type: ignore
             return self.from_other(x, ttype)
         else:
             raise TypeError(f"Invalid type: {type(x)}")
 
     def from_file(
-            self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype).from_file(str(path))
