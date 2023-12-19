@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macOS-latest, windows-latest ]
-        python-version: [ "3.7", "3.12", "pp39" ]
+        python-version: [ "3.7", "3.x", "pp39" ]
         exclude:
           - os: macos-latest
             python-version: "pp39"
