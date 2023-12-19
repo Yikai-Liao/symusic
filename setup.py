@@ -148,5 +148,5 @@ setup(
     install_requires=["numpy"],
     setup_requires=["pybind11>=2.10"],
     python_requires=">=3.7",
-    # extras_require={"test": ["pytest>=6.0"]},
+    extras_require={"test": ["pytest-cov", "pytest-xdist[psutil]"]},
 )
