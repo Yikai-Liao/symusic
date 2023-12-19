@@ -61,4 +61,3 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
                 print(f"{midi_attr} are not equals")
 
     assert midi_equals
-
