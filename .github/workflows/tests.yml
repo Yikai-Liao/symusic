@@ -9,32 +9,25 @@ on:
 
 jobs:
   tests:
-    name: Tests on ${{ matrix.python-version }}-${{ matrix.buildplat[1] }}
-    runs-on: ${{ matrix.buildplat[0] }}
+    name: Tests on ${{ matrix.os }} with python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # From wheel.yml of numpy (https://github.com/numpy/numpy/blob/main/.github/workflows/wheels.yml):
-        # GitHub Actions doesn't support pairing matrix values together, let's improvise
-        # https://github.com/github/feedback/discussions/7835#discussioncomment-1769026
-        buildplat:
-          - [ ubuntu-22.04, manylinux_x86_64 ]
-          - [ macos-12, macosx_x86_64 ]
-          - [ macos-12, macosx_arm64 ]
-          - [ windows-2022, win_amd64 ]
-        python: [ "cp38", "cp312", "pp39" ]
+        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        python-version: [ "3.7", "3.12", "pp39" ]
         exclude:
-          - buildplat: [ macos-12, macosx_arm64 ]
-            python: "pp39"
+          - os: macos-latest
+            python-version: "pp39"
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: setup.py
 
