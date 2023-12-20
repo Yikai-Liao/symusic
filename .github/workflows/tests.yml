@@ -2,10 +2,10 @@ name: Run tests
 
 on:
   workflow_dispatch:
-  #push:
-  #  branches: [main]
-  #pull_request:
-  #  branches: [main]
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   tests:
@@ -13,7 +13,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        # os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        os: [ ubuntu-latest ]
         python-version: [ "3.7", "3.x", "pp39" ]
         exclude:
           - os: macos-latest
