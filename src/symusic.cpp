@@ -78,7 +78,7 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def("shift_time", [](T &self, const unit offset, const bool inplace) {
                 if (inplace) return self.shift_time_inplace(offset);
                 else return self.shift_time(offset);
-            }, py::arg("offset"), 
+            }, py::arg("offset"),
             py::arg("inplace")=false, "Shift the event time by offset")
         .def(py::init<const T &>(), "Copy constructor", py::arg("other"))
         .def("copy", &T::copy, "Deep copy", py::return_value_policy::move)
@@ -335,7 +335,7 @@ Score<T>& py_sort_score_inplace(Score<T> &self, py::object key, bool reverse) {
     py_sort_inplace(self.tempos, key, reverse);
     py_sort_inplace(self.lyrics, key, reverse);
     py_sort_inplace(self.markers, key, reverse);
-    for(auto &track: self.tracks) 
+    for(auto &track: self.tracks)
         py_sort_track_inplace(track, key, reverse);
     return self;
 };

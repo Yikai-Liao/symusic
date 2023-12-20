@@ -1,0 +1,45 @@
+name: Run tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    name: Tests on ${{ matrix.os }} with python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        os: [ ubuntu-latest ]
+        python-version: [ "3.7", "3.x", "pypy3.9" ]
+        exclude:
+          - os: macos-latest
+            python-version: "pypy3.9"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: setup.py
+
+      - name: Install dependencies
+        run: |
+          # Install local package with tests dependencies extras
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Test with pytest
+        run: pytest --cov=./ --cov-report=xml -n auto --durations=0 -v
+
+      - name: Codecov
+        uses: codecov/codecov-action@v3.1.0
