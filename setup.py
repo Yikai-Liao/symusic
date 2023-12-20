@@ -139,8 +139,8 @@ setup(
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     license=open("LICENSE", encoding="utf-8").read(),
-    package_dir={"symusic": "symusic"},
-    packages=["symusic"],
+    package_dir={"symusic": "py-symusic"},
+    packages=["py-symusic"],
     ext_modules=[CMakeExtension("symusic.core", ".")],
     cmdclass={"build_ext": CMakeBuild},
     package_data={"symusic": ["**/*.pyi"]},
@@ -148,5 +148,5 @@ setup(
     install_requires=["numpy"],
     setup_requires=["pybind11>=2.10"],
     python_requires=">=3.7",
-    #extras_require={"test": ["pytest>=6.0"]},
+    extras_require={"test": ["pytest-cov", "pytest-xdist[psutil]"]},
 )
