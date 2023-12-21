@@ -1489,7 +1489,13 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
             ));
         }
         // add notes
-        for(const auto &note: track.notes) {
+        vec<Note<T>> notes {track.notes};
+        pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> &a, const Note<T> &b) {
+            if (a.time != b.time) return (a.time) < (b.time);
+            return a.duration < b.duration;
+        });
+
+        for(const auto &note: notes) {
             msgs.emplace_back(message::Message::NoteOn(
                 this->convert_ttype<Tick>(note.time), channel,
                 note.pitch, note.velocity
