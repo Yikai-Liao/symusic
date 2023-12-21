@@ -1,0 +1,35 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "scikit-build>=0.13",
+    "scikit-build-core>=0.3.3",
+    "pybind11>=2.10.0",
+    "cmake>=3.20",
+    "ninja",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "symusic"
+version = "0.2.1"
+dependencies = ["numpy"]
+requires-python = ">= 3.6"
+
+[tool.skbuild]
+packages = ["symusic"]
+cmake-args = []
+
+[tool.cibuildwheel]
+test-command = "pytest --cov=./ --cov-report=xml -n auto --durations=0 -v"
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = [
+  "B",   # flake8-bugbear
+  "I",   # isort
+  "PGH", # pygrep-hooks
+  "RUF", # Ruff-specific
+  "UP",  # pyupgrade
+]

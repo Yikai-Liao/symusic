@@ -10,12 +10,12 @@ include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
 
-# set(Python_LIBRARIES "${PYTHON_LIBRARIES}")
-# find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+find_package(pybind11 CONFIG REQUIRED)
 
-add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
+# add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
-pybind11_add_module(core src/symusic.cpp)
+python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
 
 if(BUILD_TEST)
     add_executable(note_count test/note_count.cpp)
@@ -26,3 +26,5 @@ if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
     # Strip unnecessary sections of the binary on Linux/macOS
     pybind11_strip(core)
 endif()
+
+install(TARGETS core LIBRARY DESTINATION symusic)
