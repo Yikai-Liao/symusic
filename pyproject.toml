@@ -68,7 +68,7 @@ packages = ["symusic"]
 cmake-args = []
 
 [project.optional-dependencies]
-test = ["pytest-cov"]
+test = ["pytest-cov", "pytest-xdist"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
