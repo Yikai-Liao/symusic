@@ -1,0 +1,115 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "scikit-build>=0.13",
+    "scikit-build-core>=0.3.3",
+    "pybind11>=2.10.0",
+    "cmake>=3.20",
+    "ninja",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "symusic"
+authors = [
+    {name = "Yikai Liao", email = "lyk-boya@outlook.com"},
+    {name = "Zhongqi Luo", email = "luozhongqi@mail.com"},
+    {name = "Nathan Fradet"}
+]
+maintainers = [
+    {name = "Yikai Liao", email = "lyk-boya@outlook.com"},
+    {name = "Zhongqi Luo", email = "luozhongqi@mail.com"},
+    {name = "Nathan Fradet"}
+]
+description = "A high performance MIDI file parser with comprehensible interface."
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+keywords = ["midi",
+    "music",
+    "mir"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: C++",
+    "Programming Language :: Python",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: File Formats",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+]
+dependencies = ["numpy"]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/Yikai-Liao/symusic"
+Repository = "https://github.com/Yikai-Liao/symusic.git"
+Issues = "https://github.com/Yikai-Liao/symusic/issues"
+
+[tool.scikit-build]
+cmake.minimum-version = "3.26.1"
+ninja.minimum-version = "1.11"
+
+[tool.scikit-build.metadata]
+version.provider = "scikit_build_core.metadata.regex"
+version.input = "symusic/__init__.py"
+
+[tool.skbuild]
+packages = ["symusic"]
+cmake-args = []
+
+[project.optional-dependencies]
+test = ["pytest-cov", "pytest-xdist"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+log_cli_level = "INFO"
+filterwarnings = [
+  "error",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py38"
+exclude = ["3rdparty"]
+
+[tool.ruff.lint]
+extend-select = [
+    "ARG",
+    "A",
+    "B",
+    # "E",
+    "F",
+    "G",
+    "I",
+    "INT",
+    # "N",
+    "NPY",
+    "PERF",
+    # "PTH",
+    "PIE",
+    "Q",
+    "RUF",
+    # "S",
+    # "SIM",
+    "T",
+    "UP",
+    "W",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",  # allow assertions in tests
+    "T201",  # print allowed
+]
