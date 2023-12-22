@@ -36,11 +36,10 @@ jobs:
         run: |
           # Install local package with tests dependencies extras
           python -m pip install --upgrade pip
-          pip install pytest
           pip install -e ".[test]"
 
       - name: Test with pytest
-        run: pytest --cov=./ --cov-report=xml -n auto --durations=0 -v tests
+        run: pytest --cov=./ --cov-report=xml --durations=0 -v tests
 
       - name: Codecov
         uses: codecov/codecov-action@v3.1.0
