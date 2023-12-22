@@ -13,8 +13,6 @@ include_directories(3rdparty/zpp_bits)
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
 
-# add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
-
 if(MSVC)
     add_compile_options(-bigobj)
 endif()
