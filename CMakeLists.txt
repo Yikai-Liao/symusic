@@ -15,6 +15,10 @@ find_package(pybind11 CONFIG REQUIRED)
 
 # add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
+if(MSVC)
+    add_compile_options(-bigobj)
+endif()
+
 python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
 target_link_libraries(core PRIVATE pybind11::headers)
 
@@ -26,11 +30,6 @@ endif()
 if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
     # Strip unnecessary sections of the binary on Linux/macOS
     pybind11_strip(core)
-endif()
-
-if(MSVC)
-    message("MSVC detected.")
-    add_compile_options(-bigobj)
 endif()
 
 install(TARGETS core LIBRARY DESTINATION symusic)
