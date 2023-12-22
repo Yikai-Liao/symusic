@@ -28,7 +28,8 @@ if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
     pybind11_strip(core)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+if(MSVC)
+    message("MSVC detected.")
     add_compile_options(-bigobj)
 endif()
 
