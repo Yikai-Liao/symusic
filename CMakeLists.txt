@@ -28,4 +28,8 @@ if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
     pybind11_strip(core)
 endif()
 
+if(MSVC)
+    add_compile_options(-bigobj)
+endif()
+
 install(TARGETS core LIBRARY DESTINATION symusic)
