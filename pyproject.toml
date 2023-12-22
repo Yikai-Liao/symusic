@@ -67,6 +67,19 @@ version.input = "symusic/__init__.py"
 packages = ["symusic"]
 cmake-args = []
 
+[project.optional-dependencies]
+test = ["pytest-cov"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+log_cli_level = "INFO"
+filterwarnings = [
+  "error",
+]
+testpaths = ["tests"]
+
 [tool.ruff]
 target-version = "py38"
 exclude = ["3rdparty"]
