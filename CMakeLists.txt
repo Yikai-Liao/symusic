@@ -16,6 +16,7 @@ find_package(pybind11 CONFIG REQUIRED)
 # add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
 
 python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
+target_link_libraries(core PRIVATE pybind11::headers)
 
 if(BUILD_TEST)
     add_executable(note_count test/note_count.cpp)
