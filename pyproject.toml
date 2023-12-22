@@ -11,7 +11,6 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "symusic"
-requires-python = ">= 3.7"
 authors = [
     {name = "Yikai Liao", email = "lyk-boya@outlook.com"},
     {name = "Zhongqi Luo", email = "luozhongqi@mail.com"},
