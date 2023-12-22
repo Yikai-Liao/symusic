@@ -180,7 +180,8 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
     const auto name = "Tempo" + name_;
     return time_stamp_base<score::Tempo<T>>(m, name)
         .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
-        .def_readwrite("tempo", &score::Tempo<T>::qpm);
+        .def_property("tempo", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "The same as qpm")
+        .def_property("qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo");
 }
 
 // bind score::PitchBend<T>
