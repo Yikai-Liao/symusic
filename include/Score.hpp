@@ -1511,7 +1511,6 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
                 note.pitch, note.velocity
             ));
         }
-        utils::sort_msgs(msgs);
         midi.tracks.emplace_back(std::move(msgs));
     }
     return midi;
