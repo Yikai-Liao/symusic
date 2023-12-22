@@ -450,28 +450,32 @@ TIME_EVENT{
 
 #define CLASS_NAME Tempo
 TIME_EVENT{
+    i32 tempo{};
     DEFAULT_METHODS
-    f32 qpm{};
 
     static constexpr auto serialize(auto & archive, auto & event){
-        return archive(event.time, event.qpm);
+        return archive(event.time, event.tempo);
     }
 
     bool operator==(const Tempo &other) const {
-        return this->time == other.time && this->qpm == other.qpm;
+        return this->time == other.time && this->tempo == other.tempo;
     }
 
-    Tempo(const unit time, const f32 qpm) : TimeStamp<T>(time), qpm(qpm) {};
+    Tempo(const unit time, const i32 tempo): TimeStamp<T>(time), tempo(tempo) {};
 
     template<typename U>
-    Tempo(const unit time, const Tempo<U>& other): TimeStamp<T>(time), qpm(other.qpm) {};
+    Tempo(const unit time, const Tempo<U>& other): TimeStamp<T>(time), tempo(other.tempo) {};
+
+    [[nodiscard]] double qpm() const { return 60000000.0 / static_cast<double>(tempo); }
+
+    void set_qpm(const double qpm) { tempo = static_cast<i32>(60000000.0 / qpm); }
 
     [[nodiscard]] std::string to_string() const {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(SS_PRECISION);
         ss << "Tempo"
            << "(time="      << this->time
-           << ", qpm="      << qpm
+           << ", qpm="      << qpm()
            << ", ttype="    << ttype()
            << ")";
         return ss.str();
@@ -1344,7 +1348,8 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
                             break;
                         }
                         case (message::MetaType::SetTempo): {
-                            tempos.emplace_back(cur_time, 60000000.f / static_cast<float>(msg.get_tempo()));
+                            // tempos.emplace_back(cur_time, 60000000.f / static_cast<float>(msg.get_tempo()));
+                            tempos.emplace_back(cur_time, msg.get_tempo());
                             break;
                         }
                         case (message::MetaType::KeySignature): {
@@ -1445,7 +1450,8 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
         for(const auto &tempo: tempos) {
             msgs.emplace_back(message::Message::SetTempo(
                 this->convert_ttype<Tick>(tempo.time),
-                static_cast<u32>(60000000.f / tempo.qpm)
+                // static_cast<u32>(60000000.f / tempo.qpm)
+                tempo.tempo
             ));
         }
         // add lyrics
@@ -1505,7 +1511,6 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
                 note.pitch, note.velocity
             ));
         }
-        utils::sort_msgs(msgs);
         midi.tracks.emplace_back(std::move(msgs));
     }
     return midi;

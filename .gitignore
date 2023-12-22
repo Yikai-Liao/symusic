@@ -7,4 +7,7 @@
 **/settings.json
 **/__pycache__
 **/*.pyc
+**/*.pyd
+**/*.pyo
+**/*.so
 **/.vscode
