@@ -1,7 +1,7 @@
 import os.path
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, Union
+from typing import Generic, Optional, TypeVar, Union
 
 from . import core  # type: ignore
 from . import types as smt
@@ -203,10 +203,18 @@ class TempoFactory:
     def __call__(
         self,
         time: smt.TimeDtype,
-        tempo: float,
+        qpm: Optional[float] = None,
+        mspq: Optional[int] = None,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Tempo:
-        return self.__core_classes.dispatch(ttype)(time, tempo)  # type: ignore
+        """
+        :param time: the time of the tempo change, in the unit of `ttype`
+        :param qpm: quarter per minute. The `bpm` in miditoolkit is actually quarter per minute, not beat per minute.
+        :param mspq: microsecond per quarter. We store mspq instead of qpm to avoid float precision problem.
+        :param ttype: the time unit of `time`
+        :return:
+        """
+        return self.__core_classes.dispatch(ttype)(time, qpm, mspq)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
@@ -336,13 +344,16 @@ class ScoreFactory:
         return self.__core_classes.dispatch(ttype)(tpq)
 
     def from_other(
-        self, other: smt.Score, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        other: smt.Score,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        min_dur: Optional[int] = None,
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
             raise ValueError(
                 f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
             )
-        return self.__core_classes.dispatch(ttype)(other)
+        return self.__core_classes.dispatch(ttype)(other, min_dur)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
