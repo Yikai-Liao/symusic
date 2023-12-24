@@ -1,7 +1,7 @@
 import os.path
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, Union, Optional
+from typing import Generic, Optional, TypeVar, Union
 
 from . import core  # type: ignore
 from . import types as smt
