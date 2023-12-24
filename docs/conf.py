@@ -56,8 +56,8 @@ def get_git_branch():
 
 # -- Project information -----------------------------------------------------
 
-project = "Symusic"
-copyright = "..."
+project = "symusic"
+# copyright = "..."
 author = "..."
 
 # The short X.Y version
