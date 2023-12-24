@@ -179,7 +179,13 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
     typedef typename T::unit unit;
     const auto name = "Tempo" + name_;
     return time_stamp_base<score::Tempo<T>>(m, name)
-        .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
+//        .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
+        .def(py::init([](unit time, std::optional<double> qpm, std::optional<i32> mspq) {
+            if (qpm.has_value()) return score::Tempo<T>::from_qpm(time, qpm.value());
+            else if (mspq.has_value()) return score::Tempo<T>(time, mspq.value());
+            else throw std::invalid_argument("qpm or mspq must be specified");
+        }), py::arg("time"), py::arg("qpm")=py::none(), py::arg("mspq")=py::none())
+        .def_readwrite("mspq", &score::Tempo<T>::mspq, "Microseconds per quarter note")
         .def_property("tempo", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "The same as qpm")
         .def_property("qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo");
 }

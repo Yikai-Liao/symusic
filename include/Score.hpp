@@ -450,25 +450,29 @@ TIME_EVENT{
 
 #define CLASS_NAME Tempo
 TIME_EVENT{
-    i32 tempo{};
+    i32 mspq{};
     DEFAULT_METHODS
 
     static constexpr auto serialize(auto & archive, auto & event){
-        return archive(event.time, event.tempo);
+        return archive(event.time, event.mspq);
     }
 
     bool operator==(const Tempo &other) const {
-        return this->time == other.time && this->tempo == other.tempo;
+        return this->time == other.time && this->mspq == other.mspq;
     }
 
-    Tempo(const unit time, const i32 tempo): TimeStamp<T>(time), tempo(tempo) {};
+    Tempo(const unit time, const i32 mspq): TimeStamp<T>(time), mspq(mspq) {};
 
     template<typename U>
-    Tempo(const unit time, const Tempo<U>& other): TimeStamp<T>(time), tempo(other.tempo) {};
+    Tempo(const unit time, const Tempo<U>& other): TimeStamp<T>(time), mspq(other.mspq) {};
 
-    [[nodiscard]] double qpm() const { return 60000000.0 / static_cast<double>(tempo); }
+    [[nodiscard]] static Tempo from_qpm(const unit time, const double qpm) {
+        return Tempo(time, static_cast<i32>(std::round(60000000.0 / qpm)));
+    }
 
-    void set_qpm(const double qpm) { tempo = static_cast<i32>(60000000.0 / qpm); }
+    [[nodiscard]] double qpm() const { return 60000000.0 / static_cast<double>(mspq); }
+
+    void set_qpm(const double qpm) { mspq = static_cast<i32>(60000000.0 / qpm); }
 
     [[nodiscard]] std::string to_string() const {
         std::stringstream ss;
@@ -476,6 +480,7 @@ TIME_EVENT{
         ss << "Tempo"
            << "(time="      << this->time
            << ", qpm="      << qpm()
+           << ", mspq="     << mspq
            << ", ttype="    << ttype()
            << ")";
         return ss.str();
@@ -1451,7 +1456,7 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
             msgs.emplace_back(message::Message::SetTempo(
                 this->convert_ttype<Tick>(tempo.time),
                 // static_cast<u32>(60000000.f / tempo.qpm)
-                tempo.tempo
+                tempo.mspq
             ));
         }
         // add lyrics
