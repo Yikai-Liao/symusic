@@ -21,39 +21,6 @@ import subprocess
 
 logger = logging.getLogger("symsuic")
 
-
-def get_git_branch():
-    """Get the git branch this repository is currently on"""
-    path_to_here = os.path.abspath(os.path.dirname(__file__))
-
-    # Invoke git to get the current branch which we use to get the theme
-    try:
-        p = subprocess.Popen(
-            ["git", "branch"], stdout=subprocess.PIPE, cwd=path_to_here
-        )
-
-        # This will contain something like "* (HEAD detached at origin/MYBRANCH)"
-        # or something like "* MYBRANCH"
-        branch_output = p.communicate()[0]
-
-        # This is if git is in a normal branch state
-        match = re.search(r"\* (?P<branch_name>[^\(\)\n ]+)", branch_output)
-        if match:
-            return match.groupdict()["branch_name"]
-
-        # git is in a detached HEAD state
-        match = re.search(
-            r"\(HEAD detached at origin/(?P<branch_name>[^\)]+)\)", branch_output
-        )
-        if match:
-            return match.groupdict()["branch_name"]
-    except Exception:
-        logger.exception("Could not get the branch")
-
-    # Couldn't figure out the branch probably due to an error
-    return None
-
-
 # -- Project information -----------------------------------------------------
 
 project = "symusic"
@@ -124,7 +91,7 @@ branch_to_theme_mapping = {
     "pyramid": "pyramid",
     "bizstyle": "bizstyle",
 }
-current_branch = get_git_branch()
+# current_branch = get_git_branch()
 
 # if current_branch:
 #     sphinx_html_theme = branch_to_theme_mapping.get(current_branch, default_html_theme)
@@ -133,12 +100,11 @@ current_branch = get_git_branch()
 #     sphinx_html_theme = default_html_theme
 #     print(u'Error getting current branch - using default theme')
 
-sphinx_html_theme = default_html_theme
+extensions = [
+    'sphinx_rtd_theme',
+]
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = sphinx_html_theme
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -149,7 +115,7 @@ html_theme = sphinx_html_theme
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
