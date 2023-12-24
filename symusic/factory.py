@@ -344,9 +344,10 @@ class ScoreFactory:
         return self.__core_classes.dispatch(ttype)(tpq)
 
     def from_other(
-        self, other: smt.Score,
+        self,
+        other: smt.Score,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
-        min_dur: Optional[int] = None
+        min_dur: Optional[int] = None,
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
             raise ValueError(
