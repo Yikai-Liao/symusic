@@ -1,8 +1,6 @@
 from __future__ import annotations
-
-import typing
-
 import numpy
+import typing
 
 __all__ = [
     "ControlChangeQuarter",
@@ -2243,7 +2241,7 @@ class ScoreQuarter:
         Load from midi file
         """
     @typing.overload
-    def __init__(self, other: ScoreTick) -> None:
+    def __init__(self, other: ScoreTick, min_dur: int | None = None) -> None:
         """
         Convert Tick to Quarter
         """
@@ -2269,6 +2267,10 @@ class ScoreQuarter:
     def end(self) -> float: ...
     def note_num(self) -> int: ...
     def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> ScoreTick:
+        """
+        Resample to another ticks per quarter
+        """
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
     def shift_time(self, offset: float, inplace: bool = False) -> typing.Any: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
@@ -2276,7 +2278,7 @@ class ScoreQuarter:
         self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
     ) -> typing.Any: ...
     def start(self) -> float: ...
-    def to(self, ttype: typing.Any) -> typing.Any:
+    def to(self, ttype: typing.Any, min_dur: int | None = None) -> typing.Any:
         """
         Convert to another time unit
         """
@@ -2320,7 +2322,7 @@ class ScoreTick:
         Load from midi file
         """
     @typing.overload
-    def __init__(self, other: ScoreQuarter) -> None:
+    def __init__(self, other: ScoreQuarter, min_dur: int | None = None) -> None:
         """
         Convert Quarter to Tick
         """
@@ -2346,6 +2348,10 @@ class ScoreTick:
     def end(self) -> int: ...
     def note_num(self) -> int: ...
     def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> ScoreTick:
+        """
+        Resample to another ticks per quarter
+        """
     def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
     def shift_time(self, offset: int, inplace: bool = False) -> typing.Any: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
@@ -2353,7 +2359,7 @@ class ScoreTick:
         self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
     ) -> typing.Any: ...
     def start(self) -> int: ...
-    def to(self, ttype: typing.Any) -> typing.Any:
+    def to(self, ttype: typing.Any, min_dur: int | None = None) -> typing.Any:
         """
         Convert to another time unit
         """
@@ -2386,7 +2392,9 @@ class TempoQuarter:
         Copy constructor
         """
     @typing.overload
-    def __init__(self, time: float, qpm: float) -> None: ...
+    def __init__(
+        self, time: float, qpm: float | None = None, mspq: int | None = None
+    ) -> None: ...
     def __ne__(self, arg0: TempoQuarter) -> bool: ...
     def __repr__(self) -> str: ...
     def __setstate__(self, arg0: bytes) -> None: ...
@@ -2398,6 +2406,13 @@ class TempoQuarter:
         """
         Shift the event time by offset
         """
+    @property
+    def mspq(self) -> int:
+        """
+        Microseconds per quarter note
+        """
+    @mspq.setter
+    def mspq(self, arg0: int) -> None: ...
     @property
     def qpm(self) -> float:
         """
@@ -2536,7 +2551,9 @@ class TempoSecond:
         Copy constructor
         """
     @typing.overload
-    def __init__(self, time: float, qpm: float) -> None: ...
+    def __init__(
+        self, time: float, qpm: float | None = None, mspq: int | None = None
+    ) -> None: ...
     def __ne__(self, arg0: TempoSecond) -> bool: ...
     def __repr__(self) -> str: ...
     def __setstate__(self, arg0: bytes) -> None: ...
@@ -2548,6 +2565,13 @@ class TempoSecond:
         """
         Shift the event time by offset
         """
+    @property
+    def mspq(self) -> int:
+        """
+        Microseconds per quarter note
+        """
+    @mspq.setter
+    def mspq(self, arg0: int) -> None: ...
     @property
     def qpm(self) -> float:
         """
@@ -2686,7 +2710,9 @@ class TempoTick:
         Copy constructor
         """
     @typing.overload
-    def __init__(self, time: int, qpm: float) -> None: ...
+    def __init__(
+        self, time: int, qpm: float | None = None, mspq: int | None = None
+    ) -> None: ...
     def __ne__(self, arg0: TempoTick) -> bool: ...
     def __repr__(self) -> str: ...
     def __setstate__(self, arg0: bytes) -> None: ...
@@ -2698,6 +2724,13 @@ class TempoTick:
         """
         Shift the event time by offset
         """
+    @property
+    def mspq(self) -> int:
+        """
+        Microseconds per quarter note
+        """
+    @mspq.setter
+    def mspq(self, arg0: int) -> None: ...
     @property
     def qpm(self) -> float:
         """

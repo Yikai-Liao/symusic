@@ -344,13 +344,15 @@ class ScoreFactory:
         return self.__core_classes.dispatch(ttype)(tpq)
 
     def from_other(
-        self, other: smt.Score, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self, other: smt.Score,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        min_dur: Optional[int] = None
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
             raise ValueError(
                 f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
             )
-        return self.__core_classes.dispatch(ttype)(other)
+        return self.__core_classes.dispatch(ttype)(other, min_dur)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore

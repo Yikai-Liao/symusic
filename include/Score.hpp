@@ -881,7 +881,7 @@ struct Score{
 protected:
 
     template<typename U>
-    inline void from(const Score<U>& other);
+    void from(const Score<U>& other, std::optional<i32> min_dur = std::nullopt); // the time unit for min_dur is tick
 
 public:
     i32 ticks_per_quarter{};
@@ -916,7 +916,7 @@ public:
     [[nodiscard]] Score copy() const { return {*this}; }
 
     template<typename U>
-    explicit Score(const Score<U> &other) { from(other); }
+    explicit Score(const Score<U> &other, std::optional<i32> min_dur = std::nullopt) { from(other, min_dur); }
 
     explicit Score(const minimidi::file::MidiFile &midi);
 
@@ -1403,7 +1403,7 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
 // define score -> score
 template<typename T>
 template<typename U>
-void Score<T>::from(const Score<U> &other) {
+void Score<T>::from(const Score<U> &other, const std::optional<i32> min_dur) {
     if(other.ticks_per_quarter <= 0)
         throw std::invalid_argument("ticks_per_quarter must be positive, please specify it first!");
 
@@ -1415,14 +1415,27 @@ void Score<T>::from(const Score<U> &other) {
     this->markers = other.template convert_ttype<TextMeta, T>(other.markers);
     this->tracks.reserve(other.tracks.size());
     for (const Track<U> &track: other.tracks){
+        auto new_notes = other.template convert_ttype<Note, T>(track.notes);
+        auto new_pedals = other.template convert_ttype<Pedal, T>(track.pedals);
+        if constexpr (std::is_same_v<T, Tick>) {
+            if(min_dur.has_value()) {
+                const auto min_dur_tick = min_dur.value();
+                for(auto &note: new_notes) {
+                    if(note.duration < min_dur_tick) note.duration = min_dur_tick;
+                }
+                for(auto &pedal: new_pedals) {
+                    if(pedal.duration < min_dur_tick) pedal.duration = min_dur_tick;
+                }
+            }
+        }
         this->tracks.emplace_back(
             track.name,
             track.program,
             track.is_drum,
-            other.template convert_ttype<Note, T>(track.notes),
+            std::move(new_notes),
             other.template convert_ttype<ControlChange, T>(track.controls),
             other.template convert_ttype<PitchBend, T>(track.pitch_bends),
-            other.template convert_ttype<Pedal, T>(track.pedals)
+            std::move(new_pedals)
         );
     }
 }
@@ -1520,5 +1533,42 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
     }
     return midi;
 } // Score<T>::to_midi end
+
+inline Score<Tick> resample(const Score<Tick> & s, const i32 tpq, const i32 min_dur = 0) {
+    Score<Tick> ans(tpq);
+
+#define CONVERT_TIME(VALUE) \
+    static_cast<i32>(std::round(static_cast<double>(tpq * VALUE) / static_cast<double>(s.ticks_per_quarter)))
+
+#define RESAMPLE_GENERAL(__COUNT, VEC)  \
+    ans.VEC.reserve(s.VEC.size());      \
+    for(const auto &item: s.VEC)        \
+        ans.VEC.emplace_back(CONVERT_TIME(item.time), item);
+
+#define RESAMPLE_DUR(__COUNT, VEC)      \
+    ans.VEC.reserve(s.VEC.size());      \
+    for(const auto &item: s.VEC)        \
+        ans.VEC.emplace_back(CONVERT_TIME(item.time), std::max(CONVERT_TIME(item.duration), min_dur), item);
+
+    REPEAT_ON(RESAMPLE_GENERAL, time_signatures, key_signatures, tempos, lyrics, markers)
+    const size_t track_num = s.tracks.size();
+    ans.tracks = vec<Track<Tick>>(track_num);
+    for(size_t i = 0; i < track_num; ++i) {
+        const auto &track = s.tracks[i];
+        auto &new_track = ans.tracks[i];
+        new_track.name = track.name;
+        new_track.program = track.program;
+        new_track.is_drum = track.is_drum;
+        REPEAT_ON(RESAMPLE_DUR, tracks[i].notes, tracks[i].pedals)
+        REPEAT_ON(RESAMPLE_GENERAL, tracks[i].controls, tracks[i].pitch_bends)
+    }
+#undef CONVERT_TIME
+#undef RESAMPLE_GENERAL
+#undef RESAMPLE_DUR
+    return ans;
+}
+
+
+
 } // namespace score end
 #endif //SCORE_HPP
