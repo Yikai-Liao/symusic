@@ -452,16 +452,16 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
 }
 
 template<typename T>
-py::object convert_score(const Score<T> &self, py::object ttype) {
+py::object convert_score(const Score<T> &self, py::object ttype, std::optional<i32> min_dur) {
     if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
-    if (py::isinstance<Tick>(ttype)) return py::cast(Score<Tick>(self), py::return_value_policy::move);
-    else if (py::isinstance<Quarter>(ttype)) return py::cast(Score<Quarter>(self), py::return_value_policy::move);
+    if (py::isinstance<Tick>(ttype)) return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
+    else if (py::isinstance<Quarter>(ttype)) return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
     else if (py::isinstance<Second>(ttype)) throw std::invalid_argument("Second is not supported yet");
     else if (py::isinstance<py::str>(ttype)) {
         // convert ttype to lower case
         auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
-        if (ttype_str == "tick") return py::cast(Score<Tick>(self), py::return_value_policy::move);
-        else if (ttype_str == "quarter") return py::cast(Score<Quarter>(self), py::return_value_policy::move);
+        if (ttype_str == "tick") return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
+        else if (ttype_str == "quarter") return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
         else if (ttype_str == "second") throw std::invalid_argument("Second is not supported yet");
         else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
     } else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
@@ -510,11 +510,17 @@ py::module & core_module(py::module & m){
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
     score_tick.def(
-        py::init<const Score<Quarter> &>(), "Convert Quarter to Tick", py::arg("other"))
-        .def("to", &convert_score<Tick>, py::arg("ttype"), "Convert to another time unit");
+        py::init<const Score<Quarter> &, std::optional<i32>>(), "Convert Quarter to Tick", py::arg("other"), py::arg("min_dur")=std::nullopt)
+        .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur") = std::nullopt, "Convert to another time unit")
+        .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
+            return resample(self, tpq, min_dur.value_or(0));
+        }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
     score_quarter.def(
-        py::init<const Score<Tick> &>(), "Convert Tick to Quarter", py::arg("other"))
-        .def("to", &convert_score<Quarter>, py::arg("ttype"), "Convert to another time unit");
+        py::init<const Score<Tick> &, std::optional<i32>>(), "Convert Tick to Quarter", py::arg("other"), py::arg("min_dur")=std::nullopt)
+        .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=std::nullopt, "Convert to another time unit")
+        .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
+            return resample(Score<Tick>(self), tpq, min_dur.value_or(0));
+        }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
     //    bind_score_class<Second>(m, second);
     return m;
 }

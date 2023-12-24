@@ -1,5 +1,4 @@
-rm -rf dist build *.egg-info
-python3 -m pip install -e . --upgrade
+pip install . --user
 pybind11-stubgen symusic.core --numpy-array-remove-parameters -o .
-pip uninstall -y symusic
-rm -rf dist build *.egg-info
+ruff format symusic/core.pyi
+pip uninstall symusic

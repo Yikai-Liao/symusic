@@ -47,7 +47,7 @@ classifiers = [
     "Operating System :: POSIX",
     "Operating System :: Unix",
 ]
-dependencies = ["numpy"]
+dependencies = ["numpy", "typing_extensions;python_version<'3.8'"]
 dynamic = ["version"]
 
 [project.urls]
