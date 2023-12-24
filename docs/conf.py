@@ -15,9 +15,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 import logging
-import os.path
-import re
-import subprocess
 
 logger = logging.getLogger("symsuic")
 
@@ -101,7 +98,7 @@ branch_to_theme_mapping = {
 #     print(u'Error getting current branch - using default theme')
 
 extensions = [
-    'sphinx_rtd_theme',
+    "sphinx_rtd_theme",
 ]
 
 html_theme = "sphinx_rtd_theme"
