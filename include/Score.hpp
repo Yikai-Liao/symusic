@@ -1419,7 +1419,7 @@ void Score<T>::from(const Score<U> &other, const std::optional<i32> min_dur) {
         auto new_pedals = other.template convert_ttype<Pedal, T>(track.pedals);
         if constexpr (std::is_same_v<T, Tick>) {
             if(min_dur.has_value()) {
-                const auto min_dur_tick = min_dur.value();
+                const auto min_dur_tick = *min_dur;
                 for(auto &note: new_notes) {
                     if(note.duration < min_dur_tick) note.duration = min_dur_tick;
                 }
