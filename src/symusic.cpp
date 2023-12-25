@@ -181,8 +181,8 @@ py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & 
     return time_stamp_base<score::Tempo<T>>(m, name)
 //        .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
         .def(py::init([](unit time, std::optional<double> qpm, std::optional<i32> mspq) {
-            if (qpm.has_value()) return score::Tempo<T>::from_qpm(time, qpm.value());
-            else if (mspq.has_value()) return score::Tempo<T>(time, mspq.value());
+            if (qpm.has_value()) return score::Tempo<T>::from_qpm(time, *qpm);
+            else if (mspq.has_value()) return score::Tempo<T>(time, *mspq);
             else throw std::invalid_argument("qpm or mspq must be specified");
         }), py::arg("time"), py::arg("qpm")=py::none(), py::arg("mspq")=py::none())
         .def_readwrite("mspq", &score::Tempo<T>::mspq, "Microseconds per quarter note")
@@ -513,13 +513,15 @@ py::module & core_module(py::module & m){
         py::init<const Score<Quarter> &, std::optional<i32>>(), "Convert Quarter to Tick", py::arg("other"), py::arg("min_dur")=std::nullopt)
         .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur") = std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
-            return resample(self, tpq, min_dur.value_or(0));
+            const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
+            return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
     score_quarter.def(
         py::init<const Score<Tick> &, std::optional<i32>>(), "Convert Tick to Quarter", py::arg("other"), py::arg("min_dur")=std::nullopt)
         .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
-            return resample(Score<Tick>(self), tpq, min_dur.value_or(0));
+            const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
+            return resample(Score<Tick>(self), tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
     //    bind_score_class<Second>(m, second);
     return m;
