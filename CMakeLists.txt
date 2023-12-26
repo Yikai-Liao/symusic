@@ -13,10 +13,17 @@ if(MSVC)
     add_compile_options(-bigobj)
 endif()
 
+#add_subdirectory(3rdparty/libsymusic/3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/libsymusic EXCLUDE_FROM_ALL)
+file(GLOB_RECURSE libli symusic_src 3rdparty/libsymusic/src/*.cpp src/format/*.cpp)
 
-python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
-target_link_libraries(core PRIVATE libsymusic -no-pie)
+python_add_library(core MODULE src/symusic.cpp ${libsymusic_src} WITH_SOABI )
+target_include_directories(core PUBLIC 3rdparty/libsymusic/include)
+target_link_libraries(core PUBLIC fmt::fmt-header-only)
+target_include_directories(core PUBLIC  3rdparty/libsymusic/3rdparty/pdqsort)
+target_include_directories(core PUBLIC  3rdparty/libsymusic/3rdparty/minimidi/include)
+target_include_directories(core PUBLIC  3rdparty/libsymusic/3rdparty/zpp_bits)
+
 target_link_libraries(core PRIVATE pybind11::headers)
 set_target_properties(core PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION ON
