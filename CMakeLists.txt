@@ -13,9 +13,9 @@ if(MSVC)
     add_compile_options(-bigobj)
 endif()
 
-#add_subdirectory(3rdparty/libsymusic/3rdparty/fmt EXCLUDE_FROM_ALL)
-add_subdirectory(3rdparty/libsymusic EXCLUDE_FROM_ALL)
-file(GLOB_RECURSE libli symusic_src 3rdparty/libsymusic/src/*.cpp src/format/*.cpp)
+add_subdirectory(3rdparty/libsymusic/3rdparty/fmt EXCLUDE_FROM_ALL)
+# add_subdirectory(3rdparty/libsymusic EXCLUDE_FROM_ALL)
+file(GLOB_RECURSE libsymusic_src 3rdparty/libsymusic/src/*.cpp 3rdparty/libsymusic/src/io/*.cpp)
 
 python_add_library(core MODULE src/symusic.cpp ${libsymusic_src} WITH_SOABI )
 target_include_directories(core PUBLIC 3rdparty/libsymusic/include)

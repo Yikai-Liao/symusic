@@ -544,23 +544,22 @@ py::module & core_module(py::module & m){
     bind_track_class<Tick>(m, tick);
     bind_track_class<Quarter>(m, quarter);
     bind_track_class<Second>(m, second);
-    //
+    
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
     score_tick
-        // .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur") = std::nullopt, "Convert to another time unit")
+        // .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
         .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
             return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
-    // score_quarter
-    //     .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=std::nullopt, "Convert to another time unit")
-    //     .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
-    //         const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
-    //         // return resample(Score<Tick>(self), tpq, min_dur_);
-    //         return resample(self, tpq, min_dur_);
-    //     }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
-    // //    bind_score_class<Second>(m, second);
+    score_quarter
+        // .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
+        .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
+            const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
+            return resample(self, tpq, min_dur_);
+        }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
+       bind_score_class<Second>(m, second);
     return m;
 }
 
