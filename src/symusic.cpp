@@ -14,7 +14,7 @@
 #include "symusic.h"
 
 namespace py = pybind11;
-using namespace symusic;
+namespace symusic {
 
 #define DECLARE_OBJ(__COUNT, NAME)          \
     extern template struct NAME<Tick>;      \
@@ -23,7 +23,11 @@ using namespace symusic;
 
 REPEAT_ON(DECLARE_OBJ, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track, Score)
 
+}
+
 #undef DECLARE_OBJ
+
+using namespace symusic;
 
 
 #define OPAQUE_VEC(i, TYPE)                     \
