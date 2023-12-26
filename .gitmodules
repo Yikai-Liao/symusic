@@ -1,10 +1,3 @@
-[submodule "3rdparty/minimidi"]
-	path = 3rdparty/minimidi
-	url = https://github.com/lzqlzzq/minimidi.git
-	branch = write-midi
-[submodule "3rdparty/pdqsort"]
-	path = 3rdparty/pdqsort
-	url = https://github.com/orlp/pdqsort.git
-[submodule "zpp_bits"]
-	path = 3rdparty/zpp_bits
-	url = https://github.com/eyalz800/zpp_bits.git
+[submodule "3rdparty/libsymusic"]
+	path = 3rdparty/libsymusic
+	url = https://github.com/Yikai-Liao/libsymusic.git
