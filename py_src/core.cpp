@@ -11,10 +11,24 @@
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
-#include "Score.hpp"
+#include "symusic.h"
 
 namespace py = pybind11;
-using namespace score;
+namespace symusic {
+
+#define DECLARE_OBJ(__COUNT, NAME)          \
+    extern template struct NAME<Tick>;      \
+    extern template struct NAME<Quarter>;   \
+    extern template struct NAME<Second>;
+
+REPEAT_ON(DECLARE_OBJ, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track, Score)
+
+}
+
+#undef DECLARE_OBJ
+
+using namespace symusic;
+
 
 #define OPAQUE_VEC(i, TYPE)                     \
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Tick>>)       \
@@ -32,7 +46,7 @@ void sort_by_py_key(vec<T> &self, const py::function & key) {
 
 template<typename T>
 vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool reverse) {
-    if (key.is_none()) score::utils::sort_by_time(self);
+    if (key.is_none()) ops::sort_by_time(self);
     else sort_by_py_key(self, key.cast<py::function>());
     if (reverse) std::reverse(self.begin(), self.end());
     return self;
@@ -44,28 +58,28 @@ py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, con
         py_sort_inplace(self, key, reverse);
         return py::cast(self, py::return_value_policy::reference);
     } else {
-        auto copy = vec(self);
+        auto copy = vec<T>(self);
         return py::cast(py_sort_inplace(copy, key, reverse), py::return_value_policy::move);
     }
 }
 
 template<typename T>
 py::bytes py_to_bytes(const T &self) {
-    auto [data, out] = zpp::bits::data_out();
-    out(self).or_throw();
+    auto data = self.template dumps<DataFormat::ZPP>();
     return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
 }
 
 template <typename T>
 T py_from_bytes(const py::bytes &bytes) {
     // cast bytes to string_view
-    auto data = std::string_view(bytes);
+    const auto data = std::string_view(bytes);
     // convert string_view to span<const char>
-    std::span<const char> span = {data.data(), data.size()};
-    auto in = zpp::bits::in(span);
-    T self;
-    in(self).or_throw();
-    return self;
+    std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
+    // auto in = zpp::bits::in(span);
+    // T self;
+    // in(self).or_throw();
+    // return self;
+    return T::template parse<DataFormat::ZPP>(span);
 }
 
 
@@ -92,8 +106,10 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
     py::bind_vector<vec<T>>(m, name + "List")
         .def_property_readonly("ttype", [](const T &) { return typename T::ttype(); })
         .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
-        .def("__repr__", [](const vec<T> &self) { return to_string(self);})
-        .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
+        .def("__repr__", [](const vec<T> &self) {
+            return fmt::format("{::s}", self);
+        });
+        // .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
 
     py::implicitly_convertible<py::list, vec<T>>();
     return event;
@@ -124,92 +140,92 @@ py::class_<Note<T>> bind_note_class(py::module &m, const std::string & name_) {
             }, py::arg("offset"), py::arg("inplace")=false, "Shift the velocity by offset");
 }
 
-// bind score::KeySignature<T>
+// bind symusic::KeySignature<T>
 template<typename T>
-py::class_<score::KeySignature<T>> bind_key_signature_class(py::module &m, const std::string & name_) {
+py::class_<symusic::KeySignature<T>> bind_key_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "KeySignature" + name_;
 
-    return time_stamp_base<score::KeySignature<T>>(m, name)
+    return time_stamp_base<symusic::KeySignature<T>>(m, name)
         .def(py::init<unit, i8, u8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
-        .def_readwrite("key", &score::KeySignature<T>::key)
-        .def_readwrite("tonality", &score::KeySignature<T>::tonality)
-        .def_property_readonly("degree", &score::KeySignature<T>::degree);
+        .def_readwrite("key", &symusic::KeySignature<T>::key)
+        .def_readwrite("tonality", &symusic::KeySignature<T>::tonality)
+        .def_property_readonly("degree", &symusic::KeySignature<T>::degree);
 }
 
-// bind score::TimeSignature<T>
+// bind symusic::TimeSignature<T>
 template<typename T>
-py::class_<score::TimeSignature<T>> bind_time_signature_class(py::module &m, const std::string & name_) {
+py::class_<symusic::TimeSignature<T>> bind_time_signature_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "TimeSignature" + name_;
 
-    return time_stamp_base<score::TimeSignature<T>>(m, name)
+    return time_stamp_base<symusic::TimeSignature<T>>(m, name)
         .def(py::init<unit, u8, u8>())
-        .def_readwrite("numerator", &score::TimeSignature<T>::numerator)
-        .def_readwrite("denominator", &score::TimeSignature<T>::denominator);
+        .def_readwrite("numerator", &symusic::TimeSignature<T>::numerator)
+        .def_readwrite("denominator", &symusic::TimeSignature<T>::denominator);
 }
 
-// bind score::ControlChange<T>
+// bind symusic::ControlChange<T>
 template<typename T>
-py::class_<score::ControlChange<T>> bind_control_change_class(py::module &m, const std::string & name_) {
+py::class_<symusic::ControlChange<T>> bind_control_change_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "ControlChange" + name_;
 
-    return time_stamp_base<score::ControlChange<T>>(m, name)
+    return time_stamp_base<symusic::ControlChange<T>>(m, name)
         .def(py::init<unit, u8, u8>(), py::arg("time"), py::arg("number"), py::arg("value"))
-        .def_readwrite("value", &score::ControlChange<T>::value)
-        .def_readwrite("number", &score::ControlChange<T>::number);
+        .def_readwrite("value", &symusic::ControlChange<T>::value)
+        .def_readwrite("number", &symusic::ControlChange<T>::number);
 }
 
 // bind Pedal<T>
 template<typename T>
-py::class_<score::Pedal<T>> bind_pedal_class(py::module &m, const std::string & name_) {
+py::class_<symusic::Pedal<T>> bind_pedal_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "Pedal" + name_;
 
-    return time_stamp_base<score::Pedal<T>>(m, name)
+    return time_stamp_base<symusic::Pedal<T>>(m, name)
         .def(py::init<unit, unit>(), py::arg("time"), py::arg("duration"))
-        .def_readwrite("duration", &score::Pedal<T>::duration)
-        .def_property_readonly("end", &score::Pedal<T>::end);
+        .def_readwrite("duration", &symusic::Pedal<T>::duration)
+        .def_property_readonly("end", &symusic::Pedal<T>::end);
 }
 
-// bind score::Tempo<T>
+// bind symusic::Tempo<T>
 template<typename T>
-py::class_<score::Tempo<T>> bind_tempo_class(py::module &m, const std::string & name_) {
+py::class_<symusic::Tempo<T>> bind_tempo_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "Tempo" + name_;
-    return time_stamp_base<score::Tempo<T>>(m, name)
+    return time_stamp_base<symusic::Tempo<T>>(m, name)
 //        .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
         .def(py::init([](unit time, std::optional<double> qpm, std::optional<i32> mspq) {
-            if (qpm.has_value()) return score::Tempo<T>::from_qpm(time, *qpm);
-            else if (mspq.has_value()) return score::Tempo<T>(time, *mspq);
+            if (qpm.has_value()) return symusic::Tempo<T>::from_qpm(time, *qpm);
+            else if (mspq.has_value()) return symusic::Tempo<T>(time, *mspq);
             else throw std::invalid_argument("qpm or mspq must be specified");
         }), py::arg("time"), py::arg("qpm")=py::none(), py::arg("mspq")=py::none())
-        .def_readwrite("mspq", &score::Tempo<T>::mspq, "Microseconds per quarter note")
+        .def_readwrite("mspq", &symusic::Tempo<T>::mspq, "Microseconds per quarter note")
         .def_property("tempo", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "The same as qpm")
         .def_property("qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo");
 }
 
-// bind score::PitchBend<T>
+// bind symusic::PitchBend<T>
 template<typename T>
-py::class_<score::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::string & name_) {
+py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "PitchBend" + name_;
 
-    return time_stamp_base<score::PitchBend<T>>(m, name)
+    return time_stamp_base<symusic::PitchBend<T>>(m, name)
         .def(py::init<unit, i32>(), py::arg("time"), py::arg("value"))
-        .def_readwrite("value", &score::PitchBend<T>::value);
+        .def_readwrite("value", &symusic::PitchBend<T>::value);
 }
 
-// bind score::TextMeta<T>
+// bind symusic::TextMeta<T>
 template<typename T>
-py::class_<score::TextMeta<T>> bind_text_meta_class(py::module &m, const std::string & name_) {
+py::class_<symusic::TextMeta<T>> bind_text_meta_class(py::module &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "TextMeta" + name_;
 
-    return time_stamp_base<score::TextMeta<T>>(m, name)
+    return time_stamp_base<symusic::TextMeta<T>>(m, name)
         .def(py::init<unit, std::string &>(), py::arg("time"), py::arg("text"))
-        .def_readwrite("text", &score::TextMeta<T>::text);
+        .def_readwrite("text", &symusic::TextMeta<T>::text);
 }
 
 template<typename T>
@@ -282,7 +298,7 @@ py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) 
         .def_readwrite("program", &Track<T>::program)
         .def_readwrite("name", &Track<T>::name)
         .def_property_readonly("ttype", []{ return T(); })
-        .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
+        // .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
         .def(py::self == py::self)  // NOLINT
         .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
@@ -293,21 +309,21 @@ py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) 
         .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("pianoroll", [](Track<T> &self, float quantization, const std::string& mode) {
-            score::pianoroll::TrackPianoRoll pianoroll = self.pianoroll(quantization, mode);
-
-            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
-                pianoroll.data,
-                sizeof(pianoroll::pianoroll_t),
-                py::format_descriptor<pianoroll::pianoroll_t>::format(),
-                3,
-                { pianoroll.channel_dim, pianoroll.pitch_dim, pianoroll.time_dim },
-                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
-                sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
-                sizeof(pianoroll::pianoroll_t) }
-            });
-        }, py::arg("quantization"), py::arg("mode"));
+        .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false);
+        // .def("pianoroll", [](Track<T> &self, float quantization, const std::string& mode) {
+        //     symusic::pianoroll::TrackPianoRoll pianoroll = self.pianoroll(quantization, mode);
+        //
+        //     return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
+        //         pianoroll.data,
+        //         sizeof(pianoroll::pianoroll_t),
+        //         py::format_descriptor<pianoroll::pianoroll_t>::format(),
+        //         3,
+        //         { pianoroll.channel_dim, pianoroll.pitch_dim, pianoroll.time_dim },
+        //         { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
+        //         sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+        //         sizeof(pianoroll::pianoroll_t) }
+        //     });
+        // }, py::arg("quantization"), py::arg("mode"));
 
     py::bind_vector<vec<Track<T>>>(m, name + "List")
         .def("sort", [](vec<Track<T>> &self, const py::object & key, const bool reverse, const bool inplace) {
@@ -317,16 +333,20 @@ py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) 
                 if (reverse) std::reverse(self.begin(), self.end());
                 return py::cast(self, py::return_value_policy::reference);
             } else { // copy
-                auto copy = vec(self);
+                auto copy = vec<Track<T>>(self);
                 sort_by_py_key(copy, key.cast<py::function>());
                 if (reverse) std::reverse(copy.begin(), copy.end());
                 return py::cast(copy, py::return_value_policy::move);
             }
         }, py::arg("key"), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<Track<T>> &self) {
-            return to_string(self);
+            vec<std::string> strs; strs.reserve(self.size());
+            for(const auto & track: self) {
+                strs.emplace_back(track.to_string());
+            }
+            return fmt::format("[{}]", fmt::join(strs, ", "));
         })
-        .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
+        // .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
         .def_property_readonly("ttype", []{ return T(); });
 
     py::implicitly_convertible<py::list, vec<Track<T>>>();
@@ -389,8 +409,20 @@ py::object py_shift_velocity_score(Score<T> &self, const int8_t offset, const bo
     }
 };
 
+template<TType T, typename PATH>
+Score<T> midi2score(PATH path) {
+    const auto data = read_file(path);
+    return Score<T>::template parse<DataFormat::MIDI>(data);
+}
 
-// bind score::Score<T>
+template<TType T, typename PATH>
+void dump_midi(const Score<T> &self, PATH path) {
+    const auto data = self.template dumps<DataFormat::MIDI>();
+    write_file(path, data);
+}
+
+
+// bind symusic::Score<T>
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) {
     const auto name = "Score" + name_;
@@ -398,19 +430,18 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<const i32>(), py::arg("tpq"))
         .def(py::init([](const Score<T> &other) { return other.copy(); }), "Copy constructor", py::arg("other"))
-        .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
+        // .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::string>), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::filesystem::path>), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
-        .def_property_readonly_static("from_file", [](const py::object &) {
-            return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
-        })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
-        .def("dump_midi", &Score<T>::dump_midi, "Dump to midi file", py::arg("path"))
-        .def("dump_midi", [](const Score<T>& self, const py::object &path) {
-            auto filename = py::cast<std::string>(py::str(path));
-            return self.dump_midi(filename);
-        }, py::arg("path"))
+        // .def_property_readonly_static("from_file", [](const py::object &) {
+        //     return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
+        // })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
+        .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
+        .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)
         .def_readwrite("time_signatures", &Score<T>::time_signatures)
@@ -430,38 +461,39 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def("start", &Score<T>::start)
         .def("end", &Score<T>::end)
         .def("note_num", &Score<T>::note_num)
-        .def("empty", &Score<T>::empty)
-        .def("pianoroll", [](score::Score<T> &self, float quantization, const std::string& mode) {
-            score::pianoroll::ScorePianoRoll pianoroll = self.pianoroll(quantization, mode);
-
-            return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
-                pianoroll.data,
-                sizeof(pianoroll::pianoroll_t),
-                py::format_descriptor<pianoroll::pianoroll_t>::format(),
-                4,
-                { pianoroll.channel_dim,
-                    pianoroll.track_dim,
-                    pianoroll.pitch_dim,
-                    pianoroll.time_dim },
-                { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim * pianoroll.track_dim,
-                    sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
-                    sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
-                    sizeof(pianoroll::pianoroll_t) }
-            });
-        }, py::arg("quantization"), py::arg("mode"));
+        .def("empty", &Score<T>::empty);
+        // .def("pianoroll", [](symusic::Score<T> &self, float quantization, const std::string& mode) {
+        //     symusic::pianoroll::ScorePianoRoll pianoroll = self.pianoroll(quantization, mode);
+        //
+        //     return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
+        //         pianoroll.data,
+        //         sizeof(pianoroll::pianoroll_t),
+        //         py::format_descriptor<pianoroll::pianoroll_t>::format(),
+        //         4,
+        //         { pianoroll.channel_dim,
+        //             pianoroll.track_dim,
+        //             pianoroll.pitch_dim,
+        //             pianoroll.time_dim },
+        //         { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim * pianoroll.track_dim,
+        //             sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
+        //             sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
+        //             sizeof(pianoroll::pianoroll_t) }
+        //     });
+        // }, py::arg("quantization"), py::arg("mode"));
 }
 
 template<typename T>
-py::object convert_score(const Score<T> &self, py::object ttype, std::optional<i32> min_dur) {
+py::object convert_score(const Score<T> &self, const py::object &ttype, std::optional<typename T::unit> min_dur){
+    auto min_dur_ = min_dur.has_value()? *min_dur : 0;
     if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
-    if (py::isinstance<Tick>(ttype)) return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
-    else if (py::isinstance<Quarter>(ttype)) return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
+    if (py::isinstance<Tick>(ttype)) return py::cast(convert<Tick>(self, min_dur_), py::return_value_policy::move);
+    else if (py::isinstance<Quarter>(ttype)) return py::cast(convert<Quarter>(self, min_dur_), py::return_value_policy::move);
     else if (py::isinstance<Second>(ttype)) throw std::invalid_argument("Second is not supported yet");
     else if (py::isinstance<py::str>(ttype)) {
         // convert ttype to lower case
-        auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
-        if (ttype_str == "tick") return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
-        else if (ttype_str == "quarter") return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
+        const auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
+        if (ttype_str == "tick") return py::cast(convert<Tick>(self), py::return_value_policy::move);
+        else if (ttype_str == "quarter") return py::cast(convert<Quarter>(self), py::return_value_policy::move);
         else if (ttype_str == "second") throw std::invalid_argument("Second is not supported yet");
         else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
     } else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
@@ -509,19 +541,18 @@ py::module & core_module(py::module & m){
 
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
-    score_tick.def(
-        py::init<const Score<Quarter> &, std::optional<i32>>(), "Convert Quarter to Tick", py::arg("other"), py::arg("min_dur")=std::nullopt)
+    score_tick
         .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur") = std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
             return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
-    score_quarter.def(
-        py::init<const Score<Tick> &, std::optional<i32>>(), "Convert Tick to Quarter", py::arg("other"), py::arg("min_dur")=std::nullopt)
+    score_quarter
         .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
-            return resample(Score<Tick>(self), tpq, min_dur_);
+            // return resample(Score<Tick>(self), tpq, min_dur_);
+            return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
     //    bind_score_class<Second>(m, second);
     return m;
