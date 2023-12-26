@@ -4,6 +4,7 @@ project(symusic)
 set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_TEST "Build the test target" OFF)
+option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" ON)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
@@ -15,8 +16,12 @@ endif()
 add_subdirectory(3rdparty/libsymusic EXCLUDE_FROM_ALL)
 
 python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
+target_link_libraries(core PRIVATE libsymusic -no-pie)
 target_link_libraries(core PRIVATE pybind11::headers)
-target_link_libraries(core PRIVATE libsymusic)
+set_target_properties(core PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION ON
+    VISIBILITY_INLINES_HIDDEN ON
+)
 
 if(BUILD_TEST)
     add_executable(note_count test/note_count.cpp)

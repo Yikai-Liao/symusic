@@ -16,6 +16,16 @@
 namespace py = pybind11;
 using namespace symusic;
 
+#define DECLARE_OBJ(__COUNT, NAME)          \
+    extern template struct NAME<Tick>;      \
+    extern template struct NAME<Quarter>;   \
+    extern template struct NAME<Second>;
+
+REPEAT_ON(DECLARE_OBJ, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track, Score)
+
+#undef DECLARE_OBJ
+
+
 #define OPAQUE_VEC(i, TYPE)                     \
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Tick>>)       \
     PYBIND11_MAKE_OPAQUE(vec<TYPE<Quarter>>)    \
@@ -395,6 +405,18 @@ py::object py_shift_velocity_score(Score<T> &self, const int8_t offset, const bo
     }
 };
 
+template<TType T, typename PATH>
+Score<T> midi2score(PATH path) {
+    const auto data = read_file(path);
+    return Score<T>::template parse<DataFormat::MIDI>(data);
+}
+
+template<TType T, typename PATH>
+void dump_midi(const Score<T> &self, PATH path) {
+    const auto data = self.template dumps<DataFormat::MIDI>();
+    write_file(path, data);
+}
+
 
 // bind symusic::Score<T>
 template<typename T>
@@ -405,26 +427,17 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def(py::init<const i32>(), py::arg("tpq"))
         .def(py::init([](const Score<T> &other) { return other.copy(); }), "Copy constructor", py::arg("other"))
         // .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
-        .def(py::init([](const std::string & path) {
-            auto data = read_file(path);
-            return Score<T>::parse<DataFormat::MIDI>(std::span(data));
-        }, py::arg("path")), "Load from midi file", py::arg("path"))
-        .def(py::init([](const std::filesystem::path & path) {
-            auto data = read_file(path);
-            return Score<T>::parse<DataFormat::MIDI>(std::span(data));
-        }, py::arg("path")), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::string>), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::filesystem::path>), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
-        .def_property_readonly_static("from_file", [](const py::object &) {
-            return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
-        })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
-        .def("dump_midi", &Score<T>::dump_midi, "Dump to midi file", py::arg("path"))
-        .def("dump_midi", [](const Score<T>& self, const py::object &path) {
-            auto filename = py::cast<std::string>(py::str(path));
-            return self.dump_midi(filename);
-        }, py::arg("path"))
+        // .def_property_readonly_static("from_file", [](const py::object &) {
+        //     return py::cpp_function([](std::string &x) { return Score<T>::from_file(x); });
+        // })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
+        .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
+        .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)
         .def_readwrite("time_signatures", &Score<T>::time_signatures)
@@ -466,16 +479,17 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
 }
 
 template<typename T>
-py::object convert_score(const Score<T> &self, const py::object &ttype, std::optional<i32> min_dur) {
+py::object convert_score(const Score<T> &self, const py::object &ttype, std::optional<typename T::unit> min_dur){
+    auto min_dur_ = min_dur.has_value()? *min_dur : 0;
     if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
-    if (py::isinstance<Tick>(ttype)) return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
-    else if (py::isinstance<Quarter>(ttype)) return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
+    if (py::isinstance<Tick>(ttype)) return py::cast(convert<Tick>(self, min_dur_), py::return_value_policy::move);
+    else if (py::isinstance<Quarter>(ttype)) return py::cast(convert<Quarter>(self, min_dur_), py::return_value_policy::move);
     else if (py::isinstance<Second>(ttype)) throw std::invalid_argument("Second is not supported yet");
     else if (py::isinstance<py::str>(ttype)) {
         // convert ttype to lower case
-        auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
-        if (ttype_str == "tick") return py::cast(Score<Tick>(self, min_dur), py::return_value_policy::move);
-        else if (ttype_str == "quarter") return py::cast(Score<Quarter>(self, min_dur), py::return_value_policy::move);
+        const auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
+        if (ttype_str == "tick") return py::cast(convert<Tick>(self), py::return_value_policy::move);
+        else if (ttype_str == "quarter") return py::cast(convert<Quarter>(self), py::return_value_policy::move);
         else if (ttype_str == "second") throw std::invalid_argument("Second is not supported yet");
         else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
     } else throw std::invalid_argument("ttype must be Tick, Quarter or Second");
@@ -523,15 +537,13 @@ py::module & core_module(py::module & m){
 
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
-    score_tick.def(
-        py::init<const Score<Quarter> &, std::optional<i32>>(), "Convert Quarter to Tick", py::arg("other"), py::arg("min_dur")=std::nullopt)
+    score_tick
         .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur") = std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
             return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=std::nullopt, "Resample to another ticks per quarter");
-    score_quarter.def(
-        py::init<const Score<Tick> &, std::optional<i32>>(), "Convert Tick to Quarter", py::arg("other"), py::arg("min_dur")=std::nullopt)
+    score_quarter
         .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=std::nullopt, "Convert to another time unit")
         .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
