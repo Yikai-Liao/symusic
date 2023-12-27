@@ -1485,7 +1485,9 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
             ));
         }
         utils::sort_msgs(msgs);
-        midi.tracks.emplace_back(std::move(msgs));
+        if (!msgs.empty()) {
+            midi.tracks.emplace_back(std::move(msgs));
+        }
     }
 
     for(const auto &track: tracks) {

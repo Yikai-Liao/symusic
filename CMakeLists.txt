@@ -21,8 +21,8 @@ python_add_library(core MODULE src/symusic.cpp WITH_SOABI)
 target_link_libraries(core PRIVATE pybind11::headers)
 
 if(BUILD_TEST)
-    add_executable(note_count test/note_count.cpp)
-    add_executable(dump test/dump.cpp)
+    add_executable(note_count tests/note_count.cpp)
+    add_executable(dump tests/dump.cpp)
 endif()
 
 if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
