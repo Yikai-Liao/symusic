@@ -13,6 +13,8 @@ if(MSVC)
     add_compile_options(-bigobj)
 endif()
 
+add_compile_options(-fno-lto)
+
 add_subdirectory(3rdparty/libsymusic/3rdparty/fmt EXCLUDE_FROM_ALL)
 # add_subdirectory(3rdparty/libsymusic EXCLUDE_FROM_ALL)
 file(GLOB_RECURSE libsymusic_src 3rdparty/libsymusic/src/*.cpp 3rdparty/libsymusic/src/io/*.cpp)

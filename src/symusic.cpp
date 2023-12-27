@@ -63,24 +63,24 @@ py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, con
     }
 }
 
-template<typename T>
-py::bytes py_to_bytes(const T &self) {
-    auto data = self.template dumps<DataFormat::ZPP>();
-    return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
-}
-
-template <typename T>
-T py_from_bytes(const py::bytes &bytes) {
-    // cast bytes to string_view
-    const auto data = std::string_view(bytes);
-    // convert string_view to span<const char>
-    std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
-    // auto in = zpp::bits::in(span);
-    // T self;
-    // in(self).or_throw();
-    // return self;
-    return T::template parse<DataFormat::ZPP>(span);
-}
+// template<typename T>
+// py::bytes py_to_bytes(const T &self) {
+//     auto data = self.template dumps<DataFormat::ZPP>();
+//     return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
+// }
+//
+// template <typename T>
+// T py_from_bytes(const py::bytes &bytes) {
+//     // cast bytes to string_view
+//     const auto data = std::string_view(bytes);
+//     // convert string_view to span<const char>
+//     std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
+//     // auto in = zpp::bits::in(span);
+//     // T self;
+//     // in(self).or_throw();
+//     // return self;
+//     return T::template parse<DataFormat::ZPP>(span);
+// }
 
 
 template<typename T>
@@ -100,8 +100,8 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def("__deepcopy__", &T::copy, "Deep copy")
         .def("__repr__", &T::to_string)
         .def(py::self == py::self)  // NOLINT
-        .def(py::self != py::self)  // NOLINT
-        .def(py::pickle( &py_to_bytes<T>, &py_from_bytes<T>));
+        .def(py::self != py::self);  // NOLINT
+        // .def(py::pickle( &py_to_bytes<T>, &py_from_bytes<T>));
 
     py::bind_vector<vec<T>>(m, name + "List")
         .def_property_readonly("ttype", [](const T &) { return typename T::ttype(); })
@@ -450,7 +450,7 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def_readwrite("lyrics", &Score<T>::lyrics)
         .def_readwrite("markers", &Score<T>::markers)
         .def_property_readonly("ttype", []{ return T(); })
-        .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
+        // .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
         .def(py::self == py::self)  // NOLINT
         .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_score<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
@@ -544,11 +544,11 @@ py::module & core_module(py::module & m){
     bind_track_class<Tick>(m, tick);
     bind_track_class<Quarter>(m, quarter);
     bind_track_class<Second>(m, second);
-    
+
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
     score_tick
-        // .def("to", &convert_score<Tick>, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
+        .def("to", &convert_score<Tick>)//, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
         .def("resample", [](const Score<Tick> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
             return resample(self, tpq, min_dur_);
