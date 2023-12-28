@@ -608,6 +608,20 @@ inline void sort_msgs(message::Messages & msgs) {
 }
 
 template<typename T>
+void sort_notes(vec<T> & notes){
+    pdqsort_branchless(notes.begin(), notes.end(), [](const auto & a, const auto & b) {
+        return std::tie(a.time, a.pitch, a.duration) < std::tie(b.time, b.pitch, b.duration);
+    });
+}
+
+template<typename T>
+void sort_pedals(vec<T> & pedals){
+    pdqsort_branchless(pedals.begin(), pedals.end(), [](const auto & a, const auto & b) {
+        return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
+    });
+}
+
+template<typename T>
 vec<T> filter(const vec<T> &data, const std::function<bool(const T &)> & _filter) {
     if (data.empty()) return {};
     vec<T> new_data;
@@ -740,10 +754,10 @@ struct Track{
     [[nodiscard]] Track copy() const { return {*this}; }
 
     Track& sort_inplace() {
-        utils::sort_by_time(notes);
+        utils::sort_notes(notes);
         utils::sort_by_time(controls);
         utils::sort_by_time(pitch_bends);
-        utils::sort_by_time(pedals);
+        utils::sort_pedals(pedals);
         return *this;
     }
 
@@ -1390,6 +1404,8 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();
+            utils::sort_notes(track.notes);
+            utils::sort_pedals(track.pedals);
             tracks.push_back(std::move(track));
         }
     }
@@ -1569,8 +1585,6 @@ inline Score<Tick> resample(const Score<Tick> & s, const i32 tpq, const i32 min_
 #undef RESAMPLE_DUR
     return ans;
 }
-
-
 
 } // namespace score end
 #endif //SCORE_HPP
