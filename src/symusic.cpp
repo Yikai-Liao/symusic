@@ -23,16 +23,24 @@ using namespace score;
 
 REPEAT_ON(OPAQUE_VEC, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track)
 
-template<typename T>
-void sort_by_py_key(vec<T> &self, const py::function & key) {
-    pdqsort(self.begin(), self.end(), [&key](const T &a, const T &b) {
+template<template<class> class EVENT, typename T>
+void sort_by_py_key(vec<EVENT<T>> &self, const py::function & key) {
+    pdqsort(self.begin(), self.end(), [&key](const auto &a, const auto &b) {
         return key(a) < key(b);
     });
 }
 
-template<typename T>
-vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool reverse) {
-    if (key.is_none()) score::utils::sort_by_time(self);
+template<template<class> class EVENT, typename T>
+vec<EVENT<T>> & py_sort_inplace(vec<EVENT<T>> &self, const py::object & key, const bool reverse) {
+    if (key.is_none()) {
+        if constexpr (std::is_same_v<EVENT<T>, Note<T>>) {
+            score::utils::sort_notes(self);
+        } else if constexpr (std::is_same_v<EVENT<T>, Pedal<T>>) {
+            score::utils::sort_pedals(self);
+        } else {
+            score::utils::sort_by_time(self);
+        }
+    }
     else sort_by_py_key(self, key.cast<py::function>());
     if (reverse) std::reverse(self.begin(), self.end());
     return self;
