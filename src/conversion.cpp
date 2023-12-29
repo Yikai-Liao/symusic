@@ -16,8 +16,8 @@ struct Tick2Quarter {
     template<TType T>
     explicit Tick2Quarter(const Score<T> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
 
-    float operator()(const i32 tick) const {
-        return static_cast<float>(tick) / tpq;
+    float operator()(const Tick::unit tick) const {
+        return static_cast<Quarter::unit>(tick) / tpq;
     }
 };
 
@@ -27,9 +27,21 @@ struct Quarter2Tick {
     template<TType T>
     explicit Quarter2Tick(const Score<T> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
 
-    i32 operator()(const float quarter) const {
-        return static_cast<i32>(std::round(quarter * tpq));
+    Tick::unit operator()(const float quarter) const {
+        return static_cast<Tick::unit>(std::round(quarter * tpq));
     }
+};
+
+struct Quarter2Quarter {
+    template<TType T>
+    explicit Quarter2Quarter(const Score<T> &) {}
+    Quarter::unit operator()(const Quarter::unit quarter) const { return quarter; }
+};
+
+struct Tick2Tick {
+    template<TType T>
+    explicit Tick2Tick(const Score<T> &) {}
+    Tick::unit operator()(const Tick::unit tick) const { return tick; }
 };
 } // namespace details
 
@@ -61,14 +73,14 @@ struct Quarter2Tick {
 
 #define CONVERT_VEC_TIME(Name, In, Out, Convert)        \
     In.Name.reserve(Out.Name.size());                   \
-    for(const auto & d : In.Name) {                     \
+    for(const auto & d : Out.Name) {                    \
         In.Name.emplace_back(                           \
             Convert(d.time), d);                        \
     }
 
 #define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    \
     In.Name.reserve(Out.Name.size());                   \
-    for(const auto & d : In.Name) {                     \
+    for(const auto & d : Out.Name) {                    \
         In.Name.emplace_back(                           \
             Convert(d.time), Convert(d.duration), d     \
         );                                              \
@@ -78,32 +90,40 @@ struct Quarter2Tick {
 IMPLEMENT_CONVERT(Tick, Quarter)
 IMPLEMENT_CONVERT(Quarter, Tick)
 
-#undef COMVERT_ARGUMENTS
 #undef CONVERT_VEC_TIME_DUR
-
-#define COMVERT_ARGUMENTS(To, From)                     \
-    const Score<From> & score, typename To::unit min_dur
-
-#define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    \
-    In.Name.reserve(Out.Name.size());                   \
-    for(const auto & d : In.Name) {                     \
-        In.Name.emplace_back(                           \
-            Convert(d.time),                            \
-            std::max(Convert(d.duration), min_dur), d   \
-        );                                              \
-    }
-
-//                To    From
-IMPLEMENT_CONVERT(Tick, Quarter)
-IMPLEMENT_CONVERT(Quarter, Tick)
-
-#undef IMPLEMENT_CONVERT
-#undef HELPER_NAME
+#undef COMVERT_ARGUMENTS
 
 // Directly copy for the same type
 template<> Score<Tick> convert<Tick, Tick> (const Score<Tick> & score) { return score; }
 template<> Score<Quarter> convert<Quarter, Quarter> (const Score<Quarter> & score) { return score; }
 template<> Score<Second> convert<Second, Second> (const Score<Second> & score) { return score; }
+
+// #undef CONVERT_VEC_TIME_DUR
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
+#define COMVERT_ARGUMENTS(To, From)                     \
+    const Score<From> & score, const typename To::unit min_dur
+
+#define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    \
+    In.Name.reserve(Out.Name.size());                   \
+    for(const auto & d : Out.Name) {                     \
+        In.Name.emplace_back(                           \
+            Convert(d.time),                            \
+            MAX(Convert(d.duration), min_dur), d        \
+        );                                              \
+    }
+
+//               To    From
+IMPLEMENT_CONVERT(Tick, Tick)
+IMPLEMENT_CONVERT(Tick, Quarter)
+IMPLEMENT_CONVERT(Quarter, Tick)
+IMPLEMENT_CONVERT(Quarter, Quarter)
+
+#undef IMPLEMENT_CONVERT
+#undef HELPER_NAME
+#undef CONVERT_VEC_TIME
+#undef CONVERT_VEC_TIME_DUR
+#undef COMVERT_ARGUMENTS
 
 // Implementation of to_note_arr
 template<TType T>
@@ -156,7 +176,7 @@ static_cast<i32>(std::round(static_cast<double>(tpq * VALUE) / static_cast<doubl
     for(const auto &item: score.VEC)                        \
         ans.VEC.emplace_back(                               \
             CONVERT_TIME(item.time),                        \
-            std::max(                                       \
+            MAX(                                            \
                 CONVERT_TIME(item.duration), min_dur        \
             ), item                                         \
         );
