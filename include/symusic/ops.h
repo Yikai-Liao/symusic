@@ -24,6 +24,33 @@ void sort_by_time(vec<T> & data, const bool reverse = false) {
     pdqsort_branchless(data.begin(), data.end(), cmp);
 }
 
+template<TType T>
+void sort_notes(vec<Note<T>> & notes, const bool reverse = false) {
+    std::function<bool(const Note<T>&, const Note<T> &)> cmp;
+    #define KEY(NOTE) std::tie(NOTE.time, NOTE.duration, NOTE.pitch, NOTE.velocity)
+    if (reverse) {
+        cmp = [get_key](const Note<T> & a, const Note<T> & b) {return KEY(a) > KEY(b);};
+    } else {
+        cmp = [get_key](const Note<T> & a, const Note<T> & b) {return KEY(a) < KEY(b);};
+    }
+    #undef KEY
+    pdqsort_branchless(notes.begin(), notes.end(), cmp);
+}
+
+template<TType T>
+void sort_pedals(vec<Pedal<T>> & pedals, const bool reverse = false) {
+    std::function<bool(const Pedal<T>&, const Pedal<T> &)> cmp;
+    #define KEY(PEDAL) std::tie(PEDAL.time, PEDAL.duration)
+    if (reverse) {
+        cmp = [get_key](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) > KEY(b);};
+    } else {
+        cmp = [get_key](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) < KEY(b);};
+    }
+    #undef KEY
+    pdqsort_branchless(pedals.begin(), pedals.end(), cmp);
+}
+
+
 template<class Iter, class Compare>
 void sort(Iter begin, Iter end, Compare cmp) {
     pdqsort_branchless(begin, end, cmp);
