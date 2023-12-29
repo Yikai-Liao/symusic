@@ -7,6 +7,20 @@
 
 namespace symusic {
 
+// extern to_string for simple events
+#define EVENT_TO_STRING(__COUNT, NAME)                      \
+    extern template std::string NAME<Tick>::to_string() const;     \
+    extern template std::string NAME<Quarter>::to_string() const;  \
+    extern template std::string NAME<Second>::to_string() const;
+
+REPEAT_ON(
+    EVENT_TO_STRING,
+    Note, Pedal, ControlChange, TimeSignature,
+    KeySignature, Tempo, PitchBend, TextMeta
+)
+
+#undef EVENT_TO_STRING
+
 inline i8 safe_add(const i8 a, const i8 b) {
     const int ans = a + b;
     if (ans > 127 || ans < 0)

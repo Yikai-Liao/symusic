@@ -27,7 +27,14 @@ REPEAT_ON(
     EVENT_TO_STRING,
     Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
 )
-#undef EVENT_TO_STRING
+// template <TType T>
+// std::string Note<T>::to_string() const { return fmt::format("{:d}", *this); }
+//
+// template std::string Note<Tick>::to_string() const;
+// template std::string Note<Quarter>::to_string() const;
+// template std::string Note<Second>::to_string() const;
+
+// #undef EVENT_TO_STRING
 
 // Implement summary for Track, NoteArr and Score
 template<TType T>
