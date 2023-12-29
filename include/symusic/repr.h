@@ -104,7 +104,7 @@ struct formatter<symusic::details::BaseParser> {
 
 // T is numeric type
 template<typename T> requires std::is_arithmetic_v<T>
-constexpr std::string fix_float(const T value) {
+std::string fix_float(const T value) {
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
         return fmt::format("{:.2f}", value);
     }   return fmt::format("{}", value);
