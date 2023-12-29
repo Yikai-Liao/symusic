@@ -14,6 +14,14 @@
 
 namespace symusic {
 
+// extern to_string and summary
+#define EXTERN_REPR(__COUNT, T) \
+    extern template std::string NoteArr<T>::to_string() const; \
+    extern template std::string NoteArr<T>::summary() const;
+
+REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
+#undef EXTERN_REPR
+
 template<TType T>
 typename T::unit NoteArr<T>::start() const {
     if (time.empty()) {
