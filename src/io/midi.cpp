@@ -169,10 +169,10 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                         cur_instr[channel], message_num,true);
                     if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
                         auto const &note_on = note_on_queue.front();
-                        Tick::unit duration = tick2unit(cur_tick - note_on.time);
+                        typename T::unit duration = tick2unit(cur_tick - note_on.time);
                         track.notes.emplace_back(
                             tick2unit(note_on.time), duration,
-                            pitch, note_on.velocity
+                            static_cast<i8>(pitch), note_on.velocity
                         );
                         note_on_queue.pop();
                     }
