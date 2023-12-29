@@ -216,10 +216,10 @@ struct TextMeta: TimeStamp<T> {
 
 // "Not Implemented" Error at compile time for parse and dumps
 // include the header files corresponding to the specializations to avoid these errors
-REPEAT_ON(
-    ERROR_PARSE_DUMPS,
-    Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
-)
+// REPEAT_ON(
+//     ERROR_PARSE_DUMPS,
+//     Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
+// )
 
 #undef ERROR_PARSE_DUMPS
 

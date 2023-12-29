@@ -15,7 +15,7 @@ include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
 
-file(GLOB_RECURSE symusic_src src/*.cpp src/format/*.cpp)
+file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
 
 foreach(src_file ${symusic_src})
     message(STATUS "symusic_src: ${src_file}")

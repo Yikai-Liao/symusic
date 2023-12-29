@@ -92,15 +92,15 @@ struct NoteArr {
     void push_back(const Note<T> & note);
 };
 
-template<TType T> template<DataFormat>
-NoteArr<T> NoteArr<T>::parse(std::span<const u8>) {
-    static_assert(true, "Not implemented"); return {};
-}
-
-template<TType T> template<DataFormat>
-vec<u8> NoteArr<T>::dumps() const {
-    static_assert(true, "Not implemented"); return {};
-}
+// template<TType T> template<DataFormat>
+// NoteArr<T> NoteArr<T>::parse(std::span<const u8>) {
+//     static_assert(true, "Not implemented"); return {};
+// }
+//
+// template<TType T> template<DataFormat>
+// vec<u8> NoteArr<T>::dumps() const {
+//     static_assert(true, "Not implemented"); return {};
+// }
 
 }
 

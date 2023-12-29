@@ -102,15 +102,15 @@ struct Score {
 
 // "Not Implemented" Error at compile time for parse and dumps
 
-template<TType T> template<DataFormat>
-Score<T> Score<T>::parse(std::span<const u8>) {
-    static_assert(true, "Not implemented"); return {};
-}
-
-template<TType T> template<DataFormat>
-vec<u8> Score<T>::dumps() const {
-    static_assert(true, "Not implemented"); return {};
-}
+// template<TType T> template<DataFormat>
+// Score<T> Score<T>::parse(std::span<const u8>) {
+//     static_assert(true, "Not implemented"); return {};
+// }
+//
+// template<TType T> template<DataFormat>
+// vec<u8> Score<T>::dumps() const {
+//     static_assert(true, "Not implemented"); return {};
+// }
 
 } // namespace symusic
 
