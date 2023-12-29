@@ -99,16 +99,16 @@ struct Track {
 };
 
 // "Not Implemented" Error at compile time for parse and dumps
-
-template<TType T> template<DataFormat>
-Track<T> Track<T>::parse(std::span<const u8>) {
-    static_assert(true, "Not implemented"); return {};
-}
-
-template<TType T> template<DataFormat>
-vec<u8> Track<T>::dumps() const {
-    static_assert(true, "Not implemented"); return {};
-}
+//
+// template<TType T> template<DataFormat>
+// Track<T> Track<T>::parse(std::span<const u8>) {
+//     static_assert(true, "Not implemented"); return {};
+// }
+//
+// template<TType T> template<DataFormat>
+// vec<u8> Track<T>::dumps() const {
+//     static_assert(true, "Not implemented"); return {};
+// }
 
 }
 

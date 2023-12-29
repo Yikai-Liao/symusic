@@ -73,12 +73,7 @@ template <typename T>
 T py_from_bytes(const py::bytes &bytes) {
     // cast bytes to string_view
     const auto data = std::string_view(bytes);
-    // convert string_view to span<const char>
     std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
-    // auto in = zpp::bits::in(span);
-    // T self;
-    // in(self).or_throw();
-    // return self;
     return T::template parse<DataFormat::ZPP>(span);
 }
 

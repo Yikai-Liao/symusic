@@ -4,7 +4,6 @@
 #include <stdexcept>
 
 #include "symusic/event.h"
-
 namespace symusic {
 
 // extern to_string for simple events
