@@ -281,6 +281,8 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();
+            ops::sort_notes(track.notes);
+            ops::sort_pedals(track.pedals);
             score.tracks.emplace_back(std::move(track));
         }
     }
@@ -341,7 +343,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
             ));
         }
         // messages will be sorted by time in minimidi
-        midi.tracks.emplace_back(std::move(msgs));
+        if(!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
     }
 
     for(const auto &track: score.tracks) {
@@ -381,7 +383,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
             ));
         }
         // messages will be sorted by time in minimidi
-        midi.tracks.emplace_back(std::move(msgs));
+        if(!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
     }
     return midi;
 }
