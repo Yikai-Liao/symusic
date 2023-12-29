@@ -65,3 +65,11 @@ if (ENABLE_LTO)
         message(WARNING "Link-time optimization (LTO) is not supported: \n${lto_check_output}")
     endif()
 endif()
+
+# enable parallel compilation for MSVC
+if(MSVC)
+    message(STATUS "MSVC parallel compilation enabled")
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Gm->)
+    cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
+    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
+endif()
