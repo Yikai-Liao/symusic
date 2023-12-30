@@ -1,6 +1,7 @@
 //
 // Created by lyk on 23-12-13.
 //
+#pragma once
 
 #ifndef LIBSYMUSIC_SYMUSIC_H
 #define LIBSYMUSIC_SYMUSIC_H

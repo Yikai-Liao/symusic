@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef LIBSYMUSIC_EVENT_H
 #define LIBSYMUSIC_EVENT_H
 

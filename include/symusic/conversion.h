@@ -1,6 +1,7 @@
 //
 // Created by lyk on 23-12-17.
 //
+#pragma once
 
 #ifndef LIBSYMUSIC_CONVERSION_H
 #define LIBSYMUSIC_CONVERSION_H

@@ -1,6 +1,7 @@
 //
 // Created by lyk on 23-12-13.
 //
+#pragma once
 
 #ifndef LIBSYMUSIC_BATCH_OPS_H
 #define LIBSYMUSIC_BATCH_OPS_H
