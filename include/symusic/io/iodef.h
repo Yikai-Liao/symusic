@@ -5,6 +5,7 @@
 #ifndef LIBSYMUSIC_IO_IODEF_H
 #define LIBSYMUSIC_IO_IODEF_H
 
+#include "symusic/mtype.h"
 namespace symusic {
 
 // define a enum for data formats
@@ -16,6 +17,12 @@ enum class DataFormat {
     ALPACA,     // alpaca,   c++17, customised binary format, https://github.com/p-ranav/alpaca
     CEREAL,     // cereal,   c++11, customised binary format, https://github.com/USCiLab/cereal
 };
+
+template<DataFormat F, typename T>
+[[nodiscard]] T parse(std::span<const u8> bytes);
+
+template<DataFormat F, typename T>
+[[nodiscard]] vec<u8> dumps(const T &data);
 
 }
 

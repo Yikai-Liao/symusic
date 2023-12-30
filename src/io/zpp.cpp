@@ -79,12 +79,6 @@ namespace symusic {
 namespace details {
 
 template<class T>
-vec<u8> serailize_zpp(const T & data);
-
-template<class T>
-T deserailize_zpp(std::span<const u8> buffer);
-
-template<class T>
 vec<u8> serailize_zpp(const T & data) {
     vec<u8> buffer;
     auto out = zpp::bits::out(buffer);
@@ -93,7 +87,7 @@ vec<u8> serailize_zpp(const T & data) {
 }
 
 template<class T>
-T deserailize_zpp(std::span<const u8> buffer) {
+T deserailize_zpp(std::span<const u8> buffer){
     auto in = zpp::bits::in(buffer);
     T data{};
     in(data).or_throw();
@@ -110,6 +104,22 @@ T deserailize_zpp(std::span<const u8> buffer) {
     template<> template<>                                                   \
     NAME<T> NAME<T>::parse<DataFormat::ZPP>(std::span<const u8> bytes) {    \
         return details::deserailize_zpp<NAME<T>>(bytes);                    \
+    }                                                                       \
+    template<>                                                              \
+    vec<u8> dumps<DataFormat::ZPP>(const NAME<T> & data) {                  \
+        return details::serailize_zpp(data);                                \
+    }                                                                       \
+    template<>                                                              \
+    NAME<T> parse<DataFormat::ZPP>(std::span<const u8> bytes) {             \
+        return details::deserailize_zpp<NAME<T>>(bytes);                    \
+    }                                                                       \
+    template<>                                                              \
+    vec<u8> dumps<DataFormat::ZPP>(const vec<NAME<T>> & data) {             \
+        return details::serailize_zpp(data);                                \
+    }                                                                       \
+    template<>                                                              \
+    vec<NAME<T>> parse<DataFormat::ZPP>(std::span<const u8> bytes) {        \
+        return details::deserailize_zpp<vec<NAME<T>>>(bytes);               \
     }
 
 #define INSTANTIATE_ZPP(__COUNT, NAME)   \
@@ -131,5 +141,4 @@ REPEAT_ON(
     Track,
     Score
 )
-
 } // namespace symusic
