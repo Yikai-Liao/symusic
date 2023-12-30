@@ -1,21 +1,18 @@
-#include "Score.hpp"
+#include "symusic.h"
 #include "cassert"
-using namespace score;
+using namespace symusic;
 
 int main(int argc, char *argv[]) {
     if(argc == 2) {
         std::string filename = std::string(argv[1]);
         std::cout << "Filename: " << filename << std::endl;
         try {
-            auto s = Score<Tick>::from_file(filename);
+            auto s = Score<Tick>::parse<DataFormat::MIDI>(read_file(filename));
             std::cout << "Score notes: " << s.note_num() << std::endl;
-            auto [data, in, out] = zpp::bits::data_in_out();
             const std::string c = "Tick";
-            out(c, s);
+            auto data = s.dumps<DataFormat::ZPP>();
             std::cout << "Size of Score Bin [zpp_bits]: " << static_cast<double>(data.size()) / 1024 << " KB" <<std::endl;
-            std::string a;
-            Score<Tick> s2;
-            in(a, s2).or_throw();
+            auto s2 = Score<Tick>::parse<DataFormat::ZPP>(data);
             std::cout << "Score [zpp_bits] notes: " << s2.note_num() << std::endl;
             // show data in hex
             std::cout << "Data in hex: " << std::endl;
