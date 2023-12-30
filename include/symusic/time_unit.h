@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef LIBSYMUSIC_TIME_UNIT_H
 #define LIBSYMUSIC_TIME_UNIT_H
 
