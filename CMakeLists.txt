@@ -42,6 +42,8 @@ if(BUILD_PY)
     if(BUILD_TEST)
         add_executable(note_count tests/note_count.cpp)
         add_executable(dump tests/dump.cpp)
+        target_link_libraries(note_count PRIVATE symusic)
+        target_link_libraries(dump PRIVATE symusic)
     endif()
 
     if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
