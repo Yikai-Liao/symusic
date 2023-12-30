@@ -11,3 +11,4 @@
 **/*.pyo
 **/*.so
 **/.vscode
+docs/book

@@ -16,7 +16,7 @@
 #include "symusic/conversion.h"
 
 #include "symusic/io/common.h"
-#include "symusic/io/midi.h"
-#include "symusic/io/zpp.h"
+// #include "symusic/io/midi.h"
+// #include "symusic/io/zpp.h"
 
 #endif //LIBSYMUSIC_SYMUSIC_H
