@@ -65,7 +65,7 @@ py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, con
 
 template<typename T>
 py::bytes py_to_bytes(const T &self) {
-    auto data = self.template dumps<DataFormat::ZPP>();
+    auto data = dumps<DataFormat::ZPP>(self);
     return {std::string_view(reinterpret_cast<const char *>(data.data()), data.size())};
 }
 
@@ -73,8 +73,8 @@ template <typename T>
 T py_from_bytes(const py::bytes &bytes) {
     // cast bytes to string_view
     const auto data = std::string_view(bytes);
-    std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
-    return T::template parse<DataFormat::ZPP>(span);
+    const std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
+    return parse<DataFormat::ZPP, T>(span);
 }
 
 
@@ -103,8 +103,8 @@ py::class_<T> time_stamp_base(py::module &m, const std::string &name) {
         .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<T> &self) {
             return fmt::format("{::s}", self);
-        });
-        // .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
+        })
+        .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
 
     py::implicitly_convertible<py::list, vec<T>>();
     return event;
@@ -293,7 +293,7 @@ py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) 
         .def_readwrite("program", &Track<T>::program)
         .def_readwrite("name", &Track<T>::name)
         .def_property_readonly("ttype", []{ return T(); })
-        // .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
+        .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
         .def(py::self == py::self)  // NOLINT
         .def(py::self != py::self)  // NOLINT
         .def("sort", &py_sort_track<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=false)
@@ -341,7 +341,7 @@ py::class_<Track<T>> bind_track_class(py::module &m, const std::string & name_) 
             }
             return fmt::format("[{}]", fmt::join(strs, ", "));
         })
-        // .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
+        .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
         .def_property_readonly("ttype", []{ return T(); });
 
     py::implicitly_convertible<py::list, vec<Track<T>>>();
