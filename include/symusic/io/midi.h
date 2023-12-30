@@ -3,6 +3,7 @@
 // This file should be included by users if they need to use the MIDI format
 // And it can't be included in midi.cpp becuase of extern template
 //
+#pragma once
 
 #ifndef LIBSYMUSIC_IO_MIDI_H
 #define LIBSYMUSIC_IO_MIDI_H

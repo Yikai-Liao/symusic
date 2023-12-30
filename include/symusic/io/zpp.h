@@ -1,6 +1,7 @@
 //
 // Created by lyk on 2023/12/24.
 //
+#pragma once
 
 #ifndef LIBSYMUSIC_IO_ZPP_H
 #define LIBSYMUSIC_IO_ZPP_H
