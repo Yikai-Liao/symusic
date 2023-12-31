@@ -15,6 +15,7 @@ include_directories(include)
 include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
+include_directories(3rdparty/fast_io/include)
 
 file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
 

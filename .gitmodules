@@ -10,3 +10,6 @@
 [submodule "3rdparty/fmt"]
 	path = 3rdparty/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "3rdparty/fast_io"]
+	path = 3rdparty/fast_io
+	url = https://github.com/cppfastio/fast_io.git
