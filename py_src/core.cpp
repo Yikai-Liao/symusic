@@ -7,6 +7,7 @@
 #include <pybind11/pytypes.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/stl/filesystem.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
@@ -426,16 +427,16 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def(py::init<const i32>(), py::arg("tpq"))
         .def(py::init([](const Score<T> &other) { return other.copy(); }), "Copy constructor", py::arg("other"))
         // .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
-        .def(py::init(&midi2score<T, std::string>), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::u8string>), "Load from midi file", py::arg("path"))
         .def(py::init(&midi2score<T, std::filesystem::path>), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
         .def_property_readonly_static("from_file", [](const py::object &) {
-            return py::cpp_function([](const std::string &path) { return midi2score<T>(path); });
+            return py::cpp_function([](const std::u8string &path) { return midi2score<T>(path); });
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
-        .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
+        .def("dump_midi", &dump_midi<T, std::u8string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)
