@@ -103,12 +103,11 @@ Track<T> &get_track(
 
 template<TType T>   // only works for Tick and Quarter
 requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
-[[nodiscard]] Score<T> parse_midi(std::span<const u8> bytes) {
+[[nodiscard]] Score<T> parse_midi(const std::span<const u8> bytes) {
     typedef typename T::unit unit;
     
     // remove this redundant copy in the future
-    const vec<u8> bytes_vec(bytes.begin(), bytes.end());
-    const minimidi::file::MidiFile midi(bytes_vec);
+    const minimidi::file::MidiFile midi(bytes);
 
     const size_t track_num = midi.track_num();
     const u16 tpq = midi.get_tick_per_quarter();
