@@ -22,6 +22,14 @@ vec<u8> read_file(const std::filesystem::path& path) {
     return read_file(path.u8string());
 }
 
+fast_io::native_file_loader load_file(const std::u8string& path) {
+    return fast_io::native_file_loader(fast_io::mnp::os_c_str(path));
+}
+
+fast_io::native_file_loader load_file(const std::filesystem::path& path) {
+    return load_file(path.u8string());
+}
+
 void write_file(const std::u8string& path, const std::span<const u8> buffer) {
     fast_io::obuf_file obf(fast_io::mnp::os_c_str(path));
     fast_io::write(obf, buffer.begin(), buffer.end());

@@ -361,7 +361,7 @@ Score<T>& py_sort_score_inplace(Score<T> &self, py::object key, bool reverse) {
     for(auto &track: self.tracks)
         py_sort_track_inplace(track, key, reverse);
     return self;
-};
+}
 
 template<typename T>
 py::object py_sort_score(Score<T> &self, py::object key, bool reverse, bool inplace = false) {
@@ -373,7 +373,7 @@ py::object py_sort_score(Score<T> &self, py::object key, bool reverse, bool inpl
         py_sort_score_inplace(copy, key, reverse);
         return py::cast(copy, py::return_value_policy::move);
     }
-};
+}
 
 // py shift time score
 template<typename T>
@@ -383,7 +383,7 @@ py::object py_shift_time_score(Score<T> &self, const typename T::unit offset, co
     } else {
         return py::cast(self.shift_time(offset), py::return_value_policy::move);
     }
-};
+}
 
 // py shift pitch score
 template<typename T>
@@ -393,7 +393,7 @@ py::object py_shift_pitch_score(Score<T> &self, const int8_t offset, const bool 
     } else {
         return py::cast(self.shift_pitch(offset), py::return_value_policy::move);
     }
-};
+}
 
 // py shift velocity score
 template<typename T>
@@ -403,12 +403,14 @@ py::object py_shift_velocity_score(Score<T> &self, const int8_t offset, const bo
     } else {
         return py::cast(self.shift_velocity(offset), py::return_value_policy::move);
     }
-};
+}
 
 template<TType T, typename PATH>
 Score<T> midi2score(PATH path) {
-    const auto data = read_file(path);
-    return Score<T>::template parse<DataFormat::MIDI>(data);
+    const fast_io::native_file_loader loader = load_file(path);
+    std::span data {reinterpret_cast<u8*>(loader.data()), loader.size()};
+    Score<T> s = Score<T>::template parse<DataFormat::MIDI>(data);
+    return s;
 }
 
 template<TType T, typename PATH>
