@@ -6,8 +6,6 @@
 #ifndef LIBSYMUSIC_BATCH_OPS_H
 #define LIBSYMUSIC_BATCH_OPS_H
 
-#include <functional>
-
 #include "symusic/event.h"
 #include "pdqsort.h"
 // #include "algorithm"
@@ -16,13 +14,11 @@ namespace symusic::ops {
 
 template<typename T>
 void sort_by_time(vec<T> & data, const bool reverse = false) {
-    std::function<bool(const T&, const T &)> cmp;
     if (reverse) {
-        cmp = [](const T & a, const T & b) {return (a.time) > (b.time);};
+        pdqsort_branchless(data.begin(), data.end(), [](const T & a, const T & b) {return (a.time) > (b.time);});
     } else {
-        cmp = [](const T & a, const T & b) {return (a.time) < (b.time);};
+        pdqsort_branchless(data.begin(), data.end(), [](const T & a, const T & b) {return (a.time) < (b.time);});
     }
-    pdqsort_branchless(data.begin(), data.end(), cmp);
 }
 
 template<TType T>
@@ -30,12 +26,11 @@ void sort_notes(vec<Note<T>> & notes, const bool reverse = false) {
     std::function<bool(const Note<T>&, const Note<T> &)> cmp;
     #define KEY(NOTE) std::tie(NOTE.time, NOTE.duration, NOTE.pitch, NOTE.velocity)
     if (reverse) {
-        cmp = [](const Note<T> & a, const Note<T> & b) {return KEY(a) > KEY(b);};
+        pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> & a, const Note<T> & b) {return KEY(a) > KEY(b);});
     } else {
-        cmp = [](const Note<T> & a, const Note<T> & b) {return KEY(a) < KEY(b);};
+        pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> & a, const Note<T> & b) {return KEY(a) < KEY(b);});
     }
     #undef KEY
-    pdqsort_branchless(notes.begin(), notes.end(), cmp);
 }
 
 template<TType T>
@@ -43,12 +38,11 @@ void sort_pedals(vec<Pedal<T>> & pedals, const bool reverse = false) {
     std::function<bool(const Pedal<T>&, const Pedal<T> &)> cmp;
     #define KEY(PEDAL) std::tie(PEDAL.time, PEDAL.duration)
     if (reverse) {
-        cmp = [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) > KEY(b);};
+        pdqsort_branchless(pedals.begin(), pedals.end(), [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) > KEY(b);});
     } else {
-        cmp = [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) < KEY(b);};
+        pdqsort_branchless(pedals.begin(), pedals.end(), [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) < KEY(b);});
     }
     #undef KEY
-    pdqsort_branchless(pedals.begin(), pedals.end(), cmp);
 }
 
 
