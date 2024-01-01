@@ -23,7 +23,6 @@ void sort_by_time(vec<T> & data, const bool reverse = false) {
 
 template<TType T>
 void sort_notes(vec<Note<T>> & notes, const bool reverse = false) {
-    std::function<bool(const Note<T>&, const Note<T> &)> cmp;
     #define KEY(NOTE) std::tie(NOTE.time, NOTE.duration, NOTE.pitch, NOTE.velocity)
     if (reverse) {
         pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> & a, const Note<T> & b) {return KEY(a) > KEY(b);});
@@ -35,7 +34,6 @@ void sort_notes(vec<Note<T>> & notes, const bool reverse = false) {
 
 template<TType T>
 void sort_pedals(vec<Pedal<T>> & pedals, const bool reverse = false) {
-    std::function<bool(const Pedal<T>&, const Pedal<T> &)> cmp;
     #define KEY(PEDAL) std::tie(PEDAL.time, PEDAL.duration)
     if (reverse) {
         pdqsort_branchless(pedals.begin(), pedals.end(), [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) > KEY(b);});
