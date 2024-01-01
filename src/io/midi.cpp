@@ -107,7 +107,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
     typedef typename T::unit unit;
     
     // remove this redundant copy in the future
-    const minimidi::file::MidiFile midi(bytes);
+    const minimidi::file::MidiFile midi(bytes.data(), bytes.size());
 
     const size_t track_num = midi.track_num();
     const u16 tpq = midi.get_tick_per_quarter();
