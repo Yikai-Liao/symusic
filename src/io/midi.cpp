@@ -101,30 +101,13 @@ Track<T> &get_track(
 }
 
 
-template<TType T>   // only works for Tick and Quarter
+template<TType T, typename Conv>   // only works for Tick and Quarter
 requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
-[[nodiscard]] Score<T> parse_midi(const std::span<const u8> bytes) {
+[[nodiscard]] Score<T> parse_midi(const minimidi::file::MidiFile &midi, Conv tick2unit){
     typedef typename T::unit unit;
-    
     // remove this redundant copy in the future
-    const minimidi::file::MidiFile midi(bytes.data(), bytes.size());
-
     const size_t track_num = midi.track_num();
     const u16 tpq = midi.get_tick_per_quarter();
-
-    // define a lambda to convert ticks to unit
-    std::function<unit(Tick::unit)> tick2unit;
-    if constexpr (std::is_same_v<T, Tick>) {
-        tick2unit = [](const Tick::unit tick) { return tick; };
-    } else if constexpr (std::is_same_v<T, Quarter>) {
-        // Quarter::unit could be double or float
-        tick2unit = [tpq](const Tick::unit tick) {
-            return static_cast<Quarter::unit>(tick) / static_cast<Quarter::unit>(tpq);
-        };
-    } else {
-        static_assert(true, "T must be Tick or Quarter");
-    }
-
     Score<T> score(tpq); // create a score with the given ticks per quarter
     namespace message = minimidi::message; // alias
     for(const auto &midi_track: midi.tracks) {
@@ -387,7 +370,18 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
     return midi;
 }
 
-
+template<TType T>
+Score<T> parse_midi(const std::span<const u8> bytes) {
+    const minimidi::file::MidiFile midi {bytes.data(), bytes.size()};
+    if constexpr (std::is_same_v<T, Tick>) {
+        return parse_midi<Tick>(midi, [](const Tick::unit x) { return x; });
+    } else if constexpr (std::is_same_v<T, Quarter>) {
+        const auto tpq = static_cast<float>(midi.get_tick_per_quarter());
+        return parse_midi<Quarter>(midi, [tpq](const Tick::unit x) { return static_cast<float>(x) / tpq; });
+    } else {
+        static_assert(std::is_same_v<T, Second>, "Second is not supported yet");
+    } return {};
+}
 }
 
 template<> template<>

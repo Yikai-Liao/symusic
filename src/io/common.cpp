@@ -3,6 +3,9 @@
 //
 
 #include <stdexcept>
+
+#include "fmt/core.h"
+
 #include "symusic/io/common.h"
 
 #ifdef _MSC_VER
@@ -33,7 +36,7 @@ vec<u8> read_file(const std::string& path) {
     FILE* fp = _wfopen(ToUtf16(reinterpret_cast<const char*>(path.data())).c_str(), L"rb");
 #endif
     if(fp == nullptr) {
-        throw std::runtime_error("File not found");
+        throw std::runtime_error(fmt::format("File not found: {}", path));
     }
     fseek(fp, 0, SEEK_END);
     size_t size = ftell(fp);
