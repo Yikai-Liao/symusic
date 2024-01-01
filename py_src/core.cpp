@@ -407,8 +407,7 @@ py::object py_shift_velocity_score(Score<T> &self, const int8_t offset, const bo
 
 template<TType T, typename PATH>
 Score<T> midi2score(PATH path) {
-    const fast_io::native_file_loader loader = load_file(path);
-    std::span data {reinterpret_cast<u8*>(loader.data()), loader.size()};
+    auto data = read_file(path);
     Score<T> s = Score<T>::template parse<DataFormat::MIDI>(data);
     return s;
 }
@@ -429,16 +428,16 @@ py::class_<Score<T>> bind_score_class(py::module &m, const std::string & name_) 
         .def(py::init<const i32>(), py::arg("tpq"))
         .def(py::init([](const Score<T> &other) { return other.copy(); }), "Copy constructor", py::arg("other"))
         // .def(py::init(&Score<T>::from_file), "Load from midi file", py::arg("path"))
-        .def(py::init(&midi2score<T, std::u8string>), "Load from midi file", py::arg("path"))
+        .def(py::init(&midi2score<T, std::string>), "Load from midi file", py::arg("path"))
         .def(py::init(&midi2score<T, std::filesystem::path>), "Load from midi file", py::arg("path"))
         .def("copy", &Score<T>::copy, "Deep copy", py::return_value_policy::move)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
         .def_property_readonly_static("from_file", [](const py::object &) {
-            return py::cpp_function([](const std::u8string &path) { return midi2score<T>(path); });
+            return py::cpp_function([](const std::string &path) { return midi2score<T>(path); });
         })  // binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
-        .def("dump_midi", &dump_midi<T, std::u8string>, "Dump to midi file", py::arg("path"))
+        .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
         .def_readwrite("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_readwrite("tracks", &Score<T>::tracks)

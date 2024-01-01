@@ -10,22 +10,17 @@
 #include <filesystem>
 #include <span>
 
-#include "fast_io_device.h"
 #include "symusic/mtype.h"
 
 namespace symusic {
 
 vec<u8> read_file(const std::filesystem::path & path);
 
-vec<u8> read_file(const std::u8string & path);
-
-fast_io::native_file_loader load_file(const std::filesystem::path & path);
-
-fast_io::native_file_loader load_file(const std::u8string & path);
+vec<u8> read_file(const std::string & path);
 
 void write_file(const std::filesystem::path & path, std::span<const u8> buffer);
 
-void write_file(const std::u8string & path, std::span<const u8> buffer);
+void write_file(const std::string & path, std::span<const u8> buffer);
 
 }
 

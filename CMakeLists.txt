@@ -9,23 +9,25 @@ option(BUILD_PY "Build the python binding of symusic" OFF)
 option(BUILD_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 
+# set /utf-8 for MSVC
+if(MSVC)
+    add_compile_options(-bigobj)
+    add_compile_options(/utf-8)
+endif()
+
+
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/minimidi/include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
-include_directories(3rdparty/fast_io/include)
 
 file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
 
 foreach(src_file ${symusic_src})
     message(STATUS "symusic_src: ${src_file}")
 endforeach()
-
-if(MSVC)
-    add_compile_options(-bigobj)
-endif()
 
 add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
@@ -40,19 +42,20 @@ if(BUILD_PY)
     target_link_libraries(core PRIVATE pybind11::headers)
     target_link_libraries(core PRIVATE symusic)
 
-    if(BUILD_TEST)
-        add_executable(note_count tests/note_count.cpp)
-        add_executable(dump tests/dump.cpp)
-        target_link_libraries(note_count PRIVATE symusic)
-        target_link_libraries(dump PRIVATE symusic)
-    endif()
-
     if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
         # Strip unnecessary sections of the binary on Linux/macOS
         pybind11_strip(core)
     endif()
 
     install(TARGETS core LIBRARY DESTINATION symusic)
+endif()
+
+if(BUILD_TEST)
+    add_executable(note_count tests/note_count.cpp)
+    add_executable(dump tests/dump.cpp)
+    add_executable(io_bench tests/io_bench.cpp)
+    target_link_libraries(note_count PRIVATE symusic)
+    target_link_libraries(dump PRIVATE symusic)
 endif()
 
 if (ENABLE_LTO)

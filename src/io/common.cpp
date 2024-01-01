@@ -3,40 +3,65 @@
 //
 
 #include <stdexcept>
-#include "fast_io_device.h"
 #include "symusic/io/common.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4996)
 #endif
 
+#ifdef _WIN32
+#include <Windows.h>
+std::wstring ToUtf16(const std::string & str)
+{
+    std::wstring ret;
+    const int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+    if (len > 0)
+    {
+        ret.resize(len);
+        MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &ret[0], len);
+    }
+    return ret;
+}
+#endif
+
 namespace symusic {
 
-vec<u8> read_file(const std::u8string& path) {
-    fast_io::native_file_loader loader(fast_io::mnp::os_c_str(path));
-    vec<u8> buffer { loader.begin(), loader.end() };
+vec<u8> read_file(const std::string& path) {
+#ifndef _WIN32
+    FILE* fp = fopen(reinterpret_cast<const char*>(path.data()), "rb");
+#else   // deal with utf-8 path on windows
+    FILE* fp = _wfopen(ToUtf16(reinterpret_cast<const char*>(path.data())).c_str(), L"rb");
+#endif
+    if(fp == nullptr) {
+        throw std::runtime_error("File not found");
+    }
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    std::vector<uint8_t> buffer(size);
+    fread(buffer.data(), 1, size, fp);
     return buffer;
 }
 
 vec<u8> read_file(const std::filesystem::path& path) {
-    return read_file(path.u8string());
+    return read_file(path.string());
 }
 
-fast_io::native_file_loader load_file(const std::u8string& path) {
-    return fast_io::native_file_loader(fast_io::mnp::os_c_str(path));
-}
-
-fast_io::native_file_loader load_file(const std::filesystem::path& path) {
-    return load_file(path.u8string());
-}
-
-void write_file(const std::u8string& path, const std::span<const u8> buffer) {
-    fast_io::obuf_file obf(fast_io::mnp::os_c_str(path));
-    fast_io::write(obf, buffer.begin(), buffer.end());
+void write_file(const std::string& path, const std::span<const u8> buffer) {
+#ifndef _WIN32
+    FILE* fp = fopen(reinterpret_cast<const char*>(path.data()), "wb");
+#else   // deal with utf-8 path on windows
+    FILE* fp = _wfopen(ToUtf16(reinterpret_cast<const char*>(path.data())).c_str(), L"wb");
+#endif
+    if(fp == nullptr) {
+        throw std::runtime_error("File not found");
+    }
+    fwrite(buffer.data(), 1, buffer.size(), fp);
+    fclose(fp);
 }
 
 void write_file(const std::filesystem::path& path, const std::span<const u8> buffer) {
-    return write_file(path.u8string(), buffer);
+    return write_file(path.string(), buffer);
 }
 
 } // namespace symusic
