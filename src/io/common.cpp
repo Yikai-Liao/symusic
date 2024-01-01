@@ -31,18 +31,23 @@ namespace symusic {
 
 vec<u8> read_file(const std::string& path) {
 #ifndef _WIN32
-    FILE* fp = fopen(reinterpret_cast<const char*>(path.data()), "rb");
-#else   // deal with utf-8 path on windows
-    FILE* fp = _wfopen(ToUtf16(reinterpret_cast<const char*>(path.data())).c_str(), L"rb");
-#endif
+    FILE* fp = fopen(path.c_str(), "rb");
     if(fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found: {}", path));
+        throw std::runtime_error(fmt::format("File not found file: {}", path));
     }
+#else   // deal with utf-8 path on windows
+    FILE* fp = nullptr;
+    const errno_t err = _wfopen_s(&fp, ToUtf16(path).c_str(), L"rb");
+    if (err != 0) {
+        throw std::runtime_error(fmt::format("File not found file (error:{}): {}",err, path));
+    }
+#endif
     fseek(fp, 0, SEEK_END);
     size_t size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
     std::vector<uint8_t> buffer(size);
     fread(buffer.data(), 1, size, fp);
+    fclose(fp);
     return buffer;
 }
 
@@ -52,9 +57,13 @@ vec<u8> read_file(const std::filesystem::path& path) {
 
 void write_file(const std::string& path, const std::span<const u8> buffer) {
 #ifndef _WIN32
-    FILE* fp = fopen(reinterpret_cast<const char*>(path.data()), "wb");
+    FILE* fp = fopen(path.c_str(), "wb");
 #else   // deal with utf-8 path on windows
-    FILE* fp = _wfopen(ToUtf16(reinterpret_cast<const char*>(path.data())).c_str(), L"wb");
+    FILE* fp = nullptr;
+    const errno_t err = _wfopen_s(&fp, ToUtf16(path).c_str(), L"wb");
+    if (err != 0) {
+        throw std::runtime_error(fmt::format("File not found file (error:{}): {}",err, path));
+    }
 #endif
     if(fp == nullptr) {
         throw std::runtime_error("File not found");
