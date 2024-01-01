@@ -51,11 +51,14 @@ if(BUILD_PY)
 endif()
 
 if(BUILD_TEST)
+    add_subdirectory(./3rdparty/nanobench EXCLUDE_FROM_ALL)
+
     add_executable(note_count tests/note_count.cpp)
     add_executable(dump tests/dump.cpp)
     add_executable(io_bench tests/io_bench.cpp)
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
+    target_link_libraries(io_bench PRIVATE symusic nanobench)
 endif()
 
 if (ENABLE_LTO)
