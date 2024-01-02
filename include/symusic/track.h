@@ -29,6 +29,16 @@ struct Track {
 
     Track(const Track &) = default;
 
+    Track(Track && other) noexcept {
+        name = std::move(other.name);
+        program = other.program;
+        is_drum = other.is_drum;
+        notes = std::move(other.notes);
+        controls = std::move(other.controls);
+        pitch_bends = std::move(other.pitch_bends);
+        pedals = std::move(other.pedals);
+    }
+
     [[nodiscard]] Track copy() const { return {*this}; }
 
     Track& operator=(const Track &) = default;
