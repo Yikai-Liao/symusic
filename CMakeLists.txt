@@ -8,6 +8,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 option(BUILD_PY "Build the python binding of symusic" OFF)
 option(BUILD_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
+option(VTUNE "Compile Options for Intel VTune" Off)
 
 # set /utf-8 for MSVC
 if(MSVC)
@@ -86,3 +87,11 @@ if(MSVC)
     cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
     add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
 endif()
+
+if(VTUNE)
+    message(STATUS "VTune enabled")
+    # Zi
+    add_compile_options(/Zi)
+    add_compile_options(/MDd)
+    add_compile_options(/D "TBB_USE_THREADING_TOOLS")
+endif ()
