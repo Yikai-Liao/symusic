@@ -203,6 +203,9 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                     uint8_t program = cur_instr[channel];
                     auto &track = get_track(
                         track_map, stragglers, channel, program, message_num, false);
+                    if(track.controls.capacity() < message_num / 2 ) [[unlikely]] {
+                        track.controls.reserve(message_num / 2);
+                    }
                     uint8_t control_number = msg.get_control_number();
                     uint8_t control_value = msg.get_control_value();
                     if (control_number >= 128) throw std::range_error(
@@ -293,6 +296,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();
+            if(!track.controls.empty()) track.controls.shrink_to_fit();
             ops::sort_notes(track.notes);
             ops::sort_pedals(track.pedals);
             score.tracks.emplace_back(std::move(track));
