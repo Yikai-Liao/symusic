@@ -132,6 +132,8 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
         std::map<TrackIdx, Track<T>> track_map;
         // channel -> Track
         Track<T> stragglers[16];
+        Track<T>* last_track = nullptr;
+        u8 last_channel = 255, last_program = 255;
         // channel -> program
         uint8_t cur_instr[16] = {0};
         std::string cur_name;
@@ -167,13 +169,20 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                     if (pitch >= 128) throw std::range_error(
                         "Get pitch=" + std::to_string(pitch));
                     auto &note_on_queue = last_note_on[channel][pitch];
-                    auto &track = get_track(
-                        track_map, stragglers, channel,
-                        cur_instr[channel], message_num,true);
+                    u8 program  = cur_instr[channel];
+                    Track<T>* track;
+                    if (last_channel == channel && last_program == program) {
+                        track = last_track;
+                    } else {
+                        track = &get_track(track_map, stragglers, channel, program, message_num, true);
+                        last_track = track;
+                        last_channel = channel;
+                        last_program = program;
+                    }
                     if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
                         auto const &note_on = note_on_queue.front();
                         typename T::unit duration = tick2unit(cur_tick - note_on.time);
-                        track.notes.emplace_back(
+                        track->notes.emplace_back(
                             tick2unit(note_on.time), duration,
                             static_cast<i8>(pitch), note_on.velocity
                         );
