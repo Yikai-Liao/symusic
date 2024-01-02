@@ -94,14 +94,22 @@ Track<T> &get_track(
     if (entry == track_map.end()) {
         auto &track = stragglers[channel];
         if (!create_new) return track;
-        Track<T> new_track;
-        if (!track.empty()) {
-            new_track = Track(track); // copy from stragglers
-        }
-        new_track.program = program;
-        new_track.is_drum = channel == 9;
-        new_track.notes.reserve(message_num / 2 + 10);
-        return track_map[track_idx] = new_track;
+        auto res = track_map.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(track_idx),
+            std::forward_as_tuple("", program, channel==9)
+        );
+        auto & iter = res.first;
+        if(!res.second) throw std::runtime_error("Failed to insert track");
+        // copy controls if not empty, don't move, don't clear original
+        if (!track.controls.empty()) iter->second.controls = track.controls;
+        // copy pitch_bends if not empty, don't move, don't clear original
+        if (!track.pitch_bends.empty()) iter->second.pitch_bends = track.pitch_bends;
+        // copy pedals if not empty, don't move, don't clear original
+        if (!track.pedals.empty()) iter->second.pedals = track.pedals;
+        // reserve space for notes
+        iter->second.notes.reserve(message_num / 2 + 1);
+        return iter->second;
     }
     return entry->second;
 }
@@ -272,7 +280,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                     break;
             }
         }
-        for (auto [_, track]: std::move(track_map)) {
+        for (auto & [_, track]: track_map) {
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();

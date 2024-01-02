@@ -10,7 +10,6 @@
 
 #include "symusic/io/iodef.h"
 #include "symusic/event.h"
-
 namespace symusic {
 template<TType T>
 struct Track {
@@ -29,7 +28,7 @@ struct Track {
 
     Track(const Track &) = default;
 
-    Track(Track && other) noexcept {
+    void move_other(Track && other) {
         name = std::move(other.name);
         program = other.program;
         is_drum = other.is_drum;
@@ -39,9 +38,14 @@ struct Track {
         pedals = std::move(other.pedals);
     }
 
+    Track(Track && other) noexcept { move_other(std::move(other));}
+
     [[nodiscard]] Track copy() const { return {*this}; }
 
     Track& operator=(const Track &) = default;
+    Track& operator=(Track && other) noexcept {
+        move_other(std::move(other)); return *this;
+    }
     bool operator==(const Track & other) const = default;
     bool operator!=(const Track & other) const = default;
 
