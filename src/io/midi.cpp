@@ -61,6 +61,12 @@ public:
             queue.pop();
         }
     }
+
+    void reset() {
+        if (empty()) return;
+        while(!queue.empty()) queue.pop();
+        _front.reset();
+    }
 };
 
 struct TrackIdx {
@@ -110,6 +116,9 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
     const u16 tpq = midi.get_tick_per_quarter();
     Score<T> score(tpq); // create a score with the given ticks per quarter
     namespace message = minimidi::message; // alias
+    // (channel, pitch) -> (start, velocity)
+    NoteOnQueue<Tick> last_note_on[16][128] = {};
+
     for(const auto &midi_track: midi.tracks) {
         // (channel, program) -> Track
         std::map<TrackIdx, Track<T>> track_map;
@@ -118,8 +127,12 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
         // channel -> program
         uint8_t cur_instr[16] = {0};
         std::string cur_name;
-        // (channel, pitch) -> (start, velocity)
-        NoteOnQueue<Tick> last_note_on[16][128] = {};
+        // iter NoteOnQueue and reset
+        for (auto &channel: last_note_on) {
+            for (auto &note_on: channel) {
+                note_on.reset();
+            }
+        }
         // channel -> pedal_on
         unit last_pedal_on[16] = {-1};
         // iter midi messages in the track
