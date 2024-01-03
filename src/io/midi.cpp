@@ -11,6 +11,7 @@
 #endif
 
 #include "minimidi/MiniMidi.hpp"
+#include "pdqsort.h"
 
 #include "symusic/score.h"
 #include "symusic/ops.h"
@@ -304,8 +305,13 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                 track.notes.shrink_to_fit();
             if(track.controls.size() * 1.5 < track.controls.capacity())
                 track.controls.shrink_to_fit();
-            ops::sort_notes(track.notes);
-            ops::sort_pedals(track.pedals);
+//            ops::sort_notes(track.notes);
+            pdqsort_detail::insertion_sort(track.notes.begin(), track.notes.end(), [](const auto &a, const auto &b) {
+                return std::tie(a.time, a.pitch, a.duration) < std::tie(b.time, b.pitch, b.duration);
+            });
+            pdqsort_detail::insertion_sort(track.pedals.begin(), track.pedals.end(), [](const auto &a, const auto &b) {
+                return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
+            });
             score.tracks.emplace_back(std::move(track));
         }
     }
