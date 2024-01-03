@@ -10,7 +10,7 @@
 #pragma warning(disable:4996)
 #endif
 
-#include "MiniMidi.hpp"
+#include "minimidi/MiniMidi.hpp"
 
 #include "symusic/score.h"
 #include "symusic/ops.h"
