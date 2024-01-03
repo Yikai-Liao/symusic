@@ -295,8 +295,10 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
         for (auto & [_, track]: track_map) {
             if (track.empty()) continue;
             track.name = cur_name;
-            track.notes.shrink_to_fit();
-            if(!track.controls.empty()) track.controls.shrink_to_fit();
+            if(track.notes.size() * 1.5 < track.notes.capacity())
+                track.notes.shrink_to_fit();
+            if(track.controls.size() * 1.5 < track.controls.capacity())
+                track.controls.shrink_to_fit();
             ops::sort_notes(track.notes);
             ops::sort_pedals(track.pedals);
             score.tracks.emplace_back(std::move(track));
