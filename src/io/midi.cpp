@@ -50,7 +50,12 @@ public:
     [[nodiscard]] const NoteOn<T> &front() const { return _front; }
 
     void emplace(unit time, i8 velocity) {
-        if(_front.empty()) _front = NoteOn<T>{time, velocity};
+        if(_front.empty()) {
+            // significantly faster than _front = NoteOn<T>{time, velocity};
+            // what is the compiler doing?
+            _front.time = time;
+            _front.velocity = velocity;
+        }
         else queue.emplace(time, velocity);
     }
 
