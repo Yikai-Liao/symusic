@@ -51,18 +51,18 @@ pip install ./symusic
 ## Benchmark
 ### Parsing MIDI
 
-* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example in colab
+* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10750H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 
 | library                                                   | time              |
 |-----------------------------------------------------------|-------------------|
-| [**symusic**](https://github.com/Yikai-Liao/symusic)      | 21.8 ms ± 11.7 ms |
-| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)          | 128.024 ms        |
-| [mido](https://github.com/mido/mido)                      | 5.68 s ± 2 s      |
-| [pretty_midi](https://github.com/craffel/pretty-midi)     | 5.59 s ± 844 ms   |
-| [miditoolkit](https://github.com/YatingMusic/miditoolkit) | 6.27 s ± 1.79 s   |
-| [music21](https://github.com/cuthbertLab/music21)         | 8.59 s ± 1.2 s    |
+| [**symusic**](https://github.com/Yikai-Liao/symusic)      | 3.47 ms ± 113 µs  |
+| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)          | 109.707 ms        |
+| [mido](https://github.com/mido/mido)                      | 2.92 s ± 42.7 ms  |
+| [pretty_midi](https://github.com/craffel/pretty-midi)     | 3.16 s ± 9.56 ms  |
+| [miditoolkit](https://github.com/YatingMusic/miditoolkit) | 3.15 s ± 38.2 ms  |
+| [music21](https://github.com/cuthbertLab/music21)         | 4.23 s ± 34.5 ms  |
 
 ## Acknowledgement
 
