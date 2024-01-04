@@ -155,7 +155,7 @@ inline vec<u8> read_file(const std::string& path) {
 #ifndef _WIN32
     FILE* fp = fopen(path.c_str(), "rb");
     if(fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found file: {}", path));
+        throw std::runtime_error("File not found");
     }
 #else   // deal with utf-8 path on windows
     FILE* fp = nullptr;
