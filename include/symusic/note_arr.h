@@ -38,11 +38,12 @@ struct NoteArr {
     [[nodiscard]] NoteArr copy() const { return {*this}; }
 
     NoteArr &operator=(const NoteArr &) = default;
+    bool operator==(const NoteArr & other) const = default;
+    bool operator!=(const NoteArr & other) const = default;
 
     NoteArr(
-        std::string name, const u8 program, const bool is_drum, const size_t note_num = 0
-    ) : name{std::move(name)}, program{program}, is_drum{is_drum},
-        time(note_num), duration(note_num), pitch(note_num), velocity(note_num) {}
+        std::string name, const u8 program, const bool is_drum
+    ) : name{std::move(name)}, program{program}, is_drum{is_drum} {}
 
     NoteArr(
         std::string name, const u8 program, const bool is_drum,

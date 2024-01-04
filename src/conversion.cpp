@@ -128,7 +128,8 @@ IMPLEMENT_CONVERT(Quarter, Quarter)
 // Implementation of to_note_arr
 template<TType T>
 NoteArr<T> to_note_arr(const Track<T> & track) {
-    NoteArr<T> note_arr{track.name, track.program, track.is_drum, track.note_num()};
+    NoteArr<T> note_arr{track.name, track.program, track.is_drum};
+    note_arr.reserve(track.note_num());
     for (const auto & note: track.notes) {
         note_arr.push_back(note);
     }   return note_arr;

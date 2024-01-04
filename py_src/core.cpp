@@ -38,6 +38,10 @@ using namespace symusic;
 
 REPEAT_ON(OPAQUE_VEC, Note, ControlChange, Pedal, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta, Track)
 
+PYBIND11_MAKE_OPAQUE(vec<Tick::unit>)
+PYBIND11_MAKE_OPAQUE(vec<Quarter::unit>)
+// PYBIND11_MAKE_OPAQUE(vec<Second::unit>)
+
 template<typename T>
 void sort_by_py_key(vec<T> &self, const py::function & key) {
     pdqsort(self.begin(), self.end(), [&key](const T &a, const T &b) {
@@ -502,6 +506,67 @@ py::object convert_score(const Score<T> &self, const py::object &ttype, const py
     }   throw std::invalid_argument("ttype must be Tick, Quarter or Second");
 }
 
+template<TType T>
+py::class_<NoteArr<T>> bind_note_arr(py::module &m, const std::string & name_) {
+    const auto name = "NoteArr" + name_;
+
+    return py::class_<NoteArr<T>>(m, name.c_str())
+        .def(py::init<const NoteArr<T> &>(), "Copy constructor", py::arg("other"))
+        .def(py::init<std::string, u8, bool>(), "create with name, program and is_drum", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false)
+        .def(py::init([](
+            std::string name, u8 program, bool is_drum,
+            const py::array_t<typename T::unit> &time,
+            const py::array_t<typename T::unit> &duration,
+            const py::array_t<int8_t> &pitch,
+            const py::array_t<int8_t> &velocity) {
+            if (time.size() != duration.size() || time.size() != pitch.size() || time.size() != velocity.size())
+                throw std::invalid_argument("time, duration, pitch and velocity must have the same size");
+            const auto size = time.size();
+            NoteArr<T> arr(name, program, is_drum);
+            arr.reserve(size);
+            for (size_t i = 0; i < size; ++i) {
+                arr.emplace_back(time.at(i), duration.at(i), pitch.at(i), velocity.at(i));
+            }
+            return arr;
+        }), "Creat from numpy", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false,
+            py::arg("time")=py::array_t<typename T::unit>(),
+            py::arg("duration")=py::array_t<typename T::unit>(),
+            py::arg("pitch")=py::array_t<int8_t>(),
+            py::arg("velocity")=py::array_t<int8_t>())
+        .def("copy", &NoteArr<T>::copy, "Deep copy", py::return_value_policy::move)
+        .def("__copy__", &NoteArr<T>::copy, "Deep copy")
+        .def("__deepcopy__", &NoteArr<T>::copy, "Deep copy")
+        .def("__repr__", &NoteArr<T>::to_string)
+        .def(py::self == py::self)  // NOLINT
+        .def(py::self != py::self)  // NOLINT
+        // getter convert vector to numpy array (reference)
+        // setter accept numpy array using copy
+        .def(py::pickle( &py_to_bytes<NoteArr<T>>, &py_from_bytes<NoteArr<T>>))
+        .def("start", &NoteArr<T>::start)
+        .def("end", &NoteArr<T>::end)
+        .def("note_num", &NoteArr<T>::note_num)
+        .def("empty", &NoteArr<T>::empty)
+        .def("valid", &NoteArr<T>::valid)
+        .def("summary" , &NoteArr<T>::summary)
+        .def("sort", &NoteArr<T>::sort, py::arg("reverse")=false)
+        .def("clip", &NoteArr<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
+        .def("reserve", &NoteArr<T>::reserve, "Reserve memory for notes", py::arg("size"))
+        .def("push_back", &NoteArr<T>::emplace_back, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"))
+        .def("push_back", &NoteArr<T>::push_back, py::arg("note"))
+        .def_readwrite("pitch", &NoteArr<T>::pitch)
+        .def_readwrite("velocity", &NoteArr<T>::velocity)
+        .def_readwrite("time", &NoteArr<T>::time)
+        .def_readwrite("duration", &NoteArr<T>::duration)
+        .def("numpy", [](NoteArr<T> &self) {
+            using namespace pybind11::literals; // to bring in the `_a` literal
+            // convert vector to numpy array
+            return py::dict("time"_a=py::array_t<typename T::unit>(self.time.size(), self.time.data()),
+                            "duration"_a=py::array_t<typename T::unit>(self.duration.size(), self.duration.data()),
+                            "pitch"_a=py::array_t<int8_t>(self.pitch.size(), self.pitch.data()),
+                            "velocity"_a=py::array_t<int8_t>(self.velocity.size(), self.velocity.data()));
+        });
+}
+
 py::module & core_module(py::module & m){
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
 
@@ -538,9 +603,21 @@ py::module & core_module(py::module & m){
     bind_text_meta_class<Quarter>(m, quarter);
     bind_text_meta_class<Second>(m, second);
 
-    bind_track_class<Tick>(m, tick);
-    bind_track_class<Quarter>(m, quarter);
-    bind_track_class<Second>(m, second);
+    auto tt = bind_track_class<Tick>(m, tick);
+    auto tq = bind_track_class<Quarter>(m, quarter);
+    auto ts = bind_track_class<Second>(m, second);
+
+    auto narr_t = bind_note_arr<Tick>(m, tick);
+    auto narr_q = bind_note_arr<Quarter>(m, quarter);
+    auto narr_s = bind_note_arr<Second>(m, second);
+
+    tt.def("note_arr", &to_note_arr<Tick>, "Convert to NoteArr");
+    tq.def("note_arr", &to_note_arr<Quarter>, "Convert to NoteArr");
+    ts.def("note_arr", &to_note_arr<Second>, "Convert to NoteArr");
+
+    narr_t.def("to_track", &to_track<Tick>, "Convert to Track");
+    narr_q.def("to_track", &to_track<Quarter>, "Convert to Track");
+    narr_s.def("to_track", &to_track<Second>, "Convert to Track");
 
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
@@ -577,6 +654,10 @@ PYBIND11_MODULE(core, m) {
         .def(py::init<>())
         .def("__repr__", [](const Second &) { return "symsuic.core.Second"; })
         .def("is_time_unit", [](const Second &) { return true; });
+
+    // bind vec for Tick::unit and Quarter::unit
+    py::bind_vector<vec<i32>>(m, "i32List");
+    py::bind_vector<vec<f32>>(m, "f32List");
 
     // def __eq__ for all time units
     tick.def("__eq__", [](const Tick &, const py::object &other) {
