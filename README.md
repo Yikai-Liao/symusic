@@ -55,14 +55,14 @@ pip install ./symusic
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 
-| library                                                   | time              |
-|-----------------------------------------------------------|-------------------|
-| [**symusic**](https://github.com/Yikai-Liao/symusic)      | 3.47 ms ± 113 µs  |
-| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)          | 109.707 ms        |
-| [mido](https://github.com/mido/mido)                      | 2.92 s ± 42.7 ms  |
-| [pretty_midi](https://github.com/craffel/pretty-midi)     | 3.16 s ± 9.56 ms  |
-| [miditoolkit](https://github.com/YatingMusic/miditoolkit) | 3.15 s ± 38.2 ms  |
-| [music21](https://github.com/cuthbertLab/music21)         | 4.23 s ± 34.5 ms  |
+| library                                                   | absolute time     | relative time     |
+|-----------------------------------------------------------|-------------------|-------------------|
+| [**symusic**](https://github.com/Yikai-Liao/symusic)      | 3.47 ms ± 113 µs  | 1.0x              |
+| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)          | 109.707 ms        | 31.6x             |
+| [mido](https://github.com/mido/mido)                      | 2.92 s ± 42.7 ms  | 841.5x            |
+| [miditoolkit](https://github.com/YatingMusic/miditoolkit) | 3.15 s ± 38.2 ms  | 907.7x            |
+| [pretty_midi](https://github.com/craffel/pretty-midi)     | 3.16 s ± 9.56 ms  | 910.7x            |
+| [music21](https://github.com/cuthbertLab/music21)         | 4.23 s ± 34.5 ms  | 1219.0x           |
 
 ## Acknowledgement
 
