@@ -9,10 +9,33 @@
 #include <string>
 #include <iosfwd>
 #include <limits>
+#include <filesystem>
 #include "pdqsort.h"
 #include "MiniMidi.hpp"
 #include "MetaMacro.h"
 #include "zpp_bits.h"
+
+#ifdef _MSC_VER
+#pragma warning(disable:4996)
+#endif
+
+#ifdef _WIN32
+#include <Windows.h>
+std::wstring ToUtf16(const std::string & str)
+{
+    std::wstring ret;
+    const int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+    if (len > 0)
+    {
+        ret.resize(len);
+        MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &ret[0], len);
+    }
+    return ret;
+}
+#undef max
+#undef min
+#endif
+
 namespace score {
 
 typedef uint8_t     u8;
@@ -127,6 +150,56 @@ inline std::string strip_non_utf_8(const std::string *str) {
         to.append(1, c - 64);
     } return to;
 } // NOLINTEND
+
+inline vec<u8> read_file(const std::string& path) {
+#ifndef _WIN32
+    FILE* fp = fopen(path.c_str(), "rb");
+    if(fp == nullptr) {
+        throw std::runtime_error(fmt::format("File not found file: {}", path));
+    }
+#else   // deal with utf-8 path on windows
+    FILE* fp = nullptr;
+    const errno_t err = _wfopen_s(&fp, ToUtf16(path).c_str(), L"rb");
+    if (err != 0) {
+        throw std::runtime_error(
+            "File not found file (error:" + std::to_string(err) + "): " + path);
+    }
+#endif
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    std::vector<uint8_t> buffer(size);
+    fread(buffer.data(), 1, size, fp);
+    fclose(fp);
+    return buffer;
+}
+
+inline vec<u8> read_file(const std::filesystem::path& path) {
+    return read_file(path.string());
+}
+
+inline void write_file(const std::string& path, const std::span<const u8> buffer) {
+#ifndef _WIN32
+    FILE* fp = fopen(path.c_str(), "wb");
+#else   // deal with utf-8 path on windows
+    FILE* fp = nullptr;
+    const errno_t err = _wfopen_s(&fp, ToUtf16(path).c_str(), L"wb");
+    if (err != 0) {
+        throw std::runtime_error(
+            "File not found file (error:" + std::to_string(err) + "): " + path);
+    }
+#endif
+    if(fp == nullptr) {
+        throw std::runtime_error("File not found");
+    }
+    fwrite(buffer.data(), 1, buffer.size(), fp);
+    fclose(fp);
+}
+
+inline void write_file(const std::filesystem::path& path, const std::span<const u8> buffer) {
+    return write_file(path.string(), buffer);
+}
+
 } // namespace utils end
 
 namespace pianoroll {
@@ -935,7 +1008,8 @@ public:
     explicit Score(const minimidi::file::MidiFile &midi);
 
     static Score from_file(const std::string &filename) {
-        auto midi = minimidi::file::MidiFile::from_file(filename);
+        const auto bytes = utils::read_file(filename);
+        auto midi = minimidi::file::MidiFile(bytes);
         return Score(midi);
     }
 
@@ -1133,18 +1207,23 @@ private:
 
 public:
     NoteOnQueue() = default;
-    [[nodiscard]] inline size_t size() const {
-        return _front.empty() ? 0 : queue.size() + 1;
-    }
+    [[nodiscard]] size_t size() const { return _front.empty() ? 0 : queue.size() + 1; }
 
-    [[nodiscard]] inline bool empty() const { return _front.empty();}
+    [[nodiscard]] bool empty() const { return _front.empty();}
 
-    inline void emplace(unit time, i8 velocity) {
-        if(_front.empty()) _front = NoteOn<T>{time, velocity};
+    [[nodiscard]] const NoteOn<T> &front() const { return _front; }
+
+    void emplace(unit time, i8 velocity) {
+        if(_front.empty()) {
+            // significantly faster than _front = NoteOn<T>{time, velocity};
+            // what is the compiler doing?
+            _front.time = time;
+            _front.velocity = velocity;
+        }
         else queue.emplace(time, velocity);
     }
 
-    inline void pop() {
+    void pop() {
         if (queue.empty()) _front.reset();
         else {
             _front = queue.front();
@@ -1152,10 +1231,26 @@ public:
         }
     }
 
-    [[nodiscard]] inline const NoteOn<T> &front() const { return _front; }
+    void reset() {
+        if (empty()) return;
+        while(!queue.empty()) queue.pop();
+        _front.reset();
+    }
 };
 
-typedef std::tuple<u8, u8> TrackIdx;
+
+struct TrackIdx {
+
+    u8 channel, program;
+
+    TrackIdx(const u8 channel, const u8 program): channel(channel), program(program) {}
+
+    bool operator<(const TrackIdx &other) const {
+        return std::tie(channel, program) < std::tie(other.channel, other.program);
+    }
+
+    bool operator==(const TrackIdx&) const = default;
+};
 
 template <typename T>
 Track<T> &get_track(
@@ -1163,22 +1258,31 @@ Track<T> &get_track(
     Track<T> (& stragglers)[16],
     const uint8_t channel, const uint8_t program,
     const size_t message_num, const bool create_new) {
-    auto track_idx = std::make_tuple(channel, program);
+    TrackIdx track_idx{channel, program};
     const auto & entry = track_map.find(track_idx);
     if (entry == track_map.end()) {
         auto &track = stragglers[channel];
         if (!create_new) return track;
-        Track<T> new_track;
-        if (!track.empty()) {
-            new_track = Track(track); // copy from stragglers
-        }
-        new_track.program = program;
-        new_track.is_drum = channel == 9;
-        new_track.notes.reserve(message_num / 2 + 10);
-        return track_map[track_idx] = new_track;
+        auto res = track_map.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(track_idx),
+            std::forward_as_tuple("", program, channel==9)
+        );
+        auto & iter = res.first;
+        if(!res.second) throw std::runtime_error("Failed to insert track");
+        // copy controls if not empty, don't move, don't clear original
+        if (!track.controls.empty()) iter->second.controls = track.controls;
+        // copy pitch_bends if not empty, don't move, don't clear original
+        if (!track.pitch_bends.empty()) iter->second.pitch_bends = track.pitch_bends;
+        // copy pedals if not empty, don't move, don't clear original
+        if (!track.pedals.empty()) iter->second.pedals = track.pedals;
+        // reserve space for notes
+        iter->second.notes.reserve(message_num / 2 + 1);
+        return iter->second;
     }
     return entry->second;
 }
+
 } // namespace utils end
 
 // Define all the convert_ttype functions in Score<T>
@@ -1246,18 +1350,25 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
     ticks_per_quarter = midi.get_tick_per_quarter();
     // create a helper for converting tick to T
     const Score<Tick> helper(ticks_per_quarter);
+    // (channel, pitch) -> (start, velocity)
+    utils::NoteOnQueue<Tick> last_note_on[16][128] = {};
 
-    using std::cout, std::endl;
     for(const auto &midi_track: midi.tracks) {
         // (channel, program) -> Track
         std::map<utils::TrackIdx, Track<T>> track_map;
         // channel -> Track
         Track<T> stragglers[16];
+        Track<T>* last_track = nullptr;
+        u8 last_channel = 255, last_program = 255;
         // channel -> program
         uint8_t cur_instr[16] = {0};
         std::string cur_name;
-        // (channel, pitch) -> (start, velocity)
-        utils::NoteOnQueue<Tick> last_note_on[16][128] = {};
+        // iter NoteOnQueue and reset
+        for (auto &channel: last_note_on) {
+            for (auto &note_on: channel) {
+                note_on.reset();
+            }
+        }
         // channel -> pedal_on
         i32 last_pedal_on[16] = {-1};
         // iter midi messages in the track
@@ -1285,13 +1396,20 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
                     if (pitch >= 128) throw std::range_error(
                         "Get pitch=" + std::to_string((int) pitch));
                     auto &note_on_queue = last_note_on[channel][pitch];
-                    auto &track = utils::get_track(
-                        track_map, stragglers, channel,
-                        cur_instr[channel], message_num,true);
+                    u8 program  = cur_instr[channel];
+                    Track<T>* track;
+                    if (last_channel == channel && last_program == program) {
+                        track = last_track;
+                    } else {
+                        track = &get_track(track_map, stragglers, channel, program, message_num, true);
+                        last_track = track;
+                        last_channel = channel;
+                        last_program = program;
+                    }
                     if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
                         auto const &note_on = note_on_queue.front();
                         uint32_t duration = cur_tick - note_on.time;
-                        track.notes.emplace_back(
+                        track->notes.emplace_back(
                             // note_on.time, duration,
                             helper.convert_ttype<T>(note_on.time),
                             helper.convert_ttype<T>(duration),
@@ -1404,8 +1522,13 @@ Score<T>::Score(const minimidi::file::MidiFile &midi) {
             if (track.empty()) continue;
             track.name = cur_name;
             track.notes.shrink_to_fit();
-            utils::sort_notes(track.notes);
-            utils::sort_pedals(track.pedals);
+            pdqsort_detail::insertion_sort(track.notes.begin(), track.notes.end(), [](const Note<T> &a, const Note<T> &b) {
+                return std::tie(a.time, a.pitch, a.duration) < std::tie(b.time, b.pitch, b.duration);
+            });
+            // sort pedals
+            pdqsort_detail::insertion_sort(track.pedals.begin(), track.pedals.end(), [](const Pedal<T> &a, const Pedal<T> &b) {
+                return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
+            });
             tracks.push_back(std::move(track));
         }
     }

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 option(BUILD_TEST "Build the test target" OFF)
 
 include_directories(include)
-include_directories(3rdparty/minimidi/include)
+include_directories(3rdparty/minimidi/include/minimidi)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
 
