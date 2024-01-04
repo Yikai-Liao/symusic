@@ -1657,8 +1657,7 @@ minimidi::file::MidiFile Score<T>::to_midi() const {
         // add notes
         vec<Note<T>> notes {track.notes};
         pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> &a, const Note<T> &b) {
-            if (a.time != b.time) return (a.time) < (b.time);
-            return a.duration < b.duration;
+            return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
         });
 
         for(const auto &note: notes) {
