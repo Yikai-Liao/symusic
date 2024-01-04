@@ -71,11 +71,43 @@ size_t read_file_fs_buf(const std::string& path) {
     return ans;
 }
 
+size_t read_file_fs_get(const std::string& path) {
+    std::ifstream ifs(path, std::ios::binary | std::ios::ate);
+    if(!ifs) {
+        throw std::runtime_error("File not found");
+    }
+    std::ifstream::pos_type pos = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
+    size_t ans = 0;
+    for(size_t i=0; i<pos; ++i) {
+        ans += static_cast<size_t>(ifs.get()) % 4;
+    }
+    return ans;
+}
+
+// std::filebuf
+#include <fstream>
+size_t read_file_filebuf(const std::string& path) {
+    std::filebuf fb;
+    if (fb.open(path, std::ios::in | std::ios::binary)) {
+        std::vector<uint8_t> buffer(fb.pubseekoff(0, std::ios::end, std::ios::in));
+        fb.pubseekpos(0, std::ios::in);
+        fb.sgetn(reinterpret_cast<char*>(buffer.data()), buffer.size());
+        size_t ans = 0;
+        for(auto const &byte : buffer) {
+            ans += static_cast<size_t>(byte) % 4;
+        }
+        return ans;
+    } else {
+        throw std::runtime_error("File not found");
+    }
+}
+
 int main(int argc, char *argv[]) {
     if(argc == 2) {
         const std::string filename {argv[1]};
 
-        ankerl::nanobench::Bench()
+        ankerl::nanobench::Bench().minEpochIterations(100)
         .run("fread raw", [&] {
             ankerl::nanobench::doNotOptimizeAway(read_file_fread(filename));
         })
@@ -84,8 +116,14 @@ int main(int argc, char *argv[]) {
             ankerl::nanobench::doNotOptimizeAway(read_file_win32(filename));
         })
 #endif
-        .run("fstream with buf", [&] {
+        .run("fstream read", [&] {
             ankerl::nanobench::doNotOptimizeAway(read_file_fs_buf(filename));
+        })
+        .run("fstream get", [&] {
+            ankerl::nanobench::doNotOptimizeAway(read_file_fs_get(filename));
+        })
+        .run("filebuf", [&] {
+            ankerl::nanobench::doNotOptimizeAway(read_file_filebuf(filename));
         });
     } else {
         // std::cout << "Usage: ./note_count <midi_file_name>" << std::endl;
