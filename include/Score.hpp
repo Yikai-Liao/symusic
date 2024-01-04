@@ -1024,7 +1024,8 @@ public:
     };
 
     void dump_midi(const std::string &filename) const {
-        to_midi().write_file(filename);
+        auto bytes = to_midi().to_bytes();
+        utils::write_file(filename, bytes);
     }
 
     template<class target_ttype>
