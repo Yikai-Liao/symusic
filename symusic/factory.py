@@ -336,7 +336,7 @@ class ScoreFactory:
         self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
-        return self.__core_classes.dispatch(ttype).from_file(str(path))
+        return self.__core_classes.dispatch(ttype)(path)
 
     def from_tpq(
         self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick

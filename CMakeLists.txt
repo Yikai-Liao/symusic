@@ -38,16 +38,16 @@ if(BUILD_PY)
     message("Building python binding.")
 
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-    find_package(pybind11 CONFIG REQUIRED)
+    # set symusic target to O3 and release mode because nanobind use minisize
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
+        list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
+        find_package(nanobind CONFIG REQUIRED)
+    find_package(nanobind CONFIG REQUIRED)
 
-    python_add_library(core MODULE py_src/core.cpp WITH_SOABI)
-    target_link_libraries(core PRIVATE pybind11::headers)
+    nanobind_add_module(core py_src/core.cpp)
     target_link_libraries(core PRIVATE symusic)
-
-    if(NOT MSVC AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug|RelWithDebInfo)
-        # Strip unnecessary sections of the binary on Linux/macOS
-        pybind11_strip(core)
-    endif()
 
     install(TARGETS core LIBRARY DESTINATION symusic)
 endif()
