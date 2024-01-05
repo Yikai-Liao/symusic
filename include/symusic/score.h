@@ -27,6 +27,17 @@ struct Score {
 
     Score(const Score&) = default;
 
+    Score(Score && other) noexcept {
+        // move constructor
+        ticks_per_quarter = other.ticks_per_quarter;
+        tracks = std::move(other.tracks);
+        time_signatures = std::move(other.time_signatures);
+        key_signatures = std::move(other.key_signatures);
+        tempos = std::move(other.tempos);
+        lyrics = std::move(other.lyrics);
+        markers = std::move(other.markers);
+    }
+
     Score& operator=(const Score&) = default;
     bool operator==(const Score & other) const = default;
     bool operator!=(const Score & other) const = default;
