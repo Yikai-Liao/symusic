@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <utility>
 #include <tuple>
+#include <assert.h>
 
 #include "symusic/track.h"
 #include "symusic/score.h"
@@ -46,7 +47,9 @@ public:
         bool encodeVelocity,
         bool deOverlap);
 
-    const pianoroll_t* get_data();
+    pianoroll_t* get_data();
+    pianoroll_t* release_data();
+
     pianoroll_t* operator()(size_t mode, size_t pitch, size_t time);
 
     pianoroll_t get(size_t mode, size_t pitch, size_t time);
@@ -76,7 +79,9 @@ public:
         bool encodeVelocity,
         bool deOverlap);
 
-    const pianoroll_t* get_data();
+    pianoroll_t* get_data();
+    pianoroll_t* release_data();
+
     pianoroll_t* operator()(size_t mode, size_t track, size_t pitch, size_t time);
 
     pianoroll_t get(size_t mode, size_t track, size_t pitch, size_t time);

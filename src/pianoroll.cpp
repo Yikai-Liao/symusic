@@ -37,13 +37,21 @@ TrackPianoroll TrackPianoroll::from_track(const Track<Tick>& track,
     return pianoroll;
 };
 
-const pianoroll_t* TrackPianoroll::get_data() {
+pianoroll_t* TrackPianoroll::get_data() {
+    assert(this->data != nullptr);
+
     return this->data;
+};
+
+pianoroll_t* TrackPianoroll::release_data() {
+    assert(this->data != nullptr);
+
+    return std::move(this->data);
 };
 
 pianoroll_t* TrackPianoroll::operator()(size_t mode, size_t pitch, size_t time) {
     return this->data + mode * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
-}
+};
 
 void TrackPianoroll::set(size_t mode, size_t pitch, size_t start, size_t duration, pianoroll_t value) {
     std::fill_n((*this)(mode, pitch, start),
@@ -77,7 +85,7 @@ ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim,
 };
 
 ScorePianoroll::~ScorePianoroll() {
-    delete this->data;
+    delete this->get_data();
 };
 
 ScorePianoroll ScorePianoroll::from_track(const Score<Tick>& score,
@@ -106,17 +114,25 @@ ScorePianoroll ScorePianoroll::from_track(const Score<Tick>& score,
     return pianoroll;
 }
 
-const pianoroll_t* ScorePianoroll::get_data() {
+pianoroll_t* ScorePianoroll::get_data() {
+    assert(this->data != nullptr);
+
     return this->data;
 };
 
+pianoroll_t* ScorePianoroll::release_data() {
+    assert(this->data != nullptr);
+
+    return std::move(this->data);
+};
+
 pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch, size_t time) {
-    return this->data +
+    return get_data() +
         mode * this->trackDim * this->pitchDim * this->timeDim +
         track * this->pitchDim * this->timeDim +
         pitch * this->timeDim +
         time;
-}
+};
 
 void ScorePianoroll::set(size_t mode, size_t track, size_t pitch, size_t start, size_t duration, pianoroll_t value) {
     std::fill_n((*this)(mode, track, pitch, start),
