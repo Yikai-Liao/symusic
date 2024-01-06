@@ -2,9 +2,12 @@
 // Created by lyk on 23-9-20.
 //
 #include <string>
-#include <optional>
+// #include <optional>
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/ndarray.h>
 #include <nanobind/stl/filesystem.h>
 // #include <nanobind/operators.h>
 #include <nanobind/stl/bind_vector.h>
@@ -312,17 +315,22 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def("clip", &Track<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false);
-        /*
+        .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("pianoroll", [](Track<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
-            bool encodeVelocity) {
-            std::vector modesEnum = 
-            TrackPianoroll pianoroll = TrackPianoroll::from_track(self, modes, pitchRange, encodeVelocity);
+            bool encodeVelocity,
+            bool deOverlap) {
+            std::vector<PianorollMode> modesEnum(modes.size());
+            for (int i = 0; i < modes.size(); ++i) {
+                modesEnum[i] = symusic::str_to_pianoroll_mode(modes[i]);
+            }
+            TrackPianoroll pianoroll = TrackPianoroll::from_track(self, modesEnum, pitchRange, encodeVelocity, deOverlap);
 
-        }, py::arg("modes"), py::arg("modes"), py::arg("pitchRange"), py::arg("encodeVelocity"));
-*/
+            return py::ndarray<py::numpy, pianoroll_t>{const_cast<uint8_t*>(pianoroll.release()),
+                {std::get<0>(pianoroll.dims()), std::get<1>(pianoroll.dims()), std::get<2>(pianoroll.dims()), }};
+        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false, py::arg("deOverlap")=false);
+
     py::bind_vector<vec<Track<T>>>(m, std::string(name + "List").c_str())
         .def("sort", [](vec<Track<T>> &self, const py::object & key, const bool reverse, const bool inplace) {
             if (key.is_none()) throw std::invalid_argument("key must be specified");
@@ -471,25 +479,25 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("start", &Score<T>::start)
         .def("end", &Score<T>::end)
         .def("note_num", &Score<T>::note_num)
-        .def("empty", &Score<T>::empty);
-        // .def("pianoroll", [](symusic::Score<T> &self, float quantization, const std::string& mode) {
-        //     symusic::pianoroll::ScorePianoRoll pianoroll = self.pianoroll(quantization, mode);
-        //
-        //     return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
-        //         pianoroll.data,
-        //         sizeof(pianoroll::pianoroll_t),
-        //         py::format_descriptor<pianoroll::pianoroll_t>::format(),
-        //         4,
-        //         { pianoroll.channel_dim,
-        //             pianoroll.track_dim,
-        //             pianoroll.pitch_dim,
-        //             pianoroll.time_dim },
-        //         { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim * pianoroll.track_dim,
-        //             sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
-        //             sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
-        //             sizeof(pianoroll::pianoroll_t) }
-        //     });
-        // }, py::arg("quantization"), py::arg("mode"));
+        .def("empty", &Score<T>::empty)
+        .def("pianoroll", [](Score<Tick> &self,
+            const std::vector<std::string>& modes,
+            const std::pair<uint8_t, uint8_t> pitchRange,
+            bool encodeVelocity,
+            bool deOverlap) {
+            std::vector<PianorollMode> modesEnum(modes.size());
+            for (int i = 0; i < modes.size(); ++i) {
+                modesEnum[i] = symusic::str_to_pianoroll_mode(modes[i]);
+            }
+            ScorePianoroll pianoroll = ScorePianoroll::from_score(self, modesEnum, pitchRange, encodeVelocity, deOverlap);
+
+            return py::ndarray<py::numpy, pianoroll_t>{const_cast<uint8_t*>(pianoroll.release()),
+                { std::get<0>(pianoroll.dims()),
+                    std::get<1>(pianoroll.dims()),
+                    std::get<2>(pianoroll.dims()),
+                    std::get<3>(pianoroll.dims()) }
+            };
+        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false, py::arg("deOverlap")=false);
 }
 
 template<TType T>

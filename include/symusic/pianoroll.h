@@ -5,11 +5,10 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <exception>
+#include <stdexcept>
 #include <algorithm>
 #include <utility>
 #include <tuple>
-#include <assert.h>
 
 #include "symusic/track.h"
 #include "symusic/score.h"
@@ -19,14 +18,21 @@ namespace symusic {
 typedef uint8_t pianoroll_t;
 
 #define PIANOROLL_MODES                            \
-    PIANOROLL_MODE(Onset, 0)                       \
-    PIANOROLL_MODE(Frame, 1)                       \
-    PIANOROLL_MODE(Offset, 2)
+    PIANOROLL_MODE(onset, 0)                       \
+    PIANOROLL_MODE(frame, 1)                       \
+    PIANOROLL_MODE(offset, 2)
 
 enum class PianorollMode : uint8_t {
 #define PIANOROLL_MODE(name, flag) name=flag,
     PIANOROLL_MODES
 #undef PIANOROLL_MODE
+};
+
+inline static PianorollMode str_to_pianoroll_mode(const std::string& modeStr) {
+    #define PIANOROLL_MODE(name, flag) if(!modeStr.compare(#name)) return PianorollMode::name;
+        PIANOROLL_MODES
+    #undef PIANOROLL_MODE
+    throw std::invalid_argument("No such pianoroll mode called " + modeStr + ".");
 };
 
 class TrackPianoroll
@@ -35,7 +41,7 @@ private:
     size_t modeDim;
     size_t pitchDim;
     size_t timeDim;
-    pianoroll_t* data;
+    pianoroll_t* dataPtr;
 
 public:
     TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim);
@@ -47,8 +53,8 @@ public:
         bool encodeVelocity,
         bool deOverlap);
 
-    pianoroll_t* get_data();
-    pianoroll_t* release_data();
+    pianoroll_t* data();
+    pianoroll_t* release();
 
     pianoroll_t* operator()(size_t mode, size_t pitch, size_t time);
 
@@ -68,19 +74,19 @@ private:
     size_t trackDim;
     size_t pitchDim;
     size_t timeDim;
-    pianoroll_t* data;
+    pianoroll_t* dataPtr;
 
 public:
     ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim);
     ~ScorePianoroll();
-    static ScorePianoroll from_track(const Score<Tick>& score,
+    static ScorePianoroll from_score(const Score<Tick>& score,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t> pitchRange,
         bool encodeVelocity,
         bool deOverlap);
 
-    pianoroll_t* get_data();
-    pianoroll_t* release_data();
+    pianoroll_t* data();
+    pianoroll_t* release();
 
     pianoroll_t* operator()(size_t mode, size_t track, size_t pitch, size_t time);
 
