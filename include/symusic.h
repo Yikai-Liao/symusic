@@ -14,6 +14,7 @@
 #include "symusic/ops.h"
 #include "symusic/repr.h"
 #include "symusic/conversion.h"
+#include "symusic/pianoroll.h"
 
 #include "symusic/io/common.h"
 // #include "symusic/io/midi.h"
