@@ -2,6 +2,7 @@
 // Created by lyk on 23-9-20.
 //
 #include <string>
+#include <optional>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/filesystem.h>
@@ -312,21 +313,16 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false);
-        // .def("pianoroll", [](Track<T> &self, float quantization, const std::string& mode) {
-        //     symusic::pianoroll::TrackPianoRoll pianoroll = self.pianoroll(quantization, mode);
-        //
-        //     return py::array_t<pianoroll::pianoroll_t>(py::buffer_info{
-        //         pianoroll.data,
-        //         sizeof(pianoroll::pianoroll_t),
-        //         py::format_descriptor<pianoroll::pianoroll_t>::format(),
-        //         3,
-        //         { pianoroll.channel_dim, pianoroll.pitch_dim, pianoroll.time_dim },
-        //         { sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim * pianoroll.pitch_dim,
-        //         sizeof(pianoroll::pianoroll_t) * pianoroll.time_dim,
-        //         sizeof(pianoroll::pianoroll_t) }
-        //     });
-        // }, py::arg("quantization"), py::arg("mode"));
+        /*
+        .def("pianoroll", [](Track<Tick> &self,
+            const std::vector<std::string>& modes,
+            const std::pair<uint8_t, uint8_t> pitchRange,
+            bool encodeVelocity) {
+            std::vector modesEnum = 
+            TrackPianoroll pianoroll = TrackPianoroll::from_track(self, modes, pitchRange, encodeVelocity);
 
+        }, py::arg("modes"), py::arg("modes"), py::arg("pitchRange"), py::arg("encodeVelocity"));
+*/
     py::bind_vector<vec<Track<T>>>(m, std::string(name + "List").c_str())
         .def("sort", [](vec<Track<T>> &self, const py::object & key, const bool reverse, const bool inplace) {
             if (key.is_none()) throw std::invalid_argument("key must be specified");
