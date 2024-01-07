@@ -87,7 +87,6 @@ ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim,
     this->pitchDim = pitchDim;
     this->timeDim = timeDim;
     this->dataPtr = new pianoroll_t[modeDim * trackDim * pitchDim * timeDim];
-    std::cout << (modeDim * trackDim * pitchDim * timeDim) << std::endl;
 
     this->clear();
 };
@@ -103,21 +102,18 @@ ScorePianoroll ScorePianoroll::from_score(const Score<Tick>& score,
         bool deOverlap) {
     ScorePianoroll pianoroll(modes.size(), score.tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1);
 
-    std::cout << 111111 << std::endl;
     // TODO: de-overlap
 
-    for(int trackIdx = 0; trackIdx < score.tracks.size(), ++trackIdx;) {
+    for(int trackIdx = 0; trackIdx < score.tracks.size(); ++trackIdx) {
         const auto &track = score.tracks[trackIdx];
         for(const auto &note : track.notes) {
             for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                std::cout << 2222 << std::endl;
                 pianoroll.set(modeIdx,
                     trackIdx,
                     note.pitch - pitchRange.first,
                     modes[modeIdx] != PianorollMode::offset ? note.start() : note.end(),
                     modes[modeIdx] == PianorollMode::frame ? note.duration : 1,
                     encodeVelocity ? 1 : note.velocity);
-                std::cout << 33333 << std::endl;
             }
         }
     }
@@ -151,7 +147,6 @@ pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch,
 };
 
 void ScorePianoroll::set(size_t mode, size_t track, size_t pitch, size_t start, size_t duration, pianoroll_t value) {
-    std::cout << 111111111 << std::endl;  // Not printed
     std::fill_n((*this)(mode, track, pitch, start),
                 duration,
                 value);
