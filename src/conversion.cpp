@@ -13,19 +13,17 @@ namespace details {
 struct Tick2Quarter {
     float tpq;
 
-    template<TType T>
-    explicit Tick2Quarter(const Score<T> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
+    explicit Tick2Quarter(const Score<Tick> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
 
-    float operator()(const Tick::unit tick) const {
+    Quarter::unit operator()(const Tick::unit tick) const {
         return static_cast<Quarter::unit>(tick) / tpq;
     }
 };
 
 struct Quarter2Tick {
-    float tpq;
+    f32 tpq;
 
-    template<TType T>
-    explicit Quarter2Tick(const Score<T> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
+    explicit Quarter2Tick(const Score<Quarter> &score): tpq(static_cast<float>(score.ticks_per_quarter)) {}
 
     Tick::unit operator()(const float quarter) const {
         return static_cast<Tick::unit>(std::round(quarter * tpq));
@@ -33,16 +31,116 @@ struct Quarter2Tick {
 };
 
 struct Quarter2Quarter {
-    template<TType T>
-    explicit Quarter2Quarter(const Score<T> &) {}
+    explicit Quarter2Quarter(const Score<Quarter> &) {}
     Quarter::unit operator()(const Quarter::unit quarter) const { return quarter; }
 };
 
 struct Tick2Tick {
-    template<TType T>
-    explicit Tick2Tick(const Score<T> &) {}
+    explicit Tick2Tick(const Score<Tick> &) {}
     Tick::unit operator()(const Tick::unit tick) const { return tick; }
 };
+
+struct Second2Second {
+    explicit Second2Second(const Score<Second> &) {}
+    Second::unit operator()(const Second::unit s) const { return s; }
+};
+
+struct Tick2Second {
+    f32 tpq;
+    vec<Tempo<Tick>> tempos;
+
+    explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
+        if(score.tempos.empty()) {
+            tempos.emplace_back(0, 500000); // 120 qpm
+        } else {
+            // vec<Tempo<Tick>> origin(score.tempos);
+            // ops::sort_by_time(origin);  // sort it
+            tempos.reserve(score.tempos.size() + 2);
+            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
+            ops::sort_by_time(tempos);
+            if(tempos.empty() || tempos[0].time != 0) {
+                tempos.insert(tempos.begin(), Tempo<Tick>(0, 500000));
+            }
+            // add a guard at the end
+            tempos.emplace_back(std::numeric_limits<Tick::unit>::max(), tempos.back().mspq);
+        }
+    }
+
+    template<template<class> class T>
+    vec<T<Second>> time_vec(const vec<T<Tick>> & data) const {
+        vec<T<Tick>> origin(data);
+        ops::sort_by_time(origin);  // sort it
+        vec<T<Second>> ans;
+        ans.reserve(origin.size());
+        auto t_iter = tempos.begin() + 1;
+        i32 pivot_tick = 0;
+        f32 pivot_time = 0;
+        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        for(const auto & event : origin) {
+            if(event.time > t_iter->time) {
+                pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
+                pivot_tick = t_iter->time;
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                ++t_iter;
+            }
+            ans.emplace_back(
+                pivot_time + static_cast<float>(cur_factor * (event.time - pivot_tick)),
+                event
+            );
+        }
+        return ans;
+    }
+
+    template<template<class> class T>
+    vec<T<Second>> duration_vec(const vec<T<Tick>> & data) const {
+        vec<T<Tick>> origin(data);
+        ops::sort_by_time(origin);  // sort it
+        vec<T<Second>> ans;
+        ans.reserve(origin.size());
+        auto t_iter = tempos.begin() + 1;
+        i32 pivot_tick = 0;
+        f32 pivot_time = 0;
+        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        for(const auto & event : origin) {
+            if(event.time > t_iter->time) {
+                pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
+                pivot_tick = t_iter->time;
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                ++t_iter;
+            }
+            ans.emplace_back(
+                pivot_time + static_cast<float>(cur_factor * (event.time - pivot_tick)),
+                0, event
+            );
+        }
+
+        vec<std::pair<Tick::unit, u32>> end_times; // .end(), i
+        end_times.reserve(origin.size());
+        for(size_t i = 0; i < ans.size(); ++i) {
+            end_times.emplace_back(ans[i].end(), i);
+        }
+        pdqsort_detail::insertion_sort(end_times.begin(), end_times.end(), [](const auto & a, const auto & b) {
+            return a.first < b.first;
+        });
+        pivot_tick = 0;
+        pivot_time = 0;
+        cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        for(const auto & event : end_times) {
+            if(event.first > t_iter->time) {
+                pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
+                pivot_tick = t_iter->time;
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                ++t_iter;
+            }
+            ans[event.second].duration =
+                pivot_time
+                + static_cast<float>(cur_factor * (event.first - pivot_tick))
+                - ans[event.second].time;
+        }
+        return ans;
+    }
+};
+
 } // namespace details
 
 #define HELPER_NAME(From, To) details::From##2##To
@@ -68,8 +166,7 @@ struct Tick2Tick {
         return new_s;                                                                           \
     }
 
-#define COMVERT_ARGUMENTS(To, From)                     \
-    const Score<From> & score
+#define COMVERT_ARGUMENTS(To, From) const Score<From> & score
 
 #define CONVERT_VEC_TIME(Name, In, Out, Convert)        \
     In.Name.reserve(Out.Name.size());                   \
@@ -106,7 +203,7 @@ template<> Score<Second> convert<Second, Second> (const Score<Second> & score) {
 
 #define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    \
     In.Name.reserve(Out.Name.size());                   \
-    for(const auto & d : Out.Name) {                     \
+    for(const auto & d : Out.Name) {                    \
         In.Name.emplace_back(                           \
             Convert(d.time),                            \
             MAX(Convert(d.duration), min_dur), d        \
@@ -119,11 +216,35 @@ IMPLEMENT_CONVERT(Tick, Quarter)
 IMPLEMENT_CONVERT(Quarter, Tick)
 IMPLEMENT_CONVERT(Quarter, Quarter)
 
-#undef IMPLEMENT_CONVERT
-#undef HELPER_NAME
 #undef CONVERT_VEC_TIME
 #undef CONVERT_VEC_TIME_DUR
 #undef COMVERT_ARGUMENTS
+
+#define COMVERT_ARGUMENTS(To, From) const Score<From> & score
+#define CONVERT_VEC_TIME(Name, In, Out, Convert)    In.Name = Convert.time_vec(Out.Name);
+#define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    In.Name = Convert.duration_vec(Out.Name);
+
+IMPLEMENT_CONVERT(Second, Tick) // Score<Second> convert<Second, Tick>(const Score<Tick>& score)
+
+#undef CONVERT_VEC_TIME_DUR
+#undef COMVERT_ARGUMENTS
+
+#define COMVERT_ARGUMENTS(To, From)                     \
+    const Score<From> & score, const typename To::unit min_dur
+
+#define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    \
+    In.Name = Convert.duration_vec(Out.Name);           \
+    for(auto & d : In.Name) {                           \
+        d.duration = MAX(d.duration, min_dur);          \
+    }
+
+// Score<Second> convert<Second, Tick>(const Score<Tick>& score, const typename Second::unit min_dur)
+IMPLEMENT_CONVERT(Second, Tick)
+
+#undef CONVERT_VEC_TIME_DUR
+#undef COMVERT_ARGUMENTS
+#undef HELPER_NAME
+#undef IMPLEMENT_CONVERT
 
 // Implementation of to_note_arr
 template<TType T>
