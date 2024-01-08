@@ -108,7 +108,7 @@ py::class_<T> time_stamp_base(py::module_ &m, const std::string &name) {
         .def_prop_ro("ttype", [](const T &) { return typename T::ttype(); })
         .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<T> &self) {
-            return fmt::format("{::s}", self);
+            return fmt::format("{}", fmt::join(self, ",\n"));
         })
         // .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
         .def("__getstate__", &py_to_bytes<vec<T>>)
