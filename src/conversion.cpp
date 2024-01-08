@@ -374,39 +374,39 @@ Score<Quarter> convert<Quarter, Second>(const Score<Second> & score) {
 #undef IMPLEMENT_CONVERT
 
 // Implementation of to_note_arr
-template<TType T>
-NoteArr<T> to_note_arr(const Track<T> & track) {
-    NoteArr<T> note_arr{track.name, track.program, track.is_drum};
-    note_arr.reserve(track.note_num());
-    for (const auto & note: track.notes) {
-        note_arr.push_back(note);
-    }   return note_arr;
-}
-
-template<TType T>
-Track<T> to_track(const NoteArr<T> & note_arr) {
-    Track<T> track{note_arr.name, note_arr.program, note_arr.is_drum};
-    const size_t note_num = note_arr.note_num();
-    track.notes.reserve(note_num);
-    for(size_t i = 0; i < note_num; ++i) {
-        track.notes.emplace_back(
-            note_arr.time[i],
-            note_arr.duration[i],
-            note_arr.pitch[i],
-            note_arr.velocity[i]
-        );
-    }
-    return track;
-}
-
-// Instantiation of to_note_arr and to_track
-#define INSTANTIATE(__COUNT, T) \
-    template NoteArr<T> to_note_arr(const Track<T> & track); \
-    template Track<T> to_track(const NoteArr<T> & note_arr);
-
-REPEAT_ON(INSTANTIATE, Tick, Quarter, Second)
-
-#undef INSTANTIATE
+// template<TType T>
+// NoteArr<T> to_note_arr(const Track<T> & track) {
+//     NoteArr<T> note_arr{track.name, track.program, track.is_drum};
+//     note_arr.reserve(track.note_num());
+//     for (const auto & note: track.notes) {
+//         note_arr.push_back(note);
+//     }   return note_arr;
+// }
+//
+// template<TType T>
+// Track<T> to_track(const NoteArr<T> & note_arr) {
+//     Track<T> track{note_arr.name, note_arr.program, note_arr.is_drum};
+//     const size_t note_num = note_arr.note_num();
+//     track.notes.reserve(note_num);
+//     for(size_t i = 0; i < note_num; ++i) {
+//         track.notes.emplace_back(
+//             note_arr.time[i],
+//             note_arr.duration[i],
+//             note_arr.pitch[i],
+//             note_arr.velocity[i]
+//         );
+//     }
+//     return track;
+// }
+//
+// // Instantiation of to_note_arr and to_track
+// #define INSTANTIATE(__COUNT, T) \
+//     template NoteArr<T> to_note_arr(const Track<T> & track); \
+//     template Track<T> to_track(const NoteArr<T> & note_arr);
+//
+// REPEAT_ON(INSTANTIATE, Tick, Quarter, Second)
+//
+// #undef INSTANTIATE
 
 // Resample Score<Tick> to Score<Tick> with given new tpq and min_dur
 Score<Tick> resample_inner(const Score<Tick> & score, const i32 tpq, const i32 min_dur) {

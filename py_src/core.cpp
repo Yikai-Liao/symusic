@@ -11,6 +11,7 @@
 #include <nanobind/stl/filesystem.h>
 // #include <nanobind/operators.h>
 #include <nanobind/stl/bind_vector.h>
+
 #include "symusic.h"
 
 namespace py = nanobind;
@@ -94,7 +95,7 @@ py::object py_filter (vec<T> & self, py::callable & func, const bool inplace) {
 
 
 template<typename T>
-py::class_<T> time_stamp_base(py::module_ &m, const std::string &name) {
+std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, const std::string &name) {
     typedef typename T::unit unit;
     auto event = py::class_<T>(m, name.c_str())
         .def_rw("time", &T::time)
@@ -115,7 +116,7 @@ py::class_<T> time_stamp_base(py::module_ &m, const std::string &name) {
         .def("__getstate__", &py_to_bytes<T>)
         .def("__setstate__", &py_from_bytes<T>);
 
-    py::bind_vector<vec<T>>(m, std::string(name + "List").c_str())
+    auto vec_T = py::bind_vector<vec<T>>(m, std::string(name + "List").c_str())
         .def_prop_ro("ttype", [](const T &) { return typename T::ttype(); })
         .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<T> &self) {
@@ -125,7 +126,7 @@ py::class_<T> time_stamp_base(py::module_ &m, const std::string &name) {
         .def("__getstate__", &py_to_bytes<vec<T>>)
         .def("__setstate__", &py_from_bytes<vec<T>>)
         .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false);
-    return event;
+    return std::make_tuple(event, vec_T);
 }
 
 // a template functions for binding all specializations of Note, and return it
@@ -134,7 +135,23 @@ py::class_<Note<T>> bind_note_class(py::module_ &m, const std::string & name_) {
     typedef typename T::unit unit;
     const std::string name = "Note" + name_;
 
-    return time_stamp_base<Note<T>>(m, name)
+    auto [note, note_vec] = time_stamp_base<Note<T>>(m, name);
+    note_vec.def(
+        "numpy", [](const vec<Note<T>> &self) {
+            auto * temp = new NoteArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<NoteArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["duration"] = py::ndarray<py::numpy, unit>{temp->duration.data(), {size}, deleter};
+            ans["pitch"] = py::ndarray<py::numpy, i8>{temp->pitch.data(), {size}, deleter};
+            ans["velocity"] = py::ndarray<py::numpy, i8>{temp->velocity.data(), {size}, deleter};
+            return ans;
+        }
+    );
+    return note
         .def(py::init<unit, unit, int8_t, int8_t>(), py::arg("start"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"))
         .def_rw("start", &Note<T>::time)
         .def_rw("duration", &Note<T>::duration)
@@ -159,7 +176,22 @@ py::class_<symusic::KeySignature<T>> bind_key_signature_class(py::module_ &m, co
     typedef typename T::unit unit;
     const auto name = "KeySignature" + name_;
 
-    return time_stamp_base<symusic::KeySignature<T>>(m, name)
+    auto [k, k_vec] = time_stamp_base<symusic::KeySignature<T>>(m, name);
+    k_vec.def(
+        "numpy", [](const vec<symusic::KeySignature<T>> &self) {
+            auto * temp = new KeySignatureArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<KeySignatureArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["key"] = py::ndarray<py::numpy, i8>{temp->key.data(), {size}, deleter};
+            ans["tonality"] = py::ndarray<py::numpy, i8>{temp->tonality.data(), {size}, deleter};
+            return ans;
+        }
+    );
+    return k
         .def(py::init<unit, i8, i8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
         .def_rw("key", &symusic::KeySignature<T>::key)
         .def_rw("tonality", &symusic::KeySignature<T>::tonality)
@@ -171,8 +203,22 @@ template<typename T>
 py::class_<symusic::TimeSignature<T>> bind_time_signature_class(py::module_ &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "TimeSignature" + name_;
-
-    return time_stamp_base<symusic::TimeSignature<T>>(m, name)
+    auto [time_sig, time_sig_vec] = time_stamp_base<symusic::TimeSignature<T>>(m, name);
+    time_sig_vec.def(
+        "numpy", [](const vec<symusic::TimeSignature<T>> &self) {
+            auto * temp = new TimeSignatureArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<TimeSignatureArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["numerator"] = py::ndarray<py::numpy, u8>{temp->numerator.data(), {size}, deleter};
+            ans["denominator"] = py::ndarray<py::numpy, u8>{temp->denominator.data(), {size}, deleter};
+            return ans;
+        }
+    );
+    return time_sig
         .def(py::init<unit, u8, u8>())
         .def_rw("numerator", &symusic::TimeSignature<T>::numerator)
         .def_rw("denominator", &symusic::TimeSignature<T>::denominator);
@@ -183,8 +229,23 @@ template<typename T>
 py::class_<symusic::ControlChange<T>> bind_control_change_class(py::module_ &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "ControlChange" + name_;
+    auto [control_change, control_change_vec] = time_stamp_base<symusic::ControlChange<T>>(m, name);
+    control_change_vec.def(
+        "numpy", [](const vec<symusic::ControlChange<T>> &self) {
+            auto * temp = new ControlChangeArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<ControlChangeArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["number"] = py::ndarray<py::numpy, u8>{temp->number.data(), {size}, deleter};
+            ans["value"] = py::ndarray<py::numpy, u8>{temp->value.data(), {size}, deleter};
+            return ans;
+        }
+    );
 
-    return time_stamp_base<symusic::ControlChange<T>>(m, name)
+    return control_change
         .def(py::init<unit, u8, u8>(), py::arg("time"), py::arg("number"), py::arg("value"))
         .def_rw("value", &symusic::ControlChange<T>::value)
         .def_rw("number", &symusic::ControlChange<T>::number);
@@ -196,7 +257,24 @@ py::class_<symusic::Pedal<T>> bind_pedal_class(py::module_ &m, const std::string
     typedef typename T::unit unit;
     const auto name = "Pedal" + name_;
 
-    return time_stamp_base<symusic::Pedal<T>>(m, name)
+    auto [pedal, pedal_vec] = time_stamp_base<symusic::Pedal<T>>(m, name);
+
+    pedal_vec.def(
+        "numpy", [](const vec<symusic::Pedal<T>> &self) {
+            auto * temp = new PedalArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<PedalArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["duration"] = py::ndarray<py::numpy, unit>{temp->duration.data(), {size}, deleter};
+            return ans;
+        }
+    );
+
+
+    return pedal
         .def(py::init<unit, unit>(), py::arg("time"), py::arg("duration"))
         .def_rw("duration", &symusic::Pedal<T>::duration)
         .def_prop_ro("end", &symusic::Pedal<T>::end);
@@ -207,8 +285,21 @@ template<typename T>
 py::class_<symusic::Tempo<T>> bind_tempo_class(py::module_ &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "Tempo" + name_;
-    return time_stamp_base<symusic::Tempo<T>>(m, name)
-//        .def(py::init<unit, float>(), py::arg("time"), py::arg("qpm"))
+    auto [tempo, tempo_vec] = time_stamp_base<symusic::Tempo<T>>(m, name);
+    tempo_vec.def(
+        "numpy", [](const vec<symusic::Tempo<T>> &self) {
+            auto * temp = new TempoArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<TempoArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["mspq"] = py::ndarray<py::numpy, i32>{temp->mspq.data(), {size}, deleter};
+            return ans;
+        }
+    );
+    return tempo
         .def("__init__", [](Tempo<T>* self, unit time, std::optional<double> qpm, std::optional<i32> mspq) {
             new (self) Tempo<T>(); self->time = time;
             if (qpm.has_value()) self->set_qpm(*qpm);
@@ -225,8 +316,22 @@ template<typename T>
 py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module_ &m, const std::string & name_) {
     typedef typename T::unit unit;
     const auto name = "PitchBend" + name_;
+    auto [pitch_bend, pitch_bend_vec] = time_stamp_base<symusic::PitchBend<T>>(m, name);
+    pitch_bend_vec.def(
+        "numpy", [](const vec<symusic::PitchBend<T>> &self) {
+            auto * temp = new PitchBendArr<T>{self};
+            py::capsule deleter(temp, [](void *p) noexcept {
+                delete static_cast<PitchBendArr<T> *>(p);
+            });
+            size_t size = self.size();
+            py::dict ans{};
+            ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+            ans["value"] = py::ndarray<py::numpy, i32>{temp->value.data(), {size}, deleter};
+            return ans;
+        }
+    );
 
-    return time_stamp_base<symusic::PitchBend<T>>(m, name)
+    return pitch_bend
         .def(py::init<unit, i32>(), py::arg("time"), py::arg("value"))
         .def_rw("value", &symusic::PitchBend<T>::value);
 }
@@ -237,13 +342,20 @@ py::class_<symusic::TextMeta<T>> bind_text_meta_class(py::module_ &m, const std:
     typedef typename T::unit unit;
     const auto name = "TextMeta" + name_;
 
-    return time_stamp_base<symusic::TextMeta<T>>(m, name)
+    auto [text_meta, text_meta_vec] = time_stamp_base<symusic::TextMeta<T>>(m, name);
+    text_meta_vec.def(
+        "numpy", [](const vec<symusic::TextMeta<T>> &self) {
+            throw std::runtime_error("TextMeta does not support numpy");
+        }
+    );
+
+    return text_meta
         .def(py::init<unit, std::string &>(), py::arg("time"), py::arg("text"))
         .def_rw("text", &symusic::TextMeta<T>::text);
 }
 
 template<typename T>
-Track<T>&py_sort_track_inplace(Track<T> &self, py::object key, const bool reverse) {
+Track<T>&py_sort_track_inplace(Track<T> &self, py::callable &key, const bool reverse) {
     py_sort_inplace(self.notes, key, reverse);
     py_sort_inplace(self.controls, key, reverse);
     py_sort_inplace(self.pitch_bends, key, reverse);
@@ -252,7 +364,7 @@ Track<T>&py_sort_track_inplace(Track<T> &self, py::object key, const bool revers
 };
 
 template<typename T>
-py::object py_sort_track(Track<T> &self, py::object key, const bool reverse, const bool inplace = false) {
+py::object py_sort_track(Track<T> &self, py::callable &key, const bool reverse, const bool inplace = false) {
     if (inplace) {
         py_sort_track_inplace(self, key, reverse);
         return py::cast(self, py::rv_policy::reference);
@@ -375,7 +487,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
 
 // py sort score
 template<typename T>
-Score<T>& py_sort_score_inplace(Score<T> &self, py::object key, bool reverse) {
+Score<T>& py_sort_score_inplace(Score<T> &self, py::callable& key, bool reverse) {
     py_sort_inplace(self.time_signatures, key, reverse);
     py_sort_inplace(self.key_signatures, key, reverse);
     py_sort_inplace(self.tempos, key, reverse);
@@ -387,7 +499,7 @@ Score<T>& py_sort_score_inplace(Score<T> &self, py::object key, bool reverse) {
 }
 
 template<typename T>
-py::object py_sort_score(Score<T> &self, py::object key, bool reverse, bool inplace = false) {
+py::object py_sort_score(Score<T> &self, py::callable& key, bool reverse, bool inplace = false) {
     if (inplace) {
         py_sort_score_inplace(self, key, reverse);
         return py::cast(self, py::rv_policy::reference);
@@ -532,69 +644,69 @@ py::object convert_score(const Score<T> &self, const py::object &ttype, const py
         if (ttype_str == "second")  return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
     }   throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
 }
-
-template<TType T>
-py::class_<NoteArr<T>> bind_note_arr(py::module_ &m, const std::string & name_) {
-    const auto name = "NoteArr" + name_;
-
-    return py::class_<NoteArr<T>>(m, name.c_str())
-        .def(py::init<const NoteArr<T> &>(), "Copy constructor", py::arg("other"))
-        .def(py::init<std::string, u8, bool>(), "create with name, program and is_drum", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false)
-        // .def(py::init([](
-        //     std::string name, u8 program, bool is_drum,
-        //     const py::array_t<typename T::unit> &time,
-        //     const py::array_t<typename T::unit> &duration,
-        //     const py::array_t<int8_t> &pitch,
-        //     const py::array_t<int8_t> &velocity) {
-        //     if (time.size() != duration.size() || time.size() != pitch.size() || time.size() != velocity.size())
-        //         throw std::invalid_argument("time, duration, pitch and velocity must have the same size");
-        //     const auto size = time.size();
-        //     NoteArr<T> arr(name, program, is_drum);
-        //     arr.reserve(size);
-        //     for (size_t i = 0; i < size; ++i) {
-        //         arr.emplace_back(time.at(i), duration.at(i), pitch.at(i), velocity.at(i));
-        //     }
-        //     return arr;
-        // }), "Creat from numpy", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false,
-        //     py::arg("time")=py::array_t<typename T::unit>(),
-        //     py::arg("duration")=py::array_t<typename T::unit>(),
-        //     py::arg("pitch")=py::array_t<int8_t>(),
-        //     py::arg("velocity")=py::array_t<int8_t>())
-        .def("copy", &NoteArr<T>::copy, "Deep copy", py::rv_policy::move)
-        .def("__copy__", &NoteArr<T>::copy, "Deep copy")
-        .def("__deepcopy__", &NoteArr<T>::copy, "Deep copy")
-        .def("__repr__", &NoteArr<T>::to_string)
-        .def(py::self == py::self)  // NOLINT
-        .def(py::self != py::self)  // NOLINT
-        // getter convert vector to numpy array (reference)
-        // setter accept numpy array using copy
-        // .def(py::pickle( &py_to_bytes<NoteArr<T>>, &py_from_bytes<NoteArr<T>>))
-        .def("__getstate__", &py_to_bytes<NoteArr<T>>)
-        .def("__setstate__", &py_from_bytes<NoteArr<T>>)
-        .def("start", &NoteArr<T>::start)
-        .def("end", &NoteArr<T>::end)
-        .def("note_num", &NoteArr<T>::note_num)
-        .def("empty", &NoteArr<T>::empty)
-        .def("valid", &NoteArr<T>::valid)
-        .def("summary" , &NoteArr<T>::summary)
-        .def("sort", &NoteArr<T>::sort, py::arg("reverse")=false)
-        .def("clip", &NoteArr<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
-        .def("reserve", &NoteArr<T>::reserve, "Reserve memory for notes", py::arg("size"))
-        .def("push_back", &NoteArr<T>::emplace_back, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"))
-        .def("push_back", &NoteArr<T>::push_back, py::arg("note"))
-        .def_rw("pitch", &NoteArr<T>::pitch)
-        .def_rw("velocity", &NoteArr<T>::velocity)
-        .def_rw("time", &NoteArr<T>::time)
-        .def_rw("duration", &NoteArr<T>::duration);
-        // .def("numpy", [](NoteArr<T> &self) {
-        //     using namespace pybind11::literals; // to bring in the `_a` literal
-        //     // convert vector to numpy array
-        //     return py::dict("time"_a=py::array_t<typename T::unit>(self.time.size(), self.time.data()),
-        //                     "duration"_a=py::array_t<typename T::unit>(self.duration.size(), self.duration.data()),
-        //                     "pitch"_a=py::array_t<int8_t>(self.pitch.size(), self.pitch.data()),
-        //                     "velocity"_a=py::array_t<int8_t>(self.velocity.size(), self.velocity.data()));
-        // });
-}
+//
+// template<TType T>
+// py::class_<NoteArr<T>> bind_note_arr(py::module_ &m, const std::string & name_) {
+//     const auto name = "NoteArr" + name_;
+//
+//     return py::class_<NoteArr<T>>(m, name.c_str())
+//         .def(py::init<const NoteArr<T> &>(), "Copy constructor", py::arg("other"))
+//         .def(py::init<std::string, u8, bool>(), "create with name, program and is_drum", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false)
+//         // .def(py::init([](
+//         //     std::string name, u8 program, bool is_drum,
+//         //     const py::array_t<typename T::unit> &time,
+//         //     const py::array_t<typename T::unit> &duration,
+//         //     const py::array_t<int8_t> &pitch,
+//         //     const py::array_t<int8_t> &velocity) {
+//         //     if (time.size() != duration.size() || time.size() != pitch.size() || time.size() != velocity.size())
+//         //         throw std::invalid_argument("time, duration, pitch and velocity must have the same size");
+//         //     const auto size = time.size();
+//         //     NoteArr<T> arr(name, program, is_drum);
+//         //     arr.reserve(size);
+//         //     for (size_t i = 0; i < size; ++i) {
+//         //         arr.emplace_back(time.at(i), duration.at(i), pitch.at(i), velocity.at(i));
+//         //     }
+//         //     return arr;
+//         // }), "Creat from numpy", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false,
+//         //     py::arg("time")=py::array_t<typename T::unit>(),
+//         //     py::arg("duration")=py::array_t<typename T::unit>(),
+//         //     py::arg("pitch")=py::array_t<int8_t>(),
+//         //     py::arg("velocity")=py::array_t<int8_t>())
+//         .def("copy", &NoteArr<T>::copy, "Deep copy", py::rv_policy::move)
+//         .def("__copy__", &NoteArr<T>::copy, "Deep copy")
+//         .def("__deepcopy__", &NoteArr<T>::copy, "Deep copy")
+//         .def("__repr__", &NoteArr<T>::to_string)
+//         .def(py::self == py::self)  // NOLINT
+//         .def(py::self != py::self)  // NOLINT
+//         // getter convert vector to numpy array (reference)
+//         // setter accept numpy array using copy
+//         // .def(py::pickle( &py_to_bytes<NoteArr<T>>, &py_from_bytes<NoteArr<T>>))
+//         .def("__getstate__", &py_to_bytes<NoteArr<T>>)
+//         .def("__setstate__", &py_from_bytes<NoteArr<T>>)
+//         .def("start", &NoteArr<T>::start)
+//         .def("end", &NoteArr<T>::end)
+//         .def("note_num", &NoteArr<T>::note_num)
+//         .def("empty", &NoteArr<T>::empty)
+//         .def("valid", &NoteArr<T>::valid)
+//         .def("summary" , &NoteArr<T>::summary)
+//         .def("sort", &NoteArr<T>::sort, py::arg("reverse")=false)
+//         .def("clip", &NoteArr<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
+//         .def("reserve", &NoteArr<T>::reserve, "Reserve memory for notes", py::arg("size"))
+//         .def("push_back", &NoteArr<T>::emplace_back, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"))
+//         .def("push_back", &NoteArr<T>::push_back, py::arg("note"))
+//         .def_rw("pitch", &NoteArr<T>::pitch)
+//         .def_rw("velocity", &NoteArr<T>::velocity)
+//         .def_rw("time", &NoteArr<T>::time)
+//         .def_rw("duration", &NoteArr<T>::duration);
+//         // .def("numpy", [](NoteArr<T> &self) {
+//         //     using namespace pybind11::literals; // to bring in the `_a` literal
+//         //     // convert vector to numpy array
+//         //     return py::dict("time"_a=py::array_t<typename T::unit>(self.time.size(), self.time.data()),
+//         //                     "duration"_a=py::array_t<typename T::unit>(self.duration.size(), self.duration.data()),
+//         //                     "pitch"_a=py::array_t<int8_t>(self.pitch.size(), self.pitch.data()),
+//         //                     "velocity"_a=py::array_t<int8_t>(self.velocity.size(), self.velocity.data()));
+//         // });
+// }
 
 py::module_ & core_module(py::module_ & m){
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";
@@ -636,17 +748,17 @@ py::module_ & core_module(py::module_ & m){
     auto tq = bind_track_class<Quarter>(m, quarter);
     auto ts = bind_track_class<Second>(m, second);
 
-    auto narr_t = bind_note_arr<Tick>(m, tick);
-    auto narr_q = bind_note_arr<Quarter>(m, quarter);
-    auto narr_s = bind_note_arr<Second>(m, second);
-
-    tt.def("note_arr", &to_note_arr<Tick>, "Convert to NoteArr");
-    tq.def("note_arr", &to_note_arr<Quarter>, "Convert to NoteArr");
-    ts.def("note_arr", &to_note_arr<Second>, "Convert to NoteArr");
-
-    narr_t.def("to_track", &to_track<Tick>, "Convert to Track");
-    narr_q.def("to_track", &to_track<Quarter>, "Convert to Track");
-    narr_s.def("to_track", &to_track<Second>, "Convert to Track");
+    // auto narr_t = bind_note_arr<Tick>(m, tick);
+    // auto narr_q = bind_note_arr<Quarter>(m, quarter);
+    // auto narr_s = bind_note_arr<Second>(m, second);
+    //
+    // tt.def("note_arr", &to_note_arr<Tick>, "Convert to NoteArr");
+    // tq.def("note_arr", &to_note_arr<Quarter>, "Convert to NoteArr");
+    // ts.def("note_arr", &to_note_arr<Second>, "Convert to NoteArr");
+    //
+    // narr_t.def("to_track", &to_track<Tick>, "Convert to Track");
+    // narr_q.def("to_track", &to_track<Quarter>, "Convert to Track");
+    // narr_s.def("to_track", &to_track<Second>, "Convert to Track");
 
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
@@ -712,5 +824,14 @@ NB_MODULE(core, m) {
     });
 
     core_module(m);
+    struct Data {
+        int time;
+        int value;
+    };
+    py::class_<Data>(m, "Data")
+        .def(py::init<>())
+        .def_rw("time", &Data::time);
 
+    py::class_<Data>(m, "Data")
+        .def_rw("value", &Data::value);
 }

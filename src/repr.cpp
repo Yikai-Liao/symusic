@@ -7,7 +7,7 @@
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-#include "symusic/note_arr.h"
+// #include "symusic/note_arr.h"
 #include "symusic/repr.h"
 
 namespace symusic {
@@ -45,13 +45,13 @@ std::string Track<T>::summary() const {
     );
 }
 
-template<TType T>
-std::string NoteArr<T>::summary() const {
-    return fmt::format(
-        "NoteArr(ttype={}, program={}, is_drum={}, name={}, notes={})",
-        T(), program, is_drum, name, pitch.size()
-    );
-}
+// template<TType T>
+// std::string NoteArr<T>::summary() const {
+//     return fmt::format(
+//         "NoteArr(ttype={}, program={}, is_drum={}, name={}, notes={})",
+//         T(), program, is_drum, name, pitch.size()
+//     );
+// }
 
 template<TType T>
 std::string Score<T>::summary() const {
@@ -75,7 +75,7 @@ std::string Score<T>::summary() const {
 
 REPEAT_ON(
     INSTANTIATE_SUMMARY,
-    Track, NoteArr, Score
+    Track, Score
 )
 
 #undef INSTANTIATE_SUMMARY
@@ -102,5 +102,5 @@ REPEAT_ON(
 REPEAT_ON(
     OSTREAMEABLE,
     Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta,
-    Track, Score, NoteArr
+    Track, Score
 )
