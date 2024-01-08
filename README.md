@@ -26,13 +26,8 @@ Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.c
   * sort(key, reverse)
 * You can operate each note just like you did before in python (like PrettyMidi)
 * Extremely fast `pickle` is now supported
-
-
-## TODO
-
-Notice that this library is under development:
-
-* Re-implement `filter_notes` and `Note Array`.
+* `.numpy()` method for getting [SoA](https://en.wikipedia.org/wiki/AoS_and_SoA) data
+* `.filter(func, inplace)` method for filtering objets in all the "List" in symusic
 
 ## Installation
 ### Use pre-compiled version
@@ -72,7 +67,6 @@ pip install ./symusic
 ## Acknowledgement
 
 * [minimidi](https://github.com/lzqlzzq/minimidi) : A fast and lightweight midi parsing library written in cpp, which is the foundation of this project.
-* [pybind11](https://github.com/pybind/pybind11) : A great header-only library to help you create python binding for your cpp code.
-* [pybind11-stubgen](https://github.com/sizmailov/pybind11-stubgen) A nice tool to generate stub files for pybind11 projects.
+* [nanobind](https://github.com/wjakob/nanobind) : A efficient and lightweight library for binding C++ to Python, which is significantly faster than [pybind11](https://github.com/pybind/pybind11).
 * [zpp_bits](https://github.com/eyalz800/zpp_bits) : An extraordinary fast and lightweight single header library for serialization and deserialization. I use it to support pickle.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
