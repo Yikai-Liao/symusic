@@ -1,5 +1,7 @@
 //
 // Created by lyk on 23-12-16.
+// This file is now much too confusing to read.
+// Refactor it later.
 //
 #include <cmath>
 #include "symusic/conversion.h"
@@ -66,7 +68,7 @@ struct Tick2Second {
     }
 
     template<template<class> class T>
-    vec<T<Second>> time_vec(const vec<T<Tick>> & data) const {
+    [[nodiscard]] vec<T<Second>> time_vec(const vec<T<Tick>> & data) const {
         vec<T<Tick>> origin(data);
         ops::sort_by_time(origin);  // sort it
         vec<T<Second>> ans;
@@ -91,7 +93,7 @@ struct Tick2Second {
     }
 
     template<template<class> class T>
-    vec<T<Second>> duration_vec(const vec<T<Tick>> & data) const {
+     [[nodiscard]] vec<T<Second>> duration_vec(const vec<T<Tick>> & data) const {
         vec<T<Tick>> origin(data);
         ops::sort_by_time(origin);  // sort it
         vec<T<Second>> ans;
@@ -135,6 +137,103 @@ struct Tick2Second {
             ans[event.second].duration =
                 pivot_time
                 + static_cast<float>(cur_factor * (event.first - pivot_tick))
+                - ans[event.second].time;
+        }
+        return ans;
+    }
+};
+
+struct Second2Tick {
+    f32 tpq;
+    vec<Tempo<Second>> tempos;
+
+    explicit Second2Tick(const Score<Second> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
+        if(score.tempos.empty()) {
+            tempos.emplace_back(0, 500000); // 120 qpm
+        } else {
+            // vec<Tempo<Second>> origin(score.tempos);
+            // ops::sort_by_time(origin);  // sort it
+            tempos.reserve(score.tempos.size() + 2);
+            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
+            ops::sort_by_time(tempos);
+            if(tempos.empty() || tempos[0].time != 0) {
+                tempos.insert(tempos.begin(), Tempo<Second>(0, 500000));
+            }
+            // add a guard at the end
+            tempos.emplace_back(std::numeric_limits<Second::unit>::max(), tempos.back().mspq);
+        }
+    }
+
+    template<template<class> class T>
+    [[nodiscard]] vec<T<Tick>> time_vec(const vec<T<Second>> & data) const {
+        vec<T<Second>> origin(data);
+        ops::sort_by_time(origin);  // sort it
+        vec<T<Tick>> ans;
+        ans.reserve(origin.size());
+        auto t_iter = tempos.begin() + 1;
+        i32 pivot_tick = 0;
+        f32 pivot_time = 0;
+        double cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
+        for(const auto & event : origin) {
+            if(event.time > t_iter->time) {
+                pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
+                pivot_time = t_iter->time;
+                cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
+                ++t_iter;
+            }
+            ans.emplace_back(
+                pivot_tick + static_cast<i32>(std::round(cur_factor * (event.time - pivot_time))),
+                event
+            );
+        }
+        return ans;
+    }
+
+    template<template<class> class T>
+    [[nodiscard]] vec<T<Tick>> duration_vec(const vec<T<Second>> & data) const {
+        vec<T<Second>> origin(data);
+        ops::sort_by_time(origin);  // sort it
+        vec<T<Tick>> ans;
+        ans.reserve(origin.size());
+        auto t_iter = tempos.begin() + 1;
+        i32 pivot_tick = 0;
+        f32 pivot_time = 0;
+        double cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
+        for(const auto & event : origin) {
+            if(event.time > t_iter->time) {
+                pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
+                pivot_time = t_iter->time;
+                cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
+                ++t_iter;
+            }
+            ans.emplace_back(
+                pivot_tick + static_cast<i32>(std::round(cur_factor * (event.time - pivot_time))),
+                0, event
+            );
+        }
+
+        vec<std::pair<Second::unit, u32>> end_times; // .end(), i
+        end_times.reserve(origin.size());
+        for(size_t i = 0; i < origin.size(); ++i) {
+            end_times.emplace_back(origin[i].end(), i);
+        }
+        pdqsort_detail::insertion_sort(end_times.begin(), end_times.end(), [](const auto & a, const auto & b) {
+            return a.first < b.first;
+        });
+        pivot_tick = 0;
+        pivot_time = 0;
+        t_iter = tempos.begin() + 1;
+        cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
+        for(const auto & event : end_times) {
+            if(event.first > t_iter->time) {
+                pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
+                pivot_time = t_iter->time;
+                cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
+                ++t_iter;
+            }
+            ans[event.second].duration =
+                pivot_tick
+                + static_cast<i32>(std::round(cur_factor * (event.first - pivot_time)))
                 - ans[event.second].time;
         }
         return ans;
@@ -215,6 +314,7 @@ IMPLEMENT_CONVERT(Tick, Tick)
 IMPLEMENT_CONVERT(Tick, Quarter)
 IMPLEMENT_CONVERT(Quarter, Tick)
 IMPLEMENT_CONVERT(Quarter, Quarter)
+IMPLEMENT_CONVERT(Second, Second)
 
 #undef CONVERT_VEC_TIME
 #undef CONVERT_VEC_TIME_DUR
@@ -224,7 +324,9 @@ IMPLEMENT_CONVERT(Quarter, Quarter)
 #define CONVERT_VEC_TIME(Name, In, Out, Convert)    In.Name = Convert.time_vec(Out.Name);
 #define CONVERT_VEC_TIME_DUR(Name, In, Out, Convert)    In.Name = Convert.duration_vec(Out.Name);
 
+//               To    From
 IMPLEMENT_CONVERT(Second, Tick) // Score<Second> convert<Second, Tick>(const Score<Tick>& score)
+IMPLEMENT_CONVERT(Tick, Second) // Score<Second> convert<Second, Quarter>(const Score<Quarter>& score)
 
 #undef CONVERT_VEC_TIME_DUR
 #undef COMVERT_ARGUMENTS
@@ -238,8 +340,33 @@ IMPLEMENT_CONVERT(Second, Tick) // Score<Second> convert<Second, Tick>(const Sco
         d.duration = MAX(d.duration, min_dur);          \
     }                                                   \
 
-// Score<Second> convert<Second, Tick>(const Score<Tick>& score, const typename Second::unit min_dur)
-IMPLEMENT_CONVERT(Second, Tick)
+//               To    From
+IMPLEMENT_CONVERT(Second, Tick) // Score<Second> convert<Second, Tick>(const Score<Tick>& score, const typename Second::unit min_dur)
+IMPLEMENT_CONVERT(Tick, Second) // Score<Second> convert<Second, Quarter>(const Score<Quarter>& score, const typename Second::unit min_dur)
+
+template<>
+Score<Second> convert<Second, Quarter>(const Score<Quarter> & score, const Second::unit min_dur) {
+    const Score<Tick> new_score = convert<Tick>(score);
+    return convert<Second>(new_score, min_dur);
+}
+
+template<>
+Score<Second> convert<Second, Quarter>(const Score<Quarter> & score) {
+    const Score<Tick> new_score = convert<Tick>(score);
+    return convert<Second>(new_score);
+}
+
+template<>
+Score<Quarter> convert<Quarter, Second>(const Score<Second> & score, const Quarter::unit min_dur) {
+    const Score<Tick> new_score = convert<Tick>(score);
+    return convert<Quarter>(new_score, min_dur);
+}
+
+template<>
+Score<Quarter> convert<Quarter, Second>(const Score<Second> & score) {
+    const Score<Tick> new_score = convert<Tick>(score);
+    return convert<Quarter>(new_score);
+}
 
 #undef CONVERT_VEC_TIME_DUR
 #undef COMVERT_ARGUMENTS
@@ -329,9 +456,12 @@ Score<Tick> resample(const Score<Quarter> & score, const i32 tpq, const i32 min_
 }
 
 template<>
-Score<Tick> resample(const Score<Tick> & score, i32 tpq, i32 min_dur) {
+Score<Tick> resample(const Score<Tick> & score, const i32 tpq, const i32 min_dur) {
     return resample_inner(score, tpq, min_dur);
 }
-// template Score<Tick> resample(const Score<Second> & score, i32 tpq, i32 min_dur);
+template<>
+Score<Tick> resample(const Score<Second> & score, const i32 tpq, const i32 min_dur) {
+    return resample_inner(convert<Tick>(score), tpq, min_dur);
+}
 
 } // namespace symusic
