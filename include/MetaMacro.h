@@ -23,6 +23,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+#pragma once
 
 #ifndef METAMACRO_H
 #define METAMACRO_H

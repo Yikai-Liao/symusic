@@ -1,0 +1,6 @@
+[book]
+authors = ["Yikai Liao"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Libsymusic Document"

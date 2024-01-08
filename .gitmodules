@@ -7,3 +7,9 @@
 [submodule "zpp_bits"]
 	path = 3rdparty/zpp_bits
 	url = https://github.com/eyalz800/zpp_bits.git
+[submodule "3rdparty/fmt"]
+	path = 3rdparty/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "3rdparty/nanobench"]
+	path = 3rdparty/nanobench
+	url = https://github.com/martinus/nanobench.git
