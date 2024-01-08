@@ -1,4144 +1,4099 @@
-from __future__ import annotations
-
-import typing
+import os
+from typing import Callable, Iterable, Optional, overload
 
 import numpy
 
-__all__ = [
-    "ControlChangeQuarter",
-    "ControlChangeQuarterList",
-    "ControlChangeSecond",
-    "ControlChangeSecondList",
-    "ControlChangeTick",
-    "ControlChangeTickList",
-    "KeySignatureQuarter",
-    "KeySignatureQuarterList",
-    "KeySignatureSecond",
-    "KeySignatureSecondList",
-    "KeySignatureTick",
-    "KeySignatureTickList",
-    "NoteQuarter",
-    "NoteQuarterList",
-    "NoteSecond",
-    "NoteSecondList",
-    "NoteTick",
-    "NoteTickList",
-    "PedalQuarter",
-    "PedalQuarterList",
-    "PedalSecond",
-    "PedalSecondList",
-    "PedalTick",
-    "PedalTickList",
-    "PitchBendQuarter",
-    "PitchBendQuarterList",
-    "PitchBendSecond",
-    "PitchBendSecondList",
-    "PitchBendTick",
-    "PitchBendTickList",
-    "Quarter",
-    "ScoreQuarter",
-    "ScoreTick",
-    "Second",
-    "TempoQuarter",
-    "TempoQuarterList",
-    "TempoSecond",
-    "TempoSecondList",
-    "TempoTick",
-    "TempoTickList",
-    "TextMetaQuarter",
-    "TextMetaQuarterList",
-    "TextMetaSecond",
-    "TextMetaSecondList",
-    "TextMetaTick",
-    "TextMetaTickList",
-    "Tick",
-    "TimeSignatureQuarter",
-    "TimeSignatureQuarterList",
-    "TimeSignatureSecond",
-    "TimeSignatureSecondList",
-    "TimeSignatureTick",
-    "TimeSignatureTickList",
-    "TrackQuarter",
-    "TrackQuarterList",
-    "TrackSecond",
-    "TrackSecondList",
-    "TrackTick",
-    "TrackTickList",
-]
+import symusic.core
 
 class ControlChangeQuarter:
-    __hash__: typing.ClassVar[None] = None
-    number: int
-    time: float
-    value: int
-    def __copy__(self) -> ControlChangeQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.ControlChangeQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> ControlChangeQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: ControlChangeQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: ControlChangeQuarter) -> None:
-        """
+        __init__(self, time: float, number: int, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, number: int, value: int) -> None: ...
-    def __ne__(self, arg0: ControlChangeQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> ControlChangeQuarter:
+        ...
+
+    def copy(self) -> symusic.core.ControlChangeQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> ControlChangeQuarter:
+        ...
+
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeQuarterList: ...
+    @property
+    def number(self) -> int: ...
+    @number.setter
+    def number(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.ControlChangeQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Quarter: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class ControlChangeQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.ControlChangeQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: ControlChangeQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: ControlChangeQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> ControlChangeQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> ControlChangeQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.ControlChangeQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: ControlChangeQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.ControlChangeQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: ControlChangeQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: ControlChangeQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: ControlChangeQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: ControlChangeQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.ControlChangeQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: ControlChangeQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.ControlChangeQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.ControlChangeQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: ControlChangeQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.ControlChangeQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> ControlChangeQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.ControlChangeQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> ControlChangeQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: ControlChangeQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class ControlChangeSecond:
-    __hash__: typing.ClassVar[None] = None
-    number: int
-    time: float
-    value: int
-    def __copy__(self) -> ControlChangeSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.ControlChangeSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> ControlChangeSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: ControlChangeSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: ControlChangeSecond) -> None:
-        """
+        __init__(self, time: float, number: int, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, number: int, value: int) -> None: ...
-    def __ne__(self, arg0: ControlChangeSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> ControlChangeSecond:
+        ...
+
+    def copy(self) -> symusic.core.ControlChangeSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> ControlChangeSecond:
+        ...
+
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeSecondList: ...
+    @property
+    def number(self) -> int: ...
+    @number.setter
+    def number(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.ControlChangeSecond:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class ControlChangeSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.ControlChangeSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: ControlChangeSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: ControlChangeSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> ControlChangeSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> ControlChangeSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.ControlChangeSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: ControlChangeSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.ControlChangeSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: ControlChangeSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: ControlChangeSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: ControlChangeSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: ControlChangeSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.ControlChangeSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: ControlChangeSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.ControlChangeSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.ControlChangeSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: ControlChangeSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.ControlChangeSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> ControlChangeSecond:
+        ...
+
+    def remove(self, arg: symusic.core.ControlChangeSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> ControlChangeSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: ControlChangeSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class ControlChangeTick:
-    __hash__: typing.ClassVar[None] = None
-    number: int
-    time: int
-    value: int
-    def __copy__(self) -> ControlChangeTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.ControlChangeTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> ControlChangeTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: ControlChangeTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: ControlChangeTick) -> None:
-        """
+        __init__(self, time: int, number: int, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: int, number: int, value: int) -> None: ...
-    def __ne__(self, arg0: ControlChangeTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> ControlChangeTick:
+        ...
+
+    def copy(self) -> symusic.core.ControlChangeTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> ControlChangeTick:
+        ...
+
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeTickList: ...
+    @property
+    def number(self) -> int: ...
+    @number.setter
+    def number(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: int, inplace: bool = False
+    ) -> symusic.core.ControlChangeTick:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class ControlChangeTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.ControlChangeTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: ControlChangeTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: ControlChangeTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> ControlChangeTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> ControlChangeTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: ControlChangeTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.ControlChangeTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: ControlChangeTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.ControlChangeTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: ControlChangeTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: ControlChangeTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: ControlChangeTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: ControlChangeTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.ControlChangeTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: ControlChangeTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.ControlChangeTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.ControlChangeTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: ControlChangeTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.ControlChangeTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> ControlChangeTick:
+        ...
+
+    def remove(self, arg: symusic.core.ControlChangeTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> ControlChangeTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: ControlChangeTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class KeySignatureQuarter:
-    __hash__: typing.ClassVar[None] = None
-    key: int
-    time: float
-    tonality: int
-    def __copy__(self) -> KeySignatureQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.KeySignatureQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> KeySignatureQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: KeySignatureQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: KeySignatureQuarter) -> None:
-        """
+        __init__(self, time: float, key: int, tonality: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, key: int, tonality: int) -> None: ...
-    def __ne__(self, arg0: KeySignatureQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> KeySignatureQuarter:
+        ...
+
+    def copy(self) -> symusic.core.KeySignatureQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> KeySignatureQuarter:
+        ...
+
+    @property
+    def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureQuarterList: ...
+    @property
+    def key(self) -> int: ...
+    @key.setter
+    def key(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.KeySignatureQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def degree(self) -> int: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def tonality(self) -> int: ...
+    @tonality.setter
+    def tonality(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class KeySignatureQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.KeySignatureQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: KeySignatureQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: KeySignatureQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> KeySignatureQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> KeySignatureQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.KeySignatureQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: KeySignatureQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.KeySignatureQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: KeySignatureQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: KeySignatureQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: KeySignatureQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: KeySignatureQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.KeySignatureQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: KeySignatureQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.KeySignatureQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.KeySignatureQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: KeySignatureQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.KeySignatureQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> KeySignatureQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.KeySignatureQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> KeySignatureQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: KeySignatureQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class KeySignatureSecond:
-    __hash__: typing.ClassVar[None] = None
-    key: int
-    time: float
-    tonality: int
-    def __copy__(self) -> KeySignatureSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.KeySignatureSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> KeySignatureSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: KeySignatureSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: KeySignatureSecond) -> None:
-        """
+        __init__(self, time: float, key: int, tonality: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, key: int, tonality: int) -> None: ...
-    def __ne__(self, arg0: KeySignatureSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> KeySignatureSecond:
+        ...
+
+    def copy(self) -> symusic.core.KeySignatureSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> KeySignatureSecond:
+        ...
+
+    @property
+    def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureSecondList: ...
+    @property
+    def key(self) -> int: ...
+    @key.setter
+    def key(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.KeySignatureSecond:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def degree(self) -> int: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
     @property
-    def ttype(self) -> Second: ...
+    def tonality(self) -> int: ...
+    @tonality.setter
+    def tonality(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
 
 class KeySignatureSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.KeySignatureSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: KeySignatureSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: KeySignatureSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> KeySignatureSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> KeySignatureSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.KeySignatureSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: KeySignatureSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.KeySignatureSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: KeySignatureSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: KeySignatureSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: KeySignatureSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: KeySignatureSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.KeySignatureSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: KeySignatureSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.KeySignatureSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.KeySignatureSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: KeySignatureSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.KeySignatureSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> KeySignatureSecond:
+        ...
+
+    def remove(self, arg: symusic.core.KeySignatureSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> KeySignatureSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: KeySignatureSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class KeySignatureTick:
-    __hash__: typing.ClassVar[None] = None
-    key: int
-    time: int
-    tonality: int
-    def __copy__(self) -> KeySignatureTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.KeySignatureTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> KeySignatureTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: KeySignatureTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: KeySignatureTick) -> None:
-        """
+        __init__(self, time: int, key: int, tonality: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: int, key: int, tonality: int) -> None: ...
-    def __ne__(self, arg0: KeySignatureTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> KeySignatureTick:
+        ...
+
+    def copy(self) -> symusic.core.KeySignatureTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> KeySignatureTick:
-        """
-        Shift the event time by offset
-        """
+        ...
+
     @property
     def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureTickList: ...
     @property
-    def ttype(self) -> Tick: ...
+    def key(self) -> int: ...
+    @key.setter
+    def key(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: int, inplace: bool = False
+    ) -> symusic.core.KeySignatureTick:
+        """
+        Shift the event time by offset
+        """
+        ...
+
+    @property
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def tonality(self) -> int: ...
+    @tonality.setter
+    def tonality(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class KeySignatureTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.KeySignatureTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: KeySignatureTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: KeySignatureTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> KeySignatureTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> KeySignatureTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: KeySignatureTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.KeySignatureTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: KeySignatureTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.KeySignatureTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: KeySignatureTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: KeySignatureTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: KeySignatureTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: KeySignatureTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.KeySignatureTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: KeySignatureTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.KeySignatureTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.KeySignatureTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: KeySignatureTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.KeySignatureTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> KeySignatureTick:
+        ...
+
+    def remove(self, arg: symusic.core.KeySignatureTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> KeySignatureTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: KeySignatureTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class NoteQuarter:
-    __hash__: typing.ClassVar[None] = None
-    duration: float
-    pitch: int
-    start: float
-    time: float
-    velocity: int
-    def __copy__(self) -> NoteQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.NoteQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> NoteQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: NoteQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: NoteQuarter) -> None:
-        """
+        __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, start: float, duration: float, pitch: int, velocity: int
-    ) -> None: ...
-    def __ne__(self, arg0: NoteQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> NoteQuarter:
+        ...
+
+    def copy(self) -> symusic.core.NoteQuarter:
         """
         Deep copy
         """
+        ...
+
+    @property
+    def duration(self) -> float: ...
+    @duration.setter
+    def duration(self, arg: float, /) -> None: ...
     def empty(self) -> bool:
         """
         duration <= 0 or velocity <= 0
         """
+        ...
+
+    @property
+    def end(self) -> float: ...
     def end_time(self) -> float: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteQuarterList: ...
+    @property
+    def pitch(self) -> int: ...
+    @pitch.setter
+    def pitch(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the pitch by offset
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> NoteQuarter:
+        ...
+
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.NoteQuarter:
         """
         Shift the event time by offset
         """
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        ...
+
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the velocity by offset
         """
+        ...
+
     @property
-    def end(self) -> float: ...
+    def start(self) -> float: ...
+    @start.setter
+    def start(self, arg: float, /) -> None: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
+    @property
+    def velocity(self) -> int: ...
+    @velocity.setter
+    def velocity(self, arg: int, /) -> None: ...
 
 class NoteQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.NoteQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: NoteQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: NoteQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> NoteQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> NoteQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: NoteQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.NoteQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: NoteQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.NoteQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: NoteQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: NoteQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: NoteQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: NoteQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.NoteQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: NoteQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.NoteQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.NoteQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: NoteQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.NoteQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> NoteQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.NoteQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> NoteQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: NoteQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class NoteSecond:
-    __hash__: typing.ClassVar[None] = None
-    duration: float
-    pitch: int
-    start: float
-    time: float
-    velocity: int
-    def __copy__(self) -> NoteSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.NoteSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> NoteSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: NoteSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: NoteSecond) -> None:
-        """
+        __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, start: float, duration: float, pitch: int, velocity: int
-    ) -> None: ...
-    def __ne__(self, arg0: NoteSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> NoteSecond:
+        ...
+
+    def copy(self) -> symusic.core.NoteSecond:
         """
         Deep copy
         """
+        ...
+
+    @property
+    def duration(self) -> float: ...
+    @duration.setter
+    def duration(self, arg: float, /) -> None: ...
     def empty(self) -> bool:
         """
         duration <= 0 or velocity <= 0
         """
+        ...
+
+    @property
+    def end(self) -> float: ...
     def end_time(self) -> float: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteSecondList: ...
+    @property
+    def pitch(self) -> int: ...
+    @pitch.setter
+    def pitch(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the pitch by offset
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> NoteSecond:
+        ...
+
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.NoteSecond:
         """
         Shift the event time by offset
         """
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        ...
+
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the velocity by offset
         """
+        ...
+
     @property
-    def end(self) -> float: ...
+    def start(self) -> float: ...
+    @start.setter
+    def start(self, arg: float, /) -> None: ...
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
+    @property
+    def velocity(self) -> int: ...
+    @velocity.setter
+    def velocity(self, arg: int, /) -> None: ...
 
 class NoteSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.NoteSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: NoteSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: NoteSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> NoteSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> NoteSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: NoteSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.NoteSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: NoteSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.NoteSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: NoteSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: NoteSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: NoteSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: NoteSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.NoteSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: NoteSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.NoteSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.NoteSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: NoteSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.NoteSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> NoteSecond:
+        ...
+
+    def remove(self, arg: symusic.core.NoteSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> NoteSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: NoteSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class NoteTick:
-    __hash__: typing.ClassVar[None] = None
-    duration: int
-    pitch: int
-    start: int
-    time: int
-    velocity: int
-    def __copy__(self) -> NoteTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.NoteTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> NoteTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: NoteTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: NoteTick) -> None:
-        """
+        __init__(self, start: int, duration: int, pitch: int, velocity: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, start: int, duration: int, pitch: int, velocity: int
-    ) -> None: ...
-    def __ne__(self, arg0: NoteTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> NoteTick:
+        ...
+
+    def copy(self) -> symusic.core.NoteTick:
         """
         Deep copy
         """
+        ...
+
+    @property
+    def duration(self) -> int: ...
+    @duration.setter
+    def duration(self, arg: int, /) -> None: ...
     def empty(self) -> bool:
         """
         duration <= 0 or velocity <= 0
         """
+        ...
+
+    @property
+    def end(self) -> int: ...
     def end_time(self) -> int: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any:
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteTickList: ...
+    @property
+    def pitch(self) -> int: ...
+    @pitch.setter
+    def pitch(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the pitch by offset
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> NoteTick:
+        ...
+
+    def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.NoteTick:
         """
         Shift the event time by offset
         """
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any:
+        ...
+
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object:
         """
         Shift the velocity by offset
         """
+        ...
+
     @property
-    def end(self) -> int: ...
+    def start(self) -> int: ...
+    @start.setter
+    def start(self, arg: int, /) -> None: ...
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
+    @property
+    def velocity(self) -> int: ...
+    @velocity.setter
+    def velocity(self, arg: int, /) -> None: ...
 
 class NoteTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.NoteTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: NoteTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: NoteTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> NoteTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> NoteTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: NoteTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.NoteTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: NoteTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.NoteTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: NoteTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: NoteTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: NoteTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: NoteTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.NoteTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: NoteTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.NoteTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.NoteTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: NoteTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.NoteTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> NoteTick:
+        ...
+
+    def remove(self, arg: symusic.core.NoteTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> NoteTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: NoteTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class PedalQuarter:
-    __hash__: typing.ClassVar[None] = None
-    duration: float
-    time: float
-    def __copy__(self) -> PedalQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PedalQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PedalQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PedalQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PedalQuarter) -> None:
-        """
+        __init__(self, time: float, duration: float) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, duration: float) -> None: ...
-    def __ne__(self, arg0: PedalQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PedalQuarter:
+        ...
+
+    def copy(self) -> symusic.core.PedalQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> PedalQuarter:
+        ...
+
+    @property
+    def duration(self) -> float: ...
+    @duration.setter
+    def duration(self, arg: float, /) -> None: ...
+    @property
+    def end(self) -> float: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalQuarterList: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.PedalQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def end(self) -> float: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class PedalQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PedalQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PedalQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PedalQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PedalQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PedalQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PedalQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PedalQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PedalQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PedalQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PedalQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PedalQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PedalQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PedalQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PedalQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PedalQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PedalQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PedalQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PedalQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PedalQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PedalQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.PedalQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PedalQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PedalQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class PedalSecond:
-    __hash__: typing.ClassVar[None] = None
-    duration: float
-    time: float
-    def __copy__(self) -> PedalSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PedalSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PedalSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PedalSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PedalSecond) -> None:
-        """
+        __init__(self, time: float, duration: float) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, duration: float) -> None: ...
-    def __ne__(self, arg0: PedalSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PedalSecond:
+        ...
+
+    def copy(self) -> symusic.core.PedalSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> PedalSecond:
-        """
-        Shift the event time by offset
-        """
+        ...
+
+    @property
+    def duration(self) -> float: ...
+    @duration.setter
+    def duration(self, arg: float, /) -> None: ...
     @property
     def end(self) -> float: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalSecondList: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.PedalSecond:
+        """
+        Shift the event time by offset
+        """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
 
 class PedalSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PedalSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PedalSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PedalSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PedalSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PedalSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PedalSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PedalSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PedalSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PedalSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PedalSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PedalSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PedalSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PedalSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PedalSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PedalSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PedalSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PedalSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PedalSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PedalSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PedalSecond:
+        ...
+
+    def remove(self, arg: symusic.core.PedalSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PedalSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PedalSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class PedalTick:
-    __hash__: typing.ClassVar[None] = None
-    duration: int
-    time: int
-    def __copy__(self) -> PedalTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PedalTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PedalTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PedalTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PedalTick) -> None:
-        """
+        __init__(self, time: int, duration: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: int, duration: int) -> None: ...
-    def __ne__(self, arg0: PedalTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PedalTick:
+        ...
+
+    def copy(self) -> symusic.core.PedalTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> PedalTick:
-        """
-        Shift the event time by offset
-        """
+        ...
+
+    @property
+    def duration(self) -> int: ...
+    @duration.setter
+    def duration(self, arg: int, /) -> None: ...
     @property
     def end(self) -> int: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalTickList: ...
+    def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.PedalTick:
+        """
+        Shift the event time by offset
+        """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class PedalTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PedalTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PedalTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PedalTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PedalTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PedalTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PedalTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PedalTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PedalTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PedalTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PedalTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PedalTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PedalTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PedalTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PedalTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PedalTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PedalTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PedalTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PedalTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PedalTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PedalTick:
+        ...
+
+    def remove(self, arg: symusic.core.PedalTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PedalTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PedalTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class PitchBendQuarter:
-    __hash__: typing.ClassVar[None] = None
-    time: float
-    value: int
-    def __copy__(self) -> PitchBendQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PitchBendQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PitchBendQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PitchBendQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PitchBendQuarter) -> None:
-        """
+        __init__(self, time: float, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, value: int) -> None: ...
-    def __ne__(self, arg0: PitchBendQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PitchBendQuarter:
+        ...
+
+    def copy(self) -> symusic.core.PitchBendQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> PitchBendQuarter:
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendQuarterList: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.PitchBendQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Quarter: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class PitchBendQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PitchBendQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PitchBendQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PitchBendQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PitchBendQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PitchBendQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PitchBendQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PitchBendQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PitchBendQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PitchBendQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PitchBendQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PitchBendQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PitchBendQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PitchBendQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PitchBendQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PitchBendQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PitchBendQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PitchBendQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PitchBendQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PitchBendQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.PitchBendQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PitchBendQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PitchBendQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class PitchBendSecond:
-    __hash__: typing.ClassVar[None] = None
-    time: float
-    value: int
-    def __copy__(self) -> PitchBendSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PitchBendSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PitchBendSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PitchBendSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PitchBendSecond) -> None:
-        """
+        __init__(self, time: float, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, value: int) -> None: ...
-    def __ne__(self, arg0: PitchBendSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PitchBendSecond:
+        ...
+
+    def copy(self) -> symusic.core.PitchBendSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> PitchBendSecond:
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendSecondList: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.PitchBendSecond:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class PitchBendSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PitchBendSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PitchBendSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PitchBendSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PitchBendSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PitchBendSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PitchBendSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PitchBendSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PitchBendSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PitchBendSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PitchBendSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PitchBendSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PitchBendSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PitchBendSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PitchBendSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PitchBendSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PitchBendSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PitchBendSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PitchBendSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PitchBendSecond:
+        ...
+
+    def remove(self, arg: symusic.core.PitchBendSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PitchBendSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PitchBendSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class PitchBendTick:
-    __hash__: typing.ClassVar[None] = None
-    time: int
-    value: int
-    def __copy__(self) -> PitchBendTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.PitchBendTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> PitchBendTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: PitchBendTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: PitchBendTick) -> None:
-        """
+        __init__(self, time: int, value: int) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: int, value: int) -> None: ...
-    def __ne__(self, arg0: PitchBendTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> PitchBendTick:
+        ...
+
+    def copy(self) -> symusic.core.PitchBendTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> PitchBendTick:
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendTickList: ...
+    def shift_time(
+        self, offset: int, inplace: bool = False
+    ) -> symusic.core.PitchBendTick:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
+    @property
+    def value(self) -> int: ...
+    @value.setter
+    def value(self, arg: int, /) -> None: ...
 
 class PitchBendTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.PitchBendTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: PitchBendTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: PitchBendTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> PitchBendTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> PitchBendTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: PitchBendTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.PitchBendTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: PitchBendTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.PitchBendTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: PitchBendTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: PitchBendTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: PitchBendTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: PitchBendTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.PitchBendTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: PitchBendTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.PitchBendTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.PitchBendTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: PitchBendTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.PitchBendTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> PitchBendTick:
+        ...
+
+    def remove(self, arg: symusic.core.PitchBendTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> PitchBendTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: PitchBendTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class Quarter:
-    __hash__: typing.ClassVar[None] = None
-    def __eq__(self, arg0: typing.Any) -> bool: ...
+    """
+    None
+    """
+
     def __init__(self) -> None: ...
-    def __repr__(self) -> str: ...
     def is_time_unit(self) -> bool: ...
 
 class ScoreQuarter:
-    __hash__: typing.ClassVar[None] = None
-    key_signatures: KeySignatureQuarterList
-    lyrics: TextMetaQuarterList
-    markers: TextMetaQuarterList
-    tempos: TempoQuarterList
-    ticks_per_quarter: int
-    time_signatures: TimeSignatureQuarterList
-    tracks: TrackQuarterList
-    @staticmethod
-    def from_file(*args, **kwargs):
+    """
+    None
+    """
+
+    def __init__(self, path: os.PathLike) -> None:
         """
-        (arg0: str) -> symusic.core.ScoreQuarter
+        Load from midi file
         """
-    def __copy__(self) -> ScoreQuarter:
-        """
-        Deep copy
-        """
-    def __deepcopy__(self) -> ScoreQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: ScoreQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, tpq: int) -> None: ...
-    @typing.overload
-    def __init__(self, other: ScoreQuarter) -> None:
+        ...
+
+    @overload
+    def __init__(self, other: symusic.core.ScoreQuarter) -> None:
         """
         Copy constructor
         """
-    @typing.overload
+        ...
+
+    @overload
     def __init__(self, path: str) -> None:
         """
         Load from midi file
         """
-    @typing.overload
-    def __init__(self, other: ScoreTick, min_dur: int | None = None) -> None:
-        """
-        Convert Tick to Quarter
-        """
-    def __ne__(self, arg0: ScoreQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def clip(self, start: float, end: float, clip_end: bool = False) -> ScoreQuarter:
+        ...
+
+    def clip(
+        self, start: float, end: float, clip_end: bool = False
+    ) -> symusic.core.ScoreQuarter:
         """
         Clip events a given time range
         """
-    def copy(self) -> ScoreQuarter:
+        ...
+
+    def copy(self) -> symusic.core.ScoreQuarter:
         """
         Deep copy
         """
-    @typing.overload
+        ...
+
+    def dump_midi(self, path: os.PathLike) -> None:
+        """
+        Dump to midi file
+        """
+        ...
+
+    @overload
     def dump_midi(self, path: str) -> None:
         """
         Dump to midi file
         """
-    @typing.overload
-    def dump_midi(self, path: typing.Any) -> None: ...
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
+    def from_file(path: str) -> symusic.core.ScoreQuarter:
+        """
+        Load from midi file
+        """
+        ...
+
+    @property
+    def key_signatures(self) -> symusic.core.KeySignatureQuarterList: ...
+    @key_signatures.setter
+    def key_signatures(self, arg: symusic.core.KeySignatureQuarterList, /) -> None: ...
+    @property
+    def lyrics(self) -> symusic.core.TextMetaQuarterList: ...
+    @lyrics.setter
+    def lyrics(self, arg: symusic.core.TextMetaQuarterList, /) -> None: ...
+    @property
+    def markers(self) -> symusic.core.TextMetaQuarterList: ...
+    @markers.setter
+    def markers(self, arg: symusic.core.TextMetaQuarterList, /) -> None: ...
     def note_num(self) -> int: ...
-    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
-    def resample(self, tpq: int, min_dur: int | None = None) -> ScoreTick:
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    def resample(
+        self, tpq: int, min_dur: Optional[int] = None
+    ) -> symusic.core.ScoreTick:
         """
         Resample to another ticks per quarter
         """
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any: ...
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
+        ...
+
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: float, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
     def start(self) -> float: ...
-    def to(self, ttype: typing.Any, min_dur: int | None = None) -> typing.Any:
+    @property
+    def tempos(self) -> symusic.core.TempoQuarterList: ...
+    @tempos.setter
+    def tempos(self, arg: symusic.core.TempoQuarterList, /) -> None: ...
+    @property
+    def ticks_per_quarter(self) -> int: ...
+    @ticks_per_quarter.setter
+    def ticks_per_quarter(self, arg: int, /) -> None: ...
+    @property
+    def time_signatures(self) -> symusic.core.TimeSignatureQuarterList: ...
+    @time_signatures.setter
+    def time_signatures(
+        self, arg: symusic.core.TimeSignatureQuarterList, /
+    ) -> None: ...
+    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
         """
         Convert to another time unit
         """
-    @property
-    def ttype() -> Quarter: ...
+        ...
 
-class ScoreTick:
-    __hash__: typing.ClassVar[None] = None
-    key_signatures: KeySignatureTickList
-    lyrics: TextMetaTickList
-    markers: TextMetaTickList
-    tempos: TempoTickList
-    ticks_per_quarter: int
-    time_signatures: TimeSignatureTickList
-    tracks: TrackTickList
-    @staticmethod
-    def from_file(*args, **kwargs):
+    @property
+    def tracks(self) -> symusic.core.TrackQuarterList: ...
+    @tracks.setter
+    def tracks(self, arg: symusic.core.TrackQuarterList, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
+
+class ScoreSecond:
+    """
+    None
+    """
+
+    def __init__(self, path: os.PathLike) -> None:
         """
-        (arg0: str) -> symusic.core.ScoreTick
+        Load from midi file
         """
-    def __copy__(self) -> ScoreTick:
-        """
-        Deep copy
-        """
-    def __deepcopy__(self) -> ScoreTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: ScoreTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, tpq: int) -> None: ...
-    @typing.overload
-    def __init__(self, other: ScoreTick) -> None:
+        ...
+
+    @overload
+    def __init__(self, other: symusic.core.ScoreSecond) -> None:
         """
         Copy constructor
         """
-    @typing.overload
+        ...
+
+    @overload
     def __init__(self, path: str) -> None:
         """
         Load from midi file
         """
-    @typing.overload
-    def __init__(self, other: ScoreQuarter, min_dur: int | None = None) -> None:
-        """
-        Convert Quarter to Tick
-        """
-    def __ne__(self, arg0: ScoreTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def clip(self, start: int, end: int, clip_end: bool = False) -> ScoreTick:
+        ...
+
+    def clip(
+        self, start: float, end: float, clip_end: bool = False
+    ) -> symusic.core.ScoreSecond:
         """
         Clip events a given time range
         """
-    def copy(self) -> ScoreTick:
+        ...
+
+    def copy(self) -> symusic.core.ScoreSecond:
         """
         Deep copy
         """
-    @typing.overload
+        ...
+
+    def dump_midi(self, path: os.PathLike) -> None:
+        """
+        Dump to midi file
+        """
+        ...
+
+    @overload
     def dump_midi(self, path: str) -> None:
         """
         Dump to midi file
         """
-    @typing.overload
-    def dump_midi(self, path: typing.Any) -> None: ...
+        ...
+
     def empty(self) -> bool: ...
-    def end(self) -> int: ...
+    def end(self) -> float: ...
+    def from_file(path: str) -> symusic.core.ScoreSecond:
+        """
+        Load from midi file
+        """
+        ...
+
+    @property
+    def key_signatures(self) -> symusic.core.KeySignatureSecondList: ...
+    @key_signatures.setter
+    def key_signatures(self, arg: symusic.core.KeySignatureSecondList, /) -> None: ...
+    @property
+    def lyrics(self) -> symusic.core.TextMetaSecondList: ...
+    @lyrics.setter
+    def lyrics(self, arg: symusic.core.TextMetaSecondList, /) -> None: ...
+    @property
+    def markers(self) -> symusic.core.TextMetaSecondList: ...
+    @markers.setter
+    def markers(self, arg: symusic.core.TextMetaSecondList, /) -> None: ...
     def note_num(self) -> int: ...
-    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
-    def resample(self, tpq: int, min_dur: int | None = None) -> ScoreTick:
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    def resample(
+        self, tpq: int, min_dur: Optional[int] = None
+    ) -> symusic.core.ScoreTick:
         """
         Resample to another ticks per quarter
         """
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_time(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
+        ...
+
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: float, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
-    ) -> typing.Any: ...
-    def start(self) -> int: ...
-    def to(self, ttype: typing.Any, min_dur: int | None = None) -> typing.Any:
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
+    def start(self) -> float: ...
+    @property
+    def tempos(self) -> symusic.core.TempoSecondList: ...
+    @tempos.setter
+    def tempos(self, arg: symusic.core.TempoSecondList, /) -> None: ...
+    @property
+    def ticks_per_quarter(self) -> int: ...
+    @ticks_per_quarter.setter
+    def ticks_per_quarter(self, arg: int, /) -> None: ...
+    @property
+    def time_signatures(self) -> symusic.core.TimeSignatureSecondList: ...
+    @time_signatures.setter
+    def time_signatures(self, arg: symusic.core.TimeSignatureSecondList, /) -> None: ...
+    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
         """
         Convert to another time unit
         """
+        ...
+
     @property
-    def ttype() -> Tick: ...
+    def tracks(self) -> symusic.core.TrackSecondList: ...
+    @tracks.setter
+    def tracks(self, arg: symusic.core.TrackSecondList, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
+
+class ScoreTick:
+    """
+    None
+    """
+
+    def __init__(self, path: os.PathLike) -> None:
+        """
+        Load from midi file
+        """
+        ...
+
+    @overload
+    def __init__(self, other: symusic.core.ScoreTick) -> None:
+        """
+        Copy constructor
+        """
+        ...
+
+    @overload
+    def __init__(self, path: str) -> None:
+        """
+        Load from midi file
+        """
+        ...
+
+    def clip(
+        self, start: int, end: int, clip_end: bool = False
+    ) -> symusic.core.ScoreTick:
+        """
+        Clip events a given time range
+        """
+        ...
+
+    def copy(self) -> symusic.core.ScoreTick:
+        """
+        Deep copy
+        """
+        ...
+
+    def dump_midi(self, path: os.PathLike) -> None:
+        """
+        Dump to midi file
+        """
+        ...
+
+    @overload
+    def dump_midi(self, path: str) -> None:
+        """
+        Dump to midi file
+        """
+        ...
+
+    def empty(self) -> bool: ...
+    def end(self) -> int: ...
+    def from_file(path: str) -> symusic.core.ScoreTick:
+        """
+        Load from midi file
+        """
+        ...
+
+    @property
+    def key_signatures(self) -> symusic.core.KeySignatureTickList: ...
+    @key_signatures.setter
+    def key_signatures(self, arg: symusic.core.KeySignatureTickList, /) -> None: ...
+    @property
+    def lyrics(self) -> symusic.core.TextMetaTickList: ...
+    @lyrics.setter
+    def lyrics(self, arg: symusic.core.TextMetaTickList, /) -> None: ...
+    @property
+    def markers(self) -> symusic.core.TextMetaTickList: ...
+    @markers.setter
+    def markers(self, arg: symusic.core.TextMetaTickList, /) -> None: ...
+    def note_num(self) -> int: ...
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    def resample(
+        self, tpq: int, min_dur: Optional[int] = None
+    ) -> symusic.core.ScoreTick:
+        """
+        Resample to another ticks per quarter
+        """
+        ...
+
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
+    def sort(
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
+    def start(self) -> int: ...
+    @property
+    def tempos(self) -> symusic.core.TempoTickList: ...
+    @tempos.setter
+    def tempos(self, arg: symusic.core.TempoTickList, /) -> None: ...
+    @property
+    def ticks_per_quarter(self) -> int: ...
+    @ticks_per_quarter.setter
+    def ticks_per_quarter(self, arg: int, /) -> None: ...
+    @property
+    def time_signatures(self) -> symusic.core.TimeSignatureTickList: ...
+    @time_signatures.setter
+    def time_signatures(self, arg: symusic.core.TimeSignatureTickList, /) -> None: ...
+    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
+        """
+        Convert to another time unit
+        """
+        ...
+
+    @property
+    def tracks(self) -> symusic.core.TrackTickList: ...
+    @tracks.setter
+    def tracks(self, arg: symusic.core.TrackTickList, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class Second:
-    __hash__: typing.ClassVar[None] = None
-    def __eq__(self, arg0: typing.Any) -> bool: ...
+    """
+    None
+    """
+
     def __init__(self) -> None: ...
-    def __repr__(self) -> str: ...
     def is_time_unit(self) -> bool: ...
 
 class TempoQuarter:
-    __hash__: typing.ClassVar[None] = None
-    time: float
-    def __copy__(self) -> TempoQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TempoQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TempoQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TempoQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TempoQuarter) -> None:
-        """
+        __init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, time: float, qpm: float | None = None, mspq: int | None = None
-    ) -> None: ...
-    def __ne__(self, arg0: TempoQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TempoQuarter:
+        ...
+
+    def copy(self) -> symusic.core.TempoQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TempoQuarter:
-        """
-        Shift the event time by offset
-        """
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoQuarterList: ...
     @property
     def mspq(self) -> int:
         """
         Microseconds per quarter note
         """
+        ...
     @mspq.setter
-    def mspq(self, arg0: int) -> None: ...
+    def mspq(self, arg: int, /) -> None:
+        """
+        Microseconds per quarter note
+        """
+        ...
+
     @property
     def qpm(self) -> float:
         """
         Quarter per minute, the same as tempo
         """
+        ...
     @qpm.setter
-    def qpm(self, arg1: float) -> None: ...
+    def qpm(self, arg: float, /) -> symusic.core.TempoQuarter:
+        """
+        Quarter per minute, the same as tempo
+        """
+        ...
+
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TempoQuarter:
+        """
+        Shift the event time by offset
+        """
+        ...
+
     @property
     def tempo(self) -> float:
         """
         The same as qpm
         """
+        ...
     @tempo.setter
-    def tempo(self, arg1: float) -> None: ...
+    def tempo(self, arg: float, /) -> symusic.core.TempoQuarter:
+        """
+        The same as qpm
+        """
+        ...
+
     @property
-    def ttype(self) -> Quarter: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TempoQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TempoQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TempoQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TempoQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TempoQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TempoQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TempoQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TempoQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TempoQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TempoQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TempoQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TempoQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TempoQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TempoQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TempoQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TempoQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TempoQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TempoQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TempoQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TempoQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TempoQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.TempoQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TempoQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TempoQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TempoSecond:
-    __hash__: typing.ClassVar[None] = None
-    time: float
-    def __copy__(self) -> TempoSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TempoSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TempoSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TempoSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TempoSecond) -> None:
-        """
+        __init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, time: float, qpm: float | None = None, mspq: int | None = None
-    ) -> None: ...
-    def __ne__(self, arg0: TempoSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TempoSecond:
+        ...
+
+    def copy(self) -> symusic.core.TempoSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TempoSecond:
-        """
-        Shift the event time by offset
-        """
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoSecondList: ...
     @property
     def mspq(self) -> int:
         """
         Microseconds per quarter note
         """
+        ...
     @mspq.setter
-    def mspq(self, arg0: int) -> None: ...
+    def mspq(self, arg: int, /) -> None:
+        """
+        Microseconds per quarter note
+        """
+        ...
+
     @property
     def qpm(self) -> float:
         """
         Quarter per minute, the same as tempo
         """
+        ...
     @qpm.setter
-    def qpm(self, arg1: float) -> None: ...
+    def qpm(self, arg: float, /) -> symusic.core.TempoSecond:
+        """
+        Quarter per minute, the same as tempo
+        """
+        ...
+
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TempoSecond:
+        """
+        Shift the event time by offset
+        """
+        ...
+
     @property
     def tempo(self) -> float:
         """
         The same as qpm
         """
+        ...
     @tempo.setter
-    def tempo(self, arg1: float) -> None: ...
+    def tempo(self, arg: float, /) -> symusic.core.TempoSecond:
+        """
+        The same as qpm
+        """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
 
 class TempoSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TempoSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TempoSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TempoSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TempoSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TempoSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TempoSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TempoSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TempoSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TempoSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TempoSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TempoSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TempoSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TempoSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TempoSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TempoSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TempoSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TempoSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TempoSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TempoSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TempoSecond:
+        ...
+
+    def remove(self, arg: symusic.core.TempoSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TempoSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TempoSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class TempoTick:
-    __hash__: typing.ClassVar[None] = None
-    time: int
-    def __copy__(self) -> TempoTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TempoTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TempoTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TempoTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TempoTick) -> None:
-        """
+        __init__(self, time: int, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(
-        self, time: int, qpm: float | None = None, mspq: int | None = None
-    ) -> None: ...
-    def __ne__(self, arg0: TempoTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TempoTick:
+        ...
+
+    def copy(self) -> symusic.core.TempoTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> TempoTick:
-        """
-        Shift the event time by offset
-        """
+        ...
+
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoTickList: ...
     @property
     def mspq(self) -> int:
         """
         Microseconds per quarter note
         """
+        ...
     @mspq.setter
-    def mspq(self, arg0: int) -> None: ...
+    def mspq(self, arg: int, /) -> None:
+        """
+        Microseconds per quarter note
+        """
+        ...
+
     @property
     def qpm(self) -> float:
         """
         Quarter per minute, the same as tempo
         """
+        ...
     @qpm.setter
-    def qpm(self, arg1: float) -> None: ...
+    def qpm(self, arg: float, /) -> symusic.core.TempoTick:
+        """
+        Quarter per minute, the same as tempo
+        """
+        ...
+
+    def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.TempoTick:
+        """
+        Shift the event time by offset
+        """
+        ...
+
     @property
     def tempo(self) -> float:
         """
         The same as qpm
         """
+        ...
     @tempo.setter
-    def tempo(self, arg1: float) -> None: ...
+    def tempo(self, arg: float, /) -> symusic.core.TempoTick:
+        """
+        The same as qpm
+        """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TempoTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TempoTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TempoTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TempoTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TempoTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TempoTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TempoTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TempoTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TempoTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TempoTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TempoTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TempoTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TempoTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TempoTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TempoTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TempoTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TempoTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TempoTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TempoTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TempoTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TempoTick:
+        ...
+
+    def remove(self, arg: symusic.core.TempoTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TempoTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TempoTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TextMetaQuarter:
-    __hash__: typing.ClassVar[None] = None
-    text: str
-    time: float
-    def __copy__(self) -> TextMetaQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TextMetaQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TextMetaQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TextMetaQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TextMetaQuarter) -> None:
-        """
+        __init__(self, time: float, text: str) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, text: str) -> None: ...
-    def __ne__(self, arg0: TextMetaQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TextMetaQuarter:
+        ...
+
+    def copy(self) -> symusic.core.TextMetaQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TextMetaQuarter:
+        ...
+
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TextMetaQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Quarter: ...
+    def text(self) -> str: ...
+    @text.setter
+    def text(self, arg: str, /) -> None: ...
+    @property
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TextMetaQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TextMetaQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TextMetaQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TextMetaQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TextMetaQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TextMetaQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TextMetaQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TextMetaQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TextMetaQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TextMetaQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TextMetaQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TextMetaQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TextMetaQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TextMetaQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TextMetaQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TextMetaQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TextMetaQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TextMetaQuarter) -> None:
+        ...
+
+    def numpy(self) -> None: ...
+    def pop(self, index: int = -1) -> symusic.core.TextMetaQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TextMetaQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.TextMetaQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TextMetaQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TextMetaQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TextMetaSecond:
-    __hash__: typing.ClassVar[None] = None
-    text: str
-    time: float
-    def __copy__(self) -> TextMetaSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TextMetaSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TextMetaSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TextMetaSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TextMetaSecond) -> None:
-        """
+        __init__(self, time: float, text: str) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: float, text: str) -> None: ...
-    def __ne__(self, arg0: TextMetaSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TextMetaSecond:
+        ...
+
+    def copy(self) -> symusic.core.TextMetaSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TextMetaSecond:
+        ...
+
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TextMetaSecond:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def text(self) -> str: ...
+    @text.setter
+    def text(self, arg: str, /) -> None: ...
+    @property
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
 
 class TextMetaSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TextMetaSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TextMetaSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TextMetaSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TextMetaSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TextMetaSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TextMetaSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TextMetaSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TextMetaSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TextMetaSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TextMetaSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TextMetaSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TextMetaSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TextMetaSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TextMetaSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TextMetaSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TextMetaSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TextMetaSecond) -> None:
+        ...
+
+    def numpy(self) -> None: ...
+    def pop(self, index: int = -1) -> symusic.core.TextMetaSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TextMetaSecond:
+        ...
+
+    def remove(self, arg: symusic.core.TextMetaSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TextMetaSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TextMetaSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class TextMetaTick:
-    __hash__: typing.ClassVar[None] = None
-    text: str
-    time: int
-    def __copy__(self) -> TextMetaTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TextMetaTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TextMetaTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TextMetaTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TextMetaTick) -> None:
-        """
+        __init__(self, time: int, text: str) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, time: int, text: str) -> None: ...
-    def __ne__(self, arg0: TextMetaTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TextMetaTick:
+        ...
+
+    def copy(self) -> symusic.core.TextMetaTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> TextMetaTick:
+        ...
+
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def shift_time(
+        self, offset: int, inplace: bool = False
+    ) -> symusic.core.TextMetaTick:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def text(self) -> str: ...
+    @text.setter
+    def text(self, arg: str, /) -> None: ...
+    @property
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TextMetaTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TextMetaTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TextMetaTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TextMetaTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TextMetaTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TextMetaTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TextMetaTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TextMetaTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TextMetaTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TextMetaTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TextMetaTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TextMetaTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TextMetaTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TextMetaTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TextMetaTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TextMetaTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TextMetaTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TextMetaTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TextMetaTick) -> None:
+        ...
+
+    def numpy(self) -> None: ...
+    def pop(self, index: int = -1) -> symusic.core.TextMetaTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TextMetaTick:
+        ...
+
+    def remove(self, arg: symusic.core.TextMetaTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TextMetaTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TextMetaTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class Tick:
-    __hash__: typing.ClassVar[None] = None
-    def __eq__(self, arg0: typing.Any) -> bool: ...
+    """
+    None
+    """
+
     def __init__(self) -> None: ...
-    def __repr__(self) -> str: ...
     def is_time_unit(self) -> bool: ...
 
 class TimeSignatureQuarter:
-    __hash__: typing.ClassVar[None] = None
-    denominator: int
-    numerator: int
-    time: float
-    def __copy__(self) -> TimeSignatureQuarter:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TimeSignatureQuarter) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TimeSignatureQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TimeSignatureQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TimeSignatureQuarter) -> None:
-        """
+        __init__(self, arg0: float, arg1: int, arg2: int, /) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None: ...
-    def __ne__(self, arg0: TimeSignatureQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TimeSignatureQuarter:
+        ...
+
+    def copy(self) -> symusic.core.TimeSignatureQuarter:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TimeSignatureQuarter:
+        ...
+
+    @property
+    def denominator(self) -> int: ...
+    @denominator.setter
+    def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureQuarterList: ...
+    @property
+    def numerator(self) -> int: ...
+    @numerator.setter
+    def numerator(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TimeSignatureQuarter:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Quarter: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TimeSignatureQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TimeSignatureQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TimeSignatureQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TimeSignatureQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TimeSignatureQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TimeSignatureQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TimeSignatureQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TimeSignatureQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TimeSignatureQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TimeSignatureQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TimeSignatureQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TimeSignatureQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TimeSignatureQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TimeSignatureQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TimeSignatureQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TimeSignatureQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TimeSignatureQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TimeSignatureQuarter) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TimeSignatureQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TimeSignatureQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.TimeSignatureQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TimeSignatureQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TimeSignatureQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TimeSignatureSecond:
-    __hash__: typing.ClassVar[None] = None
-    denominator: int
-    numerator: int
-    time: float
-    def __copy__(self) -> TimeSignatureSecond:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TimeSignatureSecond) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TimeSignatureSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TimeSignatureSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TimeSignatureSecond) -> None:
-        """
+        __init__(self, arg0: float, arg1: int, arg2: int, /) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: float, arg1: int, arg2: int) -> None: ...
-    def __ne__(self, arg0: TimeSignatureSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TimeSignatureSecond:
+        ...
+
+    def copy(self) -> symusic.core.TimeSignatureSecond:
         """
         Deep copy
         """
-    def shift_time(self, offset: float, inplace: bool = False) -> TimeSignatureSecond:
+        ...
+
+    @property
+    def denominator(self) -> int: ...
+    @denominator.setter
+    def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureSecondList: ...
+    @property
+    def numerator(self) -> int: ...
+    @numerator.setter
+    def numerator(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: float, inplace: bool = False
+    ) -> symusic.core.TimeSignatureSecond:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Second: ...
+    def time(self) -> float: ...
+    @time.setter
+    def time(self, arg: float, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Second: ...
 
 class TimeSignatureSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TimeSignatureSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TimeSignatureSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TimeSignatureSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TimeSignatureSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TimeSignatureSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TimeSignatureSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TimeSignatureSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TimeSignatureSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TimeSignatureSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TimeSignatureSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TimeSignatureSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TimeSignatureSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TimeSignatureSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TimeSignatureSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TimeSignatureSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TimeSignatureSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TimeSignatureSecond) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TimeSignatureSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TimeSignatureSecond:
+        ...
+
+    def remove(self, arg: symusic.core.TimeSignatureSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TimeSignatureSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TimeSignatureSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class TimeSignatureTick:
-    __hash__: typing.ClassVar[None] = None
-    denominator: int
-    numerator: int
-    time: int
-    def __copy__(self) -> TimeSignatureTick:
+    """
+    None
+    """
+
+    def __init__(self, other: symusic.core.TimeSignatureTick) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TimeSignatureTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TimeSignatureTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self, other: TimeSignatureTick) -> None:
-        """
+        __init__(self, arg0: int, arg1: int, arg2: int, /) -> None
+
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: int, arg1: int, arg2: int) -> None: ...
-    def __ne__(self, arg0: TimeSignatureTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def copy(self) -> TimeSignatureTick:
+        ...
+
+    def copy(self) -> symusic.core.TimeSignatureTick:
         """
         Deep copy
         """
-    def shift_time(self, offset: int, inplace: bool = False) -> TimeSignatureTick:
+        ...
+
+    @property
+    def denominator(self) -> int: ...
+    @denominator.setter
+    def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureTickList: ...
+    @property
+    def numerator(self) -> int: ...
+    @numerator.setter
+    def numerator(self, arg: int, /) -> None: ...
+    def shift_time(
+        self, offset: int, inplace: bool = False
+    ) -> symusic.core.TimeSignatureTick:
         """
         Shift the event time by offset
         """
+        ...
+
     @property
-    def ttype(self) -> Tick: ...
+    def time(self) -> int: ...
+    @time.setter
+    def time(self, arg: int, /) -> None: ...
+    @property
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TimeSignatureTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TimeSignatureTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TimeSignatureTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TimeSignatureTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TimeSignatureTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TimeSignatureTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TimeSignatureTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TimeSignatureTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TimeSignatureTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TimeSignatureTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TimeSignatureTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TimeSignatureTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TimeSignatureTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TimeSignatureTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TimeSignatureTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TimeSignatureTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TimeSignatureTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TimeSignatureTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TimeSignatureTick) -> None:
+        ...
+
+    def numpy(self) -> dict: ...
+    def pop(self, index: int = -1) -> symusic.core.TimeSignatureTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TimeSignatureTick:
+        ...
+
+    def remove(self, arg: symusic.core.TimeSignatureTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TimeSignatureTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TimeSignatureTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = True,
+    ) -> object: ...
     @property
-    def ttype(self) -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TrackQuarter:
-    __hash__: typing.ClassVar[None] = None
-    controls: ControlChangeQuarterList
-    is_drum: bool
-    name: str
-    notes: NoteQuarterList
-    pedals: PedalQuarterList
-    pitch_bends: PitchBendQuarterList
-    program: int
-    def __copy__(self) -> TrackQuarter:
+    """
+    None
+    """
+
+    def __init__(self) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TrackQuarter:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TrackQuarter) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, other: TrackQuarter) -> None:
-        """
+        __init__(self, other: symusic.core.TrackQuarter) -> None
+
         Copy constructor
         """
-    def __ne__(self, arg0: TrackQuarter) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def clip(self, start: float, end: float, clip_end: bool = False) -> TrackQuarter:
+        ...
+
+    def clip(
+        self, start: float, end: float, clip_end: bool = False
+    ) -> symusic.core.TrackQuarter:
         """
         Clip notes and controls to a given time range
         """
-    def copy(self) -> TrackQuarter:
+        ...
+
+    @property
+    def controls(self) -> symusic.core.ControlChangeQuarterList: ...
+    @controls.setter
+    def controls(self, arg: symusic.core.ControlChangeQuarterList, /) -> None: ...
+    def copy(self) -> symusic.core.TrackQuarter:
         """
         Deep copy
         """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
+    @property
+    def is_drum(self) -> bool: ...
+    @is_drum.setter
+    def is_drum(self, arg: bool, /) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @name.setter
+    def name(self, arg: str, /) -> None: ...
     def note_num(self) -> int: ...
-    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any: ...
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
+    @property
+    def notes(self) -> symusic.core.NoteQuarterList: ...
+    @notes.setter
+    def notes(self, arg: symusic.core.NoteQuarterList, /) -> None: ...
+    @property
+    def pedals(self) -> symusic.core.PedalQuarterList: ...
+    @pedals.setter
+    def pedals(self, arg: symusic.core.PedalQuarterList, /) -> None: ...
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    @property
+    def pitch_bends(self) -> symusic.core.PitchBendQuarterList: ...
+    @pitch_bends.setter
+    def pitch_bends(self, arg: symusic.core.PitchBendQuarterList, /) -> None: ...
+    @property
+    def program(self) -> int: ...
+    @program.setter
+    def program(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: float, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
     def start(self) -> float: ...
     @property
-    def ttype() -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TrackQuarterList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TrackQuarter], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TrackQuarter) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TrackQuarterList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TrackQuarterList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TrackQuarter: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TrackQuarterList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TrackQuarterList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TrackQuarterList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TrackQuarter, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TrackQuarter) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TrackQuarterList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TrackQuarter) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TrackQuarter) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TrackQuarter, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TrackQuarterList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TrackQuarterList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TrackQuarter, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TrackQuarter) -> None:
+        ...
+
+    def pop(self, index: int = -1) -> symusic.core.TrackQuarter:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TrackQuarter:
+        ...
+
+    def remove(self, arg: symusic.core.TrackQuarter, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TrackQuarter:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TrackQuarter) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self, key: object, reverse: bool = False, inplace: bool = True
+    ) -> object: ...
     @property
-    def ttype() -> Quarter: ...
+    def ttype(self) -> symusic.core.Quarter: ...
 
 class TrackSecond:
-    __hash__: typing.ClassVar[None] = None
-    controls: ControlChangeSecondList
-    is_drum: bool
-    name: str
-    notes: NoteSecondList
-    pedals: PedalSecondList
-    pitch_bends: PitchBendSecondList
-    program: int
-    def __copy__(self) -> TrackSecond:
+    """
+    None
+    """
+
+    def __init__(self) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TrackSecond:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TrackSecond) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, other: TrackSecond) -> None:
-        """
+        __init__(self, other: symusic.core.TrackSecond) -> None
+
         Copy constructor
         """
-    def __ne__(self, arg0: TrackSecond) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def clip(self, start: float, end: float, clip_end: bool = False) -> TrackSecond:
+        ...
+
+    def clip(
+        self, start: float, end: float, clip_end: bool = False
+    ) -> symusic.core.TrackSecond:
         """
         Clip notes and controls to a given time range
         """
-    def copy(self) -> TrackSecond:
+        ...
+
+    @property
+    def controls(self) -> symusic.core.ControlChangeSecondList: ...
+    @controls.setter
+    def controls(self, arg: symusic.core.ControlChangeSecondList, /) -> None: ...
+    def copy(self) -> symusic.core.TrackSecond:
         """
         Deep copy
         """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
+    @property
+    def is_drum(self) -> bool: ...
+    @is_drum.setter
+    def is_drum(self, arg: bool, /) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @name.setter
+    def name(self, arg: str, /) -> None: ...
     def note_num(self) -> int: ...
-    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_time(self, offset: float, inplace: bool = False) -> typing.Any: ...
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
+    @property
+    def notes(self) -> symusic.core.NoteSecondList: ...
+    @notes.setter
+    def notes(self, arg: symusic.core.NoteSecondList, /) -> None: ...
+    @property
+    def pedals(self) -> symusic.core.PedalSecondList: ...
+    @pedals.setter
+    def pedals(self, arg: symusic.core.PedalSecondList, /) -> None: ...
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    @property
+    def pitch_bends(self) -> symusic.core.PitchBendSecondList: ...
+    @pitch_bends.setter
+    def pitch_bends(self, arg: symusic.core.PitchBendSecondList, /) -> None: ...
+    @property
+    def program(self) -> int: ...
+    @program.setter
+    def program(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: float, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
     def start(self) -> float: ...
     @property
-    def ttype() -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class TrackSecondList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TrackSecond], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TrackSecond) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TrackSecondList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TrackSecondList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TrackSecond: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TrackSecondList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TrackSecondList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TrackSecondList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TrackSecond, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TrackSecond) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TrackSecondList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TrackSecond) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TrackSecond) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TrackSecond, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TrackSecondList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TrackSecondList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TrackSecond, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TrackSecond) -> None:
+        ...
+
+    def pop(self, index: int = -1) -> symusic.core.TrackSecond:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TrackSecond:
+        ...
+
+    def remove(self, arg: symusic.core.TrackSecond, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TrackSecond:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TrackSecond) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self, key: object, reverse: bool = False, inplace: bool = True
+    ) -> object: ...
     @property
-    def ttype() -> Second: ...
+    def ttype(self) -> symusic.core.Second: ...
 
 class TrackTick:
-    __hash__: typing.ClassVar[None] = None
-    controls: ControlChangeTickList
-    is_drum: bool
-    name: str
-    notes: NoteTickList
-    pedals: PedalTickList
-    pitch_bends: PitchBendTickList
-    program: int
-    def __copy__(self) -> TrackTick:
+    """
+    None
+    """
+
+    def __init__(self) -> None:
         """
-        Deep copy
-        """
-    def __deepcopy__(self) -> TrackTick:
-        """
-        Deep copy
-        """
-    def __eq__(self, arg0: TrackTick) -> bool: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, other: TrackTick) -> None:
-        """
+        __init__(self, other: symusic.core.TrackTick) -> None
+
         Copy constructor
         """
-    def __ne__(self, arg0: TrackTick) -> bool: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def clip(self, start: int, end: int, clip_end: bool = False) -> TrackTick:
+        ...
+
+    def clip(
+        self, start: int, end: int, clip_end: bool = False
+    ) -> symusic.core.TrackTick:
         """
         Clip notes and controls to a given time range
         """
-    def copy(self) -> TrackTick:
+        ...
+
+    @property
+    def controls(self) -> symusic.core.ControlChangeTickList: ...
+    @controls.setter
+    def controls(self, arg: symusic.core.ControlChangeTickList, /) -> None: ...
+    def copy(self) -> symusic.core.TrackTick:
         """
         Deep copy
         """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> int: ...
+    @property
+    def is_drum(self) -> bool: ...
+    @is_drum.setter
+    def is_drum(self, arg: bool, /) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @name.setter
+    def name(self, arg: str, /) -> None: ...
     def note_num(self) -> int: ...
-    def pianoroll(self, quantization: float, mode: str) -> numpy.ndarray: ...
-    def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_time(self, offset: int, inplace: bool = False) -> typing.Any: ...
-    def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Any: ...
+    @property
+    def notes(self) -> symusic.core.NoteTickList: ...
+    @notes.setter
+    def notes(self, arg: symusic.core.NoteTickList, /) -> None: ...
+    @property
+    def pedals(self) -> symusic.core.PedalTickList: ...
+    @pedals.setter
+    def pedals(self, arg: symusic.core.PedalTickList, /) -> None: ...
+    def pianoroll(
+        self,
+        modes: list[str],
+        pitchRange: tuple[int, int] = (0, 127),
+        encodeVelocity: bool = False,
+        deOverlap: bool = False,
+    ) -> numpy.typing.NDArray: ...
+    @property
+    def pitch_bends(self) -> symusic.core.PitchBendTickList: ...
+    @pitch_bends.setter
+    def pitch_bends(self, arg: symusic.core.PitchBendTickList, /) -> None: ...
+    @property
+    def program(self) -> int: ...
+    @program.setter
+    def program(self, arg: int, /) -> None: ...
+    def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_time(self, offset: int, inplace: bool = False) -> object: ...
+    def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: typing.Any = None, reverse: bool = False, inplace: bool = False
-    ) -> typing.Any: ...
+        self,
+        key: Optional[Callable[..., object]] = None,
+        reverse: bool = False,
+        inplace: bool = False,
+    ) -> object: ...
     def start(self) -> int: ...
     @property
-    def ttype() -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
 
 class TrackTickList:
-    __hash__: typing.ClassVar[None] = None
-    def __bool__(self) -> bool:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[symusic.core.TrackTick], /) -> None:
         """
-        Check whether the list is nonempty
+        Construct from an iterable object
         """
-    def __contains__(self, x: TrackTick) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Return true the container contains ``x``
+        Default constructor
         """
-    @typing.overload
-    def __delitem__(self, arg0: int) -> None:
-        """
-        Delete the list elements at index ``i``
-        """
-    @typing.overload
-    def __delitem__(self, arg0: slice) -> None:
-        """
-        Delete list elements using a slice object
-        """
-    def __eq__(self, arg0: TrackTickList) -> bool: ...
-    @typing.overload
-    def __getitem__(self, s: slice) -> TrackTickList:
-        """
-        Retrieve list elements using a slice object
-        """
-    @typing.overload
-    def __getitem__(self, arg0: int) -> TrackTick: ...
-    def __getstate__(self) -> bytes: ...
-    @typing.overload
-    def __init__(self) -> None: ...
-    @typing.overload
-    def __init__(self, arg0: TrackTickList) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.TrackTickList) -> None:
         """
         Copy constructor
         """
-    @typing.overload
-    def __init__(self, arg0: typing.Iterable) -> None: ...
-    def __iter__(self) -> typing.Iterator: ...
-    def __len__(self) -> int: ...
-    def __ne__(self, arg0: TrackTickList) -> bool: ...
-    @typing.overload
-    def __repr__(self) -> str:
+        ...
+
+    def append(self, arg: symusic.core.TrackTick, /) -> None:
         """
-        Return the canonical string representation of this list.
+        Append `arg` to the end of the list.
         """
-    @typing.overload
-    def __repr__(self) -> str: ...
-    @typing.overload
-    def __setitem__(self, arg0: int, arg1: TrackTick) -> None: ...
-    @typing.overload
-    def __setitem__(self, arg0: slice, arg1: TrackTickList) -> None:
-        """
-        Assign list elements using a slice object
-        """
-    def __setstate__(self, arg0: bytes) -> None: ...
-    def append(self, x: TrackTick) -> None:
-        """
-        Add an item to the end of the list
-        """
+        ...
+
     def clear(self) -> None:
         """
-        Clear the contents
+        Remove all items from list.
         """
-    def count(self, x: TrackTick) -> int:
+        ...
+
+    def count(self, arg: symusic.core.TrackTick, /) -> int:
         """
-        Return the number of times ``x`` appears in the list
+        Return number of occurrences of `arg`.
         """
-    @typing.overload
-    def extend(self, L: TrackTickList) -> None:
+        ...
+
+    def extend(self, arg: symusic.core.TrackTickList, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Extend `self` by appending elements from `arg`.
         """
-    @typing.overload
-    def extend(self, L: typing.Iterable) -> None:
+        ...
+
+    def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
+    def insert(self, arg0: int, arg1: symusic.core.TrackTick, /) -> None:
         """
-        Extend the list by appending all the items in the given list
+        Insert object `arg1` before index `arg0`.
         """
-    def insert(self, i: int, x: TrackTick) -> None:
+        ...
+
+    def pop(self, index: int = -1) -> symusic.core.TrackTick:
         """
-        Insert an item at a given position.
+        Remove and return item at `index` (default last).
         """
-    @typing.overload
-    def pop(self) -> TrackTick:
+        ...
+
+    def remove(self, arg: symusic.core.TrackTick, /) -> None:
         """
-        Remove and return the last item
+        Remove first occurrence of `arg`.
         """
-    @typing.overload
-    def pop(self, i: int) -> TrackTick:
-        """
-        Remove and return the item at index ``i``
-        """
-    def remove(self, x: TrackTick) -> None:
-        """
-        Remove the first item from the list whose value is x. It is an error if there is no such item.
-        """
+        ...
+
     def sort(
-        self, key: typing.Any, reverse: bool = False, inplace: bool = True
-    ) -> typing.Any: ...
+        self, key: object, reverse: bool = False, inplace: bool = True
+    ) -> object: ...
     @property
-    def ttype() -> Tick: ...
+    def ttype(self) -> symusic.core.Tick: ...
+
+class f32List:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[float], /) -> None:
+        """
+        Construct from an iterable object
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Default constructor
+        """
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.f32List) -> None:
+        """
+        Copy constructor
+        """
+        ...
+
+    def append(self, arg: float, /) -> None:
+        """
+        Append `arg` to the end of the list.
+        """
+        ...
+
+    def clear(self) -> None:
+        """
+        Remove all items from list.
+        """
+        ...
+
+    def count(self, arg: float, /) -> int:
+        """
+        Return number of occurrences of `arg`.
+        """
+        ...
+
+    def extend(self, arg: symusic.core.f32List, /) -> None:
+        """
+        Extend `self` by appending elements from `arg`.
+        """
+        ...
+
+    def insert(self, arg0: int, arg1: float, /) -> None:
+        """
+        Insert object `arg1` before index `arg0`.
+        """
+        ...
+
+    def pop(self, index: int = -1) -> float:
+        """
+        Remove and return item at `index` (default last).
+        """
+        ...
+
+    def remove(self, arg: float, /) -> None:
+        """
+        Remove first occurrence of `arg`.
+        """
+        ...
+
+class i32List:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[int], /) -> None:
+        """
+        Construct from an iterable object
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Default constructor
+        """
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.i32List) -> None:
+        """
+        Copy constructor
+        """
+        ...
+
+    def append(self, arg: int, /) -> None:
+        """
+        Append `arg` to the end of the list.
+        """
+        ...
+
+    def clear(self) -> None:
+        """
+        Remove all items from list.
+        """
+        ...
+
+    def count(self, arg: int, /) -> int:
+        """
+        Return number of occurrences of `arg`.
+        """
+        ...
+
+    def extend(self, arg: symusic.core.i32List, /) -> None:
+        """
+        Extend `self` by appending elements from `arg`.
+        """
+        ...
+
+    def insert(self, arg0: int, arg1: int, /) -> None:
+        """
+        Insert object `arg1` before index `arg0`.
+        """
+        ...
+
+    def pop(self, index: int = -1) -> int:
+        """
+        Remove and return item at `index` (default last).
+        """
+        ...
+
+    def remove(self, arg: int, /) -> None:
+        """
+        Remove first occurrence of `arg`.
+        """
+        ...

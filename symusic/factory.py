@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Generic, Optional, TypeVar, Union
 
+from numpy import ndarray
+
 from . import core  # type: ignore
 from . import types as smt
 
@@ -138,6 +140,18 @@ class NoteFactory:
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
+    def from_numpy(
+        self,
+        time: ndarray,
+        duration: ndarray,
+        pitch: ndarray,
+        velocity: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.GeneralNoteList:
+        return self.__core_classes.dispatch(ttype).from_numpy(
+            time, duration, pitch, velocity
+        )
+
 
 @dataclass(frozen=True)
 class KeySignatureFactory:
@@ -156,6 +170,15 @@ class KeySignatureFactory:
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
+
+    def from_numpy(
+        self,
+        time: ndarray,
+        key: ndarray,
+        tonality: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.GeneralKeySignatureList:
+        return self.__core_classes.dispatch(ttype).from_numpy(time, key, tonality)
 
 
 @dataclass(frozen=True)
@@ -176,6 +199,17 @@ class TimeSignatureFactory:
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
+    def from_numpy(
+        self,
+        time: ndarray,
+        numerator: ndarray,
+        denominator: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.GeneralTimeSignatureList:
+        return self.__core_classes.dispatch(ttype).from_numpy(
+            time, numerator, denominator
+        )
+
 
 @dataclass(frozen=True)
 class ControlChangeFactory:
@@ -194,6 +228,15 @@ class ControlChangeFactory:
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
+
+    def from_numpy(
+        self,
+        time: ndarray,
+        number: ndarray,
+        value: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.GeneralControlChangeList:
+        return self.__core_classes.dispatch(ttype).from_numpy(time, number, value)
 
 
 @dataclass(frozen=True)
@@ -219,6 +262,11 @@ class TempoFactory:
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
+    def from_numpy(
+        self, time: ndarray, mspq: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.GeneralTempoList:
+        return self.__core_classes.dispatch(ttype).from_numpy(time, mspq)
+
 
 @dataclass(frozen=True)
 class PedalFactory:
@@ -234,6 +282,14 @@ class PedalFactory:
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
+
+    def from_numpy(
+        self,
+        time: ndarray,
+        duration: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.GeneralPedalList:
+        return self.__core_classes.dispatch(ttype).from_numpy(time, duration)
 
 
 @dataclass(frozen=True)
@@ -253,6 +309,11 @@ class PitchBendFactory:
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
+    def from_numpy(
+        self, time: ndarray, value: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.GeneralPitchBendList:
+        return self.__core_classes.dispatch(ttype).from_numpy(time, value)
+
 
 @dataclass(frozen=True)
 class TextMetaFactory:
@@ -270,6 +331,12 @@ class TextMetaFactory:
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
+
+    def from_numpy(
+        self, time: ndarray, text: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    ) -> smt.GeneralTextMetaList:
+        raise NotImplementedError
+        # return self.__core_classes.dispatch(ttype).from_numpy(time, text)
 
 
 @dataclass(frozen=True)
@@ -316,7 +383,7 @@ class TrackFactory:
 
 @dataclass(frozen=True)
 class ScoreFactory:
-    __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
+    __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
 
     def __call__(
         self,
@@ -336,7 +403,7 @@ class ScoreFactory:
         self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
-        return self.__core_classes.dispatch(ttype).from_file(str(path))
+        return self.__core_classes.dispatch(ttype)(path)
 
     def from_tpq(
         self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
