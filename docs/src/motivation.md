@@ -2,7 +2,7 @@
 
 **[Symusic](https://github.com/Yikai-Liao/symusic)** aims to offer fast and efficient symbolic music data (e.g. MIDI, Music XML and ABC Notation) preprocessing backend.
 
-The former dominant MIDI parsing backend is [mido](https://github.com/mido/mido) 
+The former dominant MIDI parsing backend is [mido](https://github.com/mido/mido)
 (used by [pretty_midi](https://github.com/craffel/pretty-midi) and [miditoolkit](https://github.com/YatingMusic/miditoolkit)), which is written in pure python.
 However, it is too slow for the large-scale symbolic music data preprocessing task in the deep learning era,
 which makes it impossible to tokenize the needed data in real-time while training.

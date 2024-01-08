@@ -423,7 +423,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def_rw("is_drum", &Track<T>::is_drum)
         .def_rw("program", &Track<T>::program)
         .def_rw("name", &Track<T>::name)
-        .def_prop_ro("ttype", []{ return T(); })
+        .def_prop_ro("ttype", [](const Track<T> &) { return T(); })
         // .def(py::pickle( &py_to_bytes<Track<T>>, &py_from_bytes<Track<T>>))
         .def("__getstate__", &py_to_bytes<Track<T>>)
         .def("__setstate__", &py_from_bytes<Track<T>>)
@@ -477,7 +477,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         // .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
         .def("__getstate__", &py_to_bytes<vec<Track<T>>>)
         .def("__setstate__", &py_from_bytes<vec<Track<T>>>)
-        .def_prop_ro("ttype", []{ return T(); })
+        .def_prop_ro("ttype", [](const vec<Track<T>> &){ return T(); })
         .def("filter", &py_filter<Track<T>>, py::arg("func"), py::arg("inplace")=false);
 
     py::implicitly_convertible<py::list, vec<Track<T>>>();
@@ -588,7 +588,7 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def_rw("tempos", &Score<T>::tempos)
         .def_rw("lyrics", &Score<T>::lyrics)
         .def_rw("markers", &Score<T>::markers)
-        .def_prop_ro("ttype", []{ return T(); })
+        .def_prop_ro("ttype", [](const Score<T> &) { return T(); })
         // .def(py::pickle( &py_to_bytes<Score<T>>, &py_from_bytes<Score<T>>))
         .def("__getstate__", &py_to_bytes<Score<T>>)
         .def("__setstate__", &py_from_bytes<Score<T>>)
@@ -824,14 +824,4 @@ NB_MODULE(core, m) {
     });
 
     core_module(m);
-    struct Data {
-        int time;
-        int value;
-    };
-    py::class_<Data>(m, "Data")
-        .def(py::init<>())
-        .def_rw("time", &Data::time);
-
-    py::class_<Data>(m, "Data")
-        .def_rw("value", &Data::value);
 }
