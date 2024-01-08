@@ -2,7 +2,6 @@
 // Created by lyk on 23-12-16.
 //
 #include <cmath>
-
 #include "symusic/conversion.h"
 #include "symusic/ops.h"
 
@@ -75,12 +74,12 @@ struct Tick2Second {
         auto t_iter = tempos.begin() + 1;
         i32 pivot_tick = 0;
         f32 pivot_time = 0;
-        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : origin) {
             if(event.time > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
-                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
                 ++t_iter;
             }
             ans.emplace_back(
@@ -100,12 +99,12 @@ struct Tick2Second {
         auto t_iter = tempos.begin() + 1;
         i32 pivot_tick = 0;
         f32 pivot_time = 0;
-        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        double cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : origin) {
             if(event.time > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
-                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
                 ++t_iter;
             }
             ans.emplace_back(
@@ -116,20 +115,20 @@ struct Tick2Second {
 
         vec<std::pair<Tick::unit, u32>> end_times; // .end(), i
         end_times.reserve(origin.size());
-        for(size_t i = 0; i < ans.size(); ++i) {
-            end_times.emplace_back(ans[i].end(), i);
+        for(size_t i = 0; i < origin.size(); ++i) {
+            end_times.emplace_back(origin[i].end(), i);
         }
         pdqsort_detail::insertion_sort(end_times.begin(), end_times.end(), [](const auto & a, const auto & b) {
             return a.first < b.first;
         });
         pivot_tick = 0;
         pivot_time = 0;
-        cur_factor = static_cast<double>(tempos[0].mspq) / 1000. / static_cast<double>(tpq);
+        cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : end_times) {
             if(event.first > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
-                cur_factor = static_cast<double>(t_iter->mspq) / 1000. / static_cast<double>(tpq);
+                cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
                 ++t_iter;
             }
             ans[event.second].duration =
@@ -236,7 +235,7 @@ IMPLEMENT_CONVERT(Second, Tick) // Score<Second> convert<Second, Tick>(const Sco
     In.Name = Convert.duration_vec(Out.Name);           \
     for(auto & d : In.Name) {                           \
         d.duration = MAX(d.duration, min_dur);          \
-    }
+    }                                                   \
 
 // Score<Second> convert<Second, Tick>(const Score<Tick>& score, const typename Second::unit min_dur)
 IMPLEMENT_CONVERT(Second, Tick)
