@@ -316,7 +316,7 @@ class TrackFactory:
 
 @dataclass(frozen=True)
 class ScoreFactory:
-    __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, smt.ScoreSecond)
+    __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
 
     def __call__(
         self,
