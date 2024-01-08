@@ -50,14 +50,21 @@ struct Tick2Second {
     f32 tpq;
     vec<Tempo<Tick>> tempos;
 
-    explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)) {
-        vec<Tempo<Tick>> origin(score.tempos);
-        // sort it
-        ops::sort_by_time(tempos);
-        if(tempos.empty()|| tempos[0].time != 0)
-            tempos.insert(tempos.begin(), Tempo<Tick>(0, 500000));
-        // add a guard at the end
-        tempos.emplace_back(std::numeric_limits<Tick::unit>::max(), tempos.back().mspq);
+    explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
+        if(score.tempos.empty()) {
+            tempos.emplace_back(0, 500000); // 120 qpm
+        } else {
+            // vec<Tempo<Tick>> origin(score.tempos);
+            // ops::sort_by_time(origin);  // sort it
+            tempos.reserve(score.tempos.size() + 2);
+            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
+            ops::sort_by_time(tempos);
+            if(tempos.empty() || tempos[0].time != 0) {
+                tempos.insert(tempos.begin(), Tempo<Tick>(0, 500000));
+            }
+            // add a guard at the end
+            tempos.emplace_back(std::numeric_limits<Tick::unit>::max(), tempos.back().mspq);
+        }
     }
 
     template<template<class> class T>
@@ -71,7 +78,7 @@ struct Tick2Second {
         f32 pivot_time = 0;
         double cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : origin) {
-            if(event.time > t_iter->time) {
+            while(event.time > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
                 cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
@@ -96,7 +103,7 @@ struct Tick2Second {
         f32 pivot_time = 0;
         double cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : origin) {
-            if(event.time > t_iter->time) {
+            while(event.time > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
                 cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
@@ -121,7 +128,7 @@ struct Tick2Second {
         t_iter = tempos.begin() + 1;
         cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : end_times) {
-            if(event.first > t_iter->time) {
+            while(event.first > t_iter->time) {
                 pivot_time += static_cast<float>(cur_factor * (t_iter->time - pivot_tick));
                 pivot_tick = t_iter->time;
                 cur_factor = static_cast<double>(t_iter->mspq) / 1000000. / static_cast<double>(tpq);
@@ -141,13 +148,20 @@ struct Second2Tick {
     vec<Tempo<Second>> tempos;
 
     explicit Second2Tick(const Score<Second> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
-        vec<Tempo<Second>> origin(score.tempos);
-        // sort it
-        ops::sort_by_time(tempos);
-        if(tempos.empty()|| tempos[0].time != 0)
-            tempos.insert(tempos.begin(), Tempo<Second>(0, 500000));
-        // add a guard at the end
-        tempos.emplace_back(std::numeric_limits<Second::unit>::max(), tempos.back().mspq);
+        if(score.tempos.empty()) {
+            tempos.emplace_back(0, 500000); // 120 qpm
+        } else {
+            // vec<Tempo<Second>> origin(score.tempos);
+            // ops::sort_by_time(origin);  // sort it
+            tempos.reserve(score.tempos.size() + 2);
+            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
+            ops::sort_by_time(tempos);
+            if(tempos.empty() || tempos[0].time != 0) {
+                tempos.insert(tempos.begin(), Tempo<Second>(0, 500000));
+            }
+            // add a guard at the end
+            tempos.emplace_back(std::numeric_limits<Second::unit>::max(), tempos.back().mspq);
+        }
     }
 
     template<template<class> class T>
@@ -161,7 +175,7 @@ struct Second2Tick {
         f32 pivot_time = 0;
         double cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
         for(const auto & event : origin) {
-            if(event.time > t_iter->time) {
+            while(event.time > t_iter->time) {
                 pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
                 pivot_time = t_iter->time;
                 cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
@@ -186,7 +200,7 @@ struct Second2Tick {
         f32 pivot_time = 0;
         double cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
         for(const auto & event : origin) {
-            if(event.time > t_iter->time) {
+            while(event.time > t_iter->time) {
                 pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
                 pivot_time = t_iter->time;
                 cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
@@ -211,7 +225,7 @@ struct Second2Tick {
         t_iter = tempos.begin() + 1;
         cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(tempos[0].mspq);
         for(const auto & event : end_times) {
-            if(event.first > t_iter->time) {
+            while(event.first > t_iter->time) {
                 pivot_tick += static_cast<i32>(std::round(cur_factor * (t_iter->time - pivot_time)));
                 pivot_time = t_iter->time;
                 cur_factor = 1000000. * static_cast<double>(tpq) / static_cast<double>(t_iter->mspq);
