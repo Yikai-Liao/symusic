@@ -9,7 +9,7 @@
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-#include "symusic/note_arr.h"
+// #include "symusic/note_arr.h"
 
 namespace zpp::bits {
 #define SERIALIZE_NON_HEAP(__COUNT, NAME)                                       \
@@ -50,11 +50,11 @@ REPEAT_ON(
 
 SERIALIZE_COMMON(TextMeta, d, d.time, d.text)
 
-SERIALIZE_COMMON(
-    NoteArr, d,
-    d.name, d.program, d.is_drum,
-    d.time, d.duration, d.pitch, d.velocity
-)
+// SERIALIZE_COMMON(
+//     NoteArr, d,
+//     d.name, d.program, d.is_drum,
+//     d.time, d.duration, d.pitch, d.velocity
+// )
 
 SERIALIZE_COMMON(
     Track, d,
@@ -137,7 +137,7 @@ REPEAT_ON(
     Tempo,
     PitchBend,
     TextMeta,
-    NoteArr,
+    // NoteArr,
     Track,
     Score
 )

@@ -15,7 +15,7 @@
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-#include "symusic/note_arr.h"
+
 
 // define fmt::formatter for symusic::Note
 // support different format for Note
@@ -191,8 +191,7 @@ REPEAT_ON(
     PitchBend,
     TextMeta,
     Track,
-    Score,
-    NoteArr
+    Score
 )
 #undef OSTREAMEABLE
 
