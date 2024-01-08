@@ -20,11 +20,8 @@ TrackPianoroll::~TrackPianoroll() {
 TrackPianoroll TrackPianoroll::from_track(const Track<Tick>& track,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t> pitchRange,
-        bool encodeVelocity,
-        bool deOverlap) {
+        bool encodeVelocity) {
     TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, track.end() + 1);
-
-    // TODO: de-overlap
 
     for(const auto &note : track.notes) {
         for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
@@ -98,11 +95,8 @@ ScorePianoroll::~ScorePianoroll() {
 ScorePianoroll ScorePianoroll::from_score(const Score<Tick>& score,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t> pitchRange,
-        bool encodeVelocity,
-        bool deOverlap) {
+        bool encodeVelocity) {
     ScorePianoroll pianoroll(modes.size(), score.tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1);
-
-    // TODO: de-overlap
 
     for(int trackIdx = 0; trackIdx < score.tracks.size(); ++trackIdx) {
         const auto &track = score.tracks[trackIdx];
