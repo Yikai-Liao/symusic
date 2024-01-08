@@ -50,21 +50,14 @@ struct Tick2Second {
     f32 tpq;
     vec<Tempo<Tick>> tempos;
 
-    explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
-        if(score.tempos.empty()) {
-            tempos.emplace_back(0, 500000); // 120 qpm
-        } else {
-            // vec<Tempo<Tick>> origin(score.tempos);
-            // ops::sort_by_time(origin);  // sort it
-            tempos.reserve(score.tempos.size() + 2);
-            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
-            ops::sort_by_time(tempos);
-            if(tempos.empty() || tempos[0].time != 0) {
-                tempos.insert(tempos.begin(), Tempo<Tick>(0, 500000));
-            }
-            // add a guard at the end
-            tempos.emplace_back(std::numeric_limits<Tick::unit>::max(), tempos.back().mspq);
-        }
+    explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)) {
+        vec<Tempo<Tick>> origin(score.tempos);
+        // sort it
+        ops::sort_by_time(tempos);
+        if(tempos.empty()|| tempos[0].time != 0)
+            tempos.insert(tempos.begin(), Tempo<Tick>(0, 500000));
+        // add a guard at the end
+        tempos.emplace_back(std::numeric_limits<Tick::unit>::max(), tempos.back().mspq);
     }
 
     template<template<class> class T>
@@ -148,20 +141,13 @@ struct Second2Tick {
     vec<Tempo<Second>> tempos;
 
     explicit Second2Tick(const Score<Second> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
-        if(score.tempos.empty()) {
-            tempos.emplace_back(0, 500000); // 120 qpm
-        } else {
-            // vec<Tempo<Second>> origin(score.tempos);
-            // ops::sort_by_time(origin);  // sort it
-            tempos.reserve(score.tempos.size() + 2);
-            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
-            ops::sort_by_time(tempos);
-            if(tempos.empty() || tempos[0].time != 0) {
-                tempos.insert(tempos.begin(), Tempo<Second>(0, 500000));
-            }
-            // add a guard at the end
-            tempos.emplace_back(std::numeric_limits<Second::unit>::max(), tempos.back().mspq);
-        }
+        vec<Tempo<Second>> origin(score.tempos);
+        // sort it
+        ops::sort_by_time(tempos);
+        if(tempos.empty()|| tempos[0].time != 0)
+            tempos.insert(tempos.begin(), Tempo<Second>(0, 500000));
+        // add a guard at the end
+        tempos.emplace_back(std::numeric_limits<Second::unit>::max(), tempos.back().mspq);
     }
 
     template<template<class> class T>
