@@ -510,29 +510,16 @@ typename T::unit cast_time(const py::object &t) {
 template<typename T>
 py::object convert_score(const Score<T> &self, const py::object &ttype, const py::object & min_dur){
     if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
-    if (py::isinstance<Tick>(ttype)) return py::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), py::rv_policy::move);
+    if (py::isinstance<Tick>(ttype))    return py::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), py::rv_policy::move);
     if (py::isinstance<Quarter>(ttype)) return py::cast(convert<Quarter>(self, cast_time<Quarter>(min_dur)), py::rv_policy::move);
-    if (py::isinstance<Second>(ttype)) {
-        if constexpr (std::is_same_v<T, Tick>) {
-            return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
-        } else {
-            throw std::invalid_argument("Second is not supported yet");
-        }
-    }
+    if (py::isinstance<Second>(ttype))  return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
     if (py::isinstance<py::str>(ttype)) {
         // convert ttype to lower case
         const auto ttype_str = py::cast<std::string>(ttype.attr("lower")());
-        if (ttype_str == "tick") return py::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), py::rv_policy::move);
+        if (ttype_str == "tick")    return py::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), py::rv_policy::move);
         if (ttype_str == "quarter") return py::cast(convert<Quarter>(self, cast_time<Quarter>(min_dur)), py::rv_policy::move);
-        if (ttype_str == "second") {
-            if constexpr (std::is_same_v<T, Tick>) {
-                return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
-            } else {
-                throw std::invalid_argument("Second is not supported yet");
-            }
-        }
-        throw std::invalid_argument("ttype must be Tick, Quarter or Second");
-    }   throw std::invalid_argument("ttype must be Tick, Quarter or Second");
+        if (ttype_str == "second")  return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
+    }   throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
 }
 
 template<TType T>
@@ -664,7 +651,13 @@ py::module_ & core_module(py::module_ & m){
         .def("to", &convert_score<Quarter>, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
         .def("resample", [](const Score<Quarter> &self, const i32 tpq, const std::optional<i32> min_dur) {
             const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
-            // return resample(Score<Tick>(self), tpq, min_dur_);
+            return resample(self, tpq, min_dur_);
+        }, py::arg("tpq"), py::arg("min_dur")=py::none(), "Resample to another ticks per quarter");
+
+    score_second
+        .def("to", &convert_score<Second>, py::arg("ttype"), py::arg("min_dur")=py::none(), "Convert to another time unit")
+        .def("resample", [](const Score<Second> &self, const i32 tpq, const std::optional<i32> min_dur) {
+            const auto min_dur_ = min_dur.has_value()? *min_dur: 0;
             return resample(self, tpq, min_dur_);
         }, py::arg("tpq"), py::arg("min_dur")=py::none(), "Resample to another ticks per quarter");
     return m;
