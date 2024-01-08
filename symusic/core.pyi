@@ -1,4 +1,7 @@
+import os
 from typing import Callable, Iterable, Optional, overload
+
+import numpy
 
 import symusic.core
 
@@ -21,6 +24,9 @@ class ControlChangeQuarter:
         """
         ...
 
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeQuarterList: ...
     @property
     def number(self) -> int: ...
     @number.setter
@@ -141,6 +147,9 @@ class ControlChangeSecond:
         """
         ...
 
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeSecondList: ...
     @property
     def number(self) -> int: ...
     @number.setter
@@ -261,6 +270,9 @@ class ControlChangeTick:
         """
         ...
 
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.ControlChangeTickList: ...
     @property
     def number(self) -> int: ...
     @number.setter
@@ -383,6 +395,9 @@ class KeySignatureQuarter:
 
     @property
     def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureQuarterList: ...
     @property
     def key(self) -> int: ...
     @key.setter
@@ -505,6 +520,9 @@ class KeySignatureSecond:
 
     @property
     def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureSecondList: ...
     @property
     def key(self) -> int: ...
     @key.setter
@@ -627,6 +645,9 @@ class KeySignatureTick:
 
     @property
     def degree(self) -> int: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.KeySignatureTickList: ...
     @property
     def key(self) -> int: ...
     @key.setter
@@ -760,6 +781,13 @@ class NoteQuarter:
     @property
     def end(self) -> float: ...
     def end_time(self) -> float: ...
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteQuarterList: ...
     @property
     def pitch(self) -> int: ...
     @pitch.setter
@@ -909,6 +937,13 @@ class NoteSecond:
     @property
     def end(self) -> float: ...
     def end_time(self) -> float: ...
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteSecondList: ...
     @property
     def pitch(self) -> int: ...
     @pitch.setter
@@ -1058,6 +1093,13 @@ class NoteTick:
     @property
     def end(self) -> int: ...
     def end_time(self) -> int: ...
+    def from_numpy(
+        self,
+        arg0: numpy.typing.NDArray,
+        arg1: numpy.typing.NDArray,
+        arg2: numpy.typing.NDArray,
+        /,
+    ) -> symusic.core.NoteTickList: ...
     @property
     def pitch(self) -> int: ...
     @pitch.setter
@@ -1198,6 +1240,9 @@ class PedalQuarter:
     def duration(self, arg: float, /) -> None: ...
     @property
     def end(self) -> float: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalQuarterList: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.PedalQuarter:
@@ -1316,6 +1361,9 @@ class PedalSecond:
     def duration(self, arg: float, /) -> None: ...
     @property
     def end(self) -> float: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalSecondList: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.PedalSecond:
@@ -1434,6 +1482,9 @@ class PedalTick:
     def duration(self, arg: int, /) -> None: ...
     @property
     def end(self) -> int: ...
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PedalTickList: ...
     def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.PedalTick:
         """
         Shift the event time by offset
@@ -1544,6 +1595,9 @@ class PitchBendQuarter:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendQuarterList: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.PitchBendQuarter:
@@ -1660,6 +1714,9 @@ class PitchBendSecond:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendSecondList: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.PitchBendSecond:
@@ -1776,6 +1833,9 @@ class PitchBendTick:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.PitchBendTickList: ...
     def shift_time(
         self, offset: int, inplace: bool = False
     ) -> symusic.core.PitchBendTick:
@@ -2279,6 +2339,9 @@ class TempoQuarter:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoQuarterList: ...
     @property
     def mspq(self) -> int:
         """
@@ -2430,6 +2493,9 @@ class TempoSecond:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoSecondList: ...
     @property
     def mspq(self) -> int:
         """
@@ -2581,6 +2647,9 @@ class TempoTick:
         """
         ...
 
+    def from_numpy(
+        self, arg: numpy.typing.NDArray, /
+    ) -> symusic.core.TempoTickList: ...
     @property
     def mspq(self) -> int:
         """
@@ -2730,6 +2799,7 @@ class TextMetaQuarter:
         """
         ...
 
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.TextMetaQuarter:
@@ -2846,6 +2916,7 @@ class TextMetaSecond:
         """
         ...
 
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
     def shift_time(
         self, offset: float, inplace: bool = False
     ) -> symusic.core.TextMetaSecond:
@@ -2962,6 +3033,7 @@ class TextMetaTick:
         """
         ...
 
+    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
     def shift_time(
         self, offset: int, inplace: bool = False
     ) -> symusic.core.TextMetaTick:
@@ -3090,6 +3162,9 @@ class TimeSignatureQuarter:
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureQuarterList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter
@@ -3210,6 +3285,9 @@ class TimeSignatureSecond:
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureSecondList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter
@@ -3330,6 +3408,9 @@ class TimeSignatureTick:
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
+    def from_numpy(
+        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+    ) -> symusic.core.TimeSignatureTickList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter

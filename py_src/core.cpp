@@ -94,6 +94,8 @@ py::object py_filter (vec<T> & self, py::callable & func, const bool inplace) {
 }
 
 
+#define NDARR(DTYPE, DIM) py::ndarray<DTYPE, py::ndim<DIM>, py::c_contig, py::device::cpu>
+
 template<typename T>
 std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, const std::string &name) {
     typedef typename T::unit unit;
@@ -127,6 +129,10 @@ std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, co
         .def("__setstate__", &py_from_bytes<vec<T>>)
         .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false);
     return std::make_tuple(event, vec_T);
+}
+
+void show(NDARR(float, 1) arg) {
+
 }
 
 // a template functions for binding all specializations of Note, and return it
@@ -167,7 +173,17 @@ py::class_<Note<T>> bind_note_class(py::module_ &m, const std::string & name_) {
         .def("shift_velocity", [](Note<T> &self, const int8_t offset, const bool inplace) {
                 if (inplace) return py::cast(self.shift_velocity_inplace(offset), py::rv_policy::reference);
                 else return py::cast(self.shift_velocity(offset), py::rv_policy::move);
-            }, py::arg("offset"), py::arg("inplace")=false, "Shift the velocity by offset");
+            }, py::arg("offset"), py::arg("inplace")=false, "Shift the velocity by offset")
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(unit, 1) duration, NDARR(i8, 1) pitch, NDARR(i8, 1) velocity) {
+            if(time.size() != duration.size() || time.size() != pitch.size() || time.size() != velocity.size()) {
+                throw std::invalid_argument("time, duration, pitch, velocity must have the same size");
+            }
+            auto size = time.size();
+            vec<Note<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), duration(i), pitch(i), velocity(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::KeySignature<T>
@@ -195,7 +211,17 @@ py::class_<symusic::KeySignature<T>> bind_key_signature_class(py::module_ &m, co
         .def(py::init<unit, i8, i8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
         .def_rw("key", &symusic::KeySignature<T>::key)
         .def_rw("tonality", &symusic::KeySignature<T>::tonality)
-        .def_prop_ro("degree", &symusic::KeySignature<T>::degree);
+        .def_prop_ro("degree", &symusic::KeySignature<T>::degree)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(i8, 1) tonality) {
+            if(time.size() != key.size() || time.size() != tonality.size()) {
+                throw std::invalid_argument("time, key, tonality must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::KeySignature<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), key(i), tonality(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::TimeSignature<T>
@@ -221,7 +247,17 @@ py::class_<symusic::TimeSignature<T>> bind_time_signature_class(py::module_ &m, 
     return time_sig
         .def(py::init<unit, u8, u8>())
         .def_rw("numerator", &symusic::TimeSignature<T>::numerator)
-        .def_rw("denominator", &symusic::TimeSignature<T>::denominator);
+        .def_rw("denominator", &symusic::TimeSignature<T>::denominator)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1) denominator) {
+            if(time.size() != numerator.size() || time.size() != denominator.size()) {
+                throw std::invalid_argument("time, numerator, denominator must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::TimeSignature<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), numerator(i), denominator(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::ControlChange<T>
@@ -248,7 +284,17 @@ py::class_<symusic::ControlChange<T>> bind_control_change_class(py::module_ &m, 
     return control_change
         .def(py::init<unit, u8, u8>(), py::arg("time"), py::arg("number"), py::arg("value"))
         .def_rw("value", &symusic::ControlChange<T>::value)
-        .def_rw("number", &symusic::ControlChange<T>::number);
+        .def_rw("number", &symusic::ControlChange<T>::number)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8, 1) value) {
+            if(time.size() != number.size() || time.size() != value.size()) {
+                throw std::invalid_argument("time, number, value must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::ControlChange<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), number(i), value(i));
+            }   return ans;
+        });
 }
 
 // bind Pedal<T>
@@ -277,7 +323,17 @@ py::class_<symusic::Pedal<T>> bind_pedal_class(py::module_ &m, const std::string
     return pedal
         .def(py::init<unit, unit>(), py::arg("time"), py::arg("duration"))
         .def_rw("duration", &symusic::Pedal<T>::duration)
-        .def_prop_ro("end", &symusic::Pedal<T>::end);
+        .def_prop_ro("end", &symusic::Pedal<T>::end)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(unit, 1) duration) {
+            if(time.size() != duration.size()) {
+                throw std::invalid_argument("time, duration must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::Pedal<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), duration(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::Tempo<T>
@@ -308,7 +364,17 @@ py::class_<symusic::Tempo<T>> bind_tempo_class(py::module_ &m, const std::string
         }, py::arg("time"), py::arg("qpm")=py::none(), py::arg("mspq")=py::none())
         .def_rw("mspq", &symusic::Tempo<T>::mspq, "Microseconds per quarter note")
         .def_prop_rw("tempo", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "The same as qpm")
-        .def_prop_rw("qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo");
+        .def_prop_rw("qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo")
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
+            if(time.size() != mspq.size()) {
+                throw std::invalid_argument("time, mspq must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::Tempo<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), mspq(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::PitchBend<T>
@@ -333,7 +399,17 @@ py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module_ &m, const st
 
     return pitch_bend
         .def(py::init<unit, i32>(), py::arg("time"), py::arg("value"))
-        .def_rw("value", &symusic::PitchBend<T>::value);
+        .def_rw("value", &symusic::PitchBend<T>::value)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i32, 1) value) {
+            if(time.size() != value.size()) {
+                throw std::invalid_argument("time, value must have the same size");
+            }
+            auto size = time.size();
+            vec<symusic::PitchBend<T>> ans; ans.reserve(size);
+            for(size_t i = 0; i < size; ++i) {
+                ans.emplace_back(time(i), value(i));
+            }   return ans;
+        });
 }
 
 // bind symusic::TextMeta<T>
@@ -351,7 +427,10 @@ py::class_<symusic::TextMeta<T>> bind_text_meta_class(py::module_ &m, const std:
 
     return text_meta
         .def(py::init<unit, std::string &>(), py::arg("time"), py::arg("text"))
-        .def_rw("text", &symusic::TextMeta<T>::text);
+        .def_rw("text", &symusic::TextMeta<T>::text)
+        .def("from_numpy", [](NDARR(unit, 1) time, NDARR(std::string, 1) text) {
+            throw std::runtime_error("TextMeta does not support numpy");
+        });
 }
 
 template<typename T>
