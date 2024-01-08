@@ -76,4 +76,3 @@ pip install ./symusic
 * [pybind11-stubgen](https://github.com/sizmailov/pybind11-stubgen) A nice tool to generate stub files for pybind11 projects.
 * [zpp_bits](https://github.com/eyalz800/zpp_bits) : An extraordinary fast and lightweight single header library for serialization and deserialization. I use it to support pickle.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
-* [Intel® Vtune Profiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/vtune-profiler.html) : A great tool to help you profile your code. We use it to greatly improve the performance of this project.
