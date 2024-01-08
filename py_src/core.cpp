@@ -2,7 +2,7 @@
 // Created by lyk on 23-9-20.
 //
 #include <string>
-// #include <optional>
+#include <functional>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
@@ -49,7 +49,7 @@ void sort_by_py_key(vec<T> &self, const py::object & key) {
 }
 
 template<typename T>
-vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool reverse) {
+vec<T> & py_sort_inplace(vec<T> &self, const py::callable & key, const bool reverse) {
     if (key.is_none()) ops::sort_by_time(self);
     else sort_by_py_key(self, key);
     if (reverse) std::reverse(self.begin(), self.end());
@@ -57,7 +57,7 @@ vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool revers
 }
 
 template<typename T>
-py::object py_sort(vec<T> &self, const py::object & key, const bool reverse, const bool inplace = false) {
+py::object py_sort(vec<T> &self, const py::callable & key, const bool reverse, const bool inplace = false) {
     if (inplace) {
         py_sort_inplace(self, key, reverse);
         return py::cast(self, py::rv_policy::reference);
@@ -79,6 +79,17 @@ T py_from_bytes(const py::bytes &bytes) {
     const auto data = std::string_view(bytes.c_str(), bytes.size());
     const std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
     return parse<DataFormat::ZPP, T>(span);
+}
+
+template<typename T>
+py::object py_filter (vec<T> & self, py::callable & func, const bool inplace) {
+    vec<T> ans; ans.reserve(self.size());
+    for(auto & item: self) {
+        if (py::cast<bool>(func(item))) ans.push_back(item);
+    }   if(inplace) {
+        self = std::move(ans);
+        return py::cast(self, py::rv_policy::reference);
+    }   return py::cast(ans, py::rv_policy::move);
 }
 
 
@@ -112,9 +123,8 @@ py::class_<T> time_stamp_base(py::module_ &m, const std::string &name) {
         })
         // .def(py::pickle( &py_to_bytes<vec<T>>, &py_from_bytes<vec<T>>));
         .def("__getstate__", &py_to_bytes<vec<T>>)
-        .def("__setstate__", &py_from_bytes<vec<T>>);
-
-    // py::implicitly_convertible<py::list, vec<T>>();
+        .def("__setstate__", &py_from_bytes<vec<T>>)
+        .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false);
     return event;
 }
 
@@ -355,7 +365,8 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         // .def(py::pickle( &py_to_bytes<vec<Track<T>>>, &py_from_bytes<vec<Track<T>>>))
         .def("__getstate__", &py_to_bytes<vec<Track<T>>>)
         .def("__setstate__", &py_from_bytes<vec<Track<T>>>)
-        .def_prop_ro("ttype", []{ return T(); });
+        .def_prop_ro("ttype", []{ return T(); })
+        .def("filter", &py_filter<Track<T>>, py::arg("func"), py::arg("inplace")=false);
 
     py::implicitly_convertible<py::list, vec<Track<T>>>();
 
