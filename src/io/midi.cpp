@@ -75,15 +75,15 @@ public:
 };
 
 struct TrackIdx {
-    
+
     u8 channel, program;
-    
+
     TrackIdx(const u8 channel, const u8 program): channel(channel), program(program) {}
-    
+
     bool operator<(const TrackIdx &other) const {
         return std::tie(channel, program) < std::tie(other.channel, other.program);
     }
-    
+
     bool operator==(const TrackIdx&) const = default;
 };
 
@@ -328,7 +328,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
     };
     namespace message = minimidi::message;
     midi.tracks.reserve(score.tracks.size() + 1);
-    
+
     {   // add meta messages
         message::Messages msgs{};
         msgs.reserve(
