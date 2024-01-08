@@ -123,6 +123,7 @@ struct Tick2Second {
         });
         pivot_tick = 0;
         pivot_time = 0;
+        t_iter = tempos.begin() + 1;
         cur_factor = static_cast<double>(tempos[0].mspq) / 1000000. / static_cast<double>(tpq);
         for(const auto & event : end_times) {
             if(event.first > t_iter->time) {
