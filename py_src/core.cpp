@@ -43,16 +43,21 @@ NB_MAKE_OPAQUE(vec<Quarter::unit>)
 // PYBIND11_MAKE_OPAQUE(vec<Second::unit>)
 
 template<typename T>
-void sort_by_py_key(vec<T> &self, const py::callable & key) {
+void sort_by_key(vec<T> &self, const py::callable & key) {
     pdqsort(self.begin(), self.end(), [&key](const T &a, const T &b) {
         return key(a) < key(b);
     });
 }
 
-template<typename T>
-vec<T> & py_sort_inplace(vec<T> &self, const py::object & key, const bool reverse) {
-    if (key.is_none()) ops::sort_by_time(self);
-    else sort_by_py_key(self, py::cast<py::callable>(key));
+template<template<typename> typename T, typename U>
+vec<T<U>> & py_sort_inplace(vec<T<U>> &self, const py::object & key, const bool reverse) {
+    if (key.is_none()) {
+        if constexpr (std::is_same_v<T<U>, Note<U>>) ops::sort_notes(self);
+        else if constexpr (std::is_same_v<T<U>, Pedal<U>>) ops::sort_pedals(self);
+        else if constexpr (std::is_same_v<T<U>, Track<U>>) ops::sort_tracks(self);
+        else ops::sort_by_time(self);
+    }
+    else sort_by_key<T<U>>(self, py::cast<py::callable>(key));
     if (reverse) std::reverse(self.begin(), self.end());
     return self;
 }
@@ -536,19 +541,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false);
 
     py::bind_vector<vec<Track<T>>>(m, std::string(name + "List").c_str())
-        .def("sort", [](vec<Track<T>> &self, const py::object & key, const bool reverse, const bool inplace) {
-            if (key.is_none()) throw std::invalid_argument("key must be specified");
-            if (inplace) {
-                sort_by_py_key(self, py::cast<py::callable>(key));
-                if (reverse) std::reverse(self.begin(), self.end());
-                return py::cast(self, py::rv_policy::reference);
-            } else { // copy
-                auto copy = vec<Track<T>>(self);
-                sort_by_py_key(copy, py::cast<py::callable>(key));
-                if (reverse) std::reverse(copy.begin(), copy.end());
-                return py::cast(copy, py::rv_policy::move);
-            }
-        }, py::arg("key"), py::arg("reverse")=false, py::arg("inplace")=true)
+        .def("sort", &py_sort<Track<T>>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
         .def("__repr__", [](const vec<Track<T>> &self) {
             vec<std::string> strs; strs.reserve(self.size());
             for(const auto & track: self) {
@@ -724,69 +717,6 @@ py::object convert_score(const Score<T> &self, const py::object &ttype, const py
         if (ttype_str == "second")  return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
     }   throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
 }
-//
-// template<TType T>
-// py::class_<NoteArr<T>> bind_note_arr(py::module_ &m, const std::string & name_) {
-//     const auto name = "NoteArr" + name_;
-//
-//     return py::class_<NoteArr<T>>(m, name.c_str())
-//         .def(py::init<const NoteArr<T> &>(), "Copy constructor", py::arg("other"))
-//         .def(py::init<std::string, u8, bool>(), "create with name, program and is_drum", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false)
-//         // .def(py::init([](
-//         //     std::string name, u8 program, bool is_drum,
-//         //     const py::array_t<typename T::unit> &time,
-//         //     const py::array_t<typename T::unit> &duration,
-//         //     const py::array_t<int8_t> &pitch,
-//         //     const py::array_t<int8_t> &velocity) {
-//         //     if (time.size() != duration.size() || time.size() != pitch.size() || time.size() != velocity.size())
-//         //         throw std::invalid_argument("time, duration, pitch and velocity must have the same size");
-//         //     const auto size = time.size();
-//         //     NoteArr<T> arr(name, program, is_drum);
-//         //     arr.reserve(size);
-//         //     for (size_t i = 0; i < size; ++i) {
-//         //         arr.emplace_back(time.at(i), duration.at(i), pitch.at(i), velocity.at(i));
-//         //     }
-//         //     return arr;
-//         // }), "Creat from numpy", py::arg("name")="", py::arg("program")=0, py::arg("is_drum")=false,
-//         //     py::arg("time")=py::array_t<typename T::unit>(),
-//         //     py::arg("duration")=py::array_t<typename T::unit>(),
-//         //     py::arg("pitch")=py::array_t<int8_t>(),
-//         //     py::arg("velocity")=py::array_t<int8_t>())
-//         .def("copy", &NoteArr<T>::copy, "Deep copy", py::rv_policy::move)
-//         .def("__copy__", &NoteArr<T>::copy, "Deep copy")
-//         .def("__deepcopy__", &NoteArr<T>::copy, "Deep copy")
-//         .def("__repr__", &NoteArr<T>::to_string)
-//         .def(py::self == py::self)  // NOLINT
-//         .def(py::self != py::self)  // NOLINT
-//         // getter convert vector to numpy array (reference)
-//         // setter accept numpy array using copy
-//         // .def(py::pickle( &py_to_bytes<NoteArr<T>>, &py_from_bytes<NoteArr<T>>))
-//         .def("__getstate__", &py_to_bytes<NoteArr<T>>)
-//         .def("__setstate__", &py_from_bytes<NoteArr<T>>)
-//         .def("start", &NoteArr<T>::start)
-//         .def("end", &NoteArr<T>::end)
-//         .def("note_num", &NoteArr<T>::note_num)
-//         .def("empty", &NoteArr<T>::empty)
-//         .def("valid", &NoteArr<T>::valid)
-//         .def("summary" , &NoteArr<T>::summary)
-//         .def("sort", &NoteArr<T>::sort, py::arg("reverse")=false)
-//         .def("clip", &NoteArr<T>::clip, "Clip notes and controls to a given time range", py::arg("start"), py::arg("end"), py::arg("clip_end")=false)
-//         .def("reserve", &NoteArr<T>::reserve, "Reserve memory for notes", py::arg("size"))
-//         .def("push_back", &NoteArr<T>::emplace_back, py::arg("time"), py::arg("duration"), py::arg("pitch"), py::arg("velocity"))
-//         .def("push_back", &NoteArr<T>::push_back, py::arg("note"))
-//         .def_rw("pitch", &NoteArr<T>::pitch)
-//         .def_rw("velocity", &NoteArr<T>::velocity)
-//         .def_rw("time", &NoteArr<T>::time)
-//         .def_rw("duration", &NoteArr<T>::duration);
-//         // .def("numpy", [](NoteArr<T> &self) {
-//         //     using namespace pybind11::literals; // to bring in the `_a` literal
-//         //     // convert vector to numpy array
-//         //     return py::dict("time"_a=py::array_t<typename T::unit>(self.time.size(), self.time.data()),
-//         //                     "duration"_a=py::array_t<typename T::unit>(self.duration.size(), self.duration.data()),
-//         //                     "pitch"_a=py::array_t<int8_t>(self.pitch.size(), self.pitch.data()),
-//         //                     "velocity"_a=py::array_t<int8_t>(self.velocity.size(), self.velocity.data()));
-//         // });
-// }
 
 py::module_ & core_module(py::module_ & m){
     const std::string tick = "Tick", quarter = "Quarter", second = "Second";

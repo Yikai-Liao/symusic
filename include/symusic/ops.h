@@ -43,6 +43,17 @@ void sort_pedals(vec<Pedal<T>> & pedals, const bool reverse = false) {
     #undef KEY
 }
 
+template<TType T>
+void sort_tracks(vec<Track<T>> & tracks, const bool reverse = false) {
+    #define KEY(TRACK) std::make_tuple(TRACK.is_drum, TRACK.program, TRACK.name, TRACK.note_num())
+    if (reverse) {
+        pdqsort_branchless(tracks.begin(), tracks.end(), [](const Track<T> & a, const Track<T> & b) {return KEY(a) > KEY(b);});
+    } else {
+        pdqsort_branchless(tracks.begin(), tracks.end(), [](const Track<T> & a, const Track<T> & b) {return KEY(a) < KEY(b);});
+    }
+    #undef KEY
+}
+
 
 template<class Iter, class Compare>
 void sort(Iter begin, Iter end, Compare cmp) {
