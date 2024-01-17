@@ -16,6 +16,9 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Score<T>::start() const {
+    if(!tracks.size())
+        return 0;
+
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     for (const auto & track: tracks) {
         ans = std::min(ans, track.start());
@@ -24,6 +27,9 @@ typename T::unit Score<T>::start() const {
 
 template<TType T>
 typename T::unit Score<T>::end() const {
+    if(!tracks.size())
+        return 0;
+
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
     for (const auto & track: tracks) {
         ans = std::max(ans, track.end());
