@@ -52,7 +52,8 @@ struct Tick2Second {
 
     explicit Tick2Second(const Score<Tick> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
         if(score.tempos.empty()) {
-            tempos.emplace_back(0, 500000); // 120 qpm
+            // 120 qpm
+            tempos = {{0, 500000}, {std::numeric_limits<Tick::unit>::max(), 500000}};
         } else {
             // vec<Tempo<Tick>> origin(score.tempos);
             // ops::sort_by_time(origin);  // sort it
@@ -149,7 +150,8 @@ struct Second2Tick {
 
     explicit Second2Tick(const Score<Second> & score): tpq(static_cast<float>(score.ticks_per_quarter)){
         if(score.tempos.empty()) {
-            tempos.emplace_back(0, 500000); // 120 qpm
+            // 120 qpm
+            tempos = {{0, 500000}, {std::numeric_limits<Second::unit>::max(), 500000}};
         } else {
             // vec<Tempo<Second>> origin(score.tempos);
             // ops::sort_by_time(origin);  // sort it
