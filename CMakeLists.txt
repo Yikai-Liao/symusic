@@ -58,7 +58,7 @@ add_executable(
     3rdparty/abcmidi/stresspat.c
 )
 # using c99 to compile abc2midi
-set_property(TARGET abc2midi PROPERTY C_STANDARD 99)
+set_property(TARGET abc2midi PROPERTY C_STANDARD 90)
 # force it to use c instead of c++
 set_target_properties(abc2midi PROPERTIES LINKER_LANGUAGE C)
 
