@@ -34,36 +34,9 @@ add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
 
-add_executable(
-    abc2midi
-    3rdparty/abcmidi/parseabc.c
-    3rdparty/abcmidi/parseabc.h
-    3rdparty/abcmidi/abc.h
-    #store.c abc.h parseabc.h midifile.h genmidi.h
-    3rdparty/abcmidi/store.c
-    3rdparty/abcmidi/abc.h
-    3rdparty/abcmidi/midifile.h
-    3rdparty/abcmidi/genmidi.h
-    #genmidi.c abc.h midifile.h genmidi.h
-    3rdparty/abcmidi/genmidi.c
-    3rdparty/abcmidi/genmidi.h
-    #queues.c genmidi.h
-    3rdparty/abcmidi/queues.c
-    #parser2.c abc.h parseabc.h parser2.h
-    3rdparty/abcmidi/parser2.c
-    3rdparty/abcmidi/parseabc.h
-    3rdparty/abcmidi/parser2.h
-    # midifile.c midifile.h
-    3rdparty/abcmidi/midifile.c
-    3rdparty/abcmidi/stresspat.c
-)
-# using c99 to compile abc2midi
-set_property(TARGET abc2midi PROPERTY C_STANDARD 90)
-# force it to use c instead of c++
-set_target_properties(abc2midi PROPERTIES LINKER_LANGUAGE C)
-
 if(BUILD_PY)
     message("Building python binding.")
+    add_subdirectory(3rdparty/abcmidi)
 
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
     # set symusic target to O3 and release mode because nanobind use minisize
