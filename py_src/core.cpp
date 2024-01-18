@@ -654,7 +654,6 @@ void dump_abc_str(const Score<T> &self, const std::string& path, const bool warn
     if(!warn) {
         cmd += std::format(R"( > "{}")", tmp_out.string());
     }
-    fmt::print("cmd: {}\n", cmd);
     const auto ret = std::system(cmd.c_str());
     if(std::filesystem::exists(path)) {
         std::filesystem::remove(midi_path);
