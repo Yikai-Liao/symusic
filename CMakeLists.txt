@@ -36,8 +36,6 @@ target_link_libraries(symusic minimidi)
 
 if(BUILD_PY)
     message("Building python binding.")
-    add_subdirectory(3rdparty/abcmidi)
-
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
     # set symusic target to O3 and release mode because nanobind use minisize
     execute_process(
@@ -51,6 +49,11 @@ if(BUILD_PY)
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
+    # install abc2midi and midi2abc
+    add_subdirectory(3rdparty/abcmidi)
+    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+    set_target_properties(abc2midi PROPERTIES SUFFIX "")
+    set_target_properties(midi2abc PROPERTIES SUFFIX "")
 endif()
 
 if(BUILD_TEST)
