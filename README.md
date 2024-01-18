@@ -47,7 +47,7 @@ pip install ./symusic
 ### Parsing MIDI
 
 * test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10875H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
-* Note that mahler.mid is quite a large midi files. So this benchmark mainly relects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
+* Note that mahler.mid is quite a large midi file. So this benchmark mainly relects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
 * `midifile` is writen in cpp, and could parse midi files to both `event level` and `note level`. It is slow mostly becuase of `iostream`.
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
