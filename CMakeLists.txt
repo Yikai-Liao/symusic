@@ -52,8 +52,6 @@ if(BUILD_PY)
     # install abc2midi and midi2abc
     add_subdirectory(3rdparty/abcmidi)
     install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
-    set_target_properties(abc2midi PROPERTIES SUFFIX "")
-    set_target_properties(midi2abc PROPERTIES SUFFIX "")
 endif()
 
 if(BUILD_TEST)

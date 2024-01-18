@@ -7,6 +7,8 @@ from numpy import ndarray
 
 from . import core  # type: ignore
 from . import types as smt
+import subprocess
+from hashlib import md5
 
 __all__ = [
     "TimeUnit",
@@ -21,6 +23,26 @@ __all__ = [
     "Track",
     "Score",
 ]
+
+_HERE = Path(__file__).parent
+_BIN = _HERE / "bin"
+# for win
+if os.name == "nt":
+    _MIDI2ABC = _BIN / "midi2abc.exe"
+    _ABC2MIDI = _BIN / "abc2midi.exe"
+# for linux
+else:
+    _MIDI2ABC = _BIN / "midi2abc"
+    _ABC2MIDI = _BIN / "abc2midi"
+
+_TMP = _HERE / "tmp"
+
+if not _MIDI2ABC.exists():
+    raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
+if not _ABC2MIDI.exists():
+    raise FileNotFoundError(f"{_ABC2MIDI} does not exist")
+if not _TMP.exists():
+    _TMP.mkdir()
 
 """
 All the Factory classes are initialized when the module is imported.
@@ -404,6 +426,23 @@ class ScoreFactory:
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype)(path)
+    
+    def from_abc(
+        self, abc: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
+        m = md5()
+        m.update(abc.encode())
+        key = m.hexdigest()
+        abc_name = _TMP / f"tmp_read_{key}.abc"
+        midi_name = _TMP / f"tmp_read_{key}.mid"
+        with open(abc_name, "w") as f:
+            f.write(abc)
+        # redirect stdout to /dev/null
+        subprocess.run([str(_ABC2MIDI), abc_name, "-o", midi_name], stdout=subprocess.DEVNULL)
+        score = self.from_file(midi_name, ttype)
+        # delete tmp files
+        os.remove(abc_name)
+        os.remove(midi_name)
+        return score
 
     def from_tpq(
         self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
