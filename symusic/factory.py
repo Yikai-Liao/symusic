@@ -8,7 +8,7 @@ from numpy import ndarray
 from . import core  # type: ignore
 from . import types as smt
 import subprocess
-from hashlib import md5
+from random import randint
 
 __all__ = [
     "TimeUnit",
@@ -39,6 +39,9 @@ _TMP = _HERE / "tmp"
 
 if not _MIDI2ABC.exists():
     raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
+# set env var SYMUSIC_MIDI2ABC
+os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
+
 if not _ABC2MIDI.exists():
     raise FileNotFoundError(f"{_ABC2MIDI} does not exist")
 if not _TMP.exists():
@@ -429,9 +432,7 @@ class ScoreFactory:
     
     def from_abc(
         self, abc: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
-        m = md5()
-        m.update(abc.encode())
-        key = m.hexdigest()
+        key = randint(0, 1000000)
         abc_name = _TMP / f"tmp_read_{key}.abc"
         midi_name = _TMP / f"tmp_read_{key}.mid"
         with open(abc_name, "w") as f:
