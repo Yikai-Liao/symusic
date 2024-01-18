@@ -13,3 +13,6 @@
 [submodule "3rdparty/nanobench"]
 	path = 3rdparty/nanobench
 	url = https://github.com/martinus/nanobench.git
+[submodule "3rdparty/abcmidi"]
+	path = 3rdparty/abcmidi
+	url = https://github.com/Yikai-Liao/abcmidi.git
