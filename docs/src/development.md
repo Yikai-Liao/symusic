@@ -20,12 +20,12 @@ The only requirement for symusic is [nanobind](https://github.com/wjakob/nanobin
 pip install nanobind
 ```
 
-> Note that, cpython 3.12 get some memory leak problem, and it will be detected by nanobind. 
+> Note that, cpython 3.12 get some memory leak problem, and it will be detected by nanobind.
 > So I recommend you to use cpython <= 3.11 currently.
 
 As for compiler, it should support c++20. `clang` (linux and mac), `gcc` and `msvc` all works (I have tested them).
 
-But since the project [abcmidi](https://ifdo.ca/~seymour/runabc/top.html) is introduced, and it uses an old version of c. 
+But since the project [abcmidi](https://ifdo.ca/~seymour/runabc/top.html) is introduced, and it uses an old version of c.
 So some compiler might not support it, like `clang` and `icx` (a compiler of Intel) on `windows`.
 
 ## Build
@@ -49,7 +49,7 @@ Here, we use `nanobind-stubgen` to generate the pyi file for symusic.core. And w
 
 After generating the pyi file, you need run `pre-commit run --all-files` to format the pyi file.
 
-And always check the git diff before committing. 
+And always check the git diff before committing.
 The import part of the auto generated pyi file is not correct, and you need to fix it manually.
 (Most of the time, you just need to keep the previous import part.)
 
