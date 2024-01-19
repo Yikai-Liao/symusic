@@ -7,11 +7,11 @@
 
 The library is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
 
-Here, we have added a tutorial.ipynb for you to learn about how to use the library.
-
-Tutorial and Benchmark: <a target="_blank" href="https://colab.research.google.com/github/Yikai-Liao/symusic/blob/main/tutorial.ipynb">
+Here, we have added a tutorial.ipynb for you to learn about how to use the library. <a target="_blank" href="https://colab.research.google.com/github/Yikai-Liao/symusic/blob/main/tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
+
+And a [document](https://yikai-liao.github.io/symusic/) is also available. Not complete though.
 
 ## Features
 
