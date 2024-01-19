@@ -37,6 +37,7 @@ jobs:
           # Install local package with tests dependencies extras
           python -m pip install --upgrade pip
           pip install -e ".[test]"
+          rm -rf ./symusic
 
       - name: Test with pytest
         run: pytest --cov=./ --cov-report=xml -n auto --durations=0 -v tests
