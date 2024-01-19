@@ -418,7 +418,7 @@ class ScoreFactory:
         fmt: Optional[str] = None,
     ) -> smt.Score:
         if isinstance(x, str) or isinstance(x, Path):
-            return self.from_file(x, ttype)
+            return self.from_file(x, ttype, fmt)
         elif isinstance(x, int):
             return self.from_tpq(x, ttype)
         elif isinstance(x, self):  # type: ignore
