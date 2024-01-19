@@ -36,7 +36,7 @@ jobs:
         run: |
           # Install local package with tests dependencies extras
           python -m pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install ".[test]"
           rm -rf ./symusic
 
       - name: Test with pytest
