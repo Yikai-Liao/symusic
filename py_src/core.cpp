@@ -652,7 +652,7 @@ void dump_abc_str(const Score<T> &self, const std::string& path, const bool warn
     // call midi2abc
     auto cmd = fmt::format(R"({} "{}" -o "{}")", midi2abc, midi_path.string(), path);
     if(!warn) {
-        cmd += std::format(R"( > "{}")", tmp_out.string());
+        cmd += fmt::format(R"( > "{}")", tmp_out.string());
     }
     const auto ret = std::system(cmd.c_str());
     if(std::filesystem::exists(path)) {
