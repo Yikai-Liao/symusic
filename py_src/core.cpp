@@ -753,10 +753,10 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
-        .def_static("from_file", &from_file<T>, "Load from midi file", py::arg("path"), py::arg("format")=py::none())
+        .def_static("from_file", &from_file<T>, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
         .def_static("from_file", [](const std::filesystem::path &path, const std::optional<std::string> & format) {
             return from_file<T>(path.string(), format);
-        }, "Load from midi file", py::arg("path"), py::arg("format")=py::none())
+        }, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
         .def_static("from_abc", &from_abc<T>, "Load from abc string", py::arg("abc"))
         // pybind11 will binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))

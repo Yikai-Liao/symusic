@@ -87,6 +87,7 @@ class ControlChangeQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.ControlChangeQuarterList: ...
     def count(self, arg: symusic.core.ControlChangeQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -120,10 +121,7 @@ class ControlChangeQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -210,6 +208,7 @@ class ControlChangeSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.ControlChangeSecondList: ...
     def count(self, arg: symusic.core.ControlChangeSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -243,10 +242,7 @@ class ControlChangeSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -333,6 +329,7 @@ class ControlChangeTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.ControlChangeTickList: ...
     def count(self, arg: symusic.core.ControlChangeTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -366,10 +363,7 @@ class ControlChangeTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -458,6 +452,7 @@ class KeySignatureQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.KeySignatureQuarterList: ...
     def count(self, arg: symusic.core.KeySignatureQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -491,10 +486,7 @@ class KeySignatureQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -583,6 +575,7 @@ class KeySignatureSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.KeySignatureSecondList: ...
     def count(self, arg: symusic.core.KeySignatureSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -616,10 +609,7 @@ class KeySignatureSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -708,6 +698,7 @@ class KeySignatureTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.KeySignatureTickList: ...
     def count(self, arg: symusic.core.KeySignatureTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -741,10 +732,7 @@ class KeySignatureTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -864,6 +852,7 @@ class NoteQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.NoteQuarterList: ...
     def count(self, arg: symusic.core.NoteQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -897,10 +886,7 @@ class NoteQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -1020,6 +1006,7 @@ class NoteSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.NoteSecondList: ...
     def count(self, arg: symusic.core.NoteSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1053,10 +1040,7 @@ class NoteSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -1174,6 +1158,7 @@ class NoteTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.NoteTickList: ...
     def count(self, arg: symusic.core.NoteTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1207,10 +1192,7 @@ class NoteTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -1295,6 +1277,7 @@ class PedalQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.PedalQuarterList: ...
     def count(self, arg: symusic.core.PedalQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1328,10 +1311,7 @@ class PedalQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -1416,6 +1396,7 @@ class PedalSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.PedalSecondList: ...
     def count(self, arg: symusic.core.PedalSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1449,10 +1430,7 @@ class PedalSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -1535,6 +1513,7 @@ class PedalTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.PedalTickList: ...
     def count(self, arg: symusic.core.PedalTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1568,10 +1547,7 @@ class PedalTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -1654,6 +1630,7 @@ class PitchBendQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.PitchBendQuarterList: ...
     def count(self, arg: symusic.core.PitchBendQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1687,10 +1664,7 @@ class PitchBendQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -1773,6 +1747,7 @@ class PitchBendSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.PitchBendSecondList: ...
     def count(self, arg: symusic.core.PitchBendSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1806,10 +1781,7 @@ class PitchBendSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -1892,6 +1864,7 @@ class PitchBendTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.PitchBendTickList: ...
     def count(self, arg: symusic.core.PitchBendTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -1925,10 +1898,7 @@ class PitchBendTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -1980,6 +1950,19 @@ class ScoreQuarter:
         """
         ...
 
+    def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
+    @overload
+    def dump_abc(self, path: str, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
     def dump_midi(self, path: os.PathLike) -> None:
         """
         Dump to midi file
@@ -1995,7 +1978,22 @@ class ScoreQuarter:
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
-    def from_file(path: str) -> symusic.core.ScoreQuarter:
+    def from_abc(abc: str) -> symusic.core.ScoreQuarter:
+        """
+        Load from abc string
+        """
+        ...
+
+    def from_file(
+        path: os.PathLike, fmt: Optional[str] = None
+    ) -> symusic.core.ScoreQuarter:
+        """
+        Load from midi file
+        """
+        ...
+
+    @overload
+    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreQuarter:
         """
         Load from midi file
         """
@@ -2019,7 +2017,6 @@ class ScoreQuarter:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2033,10 +2030,7 @@ class ScoreQuarter:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -2105,6 +2099,19 @@ class ScoreSecond:
         """
         ...
 
+    def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
+    @overload
+    def dump_abc(self, path: str, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
     def dump_midi(self, path: os.PathLike) -> None:
         """
         Dump to midi file
@@ -2120,7 +2127,22 @@ class ScoreSecond:
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
-    def from_file(path: str) -> symusic.core.ScoreSecond:
+    def from_abc(abc: str) -> symusic.core.ScoreSecond:
+        """
+        Load from abc string
+        """
+        ...
+
+    def from_file(
+        path: os.PathLike, fmt: Optional[str] = None
+    ) -> symusic.core.ScoreSecond:
+        """
+        Load from midi file
+        """
+        ...
+
+    @overload
+    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreSecond:
         """
         Load from midi file
         """
@@ -2144,7 +2166,6 @@ class ScoreSecond:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2158,10 +2179,7 @@ class ScoreSecond:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -2228,6 +2246,19 @@ class ScoreTick:
         """
         ...
 
+    def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
+    @overload
+    def dump_abc(self, path: str, warn: bool = True) -> None:
+        """
+        Dump to abc file
+        """
+        ...
+
     def dump_midi(self, path: os.PathLike) -> None:
         """
         Dump to midi file
@@ -2243,7 +2274,22 @@ class ScoreTick:
 
     def empty(self) -> bool: ...
     def end(self) -> int: ...
-    def from_file(path: str) -> symusic.core.ScoreTick:
+    def from_abc(abc: str) -> symusic.core.ScoreTick:
+        """
+        Load from abc string
+        """
+        ...
+
+    def from_file(
+        path: os.PathLike, fmt: Optional[str] = None
+    ) -> symusic.core.ScoreTick:
+        """
+        Load from midi file
+        """
+        ...
+
+    @overload
+    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreTick:
         """
         Load from midi file
         """
@@ -2267,7 +2313,6 @@ class ScoreTick:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2281,10 +2326,7 @@ class ScoreTick:
     def shift_time(self, offset: int, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> int: ...
     @property
@@ -2433,6 +2475,7 @@ class TempoQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.TempoQuarterList: ...
     def count(self, arg: symusic.core.TempoQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -2466,10 +2509,7 @@ class TempoQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -2587,6 +2627,7 @@ class TempoSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.TempoSecondList: ...
     def count(self, arg: symusic.core.TempoSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -2620,10 +2661,7 @@ class TempoSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -2739,6 +2777,7 @@ class TempoTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.TempoTickList: ...
     def count(self, arg: symusic.core.TempoTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -2772,10 +2811,7 @@ class TempoTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -2856,6 +2892,7 @@ class TextMetaQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.TextMetaQuarterList: ...
     def count(self, arg: symusic.core.TextMetaQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -2889,10 +2926,7 @@ class TextMetaQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -2973,6 +3007,7 @@ class TextMetaSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.TextMetaSecondList: ...
     def count(self, arg: symusic.core.TextMetaSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3006,10 +3041,7 @@ class TextMetaSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -3090,6 +3122,7 @@ class TextMetaTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.TextMetaTickList: ...
     def count(self, arg: symusic.core.TextMetaTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3123,10 +3156,7 @@ class TextMetaTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -3221,6 +3251,7 @@ class TimeSignatureQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.TimeSignatureQuarterList: ...
     def count(self, arg: symusic.core.TimeSignatureQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3254,10 +3285,7 @@ class TimeSignatureQuarterList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -3344,6 +3372,7 @@ class TimeSignatureSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.TimeSignatureSecondList: ...
     def count(self, arg: symusic.core.TimeSignatureSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3377,10 +3406,7 @@ class TimeSignatureSecondList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -3467,6 +3493,7 @@ class TimeSignatureTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.TimeSignatureTickList: ...
     def count(self, arg: symusic.core.TimeSignatureTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3500,10 +3527,7 @@ class TimeSignatureTickList:
         ...
 
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = True,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
@@ -3563,7 +3587,6 @@ class TrackQuarter:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendQuarterList: ...
@@ -3577,10 +3600,7 @@ class TrackQuarter:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -3623,6 +3643,7 @@ class TrackQuarterList:
         """
         ...
 
+    def copy(self) -> symusic.core.TrackQuarterList: ...
     def count(self, arg: symusic.core.TrackQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3655,7 +3676,7 @@ class TrackQuarterList:
         ...
 
     def sort(
-        self, key: object, reverse: bool = False, inplace: bool = True
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
@@ -3715,7 +3736,6 @@ class TrackSecond:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendSecondList: ...
@@ -3729,10 +3749,7 @@ class TrackSecond:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -3775,6 +3792,7 @@ class TrackSecondList:
         """
         ...
 
+    def copy(self) -> symusic.core.TrackSecondList: ...
     def count(self, arg: symusic.core.TrackSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3807,7 +3825,7 @@ class TrackSecondList:
         ...
 
     def sort(
-        self, key: object, reverse: bool = False, inplace: bool = True
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
@@ -3867,7 +3885,6 @@ class TrackTick:
         modes: list[str],
         pitchRange: tuple[int, int] = (0, 127),
         encodeVelocity: bool = False,
-        deOverlap: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendTickList: ...
@@ -3881,10 +3898,7 @@ class TrackTick:
     def shift_time(self, offset: int, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self,
-        key: Optional[Callable[..., object]] = None,
-        reverse: bool = False,
-        inplace: bool = False,
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     def start(self) -> int: ...
     @property
@@ -3927,6 +3941,7 @@ class TrackTickList:
         """
         ...
 
+    def copy(self) -> symusic.core.TrackTickList: ...
     def count(self, arg: symusic.core.TrackTick, /) -> int:
         """
         Return number of occurrences of `arg`.
@@ -3959,141 +3974,7 @@ class TrackTickList:
         ...
 
     def sort(
-        self, key: object, reverse: bool = False, inplace: bool = True
+        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
-
-class f32List:
-    """
-    None
-    """
-
-    def __init__(self, arg: Iterable[float], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
-
-    @overload
-    def __init__(self, arg: symusic.core.f32List) -> None:
-        """
-        Copy constructor
-        """
-        ...
-
-    def append(self, arg: float, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
-
-    def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
-
-    def count(self, arg: float, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
-
-    def extend(self, arg: symusic.core.f32List, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
-
-    def insert(self, arg0: int, arg1: float, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
-
-    def pop(self, index: int = -1) -> float:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
-
-    def remove(self, arg: float, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
-
-class i32List:
-    """
-    None
-    """
-
-    def __init__(self, arg: Iterable[int], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
-
-    @overload
-    def __init__(self, arg: symusic.core.i32List) -> None:
-        """
-        Copy constructor
-        """
-        ...
-
-    def append(self, arg: int, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
-
-    def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
-
-    def count(self, arg: int, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
-
-    def extend(self, arg: symusic.core.i32List, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
-
-    def insert(self, arg0: int, arg1: int, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
-
-    def pop(self, index: int = -1) -> int:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
-
-    def remove(self, arg: int, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
