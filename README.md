@@ -3,7 +3,7 @@
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
-**Sy**music("**Sy**bolic **Music**") is a cross-platform `note level` midi decoding library with lightening speed, which is over 100 times faster than [mido](https://github.com/mido/mido), the main midi parsing library in python.
+**Sy**music("**Sy**bolic **Music**") is a cross-platform `note level` midi decoding library with lightening speed, which is hundreds of times faster (100x to 1000x depending on your file size) than [mido](https://github.com/mido/mido), the main midi parsing library in python.
 
 The library is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
 
@@ -47,6 +47,7 @@ pip install ./symusic
 ### Parsing MIDI
 
 * test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10875H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
+* Note that mahler.mid is quite a large midi file. So this benchmark mainly relects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
 * `midifile` is writen in cpp, and could parse midi files to both `event level` and `note level`. It is slow mostly becuase of `iostream`.
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
