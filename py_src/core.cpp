@@ -670,6 +670,71 @@ void dump_abc_path(const Score<T> &self, const std::filesystem::path& path, cons
     dump_abc_str<T>(self, path.string(), warn);
 }
 
+inline std::string get_format(const std::string &path) {
+    const auto ext = std::filesystem::path(path).extension().string();
+    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") {
+        return "midi";
+    } else if (ext == ".abc") {
+        return "abc";
+    } else {
+        throw std::invalid_argument("Unknown file format");
+    }
+}
+
+template <TType T>
+Score<T> from_abc_file(const std::string &path) {
+    const auto abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
+    if (abc2midi.empty()) {
+        throw std::runtime_error("abc2midi not found");
+    }
+    // dir(abc2midi)/../tmp
+    const auto dir = std::filesystem::path(abc2midi).parent_path().parent_path() / "tmp";
+    // build a random engine and seed it with current
+    std::srand(std::time(nullptr));
+    // get a random int between 0 and 1000
+    const auto random_int = std::rand() % 1000;
+    // convert the abc file to midi file
+    const auto midi_path = dir / ("tmp_read_" + std::to_string(random_int) + ".mid");
+    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path.string());
+    const auto ret = std::system(cmd.c_str());
+    if (ret != 0) {
+        throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd));
+    }
+    // read the midi file
+    const auto data = read_file(midi_path);
+    // remove the tmp midi file
+    std::filesystem::remove(midi_path);
+    // parse the midi file
+    return Score<T>::template parse<DataFormat::MIDI>(data);
+}
+
+template<TType T>
+Score<T> from_abc(const std::string &abc) {
+    // dump the abc string to a tmp file
+    // build a random engine and seed it with current
+    std::srand(std::time(nullptr));
+    // get a random int between 0 and 1000
+    const auto random_int = std::rand() % 1000;
+    // dir(abc2midi)/../tmp
+    const auto dir = std::filesystem::path(getenv("SYMUSIC_ABC2MIDI")).parent_path().parent_path() / "tmp";
+    const auto abc_path = dir / ("tmp_read_" + std::to_string(random_int) + ".abc");
+    write_file(abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
+    // convert the abc file to midi file
+    return from_abc_file<T>(abc_path.string());
+}
+
+template<TType T>
+Score<T> from_file(const std::string &path, const std::optional<std::string> & format){
+    const auto format_ = format.has_value() ? *format : get_format(path);
+    if (format_ == "midi") {
+        return midi2score<T, std::string>(path);
+    } else if (format_ == "abc") {
+        return from_abc_file<T>(path);
+    } else {
+        throw std::invalid_argument("Unknown file format");
+    }
+}
+
 // bind symusic::Score<T>
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_) {
@@ -688,9 +753,11 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
-        .def_static("from_file", [](const std::string &path) {
-            return midi2score<T, std::string>(path);
-        }, "Load from midi file", py::arg("path"))
+        .def_static("from_file", &from_file<T>, "Load from midi file", py::arg("path"), py::arg("format")=py::none())
+        .def_static("from_file", [](const std::filesystem::path &path, const std::optional<std::string> & format) {
+            return from_file<T>(path.string(), format);
+        }, "Load from midi file", py::arg("path"), py::arg("format")=py::none())
+        .def_static("from_abc", &from_abc<T>, "Load from abc string", py::arg("abc"))
         // pybind11 will binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))

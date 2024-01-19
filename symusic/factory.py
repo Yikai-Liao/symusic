@@ -7,8 +7,9 @@ from numpy import ndarray
 
 from . import core  # type: ignore
 from . import types as smt
-import subprocess
-from random import randint
+
+# import subprocess
+# from random import randint
 
 __all__ = [
     "TimeUnit",
@@ -39,11 +40,11 @@ _TMP = _HERE / "tmp"
 
 if not _MIDI2ABC.exists():
     raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
-# set env var SYMUSIC_MIDI2ABC
-os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
-
 if not _ABC2MIDI.exists():
     raise FileNotFoundError(f"{_ABC2MIDI} does not exist")
+# set env var SYMUSIC_MIDI2ABC
+os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
+os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
 if not _TMP.exists():
     _TMP.mkdir()
 
@@ -414,6 +415,7 @@ class ScoreFactory:
         self,
         x: Union[int, str, Path, smt.Score] = 0,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        fmt: Optional[str] = None,
     ) -> smt.Score:
         if isinstance(x, str) or isinstance(x, Path):
             return self.from_file(x, ttype)
@@ -425,25 +427,20 @@ class ScoreFactory:
             raise TypeError(f"Invalid type: {type(x)}")
 
     def from_file(
-        self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        path: Union[str, Path],
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        fmt: Optional[str] = None,
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
-        return self.__core_classes.dispatch(ttype)(path)
-    
+        return self.__core_classes.dispatch(ttype).from_file(path, fmt)
+
     def from_abc(
-        self, abc: str, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Score:
-        key = randint(0, 1000000)
-        abc_name = _TMP / f"tmp_read_{key}.abc"
-        midi_name = _TMP / f"tmp_read_{key}.mid"
-        with open(abc_name, "w") as f:
-            f.write(abc)
-        # redirect stdout to /dev/null
-        subprocess.run([str(_ABC2MIDI), abc_name, "-o", midi_name], stdout=subprocess.DEVNULL)
-        score = self.from_file(midi_name, ttype)
-        # delete tmp files
-        os.remove(abc_name)
-        os.remove(midi_name)
-        return score
+        self,
+        abc: str,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
         self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
