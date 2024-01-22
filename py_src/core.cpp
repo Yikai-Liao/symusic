@@ -2,17 +2,17 @@
 // Created by lyk on 23-9-20.
 //
 #include <string>
-#include <functional>
+#include <random>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/filesystem.h>
-// #include <nanobind/operators.h>
 #include <nanobind/stl/bind_vector.h>
-
 #include "symusic.h"
+
+#pragma warning(disable: 4996)
 
 namespace py = nanobind;
 namespace symusic {
@@ -630,6 +630,85 @@ void dump_midi(const Score<T> &self, PATH path) {
     write_file(path, data);
 }
 
+template<TType T>
+void dump_abc_str(const Score<T> &self, const std::string& path, const bool warn) {
+    // path to executable
+    // const auto midi2abc = py::cast<std::string>(m.attr("_MIDI2ABC"));
+    const auto midi2abc = std::string(getenv("SYMUSIC_MIDI2ABC"));
+    if (midi2abc.empty()) {
+        throw std::runtime_error("midi2abc not found");
+    }
+    // dump a tmp midi file, using random int as name
+    // const auto midi_path = dir / ("tmp_write_" + std::to_string(random_int) + ".mid");
+    const std::string midi_path = std::tmpnam(nullptr);
+    dump_midi(self, midi_path);
+    // call midi2abc
+    auto cmd = fmt::format(R"({} "{}" -o "{}")", midi2abc, midi_path, path);
+    const auto ret = std::system(cmd.c_str());
+    if(std::filesystem::exists(path)) {
+        std::filesystem::remove(midi_path);
+    } else {
+        throw std::runtime_error(fmt::format("midi2abc failed({}): {}",ret, cmd));
+    }
+}
+
+template<TType T>
+void dump_abc_path(const Score<T> &self, const std::filesystem::path& path, const bool warn) {
+    dump_abc_str<T>(self, path.string(), warn);
+}
+
+inline std::string get_format(const std::string &path) {
+    const auto ext = std::filesystem::path(path).extension().string();
+    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") {
+        return "midi";
+    } else if (ext == ".abc") {
+        return "abc";
+    } else {
+        throw std::invalid_argument("Unknown file format");
+    }
+}
+
+template <TType T>
+Score<T> from_abc_file(const std::string &path) {
+    const auto abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
+    if (abc2midi.empty()) {
+        throw std::runtime_error("abc2midi not found");
+    }
+    // convert the abc file to midi file
+    const std::string midi_path = std::tmpnam(nullptr);
+    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path);
+    const auto ret = std::system(cmd.c_str());
+    if (ret != 0) {
+        throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd));
+    }
+    // read the midi file
+    const auto data = read_file(midi_path);
+    // remove the tmp midi file
+    std::filesystem::remove(midi_path);
+    // parse the midi file
+    return Score<T>::template parse<DataFormat::MIDI>(data);
+}
+
+template<TType T>
+Score<T> from_abc(const std::string &abc) {
+    // dump the abc string to a tmp file
+    const std::string abc_path = std::tmpnam(nullptr);
+    write_file(abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
+    // convert the abc file to midi file
+    return from_abc_file<T>(abc_path);
+}
+
+template<TType T>
+Score<T> from_file(const std::string &path, const std::optional<std::string> & format){
+    const auto format_ = format.has_value() ? *format : get_format(path);
+    if (format_ == "midi") {
+        return midi2score<T, std::string>(path);
+    } else if (format_ == "abc") {
+        return from_abc_file<T>(path);
+    } else {
+        throw std::invalid_argument("Unknown file format");
+    }
+}
 
 // bind symusic::Score<T>
 template<typename T>
@@ -649,12 +728,16 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("__copy__", &Score<T>::copy, "Deep copy")
         .def("__deepcopy__", &Score<T>::copy, "Deep copy")
         .def("__repr__", &Score<T>::to_string)
-        .def_static("from_file", [](const std::string &path) {
-            return midi2score<T, std::string>(path);
-        }, "Load from midi file", py::arg("path"))
+        .def_static("from_file", &from_file<T>, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
+        .def_static("from_file", [](const std::filesystem::path &path, const std::optional<std::string> & format) {
+            return from_file<T>(path.string(), format);
+        }, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
+        .def_static("from_abc", &from_abc<T>, "Load from abc string", py::arg("abc"))
         // pybind11 will binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
+        .def("dump_abc", &dump_abc_str<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
+        .def("dump_abc", &dump_abc_path<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
         .def_rw("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_rw("tracks", &Score<T>::tracks)
         .def_rw("time_signatures", &Score<T>::time_signatures)
@@ -758,18 +841,6 @@ py::module_ & core_module(py::module_ & m){
     auto tq = bind_track_class<Quarter>(m, quarter);
     auto ts = bind_track_class<Second>(m, second);
 
-    // auto narr_t = bind_note_arr<Tick>(m, tick);
-    // auto narr_q = bind_note_arr<Quarter>(m, quarter);
-    // auto narr_s = bind_note_arr<Second>(m, second);
-    //
-    // tt.def("note_arr", &to_note_arr<Tick>, "Convert to NoteArr");
-    // tq.def("note_arr", &to_note_arr<Quarter>, "Convert to NoteArr");
-    // ts.def("note_arr", &to_note_arr<Second>, "Convert to NoteArr");
-    //
-    // narr_t.def("to_track", &to_track<Tick>, "Convert to Track");
-    // narr_q.def("to_track", &to_track<Quarter>, "Convert to Track");
-    // narr_s.def("to_track", &to_track<Second>, "Convert to Track");
-
     auto score_tick = bind_score_class<Tick>(m, tick);
     auto score_quarter = bind_score_class<Quarter>(m, quarter);
     auto score_second = bind_score_class<Second>(m, second);
@@ -797,6 +868,8 @@ py::module_ & core_module(py::module_ & m){
 }
 
 NB_MODULE(core, m) {
+
+    m.attr("_MIDI2ABC") = std::string("");
 
     auto tick = py::class_<Tick>(m, "Tick")
         .def(py::init<>())

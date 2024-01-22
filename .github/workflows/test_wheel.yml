@@ -21,7 +21,7 @@ jobs:
           - [macos-12, macosx_arm64]
           - [windows-2022, win_amd64]
           - [windows-2022, win32]
-        python: ["cp39", "cp310", "cp311", "cp312", "pp39"]
+        python: ["cp38", "cp39", "cp310", "cp311", "cp312", "pp39"]
         exclude:
           - buildplat: [windows-2022, win32]
             python: "pp39"
