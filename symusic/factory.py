@@ -8,6 +8,9 @@ from numpy import ndarray
 from . import core  # type: ignore
 from . import types as smt
 
+# import subprocess
+# from random import randint
+
 __all__ = [
     "TimeUnit",
     "Note",
@@ -21,6 +24,25 @@ __all__ = [
     "Track",
     "Score",
 ]
+
+_HERE = Path(__file__).parent
+_BIN = _HERE / "bin"
+# for win
+if os.name == "nt":
+    _MIDI2ABC = _BIN / "midi2abc.exe"
+    _ABC2MIDI = _BIN / "abc2midi.exe"
+# for linux
+else:
+    _MIDI2ABC = _BIN / "midi2abc"
+    _ABC2MIDI = _BIN / "abc2midi"
+
+if not _MIDI2ABC.exists():
+    raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
+if not _ABC2MIDI.exists():
+    raise FileNotFoundError(f"{_ABC2MIDI} does not exist")
+# set env var SYMUSIC_MIDI2ABC
+os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
+os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
 
 """
 All the Factory classes are initialized when the module is imported.
@@ -389,9 +411,10 @@ class ScoreFactory:
         self,
         x: Union[int, str, Path, smt.Score] = 0,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        fmt: Optional[str] = None,
     ) -> smt.Score:
         if isinstance(x, str) or isinstance(x, Path):
-            return self.from_file(x, ttype)
+            return self.from_file(x, ttype, fmt)
         elif isinstance(x, int):
             return self.from_tpq(x, ttype)
         elif isinstance(x, self):  # type: ignore
@@ -400,10 +423,20 @@ class ScoreFactory:
             raise TypeError(f"Invalid type: {type(x)}")
 
     def from_file(
-        self, path: Union[str, Path], ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        path: Union[str, Path],
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        fmt: Optional[str] = None,
     ) -> smt.Score:
         assert os.path.isfile(path), f"{path} is not a file"
-        return self.__core_classes.dispatch(ttype)(path)
+        return self.__core_classes.dispatch(ttype).from_file(path, fmt)
+
+    def from_abc(
+        self,
+        abc: str,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
         self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
