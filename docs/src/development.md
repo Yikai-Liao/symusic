@@ -25,9 +25,6 @@ pip install nanobind
 
 As for compiler, it should support c++20. `clang` (linux and mac), `gcc` and `msvc` all works (I have tested them).
 
-But since the project [abcmidi](https://ifdo.ca/~seymour/runabc/top.html) is introduced, and it uses an old version of c.
-So some compiler might not support it, like `clang` and `icx` (a compiler of Intel) on `windows`.
-
 ## Build
 
 If you want to compile the python binding target, you need to set `-DBUILD_PY:BOOL=ON` when using cmake.
