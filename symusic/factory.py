@@ -36,8 +36,6 @@ else:
     _MIDI2ABC = _BIN / "midi2abc"
     _ABC2MIDI = _BIN / "abc2midi"
 
-_TMP = _HERE / "tmp"
-
 if not _MIDI2ABC.exists():
     raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
 if not _ABC2MIDI.exists():
@@ -45,8 +43,6 @@ if not _ABC2MIDI.exists():
 # set env var SYMUSIC_MIDI2ABC
 os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
 os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
-if not _TMP.exists():
-    _TMP.mkdir()
 
 """
 All the Factory classes are initialized when the module is imported.
