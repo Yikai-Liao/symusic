@@ -638,28 +638,15 @@ void dump_abc_str(const Score<T> &self, const std::string& path, const bool warn
     if (midi2abc.empty()) {
         throw std::runtime_error("midi2abc not found");
     }
-    // dir(midi2abc)/../tmp
-    const auto dir = std::filesystem::path(midi2abc).parent_path().parent_path() / "tmp";
-    // build a random engine and seed it with current
-    std::srand(std::time(nullptr));
-    // get a random int between 0 and 1000
-    const auto random_int = std::rand() % 1000;
-
     // dump a tmp midi file, using random int as name
-    const auto midi_path = dir / ("tmp_write_" + std::to_string(random_int) + ".mid");
-    const auto tmp_out = dir / ("tmp_stdout_" + std::to_string(random_int) + ".txt");
+    // const auto midi_path = dir / ("tmp_write_" + std::to_string(random_int) + ".mid");
+    const std::string midi_path = std::tmpnam(nullptr);
     dump_midi(self, midi_path);
     // call midi2abc
-    auto cmd = fmt::format(R"({} "{}" -o "{}")", midi2abc, midi_path.string(), path);
-    if(!warn) {
-        cmd += fmt::format(R"( > "{}")", tmp_out.string());
-    }
+    auto cmd = fmt::format(R"({} "{}" -o "{}")", midi2abc, midi_path, path);
     const auto ret = std::system(cmd.c_str());
     if(std::filesystem::exists(path)) {
         std::filesystem::remove(midi_path);
-        if(!warn && std::filesystem::exists(tmp_out)) {
-            std::filesystem::remove(tmp_out);
-        }
     } else {
         throw std::runtime_error(fmt::format("midi2abc failed({}): {}",ret, cmd));
     }
@@ -687,15 +674,9 @@ Score<T> from_abc_file(const std::string &path) {
     if (abc2midi.empty()) {
         throw std::runtime_error("abc2midi not found");
     }
-    // dir(abc2midi)/../tmp
-    const auto dir = std::filesystem::path(abc2midi).parent_path().parent_path() / "tmp";
-    // build a random engine and seed it with current
-    std::srand(std::time(nullptr));
-    // get a random int between 0 and 1000
-    const auto random_int = std::rand() % 1000;
     // convert the abc file to midi file
-    const auto midi_path = dir / ("tmp_read_" + std::to_string(random_int) + ".mid");
-    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path.string());
+    const std::string midi_path = std::tmpnam(nullptr);
+    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path);
     const auto ret = std::system(cmd.c_str());
     if (ret != 0) {
         throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd));
@@ -711,16 +692,10 @@ Score<T> from_abc_file(const std::string &path) {
 template<TType T>
 Score<T> from_abc(const std::string &abc) {
     // dump the abc string to a tmp file
-    // build a random engine and seed it with current
-    std::srand(std::time(nullptr));
-    // get a random int between 0 and 1000
-    const auto random_int = std::rand() % 1000;
-    // dir(abc2midi)/../tmp
-    const auto dir = std::filesystem::path(getenv("SYMUSIC_ABC2MIDI")).parent_path().parent_path() / "tmp";
-    const auto abc_path = dir / ("tmp_read_" + std::to_string(random_int) + ".abc");
+    const std::string abc_path = std::tmpnam(nullptr);
     write_file(abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
     // convert the abc file to midi file
-    return from_abc_file<T>(abc_path.string());
+    return from_abc_file<T>(abc_path);
 }
 
 template<TType T>
