@@ -373,10 +373,12 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
         if(!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
     }
 
-    for(const auto &track: score.tracks) {
+    const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10 ,11, 12, 13, 14, 15};
+
+    for(size_t idx=0; const auto &track: score.tracks) {
         message::Messages msgs{};
         msgs.reserve(track.note_num() * 2 + track.controls.size() + track.pitch_bends.size() + 10);
-        const u8 channel = track.is_drum ? 9 : 0;
+        const u8 channel = track.is_drum ? 9 : valid_channel[idx % 15];
         // add track name
         if(!track.name.empty())
             msgs.emplace_back(message::Message::TrackName(0, track.name));
@@ -410,7 +412,10 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
             ));
         }
         // messages will be sorted by time in minimidi
-        if(!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
+        if(!msgs.empty()) {
+            midi.tracks.emplace_back(std::move(msgs));
+            idx += 1;
+        }
     }
     return midi;
 }
