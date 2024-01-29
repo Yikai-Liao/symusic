@@ -80,11 +80,12 @@ py::bytes py_to_bytes(const T &self) {
 }
 
 template <typename T>
-T py_from_bytes(const py::bytes &bytes) {
+void py_from_bytes(T & self, const py::bytes &bytes) {
     // cast bytes to string_view
     const auto data = std::string_view(bytes.c_str(), bytes.size());
     const std::span span(reinterpret_cast<const u8 *>(data.data()), data.size());
-    return parse<DataFormat::ZPP, T>(span);
+    new (&self) T();
+    self = std::move(parse<DataFormat::ZPP, T>(span));
 }
 
 template<typename T>
