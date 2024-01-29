@@ -72,7 +72,7 @@ s.dump_abc("out.abc")
 All the objects in `symusic` are pickleable (extremely fast because of the `zpp_bits` backend we use),
 so you can use `multiprocessing` to accelerate the processing.
 
-Note that because of `zpp_bits`, pickle would be faster than loading from or dumping to a MIDI file. 
+Note that because of `zpp_bits`, pickle would be faster than loading from or dumping to a MIDI file.
 
 ```python
 from symusic import Score
