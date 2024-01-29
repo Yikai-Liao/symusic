@@ -17,10 +17,12 @@ TrackPianoroll::~TrackPianoroll() {
     delete this->dataPtr;
 };
 
-TrackPianoroll TrackPianoroll::from_track(const Track<Tick>& track,
-        const std::vector<PianorollMode>& modes,
-        std::pair<uint8_t, uint8_t> pitchRange,
-        bool encodeVelocity) {
+TrackPianoroll TrackPianoroll::from_track(
+    const Track<Tick>& track,
+    const std::vector<PianorollMode>& modes,
+    const std::pair<uint8_t, uint8_t> pitchRange,
+    const bool encodeVelocity) {
+
     TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, track.end() + 1);
 
     for(const auto &note : track.notes) {
@@ -29,7 +31,7 @@ TrackPianoroll TrackPianoroll::from_track(const Track<Tick>& track,
                 note.pitch - pitchRange.first,
                 modes[modeIdx] != PianorollMode::offset ? note.start() : note.end(),
                 modes[modeIdx] == PianorollMode::frame ? note.duration : 1,
-                encodeVelocity ? 1 : note.velocity);
+                encodeVelocity ? note.velocity: 1);
         }
     }
 
@@ -92,10 +94,12 @@ ScorePianoroll::~ScorePianoroll() {
     delete this->dataPtr;
 };
 
-ScorePianoroll ScorePianoroll::from_score(const Score<Tick>& score,
-        const std::vector<PianorollMode>& modes,
-        std::pair<uint8_t, uint8_t> pitchRange,
-        bool encodeVelocity) {
+ScorePianoroll ScorePianoroll::from_score(
+    const Score<Tick>& score,
+    const std::vector<PianorollMode>& modes,
+    const std::pair<uint8_t, uint8_t> pitchRange,
+    const bool encodeVelocity) {
+
     ScorePianoroll pianoroll(modes.size(), score.tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1);
 
     for(int trackIdx = 0; trackIdx < score.tracks.size(); ++trackIdx) {
@@ -107,7 +111,7 @@ ScorePianoroll ScorePianoroll::from_score(const Score<Tick>& score,
                     note.pitch - pitchRange.first,
                     modes[modeIdx] != PianorollMode::offset ? note.start() : note.end(),
                     modes[modeIdx] == PianorollMode::frame ? note.duration : 1,
-                    encodeVelocity ? 1 : note.velocity);
+                    encodeVelocity ? note.velocity: 1);
             }
         }
     }
