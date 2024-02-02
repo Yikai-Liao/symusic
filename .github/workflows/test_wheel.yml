@@ -40,7 +40,7 @@ jobs:
 
       - name: Set up QEMU
         if: ${{ contains(matrix.buildplat[1], 'linux_aarch64') }}
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
