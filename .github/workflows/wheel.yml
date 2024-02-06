@@ -97,29 +97,13 @@ jobs:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_ARCHS: 'all'
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
-          path: ./wheelhouse/*.whl
-
-  build_sdist:
-    name: Build source distribution
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Build sdist
-        run: pipx run build --sdist
-
       - uses: actions/upload-artifact@v3
         with:
-          path: dist/*.tar.gz
+          path: ./wheelhouse/*.whl
+
 
   upload_pypi:
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels]
     runs-on: ubuntu-latest
     environment:
       name: pypi
