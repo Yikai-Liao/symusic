@@ -701,8 +701,10 @@ Score<T> from_abc(const std::string &abc) {
 
 template<TType T>
 Score<T> from_file(const std::string &path, const std::optional<std::string> & format){
-    const auto format_ = format.has_value() ? *format : get_format(path);
-    if (format_ == "midi") {
+    std::string format_ = format.has_value() ? *format : get_format(path);
+    // convert format_ to lower case
+    std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
+    if (format_ == "midi" || format_ == "mid") {
         return midi2score<T, std::string>(path);
     } else if (format_ == "abc") {
         return from_abc_file<T>(path);
