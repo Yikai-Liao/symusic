@@ -43,21 +43,32 @@ class ScoreTimeMapper:
 
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS, ids=attrgetter("name"))
-def test_second_conversion(midi_path: Path, tmp_path: Path):
-    """Test that a MIDI loaded and saved unchanged is indeed the save as before."""
-    s_tick = Score(midi_path, ttype="tick", fmt="mid")
+def test_second_conversion(midi_path: Path):
+    s_tick = Score(midi_path, ttype="tick", fmt="midi")
     s_sec = s_tick.to("second")
     mapper = ScoreTimeMapper(s_tick)
+    max_delta = 0
+    max_delta_rel = 0
     for track_tick, track_sec in zip(s_tick.tracks, s_sec.tracks):
+        track_tick.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
+        track_sec.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         notes_tick = track_tick.notes.numpy()
-        start_tick = notes_tick["start"]
+        start_tick = notes_tick["time"]
         end_tick = start_tick + notes_tick["duration"]
 
         notes_sec = track_sec.notes.numpy()
-        start_sec = notes_sec["start"]
+        start_sec = notes_sec["time"]
         end_sec = start_sec + notes_sec["duration"]
 
         start_sec_gt = mapper.t2s(start_tick)
-        assert np.allclose(start_sec_gt, start_sec, rtol=1e-3)
+        delta = np.abs(start_sec_gt - start_sec)
+        delta_rel = delta / (start_sec_gt + 1e-6)
+        max_delta = max(max_delta, np.max(delta))
+        max_delta_rel = max(max_delta_rel, np.max(delta_rel))
+        assert max_delta_rel < 1e-5, f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
         end_sec_gt = mapper.t2s(end_tick)
-        assert np.allclose(end_sec_gt, end_sec, rtol=1e-3)
+        delta = np.abs(end_sec_gt - end_sec)
+        delta_rel = delta / (end_sec_gt + 1e-6)
+        max_delta = max(max_delta, np.max(delta))
+        max_delta_rel = max(max_delta_rel, np.max(delta_rel))
+        assert max_delta_rel < 1e-5, f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
