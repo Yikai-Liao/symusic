@@ -65,15 +65,6 @@ void sort(vec<T> & data, Compare cmp){
     pdqsort_branchless(data.begin(), data.end(), cmp);
 }
 
-template<class Iter, class Compare>
-void insertion_sort(Iter begin, Iter end, Compare cmp) {
-    pdqsort_detail::insertion_sort(begin, end, cmp);
-}
-
-template<typename T, class Compare>
-void insertion_sort(vec<T> & data, Compare cmp){
-    pdqsort_detail::insertion_sort(data.begin(), data.end(), cmp);
-}
 
 
 template<class T, class FILTER>
