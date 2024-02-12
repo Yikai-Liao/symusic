@@ -22,5 +22,9 @@ public:
     psynth::AudioData render(const Score<T> & score, bool stereo);
 };
 
+namespace details {
+    psynth::Sequence toSequence(const Score<Second> & score);
+}
+
 }
 #endif //SYNTH_H
