@@ -23,6 +23,7 @@ __all__ = [
     "TextMeta",
     "Track",
     "Score",
+    "Synthesizer",
 ]
 
 _HERE = Path(__file__).parent
@@ -459,6 +460,11 @@ class ScoreFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
 
+class SynthesizerFactory:
+    def __call__(self, sf_path: str, sample_rate: int, quality: int, worker_num: int):
+        return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
+
+
 Note = NoteFactory()
 KeySignature = KeySignatureFactory()
 TimeSignature = TimeSignatureFactory()
@@ -469,3 +475,4 @@ PitchBend = PitchBendFactory()
 TextMeta = TextMetaFactory()
 Track = TrackFactory()
 Score = ScoreFactory()
+Synthesizer = SynthesizerFactory()
