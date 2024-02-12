@@ -19,6 +19,7 @@ endif()
 
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
@@ -33,6 +34,7 @@ endforeach()
 add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
+target_link_libraries(symusic prestosynth)
 
 if(BUILD_PY)
     message("Building python binding.")
