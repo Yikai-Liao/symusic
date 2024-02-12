@@ -1,11 +1,11 @@
 from operator import attrgetter
 from pathlib import Path
+from typing import Union
 
+import numpy as np
 import pytest
 
 from symusic import Score
-from typing import Union
-import numpy as np
 from tests.utils import MIDI_PATHS
 
 
@@ -18,11 +18,13 @@ class ScoreTimeMapper:
     def compute_tempo_times(score: Score) -> np.ndarray:
         prev_tempo_tick, prev_tempo_time = 0, 0
         scale_factor = 60 / float(score.ticks_per_quarter)
-        seconds_per_tick = scale_factor / 120.
+        seconds_per_tick = scale_factor / 120.0
 
         tempo_data = []
         for tempo in score.tempos:
-            tempo_time = prev_tempo_time + seconds_per_tick * (tempo.time - prev_tempo_tick)
+            tempo_time = prev_tempo_time + seconds_per_tick * (
+                tempo.time - prev_tempo_tick
+            )
 
             seconds_per_tick = scale_factor / tempo.qpm
             tempo_data.append([tempo.qpm, tempo.time, tempo_time, seconds_per_tick])
@@ -65,10 +67,14 @@ def test_second_conversion(midi_path: Path):
         delta_rel = delta / (start_sec_gt + 1e-6)
         max_delta = max(max_delta, np.max(delta))
         max_delta_rel = max(max_delta_rel, np.max(delta_rel))
-        assert max_delta_rel < 1e-5, f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        assert (
+            max_delta_rel < 1e-5
+        ), f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
         end_sec_gt = mapper.t2s(end_tick)
         delta = np.abs(end_sec_gt - end_sec)
         delta_rel = delta / (end_sec_gt + 1e-6)
         max_delta = max(max_delta, np.max(delta))
         max_delta_rel = max(max_delta_rel, np.max(delta_rel))
-        assert max_delta_rel < 1e-5, f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        assert (
+            max_delta_rel < 1e-5
+        ), f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"

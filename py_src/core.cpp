@@ -8,6 +8,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/eigen/dense.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/bind_vector.h>
 #include "symusic.h"
@@ -870,6 +871,17 @@ py::module_ & core_module(py::module_ & m){
     return m;
 }
 
+py::module_ & bind_synthesizer(py::module_ & m){
+    py::class_<Synthesizer>(m, "Synthesizer")
+        .def(py::init<std::string &, u32, u8, u8>(),
+            py::arg("sf_path"), py::arg("sample_rate"), py::arg("quality"), py::arg("worker_num"))
+        .def("render", &Synthesizer::render<Tick>, py::arg("score"), py::arg("stereo")=true)
+        .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo")=true)
+        .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo")=true);
+    return m;
+}
+
+
 NB_MODULE(core, m) {
 
     m.attr("_MIDI2ABC") = std::string("");
@@ -906,4 +918,5 @@ NB_MODULE(core, m) {
     });
 
     core_module(m);
+    bind_synthesizer(m);
 }

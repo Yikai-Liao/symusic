@@ -15,7 +15,7 @@ private:
     psynth::Synthesizer synthesizer;
 
 public:
-    Synthesizer(const std::string &sfPath, uint32_t sampleRate, uint8_t quality, uint8_t worker_num = 1):
+    Synthesizer(const std::string &sfPath, u32 sampleRate, u8 quality, u8 worker_num = 1):
         synthesizer(sfPath, sampleRate, quality, worker_num) {}
 
     template<TType T>
