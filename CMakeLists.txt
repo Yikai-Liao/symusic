@@ -62,9 +62,12 @@ if(BUILD_TEST)
     add_executable(note_count tests/note_count.cpp)
     add_executable(dump tests/dump.cpp)
     add_executable(io_bench tests/io_bench.cpp)
+    add_executable(synth tests/synth.cpp)
+
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
     target_link_libraries(io_bench PRIVATE symusic nanobench)
+    target_link_libraries(synth PRIVATE symusic)
 endif()
 
 if (ENABLE_LTO)
