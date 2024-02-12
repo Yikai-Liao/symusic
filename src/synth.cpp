@@ -2,11 +2,10 @@
 // Created by nhy on 2024/2/12.
 //
 #include "symusic/synth.h"
-
-#include <symusic/ops.h>
+#include "symusic/ops.h"
+#include "symusic/conversion.h"
 
 #include "unordered_dense.h"
-#include "../3rdparty/nanobench/src/include/nanobench.h"
 
 namespace symusic {
 
@@ -113,17 +112,18 @@ namespace details {
     }
 }
 
-psynth::AudioData Synthesizer::render_single_thread(const Score<Second>& score, const bool stereo) {
-    const auto sequence = details::toSequence(score);
-    return this->synthesizer.render_single_thread(sequence, stereo);
+template<TType T>
+psynth::AudioData Synthesizer::render(const Score<T>& score, const bool stereo) {
+    if constexpr (std::is_same_v<T, Second>) {
+        return synthesizer.render(details::toSequence(score), stereo);
+    } else {
+        return synthesizer.render(details::toSequence(convert<Second>(score)), stereo);
+    }
 }
 
-psynth::AudioData Synthesizer::render(const Score<Second>& score, const bool stereo, const uint8_t workers) {
-    const auto sequence = details::toSequence(score);
-    if(workers == 0 || workers == 1) {
-        return this->synthesizer.render_single_thread(sequence, stereo);
-    }
-    return this->synthesizer.render(sequence, stereo, workers);
-}
+// explicit instantiation
+template psynth::AudioData Synthesizer::render(const Score<Tick>&, bool);
+template psynth::AudioData Synthesizer::render(const Score<Quarter>&, bool);
+template psynth::AudioData Synthesizer::render(const Score<Second>&, bool);
 
 } // namespace symusic

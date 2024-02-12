@@ -15,11 +15,11 @@ private:
     psynth::Synthesizer synthesizer;
 
 public:
-    Synthesizer(const std::string &sfPath, const uint32_t sampleRate, const uint8_t quality):
-        synthesizer(sfPath, sampleRate, quality) {}
+    Synthesizer(const std::string &sfPath, uint32_t sampleRate, uint8_t quality, uint8_t worker_num = 1):
+        synthesizer(sfPath, sampleRate, quality, worker_num) {}
 
-    psynth::AudioData render_single_thread(const Score<Second> & score, bool stereo);
-    psynth::AudioData render(const Score<Second> & score, bool stereo, uint8_t workers);
+    template<TType T>
+    psynth::AudioData render(const Score<T> & score, bool stereo);
 };
 
 }
