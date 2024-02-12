@@ -5,7 +5,7 @@
 #ifndef SYNTH_H
 #define SYNTH_H
 
-#include "synthesizer.h"
+#include "prestosynth/synthesizer.h"
 #include "symusic/score.h"
 
 
