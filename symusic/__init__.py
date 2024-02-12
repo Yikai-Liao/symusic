@@ -10,6 +10,7 @@ from .factory import (
     TimeSignature,
     TimeUnit,
     Track,
+    Synthesizer
 )
 
 __version__ = "0.3.5"
