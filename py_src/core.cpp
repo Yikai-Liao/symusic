@@ -878,7 +878,11 @@ py::module_ & bind_synthesizer(py::module_ & m){
         .def("render", &Synthesizer::render<Tick>, py::arg("score"), py::arg("stereo")=true)
         .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo")=true)
         .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo")=true);
-    m.def("dump_wav", &psynth::write_audio, py::arg("path"), py::arg("data"), py::arg("sample_rate"));
+
+    m.def(
+        "dump_wav", &psynth::write_audio,
+        py::arg("path"), py::arg("data"), py::arg("sample_rate"), py::arg("use_int16")=true
+    );
     return m;
 }
 
