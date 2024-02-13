@@ -15,7 +15,7 @@ class Soundfont:
     def path(self, donwload: bool = False) -> Path:
         if donwload and not self.exists():
             self.download()
-        return user_data_path("symusic") / "soundfont" / self.name
+        return user_data_path("soundfont", "symusic") / self.name
 
     def exists(self) -> bool:
         path = self.path(donwload=False)
