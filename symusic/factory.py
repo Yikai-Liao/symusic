@@ -2,7 +2,6 @@ import os.path
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Generic, Optional, TypeVar, Union
-
 from numpy import ndarray
 
 from . import core  # type: ignore
@@ -461,12 +460,18 @@ class ScoreFactory:
 class SynthesizerFactory:
     def __call__(
         self,
-        sf_path: str = BuiltInSF3.MuseScoreGeneral().path(donwload=True),
+        sf_path: Union[str, Path, None] = None,
         sample_rate: int = 44100,
         quality: int = 0,
         worker_num: int = 1,
     ):
+        if sf_path is None:
+            sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
+        sf_path = str(sf_path)
         return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
+    
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, core.Synthesizer)
 
 
 Note = NoteFactory()

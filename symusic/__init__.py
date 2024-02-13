@@ -13,6 +13,16 @@ from .factory import (
     Track,
 )
 
+from .soundfont import (
+    Soundfont,
+    BuiltInSF2,
+    BuiltInSF3,
+)
+
+from .core import (
+    dump_wav,
+)
+
 __version__ = "0.3.5"
 
 __all__ = [
@@ -28,4 +38,8 @@ __all__ = [
     "Track",
     "Score",
     "Synthesizer",
+    "Soundfont",
+    "BuiltInSF2",
+    "BuiltInSF3",
+    "dump_wav"
 ]
