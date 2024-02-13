@@ -7,9 +7,7 @@ from numpy import ndarray
 
 from . import core  # type: ignore
 from . import types as smt
-
-# import subprocess
-# from random import randint
+from .soundfont import BuiltInSF3
 
 __all__ = [
     "TimeUnit",
@@ -461,7 +459,13 @@ class ScoreFactory:
 
 
 class SynthesizerFactory:
-    def __call__(self, sf_path: str, sample_rate: int, quality: int, worker_num: int):
+    def __call__(
+        self,
+        sf_path: str = BuiltInSF3.MuseScoreGeneral().path(donwload=True),
+        sample_rate: int = 44100,
+        quality: int = 0,
+        worker_num: int = 1,
+    ):
         return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
 
 
