@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from hashlib import md5
 from pathlib import Path
 
-from platformdirs import user_data_dir
+from platformdirs import user_data_path
 from pySmartDL import SmartDL
 
 
@@ -15,7 +15,7 @@ class Soundfont:
     def path(self, donwload: bool = False) -> Path:
         if donwload and not self.exists():
             self.download()
-        return Path(user_data_dir("symusic")) / "soundfont" / self.name
+        return user_data_path("symusic") / "soundfont" / self.name
 
     def exists(self) -> bool:
         path = self.path(donwload=False)
