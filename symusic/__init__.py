@@ -5,12 +5,12 @@ from .factory import (
     Pedal,
     PitchBend,
     Score,
+    Synthesizer,
     Tempo,
     TextMeta,
     TimeSignature,
     TimeUnit,
     Track,
-    Synthesizer
 )
 
 __version__ = "0.3.5"
@@ -27,4 +27,5 @@ __all__ = [
     "TextMeta",
     "Track",
     "Score",
+    "Synthesizer",
 ]
