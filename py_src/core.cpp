@@ -544,7 +544,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
 
             return py::ndarray<py::numpy, pianoroll_t>{const_cast<uint8_t*>(pianoroll.release()),
                 {std::get<0>(pianoroll.dims()), std::get<1>(pianoroll.dims()), std::get<2>(pianoroll.dims()), }};
-        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false);
+        }, py::arg("modes"), py::arg("pitch_range")=std::pair<uint8_t, uint8_t>(0, 128), py::arg("encode_velocity")=false);
 
     py::bind_vector<vec<Track<T>>>(m, std::string(name + "List").c_str())
         .def("sort", &py_sort<Track<T>>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
@@ -747,6 +747,7 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("dump_abc", &dump_abc_str<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
         .def("dump_abc", &dump_abc_path<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
         .def_rw("ticks_per_quarter", &Score<T>::ticks_per_quarter)
+        .def_rw("tpq", &Score<T>::ticks_per_quarter, "Ticks per quarter note, the same as ticks_per_quarter")
         .def_rw("tracks", &Score<T>::tracks)
         .def_rw("time_signatures", &Score<T>::time_signatures)
         .def_rw("key_signatures", &Score<T>::key_signatures)
@@ -786,7 +787,7 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
                     std::get<2>(pianoroll.dims()),
                     std::get<3>(pianoroll.dims()) }
             };
-        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false);
+        }, py::arg("modes"), py::arg("pitch_range")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encode_velocity")=false);
 }
 
 template<TType T>
