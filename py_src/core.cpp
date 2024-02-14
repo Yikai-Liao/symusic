@@ -140,7 +140,7 @@ std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, co
         .def("__getstate__", &py_to_bytes<vec<T>>)
         .def("__setstate__", &py_from_bytes<vec<T>>)
         .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
-        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("sorted")=false);
+        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted")=false);
     return std::make_tuple(event, vec_T);
 }
 
@@ -531,7 +531,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("adjust_time", py::overload_cast<const Track<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
-            py::arg("original_times"), py::arg("new_times"), py::arg("sorted") = false)
+            py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted") = false)
         .def("pianoroll", [](const Track<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
@@ -769,7 +769,7 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("note_num", &Score<T>::note_num)
         .def("empty", &Score<T>::empty)
         .def("adjust_time", py::overload_cast<const Score<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
-            py::arg("original_times"), py::arg("new_times"), py::arg("sorted") = false)
+            py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted") = false)
         .def("pianoroll", [](const Score<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
