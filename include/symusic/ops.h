@@ -126,11 +126,11 @@ vec<T> adjust_time_sorted(
     };
     // assume that all the events, original_times and new_times are sorted
     if(original_times.size() != new_times.size()) {
-        throw std::invalid_argument("symusic::ops::ajust_time: original_times and new_times should have the same size");
+        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have the same size");
     }
     // assume that original_times and new_times have at least 2 elements
     if(original_times.size() < 2) {
-        throw std::invalid_argument("symusic::ops::ajust_time: original_times and new_times should have at least 2 elements");
+        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have at least 2 elements");
     }
     // return empty vector if events is empty
     if(events.empty()) return {};
