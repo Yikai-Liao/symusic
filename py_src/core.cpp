@@ -139,7 +139,8 @@ std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, co
         .def("copy", &copy_vec<T>)
         .def("__getstate__", &py_to_bytes<vec<T>>)
         .def("__setstate__", &py_from_bytes<vec<T>>)
-        .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false);
+        .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
+        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("sorted")=false);
     return std::make_tuple(event, vec_T);
 }
 
@@ -500,6 +501,7 @@ py::object py_shift_velocity_track(Track<T> &self, const int8_t offset, const bo
 template<typename T>
 py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_) {
     const auto name = "Track" + name_;
+    typedef typename T::unit unit;
     auto event = py::class_<Track<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const Track<T> &>(), "Copy constructor", py::arg("other"))
@@ -528,7 +530,9 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("pianoroll", [](Track<Tick> &self,
+        .def("adjust_time", py::overload_cast<const Track<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
+            py::arg("original_times"), py::arg("new_times"), py::arg("sorted") = false)
+        .def("pianoroll", [](const Track<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
             bool encodeVelocity) {
@@ -718,7 +722,7 @@ Score<T> from_file(const std::string &path, const std::optional<std::string> & f
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_) {
     const auto name = "Score" + name_;
-
+    typedef typename T::unit unit;
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<const i32>(), py::arg("tpq"))
         .def("__init__", [](Score<T> *self, const Score<T> &other) { new (self) Score<T>(other); }, "Copy constructor", py::arg("other"))
@@ -764,13 +768,15 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("end", &Score<T>::end)
         .def("note_num", &Score<T>::note_num)
         .def("empty", &Score<T>::empty)
-        .def("pianoroll", [](Score<Tick> &self,
+        .def("adjust_time", py::overload_cast<const Score<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
+            py::arg("original_times"), py::arg("new_times"), py::arg("sorted") = false)
+        .def("pianoroll", [](const Score<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
             bool encodeVelocity) {
             std::vector<PianorollMode> modesEnum(modes.size());
             for (int i = 0; i < modes.size(); ++i) {
-                modesEnum[i] = symusic::str_to_pianoroll_mode(modes[i]);
+                modesEnum[i] = str_to_pianoroll_mode(modes[i]);
             }
             ScorePianoroll pianoroll = ScorePianoroll::from_score(self, modesEnum, pitchRange, encodeVelocity);
 
@@ -890,6 +896,10 @@ py::module_ & bind_synthesizer(py::module_ & m){
 NB_MODULE(core, m) {
 
     m.attr("_MIDI2ABC") = std::string("");
+    py::bind_vector<vec<f32>>(m, "f32List");
+    py::bind_vector<vec<i32>>(m, "i32List");
+    py::implicitly_convertible<py::list, vec<f32>>();
+    py::implicitly_convertible<py::list, vec<i32>>();
 
     auto tick = py::class_<Tick>(m, "Tick")
         .def(py::init<>())
