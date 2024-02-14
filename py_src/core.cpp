@@ -663,6 +663,16 @@ void dump_abc_path(const Score<T> &self, const std::filesystem::path& path, cons
     dump_abc_str<T>(self, path.string(), warn);
 }
 
+template<TType T>
+std::string dumps_abc(const Score<T> &self, const bool warn) {
+    const std::string abc_path = std::tmpnam(nullptr);
+    dump_abc_str(self, abc_path, warn);
+    auto data = read_file(abc_path);
+    std::filesystem::remove(abc_path);
+    // move the data to a string, not copy
+    return {data.begin(), data.end()};
+}
+
 inline std::string get_format(const std::string &path) {
     const auto ext = std::filesystem::path(path).extension().string();
     if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") {
@@ -740,12 +750,21 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def_static("from_file", [](const std::filesystem::path &path, const std::optional<std::string> & format) {
             return from_file<T>(path.string(), format);
         }, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
+        .def_static("from_midi", [](const py::bytes& data) {
+            const auto str = std::string_view(data.c_str(), data.size());
+            return Score<T>::template parse<DataFormat::MIDI>(std::span(reinterpret_cast<const u8*>(str.data()), str.size()));
+        }, "Load from midi in memory(bytes)")
         .def_static("from_abc", &from_abc<T>, "Load from abc string", py::arg("abc"))
         // pybind11 will binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
+        .def("dumps_midi", [](const Score<T> &self) {
+            auto data = self.template dumps<DataFormat::MIDI>();
+            return py::bytes(reinterpret_cast<const char *>(data.data()), data.size());
+        }, "Dump to midi in memory(bytes)")
         .def("dump_abc", &dump_abc_str<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
         .def("dump_abc", &dump_abc_path<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
+        .def("dumps_abc", &dumps_abc<T>, "Dump to abc string", py::arg("warn")=true)
         .def_rw("ticks_per_quarter", &Score<T>::ticks_per_quarter)
         .def_rw("tpq", &Score<T>::ticks_per_quarter, "Ticks per quarter note, the same as ticks_per_quarter")
         .def_rw("tracks", &Score<T>::tracks)

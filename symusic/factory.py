@@ -430,6 +430,13 @@ class ScoreFactory:
         assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype).from_file(path, fmt)
 
+    def from_midi(
+        self,
+        data: bytes,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_midi(data)
+
     def from_abc(
         self,
         abc: str,
