@@ -2072,6 +2072,18 @@ class ScoreQuarter:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreQuarter:
@@ -2095,6 +2107,12 @@ class ScoreQuarter:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreQuarter:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureQuarterList: ...
     @key_signatures.setter
@@ -2111,8 +2129,8 @@ class ScoreQuarter:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2146,6 +2164,19 @@ class ScoreQuarter:
     def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
         """
         Convert to another time unit
+        """
+        ...
+
+    @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
         """
         ...
 
@@ -2227,6 +2258,18 @@ class ScoreSecond:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreSecond:
@@ -2250,6 +2293,12 @@ class ScoreSecond:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreSecond:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureSecondList: ...
     @key_signatures.setter
@@ -2266,8 +2315,8 @@ class ScoreSecond:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2299,6 +2348,19 @@ class ScoreSecond:
     def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
         """
         Convert to another time unit
+        """
+        ...
+
+    @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
         """
         ...
 
@@ -2380,6 +2442,18 @@ class ScoreTick:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> int: ...
     def from_abc(abc: str) -> symusic.core.ScoreTick:
@@ -2403,6 +2477,12 @@ class ScoreTick:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreTick:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureTickList: ...
     @key_signatures.setter
@@ -2419,8 +2499,8 @@ class ScoreTick:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2452,6 +2532,19 @@ class ScoreTick:
     def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
         """
         Convert to another time unit
+        """
+        ...
+
+    @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
         """
         ...
 
@@ -3787,8 +3880,8 @@ class TrackQuarter:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendQuarterList: ...
@@ -3942,8 +4035,8 @@ class TrackSecond:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendSecondList: ...
@@ -4097,8 +4190,8 @@ class TrackTick:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendTickList: ...
