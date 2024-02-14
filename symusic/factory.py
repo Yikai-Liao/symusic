@@ -2,6 +2,7 @@ import os.path
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Generic, Optional, TypeVar, Union
+
 from numpy import ndarray
 
 from . import core  # type: ignore
@@ -469,7 +470,7 @@ class SynthesizerFactory:
             sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
         sf_path = str(sf_path)
         return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
-    
+
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, core.Synthesizer)
 

@@ -1,3 +1,6 @@
+from .core import (
+    dump_wav,
+)
 from .factory import (
     ControlChange,
     KeySignature,
@@ -12,18 +15,13 @@ from .factory import (
     TimeUnit,
     Track,
 )
-
 from .soundfont import (
-    Soundfont,
     BuiltInSF2,
     BuiltInSF3,
+    Soundfont,
 )
 
-from .core import (
-    dump_wav,
-)
-
-__version__ = "0.3.5"
+__version__ = "0.4.0"
 
 __all__ = [
     "TimeUnit",
@@ -41,5 +39,5 @@ __all__ = [
     "Soundfont",
     "BuiltInSF2",
     "BuiltInSF3",
-    "dump_wav"
+    "dump_wav",
 ]
