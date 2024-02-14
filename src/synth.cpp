@@ -107,10 +107,15 @@ namespace details {
             divideNotes(pnotes, banks, track_mapper, score_track.program);
         }
         for(auto & [idx, track]: track_mapper) {
+            if(track.notes.empty()) continue;
             track.preset = idx.program;
             track.bank = idx.bank;
             sequence.tracks.push_back(std::move(track));
-        }   return sequence;
+        }
+        if (sequence.tracks.empty()) {
+            throw std::runtime_error("No valid tracks in the score");
+        }
+        return sequence;
     }
 }
 
