@@ -36,7 +36,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Set up QEMU
         if: ${{ contains(matrix.buildplat[1], 'linux_aarch64') }}
@@ -106,7 +106,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Build sdist
         run: pipx run build --sdist
