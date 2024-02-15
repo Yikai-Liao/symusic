@@ -140,12 +140,10 @@ std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, co
         .def("__getstate__", &py_to_bytes<vec<T>>)
         .def("__setstate__", &py_from_bytes<vec<T>>)
         .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
-        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted")=false);
+        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted")=false)
+        .def("start", &ops::start<T>, "Return the start time of the all the events")
+        .def("end", &ops::end<T>, "Return the end time of the all the events");
     return std::make_tuple(event, vec_T);
-}
-
-void show(NDARR(float, 1) arg) {
-
 }
 
 // a template functions for binding all specializations of Note, and return it

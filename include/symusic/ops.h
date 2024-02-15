@@ -238,6 +238,31 @@ Score<T> adjust_time(
     return new_score;
 }
 
+template<TimeEvent T>
+typename T::unit start(const vec<T>& events) {
+    if (events.empty()) return 0;
+    typename T::unit ans = std::numeric_limits<typename T::unit>::max();
+    for (const auto & event: events) {
+        ans = std::min(ans, event.time);
+    }
+    return ans;
+}
+
+template<TimeEvent T>
+typename T::unit end(const vec<T>& events) {
+    if (events.empty()) return 0;
+    typename T::unit ans = std::numeric_limits<typename T::unit>::min();
+    auto get_end = [](const T &event) {
+        if constexpr (HashDuration<T>) {
+            return event.time + event.duration;
+        }   return event.time;
+    };
+    for (const auto & event: events) {
+        ans = std::max(ans, get_end(event));
+    }
+    return ans;
+}
+
 } // namespace symusic::ops
 
 #endif //LIBSYMUSIC_BATCH_OPS_H
