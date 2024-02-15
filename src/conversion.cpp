@@ -198,6 +198,15 @@ struct SecondConverter {
                 self->get_time(end, pivot_to, pivot_from, cur_factor) - ans[idx].time
             );
         }
+        if constexpr (std::is_same_v<T<From>, Note<From>>) {
+            pdqsort_detail::insertion_sort(ans.begin(), ans.end(), [](const auto & a, const auto & b) {
+                return std::tie(a.time, a.duration, a.pitch) < std::tie(b.time, b.duration, b.pitch);
+            });
+        } else {
+            pdqsort_detail::insertion_sort(ans.begin(), ans.end(), [](const auto & a, const auto & b) {
+                return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
+            });
+        }
         return ans;
     }
 };

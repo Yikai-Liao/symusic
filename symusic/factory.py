@@ -7,9 +7,7 @@ from numpy import ndarray
 
 from . import core  # type: ignore
 from . import types as smt
-
-# import subprocess
-# from random import randint
+from .soundfont import BuiltInSF3
 
 __all__ = [
     "TimeUnit",
@@ -23,6 +21,7 @@ __all__ = [
     "TextMeta",
     "Track",
     "Score",
+    "Synthesizer",
 ]
 
 _HERE = Path(__file__).parent
@@ -431,6 +430,13 @@ class ScoreFactory:
         assert os.path.isfile(path), f"{path} is not a file"
         return self.__core_classes.dispatch(ttype).from_file(path, fmt)
 
+    def from_midi(
+        self,
+        data: bytes,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_midi(data)
+
     def from_abc(
         self,
         abc: str,
@@ -459,6 +465,23 @@ class ScoreFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
 
+class SynthesizerFactory:
+    def __call__(
+        self,
+        sf_path: Union[str, Path, None] = None,
+        sample_rate: int = 44100,
+        quality: int = 0,
+        worker_num: int = 1,
+    ):
+        if sf_path is None:
+            sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
+        sf_path = str(sf_path)
+        return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
+
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, core.Synthesizer)
+
+
 Note = NoteFactory()
 KeySignature = KeySignatureFactory()
 TimeSignature = TimeSignatureFactory()
@@ -469,3 +492,4 @@ PitchBend = PitchBendFactory()
 TextMeta = TextMetaFactory()
 Track = TrackFactory()
 Score = ScoreFactory()
+Synthesizer = SynthesizerFactory()

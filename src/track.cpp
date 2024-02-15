@@ -16,24 +16,24 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Track<T>::start() const {
-    if(!notes.size())
-        return 0;
-
+    if(this->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const auto & note: notes) {
-        ans = std::min(ans, note.time);
-    }   return ans;
+    ans = std::min(ans, ops::start(notes));
+    ans = std::min(ans, ops::start(controls));
+    ans = std::min(ans, ops::start(pitch_bends));
+    ans = std::min(ans, ops::start(pedals));
+    return ans;
 }
 
 template<TType T>
 typename T::unit Track<T>::end() const {
-    if(!notes.size())
-        return 0;
-
+    if(this->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
-    for (const auto & note: notes) {
-        ans = std::max(ans, note.time + note.duration);
-    }   return ans;
+    ans = std::max(ans, ops::end(notes));
+    ans = std::max(ans, ops::end(controls));
+    ans = std::max(ans, ops::end(pitch_bends));
+    ans = std::max(ans, ops::end(pedals));
+    return ans;
 }
 
 template<TType T>

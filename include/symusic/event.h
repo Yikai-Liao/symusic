@@ -65,6 +65,11 @@ struct TimeStamp {
 template<typename T>
 concept TimeEvent = std::is_base_of_v<TimeStamp<typename T::ttype>, T>;
 
+template<typename T>
+concept HashDuration = requires(T t) {
+    { t.duration } -> std::convertible_to<typename T::unit>;
+};
+
 template<TType T>
 struct Note: TimeStamp<T> {
     BASIC_TIMESTAMP_METHODS(Note, T);
