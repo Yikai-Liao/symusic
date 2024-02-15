@@ -22,22 +22,12 @@ typename T::unit Score<T>::start() const {
     for(const auto & track: tracks) {
         ans = std::min(ans, track.start());
     }
-    for(const auto & time_signature: time_signatures) {
-        ans = std::min(ans, time_signature.time);
-    }
-    for(const auto & key_signature: key_signatures) {
-        ans = std::min(ans, key_signature.time);
-    }
-    for(const auto & tempo: tempos) {
-        ans = std::min(ans, tempo.time);
-    }
-    for(const auto & lyric: lyrics) {
-        ans = std::min(ans, lyric.time);
-    }
-    for(const auto & marker: markers) {
-        ans = std::min(ans, marker.time);
-    }
-    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
+    ans = std::min(ans, ops::start(time_signatures));
+    ans = std::min(ans, ops::start(key_signatures));
+    ans = std::min(ans, ops::start(tempos));
+    ans = std::min(ans, ops::start(lyrics));
+    ans = std::min(ans, ops::start(markers));
+    return ans;
 }
 
 template<TType T>
@@ -48,22 +38,12 @@ typename T::unit Score<T>::end() const {
     for (const auto & track: tracks) {
         ans = std::max(ans, track.end());
     }
-    for (const auto & time_signature: time_signatures) {
-        ans = std::max(ans, time_signature.time);
-    }
-    for (const auto & key_signature: key_signatures) {
-        ans = std::max(ans, key_signature.time);
-    }
-    for (const auto & tempo: tempos) {
-        ans = std::max(ans, tempo.time);
-    }
-    for (const auto & lyric: lyrics) {
-        ans = std::max(ans, lyric.time);
-    }
-    for (const auto & marker: markers) {
-        ans = std::max(ans, marker.time);
-    }
-    return ans == std::numeric_limits<typename T::unit>::min() ? 0 : ans;
+    ans = std::max(ans, ops::end(time_signatures));
+    ans = std::max(ans, ops::end(key_signatures));
+    ans = std::max(ans, ops::end(tempos));
+    ans = std::max(ans, ops::end(lyrics));
+    ans = std::max(ans, ops::end(markers));
+    return ans;
 }
 
 template<TType T>

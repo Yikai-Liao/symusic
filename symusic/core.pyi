@@ -100,6 +100,12 @@ class ControlChangeQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.ControlChangeQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -129,6 +135,12 @@ class ControlChangeQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -227,6 +239,12 @@ class ControlChangeSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.ControlChangeSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -256,6 +274,12 @@ class ControlChangeSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -354,6 +378,12 @@ class ControlChangeTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.ControlChangeTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -383,6 +413,12 @@ class ControlChangeTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -483,6 +519,12 @@ class KeySignatureQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.KeySignatureQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -512,6 +554,12 @@ class KeySignatureQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -612,6 +660,12 @@ class KeySignatureSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.KeySignatureSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -641,6 +695,12 @@ class KeySignatureSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -741,6 +801,12 @@ class KeySignatureTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.KeySignatureTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -770,6 +836,12 @@ class KeySignatureTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -901,6 +973,12 @@ class NoteQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.NoteQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -930,6 +1008,12 @@ class NoteQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -1061,6 +1145,12 @@ class NoteSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.NoteSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1090,6 +1180,12 @@ class NoteSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1219,6 +1315,12 @@ class NoteTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.NoteTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1248,6 +1350,12 @@ class NoteTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -1344,6 +1452,12 @@ class PedalQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PedalQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1373,6 +1487,12 @@ class PedalQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -1469,6 +1589,12 @@ class PedalSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PedalSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1498,6 +1624,12 @@ class PedalSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1592,6 +1724,12 @@ class PedalTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PedalTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1621,6 +1759,12 @@ class PedalTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -1715,6 +1859,12 @@ class PitchBendQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PitchBendQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1744,6 +1894,12 @@ class PitchBendQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -1838,6 +1994,12 @@ class PitchBendSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PitchBendSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1867,6 +2029,12 @@ class PitchBendSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1961,6 +2129,12 @@ class PitchBendTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.PitchBendTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -1990,6 +2164,12 @@ class PitchBendTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -2723,6 +2903,12 @@ class TempoQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TempoQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -2752,6 +2938,12 @@ class TempoQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -2881,6 +3073,12 @@ class TempoSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TempoSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -2910,6 +3108,12 @@ class TempoSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -3037,6 +3241,12 @@ class TempoTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TempoTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3066,6 +3276,12 @@ class TempoTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -3158,6 +3374,12 @@ class TextMetaQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TextMetaQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3187,6 +3409,12 @@ class TextMetaQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -3279,6 +3507,12 @@ class TextMetaSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TextMetaSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3308,6 +3542,12 @@ class TextMetaSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -3400,6 +3640,12 @@ class TextMetaTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TextMetaTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3429,6 +3675,12 @@ class TextMetaTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -3535,6 +3787,12 @@ class TimeSignatureQuarterList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TimeSignatureQuarterList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3564,6 +3822,12 @@ class TimeSignatureQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -3662,6 +3926,12 @@ class TimeSignatureSecondList:
         """
         ...
 
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TimeSignatureSecondList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3691,6 +3961,12 @@ class TimeSignatureSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -3789,6 +4065,12 @@ class TimeSignatureTickList:
         """
         ...
 
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
+        """
+        ...
+
     def extend(self, arg: symusic.core.TimeSignatureTickList, /) -> None:
         """
         Extend `self` by appending elements from `arg`.
@@ -3818,6 +4100,12 @@ class TimeSignatureTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 

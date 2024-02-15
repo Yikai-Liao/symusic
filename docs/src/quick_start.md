@@ -147,6 +147,32 @@ n.velocity          # the velocity of the note
 n.empty()           # duration <= 0 or velocity <= 0
 ```
 
+The container of events in `symusic` like the NoteList is a binding of `std::vector` in c++, with a similar interface to list in python.
+
+We also add some methods to the container, like `start`, `end`, `empty`:
+
+```python
+from symusic import Score
+notes = Score("xxx.mid").tracks[0].notes
+
+notes.empty()       # return True if the note list is empty
+notes.start()       # return the start time of the note list
+notes.end()         # return the end time of the note list
+
+notes1 = notes.copy()   # copy the note list
+# the default key is (time, duration, pitch) for notes, (time, duration) for pedals
+# for other events, the default key is "time"
+notes2 = notes.sort(reversed=False, inplace=False)              # sort the notes
+notes3 = notes.sort(lambda x: x.velocity)                       # you could also customize the key, but it is slower
+notes4 = notes.filter(lambda x: x.pitch > 60, inplace=False)    # filter the notes
+
+# adjust the time of the notes, the first list is the old time, the second list is the new time
+# the time unit of the two lists should be the same as the time unit of the note list
+# the semantic of adjust_time is the same as the method in pretty_midi
+notes5 = notes.adjust_time([0, 10, notes.end()], [0, 20, notes.end() / 2])
+```
+
+
 ### Struct of Array (SOA)
 
 `symusic` has a great numpy support. You could easily convert "a list of objects" in `symusic` to "a dict of numpy array`.
@@ -203,6 +229,20 @@ t_pianoroll = s_quantized.tracks[0].pianoroll(
     modes=["onset", "frame", "offset"], pitch_range=[0, 128], encode_velocity=True
 )
 ```
+You could also visualize the piano roll using `matplotlib`：
+
+```python
+from symusic import Score
+from matplotlib import pyplot as plt
+s = Score("xxx.mid").resample(tpq=6, min_dur=1)
+track = s.tracks[0]
+pianoroll = track.pianoroll(modes=["onset", "frame"], pitch_range=[0, 128], encode_velocity=False)
+# this will show the onset and frame of the piano roll in one figure
+plt.imshow(pianoroll[0] + pianoroll[1], aspect="auto")  
+plt.show()
+```
+
+
 
 ## Synthesis
 

@@ -17,40 +17,23 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 template<TType T>
 typename T::unit Track<T>::start() const {
     if(this->empty()) return 0;
-
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const auto & note: notes) {
-        ans = std::min(ans, note.time);
-    }
-    for (const auto & control: controls) {
-        ans = std::min(ans, control.time);
-    }
-    for (const auto & pitch_bend: pitch_bends) {
-        ans = std::min(ans, pitch_bend.time);
-    }
-    for (const auto & pedal: pedals) {
-        ans = std::min(ans, pedal.time);
-    }
-    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
+    ans = std::min(ans, ops::start(notes));
+    ans = std::min(ans, ops::start(controls));
+    ans = std::min(ans, ops::start(pitch_bends));
+    ans = std::min(ans, ops::start(pedals));
+    return ans;
 }
 
 template<TType T>
 typename T::unit Track<T>::end() const {
     if(this->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
-    for (const auto & note: notes) {
-        ans = std::max(ans, note.time + note.duration);
-    }
-    for (const auto & control: controls) {
-        ans = std::max(ans, control.time);
-    }
-    for (const auto & pitch_bend: pitch_bends) {
-        ans = std::max(ans, pitch_bend.time);
-    }
-    for (const auto & pedal: pedals) {
-        ans = std::max(ans, pedal.time);
-    }
-    return ans == std::numeric_limits<typename T::unit>::min() ? 0 : ans;
+    ans = std::max(ans, ops::end(notes));
+    ans = std::max(ans, ops::end(controls));
+    ans = std::max(ans, ops::end(pitch_bends));
+    ans = std::max(ans, ops::end(pedals));
+    return ans;
 }
 
 template<TType T>
