@@ -238,7 +238,7 @@ s = Score("xxx.mid").resample(tpq=6, min_dur=1)
 track = s.tracks[0]
 pianoroll = track.pianoroll(modes=["onset", "frame"], pitch_range=[0, 128], encode_velocity=False)
 # this will show the onset and frame of the piano roll in one figure
-plt.imshow(pianoroll[0] + pianoroll[1], aspect="auto")  
+plt.imshow(pianoroll[0] + pianoroll[1], aspect="auto")
 plt.show()
 ```
 
