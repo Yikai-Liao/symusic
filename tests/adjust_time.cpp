@@ -7,13 +7,16 @@
 using namespace symusic;
 
 int main(const int argc, const char *argv[]) {
-    auto args = util::argparser("MIDI to Audio Synthesizer, based on prestosynth and symusic");
-    args.set_program_name("sequence")
-        .add_argument<std::string>("midi_path", "Path to the MIDI file")
-        .add_help_option()
-        .parse(argc, argv);
-
-    const auto midi_path = args.get_argument<std::string>("midi_path");
+    argparse::ArgumentParser program("adjust_time");
+    program.add_argument("midi_path").help("Path to the MIDI file");
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cout << program;
+        std::exit(1);
+    }
+    const auto midi_path = program.get<std::string>("midi_path");
     const auto buffer = read_file(midi_path);
     const auto s = Score<Tick>::parse<DataFormat::MIDI>(buffer);
     fmt::println("{}", s.tracks[0].notes);
