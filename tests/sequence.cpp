@@ -7,19 +7,24 @@
 using namespace symusic;
 
 int main(const int argc, const char *argv[]) {
-    auto args = util::argparser("MIDI to Audio Synthesizer, based on prestosynth and symusic");
-    args.set_program_name("sequence")
-        .add_argument<std::string>("midi_path", "Path to the MIDI file")
-        .add_option<std::string>("-o", "--output", "Path to the output txt file", "./output.txt")
-        .add_help_option()
-        .parse(argc, argv);
+    argparse::ArgumentParser program("sequence");
+    program.add_argument("midi_path").help("Path to the MIDI file");
+    program.add_argument("-o", "--output").default_value("./output.txt").help("Path to the output txt file");
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cout << program;
+        std::exit(1);
+    }
 
-    auto midi_path = args.get_argument<std::string>("midi_path");
-    auto out_path = args.get_option<std::string>("-o");
+    const auto midi_path = program.get<std::string>("midi_path");
+    const auto out_path = program.get<std::string>("output");
 
-    auto buffer = read_file(midi_path);
-    auto s = Score<Second>::parse<DataFormat::MIDI>(buffer);
-    psynth::Sequence seq = details::toSequence(s);
+    const auto buffer = read_file(midi_path);
+    const auto s = Score<Second>::parse<DataFormat::MIDI>(buffer);
+    const psynth::Sequence seq = details::toSequence(s);
+
     std::string out;
     for(auto i=0; i<seq.tracks.size(); ++i) {
         out += "-----Track " + std::to_string(i) + "-----\n";
