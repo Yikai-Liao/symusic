@@ -19,6 +19,7 @@ endif()
 
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
@@ -33,6 +34,7 @@ endforeach()
 add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
+target_link_libraries(symusic prestosynth)
 
 if(BUILD_PY)
     message("Building python binding.")
@@ -60,9 +62,17 @@ if(BUILD_TEST)
     add_executable(note_count tests/note_count.cpp)
     add_executable(dump tests/dump.cpp)
     add_executable(io_bench tests/io_bench.cpp)
+    add_executable(synth tests/synth.cpp)
+    add_executable(sequence tests/sequence.cpp)
+    add_executable(adjust_time tests/adjust_time.cpp)
+
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
     target_link_libraries(io_bench PRIVATE symusic nanobench)
+    target_link_libraries(synth PUBLIC symusic)
+    target_link_libraries(sequence PUBLIC symusic)
+    target_link_libraries(adjust_time PUBLIC symusic)
+
 endif()
 
 if (ENABLE_LTO)

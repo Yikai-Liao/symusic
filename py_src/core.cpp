@@ -8,6 +8,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/eigen/dense.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/bind_vector.h>
 #include "symusic.h"
@@ -138,12 +139,11 @@ std::tuple<py::class_<T>, py::class_<vec<T>>> time_stamp_base(py::module_ &m, co
         .def("copy", &copy_vec<T>)
         .def("__getstate__", &py_to_bytes<vec<T>>)
         .def("__setstate__", &py_from_bytes<vec<T>>)
-        .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false);
+        .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
+        .def("adjust_time", &ops::adjust_time<T>, py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted")=false)
+        .def("start", &ops::start<T>, "Return the start time of the all the events")
+        .def("end", &ops::end<T>, "Return the end time of the all the events");
     return std::make_tuple(event, vec_T);
-}
-
-void show(NDARR(float, 1) arg) {
-
 }
 
 // a template functions for binding all specializations of Note, and return it
@@ -499,6 +499,7 @@ py::object py_shift_velocity_track(Track<T> &self, const int8_t offset, const bo
 template<typename T>
 py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_) {
     const auto name = "Track" + name_;
+    typedef typename T::unit unit;
     auto event = py::class_<Track<T>>(m, name.c_str())
         .def(py::init<>())
         .def(py::init<const Track<T> &>(), "Copy constructor", py::arg("other"))
@@ -527,7 +528,9 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
         .def("shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_pitch", &py_shift_pitch_track<T>, py::arg("offset"), py::arg("inplace")=false)
         .def("shift_velocity", &py_shift_velocity_track<T>, py::arg("offset"), py::arg("inplace")=false)
-        .def("pianoroll", [](Track<Tick> &self,
+        .def("adjust_time", py::overload_cast<const Track<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
+            py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted") = false)
+        .def("pianoroll", [](const Track<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
             bool encodeVelocity) {
@@ -539,7 +542,7 @@ py::class_<Track<T>> bind_track_class(py::module_ &m, const std::string & name_)
 
             return py::ndarray<py::numpy, pianoroll_t>{const_cast<uint8_t*>(pianoroll.release()),
                 {std::get<0>(pianoroll.dims()), std::get<1>(pianoroll.dims()), std::get<2>(pianoroll.dims()), }};
-        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false);
+        }, py::arg("modes"), py::arg("pitch_range")=std::pair<uint8_t, uint8_t>(0, 128), py::arg("encode_velocity")=false);
 
     py::bind_vector<vec<Track<T>>>(m, std::string(name + "List").c_str())
         .def("sort", &py_sort<Track<T>>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
@@ -658,6 +661,16 @@ void dump_abc_path(const Score<T> &self, const std::filesystem::path& path, cons
     dump_abc_str<T>(self, path.string(), warn);
 }
 
+template<TType T>
+std::string dumps_abc(const Score<T> &self, const bool warn) {
+    const std::string abc_path = std::tmpnam(nullptr);
+    dump_abc_str(self, abc_path, warn);
+    auto data = read_file(abc_path);
+    std::filesystem::remove(abc_path);
+    // move the data to a string, not copy
+    return {data.begin(), data.end()};
+}
+
 inline std::string get_format(const std::string &path) {
     const auto ext = std::filesystem::path(path).extension().string();
     if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") {
@@ -717,7 +730,7 @@ Score<T> from_file(const std::string &path, const std::optional<std::string> & f
 template<typename T>
 py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_) {
     const auto name = "Score" + name_;
-
+    typedef typename T::unit unit;
     return py::class_<Score<T>>(m, name.c_str())
         .def(py::init<const i32>(), py::arg("tpq"))
         .def("__init__", [](Score<T> *self, const Score<T> &other) { new (self) Score<T>(other); }, "Copy constructor", py::arg("other"))
@@ -735,13 +748,23 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def_static("from_file", [](const std::filesystem::path &path, const std::optional<std::string> & format) {
             return from_file<T>(path.string(), format);
         }, "Load from midi file", py::arg("path"), py::arg("fmt")=py::none())
+        .def_static("from_midi", [](const py::bytes& data) {
+            const auto str = std::string_view(data.c_str(), data.size());
+            return Score<T>::template parse<DataFormat::MIDI>(std::span(reinterpret_cast<const u8*>(str.data()), str.size()));
+        }, "Load from midi in memory(bytes)")
         .def_static("from_abc", &from_abc<T>, "Load from abc string", py::arg("abc"))
         // pybind11 will binding class method in an erratic way: https://github.com/pybind/pybind11/issues/1693
         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path"))
+        .def("dumps_midi", [](const Score<T> &self) {
+            auto data = self.template dumps<DataFormat::MIDI>();
+            return py::bytes(reinterpret_cast<const char *>(data.data()), data.size());
+        }, "Dump to midi in memory(bytes)")
         .def("dump_abc", &dump_abc_str<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
         .def("dump_abc", &dump_abc_path<T>, "Dump to abc file", py::arg("path"), py::arg("warn")=true)
+        .def("dumps_abc", &dumps_abc<T>, "Dump to abc string", py::arg("warn")=true)
         .def_rw("ticks_per_quarter", &Score<T>::ticks_per_quarter)
+        .def_rw("tpq", &Score<T>::ticks_per_quarter, "Ticks per quarter note, the same as ticks_per_quarter")
         .def_rw("tracks", &Score<T>::tracks)
         .def_rw("time_signatures", &Score<T>::time_signatures)
         .def_rw("key_signatures", &Score<T>::key_signatures)
@@ -763,13 +786,15 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
         .def("end", &Score<T>::end)
         .def("note_num", &Score<T>::note_num)
         .def("empty", &Score<T>::empty)
-        .def("pianoroll", [](Score<Tick> &self,
+        .def("adjust_time", py::overload_cast<const Score<T>&, const vec<unit> &, const vec<unit> &, bool>(&ops::adjust_time<T>),
+            py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted") = false)
+        .def("pianoroll", [](const Score<Tick> &self,
             const std::vector<std::string>& modes,
             const std::pair<uint8_t, uint8_t> pitchRange,
             bool encodeVelocity) {
             std::vector<PianorollMode> modesEnum(modes.size());
             for (int i = 0; i < modes.size(); ++i) {
-                modesEnum[i] = symusic::str_to_pianoroll_mode(modes[i]);
+                modesEnum[i] = str_to_pianoroll_mode(modes[i]);
             }
             ScorePianoroll pianoroll = ScorePianoroll::from_score(self, modesEnum, pitchRange, encodeVelocity);
 
@@ -779,7 +804,7 @@ py::class_<Score<T>> bind_score_class(py::module_ &m, const std::string & name_)
                     std::get<2>(pianoroll.dims()),
                     std::get<3>(pianoroll.dims()) }
             };
-        }, py::arg("modes"), py::arg("pitchRange")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encodeVelocity")=false);
+        }, py::arg("modes"), py::arg("pitch_range")=std::pair<uint8_t, uint8_t>(0, 127), py::arg("encode_velocity")=false);
 }
 
 template<TType T>
@@ -870,9 +895,29 @@ py::module_ & core_module(py::module_ & m){
     return m;
 }
 
+py::module_ & bind_synthesizer(py::module_ & m){
+    py::class_<Synthesizer>(m, "Synthesizer")
+        .def(py::init<std::string &, u32, u8, u8>(),
+            py::arg("sf_path"), py::arg("sample_rate"), py::arg("quality"), py::arg("worker_num"))
+        .def("render", &Synthesizer::render<Tick>, py::arg("score"), py::arg("stereo")=true)
+        .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo")=true)
+        .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo")=true);
+
+    m.def(
+        "dump_wav", &psynth::write_audio,
+        py::arg("path"), py::arg("data"), py::arg("sample_rate"), py::arg("use_int16")=true
+    );
+    return m;
+}
+
+
 NB_MODULE(core, m) {
 
     m.attr("_MIDI2ABC") = std::string("");
+    py::bind_vector<vec<f32>>(m, "f32List");
+    py::bind_vector<vec<i32>>(m, "i32List");
+    py::implicitly_convertible<py::list, vec<f32>>();
+    py::implicitly_convertible<py::list, vec<i32>>();
 
     auto tick = py::class_<Tick>(m, "Tick")
         .def(py::init<>())
@@ -906,4 +951,5 @@ NB_MODULE(core, m) {
     });
 
     core_module(m);
+    bind_synthesizer(m);
 }

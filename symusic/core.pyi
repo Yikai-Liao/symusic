@@ -75,6 +75,12 @@ class ControlChangeQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ControlChangeQuarterList: ...
     def append(self, arg: symusic.core.ControlChangeQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -91,6 +97,12 @@ class ControlChangeQuarterList:
     def count(self, arg: symusic.core.ControlChangeQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -123,6 +135,12 @@ class ControlChangeQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -196,6 +214,12 @@ class ControlChangeSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ControlChangeSecondList: ...
     def append(self, arg: symusic.core.ControlChangeSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -212,6 +236,12 @@ class ControlChangeSecondList:
     def count(self, arg: symusic.core.ControlChangeSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -244,6 +274,12 @@ class ControlChangeSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -317,6 +353,12 @@ class ControlChangeTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ControlChangeTickList: ...
     def append(self, arg: symusic.core.ControlChangeTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -333,6 +375,12 @@ class ControlChangeTickList:
     def count(self, arg: symusic.core.ControlChangeTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -365,6 +413,12 @@ class ControlChangeTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -440,6 +494,12 @@ class KeySignatureQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.KeySignatureQuarterList: ...
     def append(self, arg: symusic.core.KeySignatureQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -456,6 +516,12 @@ class KeySignatureQuarterList:
     def count(self, arg: symusic.core.KeySignatureQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -488,6 +554,12 @@ class KeySignatureQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -563,6 +635,12 @@ class KeySignatureSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.KeySignatureSecondList: ...
     def append(self, arg: symusic.core.KeySignatureSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -579,6 +657,12 @@ class KeySignatureSecondList:
     def count(self, arg: symusic.core.KeySignatureSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -611,6 +695,12 @@ class KeySignatureSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -686,6 +776,12 @@ class KeySignatureTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.KeySignatureTickList: ...
     def append(self, arg: symusic.core.KeySignatureTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -702,6 +798,12 @@ class KeySignatureTickList:
     def count(self, arg: symusic.core.KeySignatureTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -734,6 +836,12 @@ class KeySignatureTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -840,6 +948,12 @@ class NoteQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.NoteQuarterList: ...
     def append(self, arg: symusic.core.NoteQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -856,6 +970,12 @@ class NoteQuarterList:
     def count(self, arg: symusic.core.NoteQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -888,6 +1008,12 @@ class NoteQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -994,6 +1120,12 @@ class NoteSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.NoteSecondList: ...
     def append(self, arg: symusic.core.NoteSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1010,6 +1142,12 @@ class NoteSecondList:
     def count(self, arg: symusic.core.NoteSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1042,6 +1180,12 @@ class NoteSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1146,6 +1290,12 @@ class NoteTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.NoteTickList: ...
     def append(self, arg: symusic.core.NoteTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1162,6 +1312,12 @@ class NoteTickList:
     def count(self, arg: symusic.core.NoteTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1194,6 +1350,12 @@ class NoteTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -1265,6 +1427,12 @@ class PedalQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PedalQuarterList: ...
     def append(self, arg: symusic.core.PedalQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1281,6 +1449,12 @@ class PedalQuarterList:
     def count(self, arg: symusic.core.PedalQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1313,6 +1487,12 @@ class PedalQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -1384,6 +1564,12 @@ class PedalSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PedalSecondList: ...
     def append(self, arg: symusic.core.PedalSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1400,6 +1586,12 @@ class PedalSecondList:
     def count(self, arg: symusic.core.PedalSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1432,6 +1624,12 @@ class PedalSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1501,6 +1699,12 @@ class PedalTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PedalTickList: ...
     def append(self, arg: symusic.core.PedalTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1517,6 +1721,12 @@ class PedalTickList:
     def count(self, arg: symusic.core.PedalTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1549,6 +1759,12 @@ class PedalTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -1618,6 +1834,12 @@ class PitchBendQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PitchBendQuarterList: ...
     def append(self, arg: symusic.core.PitchBendQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1634,6 +1856,12 @@ class PitchBendQuarterList:
     def count(self, arg: symusic.core.PitchBendQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1666,6 +1894,12 @@ class PitchBendQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -1735,6 +1969,12 @@ class PitchBendSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PitchBendSecondList: ...
     def append(self, arg: symusic.core.PitchBendSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1751,6 +1991,12 @@ class PitchBendSecondList:
     def count(self, arg: symusic.core.PitchBendSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1783,6 +2029,12 @@ class PitchBendSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -1852,6 +2104,12 @@ class PitchBendTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.PitchBendTickList: ...
     def append(self, arg: symusic.core.PitchBendTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -1868,6 +2126,12 @@ class PitchBendTickList:
     def count(self, arg: symusic.core.PitchBendTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -1900,6 +2164,12 @@ class PitchBendTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -1936,6 +2206,12 @@ class ScoreQuarter:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ScoreQuarter: ...
     def clip(
         self, start: float, end: float, clip_end: bool = False
     ) -> symusic.core.ScoreQuarter:
@@ -1976,6 +2252,18 @@ class ScoreQuarter:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreQuarter:
@@ -1999,6 +2287,12 @@ class ScoreQuarter:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreQuarter:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureQuarterList: ...
     @key_signatures.setter
@@ -2015,8 +2309,8 @@ class ScoreQuarter:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2054,6 +2348,19 @@ class ScoreQuarter:
         ...
 
     @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+
+    @property
     def tracks(self) -> symusic.core.TrackQuarterList: ...
     @tracks.setter
     def tracks(self, arg: symusic.core.TrackQuarterList, /) -> None: ...
@@ -2085,6 +2392,12 @@ class ScoreSecond:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ScoreSecond: ...
     def clip(
         self, start: float, end: float, clip_end: bool = False
     ) -> symusic.core.ScoreSecond:
@@ -2125,6 +2438,18 @@ class ScoreSecond:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreSecond:
@@ -2148,6 +2473,12 @@ class ScoreSecond:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreSecond:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureSecondList: ...
     @key_signatures.setter
@@ -2164,8 +2495,8 @@ class ScoreSecond:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2201,6 +2532,19 @@ class ScoreSecond:
         ...
 
     @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+
+    @property
     def tracks(self) -> symusic.core.TrackSecondList: ...
     @tracks.setter
     def tracks(self, arg: symusic.core.TrackSecondList, /) -> None: ...
@@ -2232,6 +2576,12 @@ class ScoreTick:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.ScoreTick: ...
     def clip(
         self, start: int, end: int, clip_end: bool = False
     ) -> symusic.core.ScoreTick:
@@ -2272,6 +2622,18 @@ class ScoreTick:
         """
         ...
 
+    def dumps_abc(self, warn: bool = True) -> str:
+        """
+        Dump to abc string
+        """
+        ...
+
+    def dumps_midi(self) -> bytes:
+        """
+        Dump to midi in memory(bytes)
+        """
+        ...
+
     def empty(self) -> bool: ...
     def end(self) -> int: ...
     def from_abc(abc: str) -> symusic.core.ScoreTick:
@@ -2295,6 +2657,12 @@ class ScoreTick:
         """
         ...
 
+    def from_midi(arg: bytes, /) -> symusic.core.ScoreTick:
+        """
+        Load from midi in memory(bytes)
+        """
+        ...
+
     @property
     def key_signatures(self) -> symusic.core.KeySignatureTickList: ...
     @key_signatures.setter
@@ -2311,8 +2679,8 @@ class ScoreTick:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 127),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     def resample(
         self, tpq: int, min_dur: Optional[int] = None
@@ -2348,6 +2716,19 @@ class ScoreTick:
         ...
 
     @property
+    def tpq(self) -> int:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+    @tpq.setter
+    def tpq(self, arg: int, /) -> None:
+        """
+        Ticks per quarter note, the same as ticks_per_quarter
+        """
+        ...
+
+    @property
     def tracks(self) -> symusic.core.TrackTickList: ...
     @tracks.setter
     def tracks(self, arg: symusic.core.TrackTickList, /) -> None: ...
@@ -2361,6 +2742,40 @@ class Second:
 
     def __init__(self) -> None: ...
     def is_time_unit(self) -> bool: ...
+
+class Synthesizer:
+    """
+    None
+    """
+
+    def __init__(
+        self, sf_path: str, sample_rate: int, quality: int, worker_num: int
+    ) -> None: ...
+    def render(
+        self, score: symusic.core.ScoreSecond, stereo: bool = True
+    ) -> numpy.typing.NDArray:
+        """
+        render(self, score: symusic.core.ScoreSecond, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
+        """
+        ...
+
+    @overload
+    def render(
+        self, score: symusic.core.ScoreTick, stereo: bool = True
+    ) -> numpy.typing.NDArray:
+        """
+        render(self, score: symusic.core.ScoreTick, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
+        """
+        ...
+
+    @overload
+    def render(
+        self, score: symusic.core.ScoreQuarter, stereo: bool = True
+    ) -> numpy.typing.NDArray:
+        """
+        render(self, score: symusic.core.ScoreQuarter, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
+        """
+        ...
 
 class TempoQuarter:
     """
@@ -2463,6 +2878,12 @@ class TempoQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TempoQuarterList: ...
     def append(self, arg: symusic.core.TempoQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -2479,6 +2900,12 @@ class TempoQuarterList:
     def count(self, arg: symusic.core.TempoQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -2511,6 +2938,12 @@ class TempoQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -2615,6 +3048,12 @@ class TempoSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TempoSecondList: ...
     def append(self, arg: symusic.core.TempoSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -2631,6 +3070,12 @@ class TempoSecondList:
     def count(self, arg: symusic.core.TempoSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -2663,6 +3108,12 @@ class TempoSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -2765,6 +3216,12 @@ class TempoTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TempoTickList: ...
     def append(self, arg: symusic.core.TempoTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -2781,6 +3238,12 @@ class TempoTickList:
     def count(self, arg: symusic.core.TempoTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -2813,6 +3276,12 @@ class TempoTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -2880,6 +3349,12 @@ class TextMetaQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TextMetaQuarterList: ...
     def append(self, arg: symusic.core.TextMetaQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -2896,6 +3371,12 @@ class TextMetaQuarterList:
     def count(self, arg: symusic.core.TextMetaQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -2928,6 +3409,12 @@ class TextMetaQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -2995,6 +3482,12 @@ class TextMetaSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TextMetaSecondList: ...
     def append(self, arg: symusic.core.TextMetaSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -3011,6 +3504,12 @@ class TextMetaSecondList:
     def count(self, arg: symusic.core.TextMetaSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -3043,6 +3542,12 @@ class TextMetaSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -3110,6 +3615,12 @@ class TextMetaTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TextMetaTickList: ...
     def append(self, arg: symusic.core.TextMetaTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -3126,6 +3637,12 @@ class TextMetaTickList:
     def count(self, arg: symusic.core.TextMetaTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -3158,6 +3675,12 @@ class TextMetaTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -3239,6 +3762,12 @@ class TimeSignatureQuarterList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TimeSignatureQuarterList: ...
     def append(self, arg: symusic.core.TimeSignatureQuarter, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -3255,6 +3784,12 @@ class TimeSignatureQuarterList:
     def count(self, arg: symusic.core.TimeSignatureQuarter, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -3287,6 +3822,12 @@ class TimeSignatureQuarterList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
@@ -3360,6 +3901,12 @@ class TimeSignatureSecondList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TimeSignatureSecondList: ...
     def append(self, arg: symusic.core.TimeSignatureSecond, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -3376,6 +3923,12 @@ class TimeSignatureSecondList:
     def count(self, arg: symusic.core.TimeSignatureSecond, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> float:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -3408,6 +3961,12 @@ class TimeSignatureSecondList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> float:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Second: ...
 
@@ -3481,6 +4040,12 @@ class TimeSignatureTickList:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TimeSignatureTickList: ...
     def append(self, arg: symusic.core.TimeSignatureTick, /) -> None:
         """
         Append `arg` to the end of the list.
@@ -3497,6 +4062,12 @@ class TimeSignatureTickList:
     def count(self, arg: symusic.core.TimeSignatureTick, /) -> int:
         """
         Return number of occurrences of `arg`.
+        """
+        ...
+
+    def end(self) -> int:
+        """
+        Return the end time of the all the events
         """
         ...
 
@@ -3529,6 +4100,12 @@ class TimeSignatureTickList:
     def sort(
         self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
     ) -> object: ...
+    def start(self) -> int:
+        """
+        Return the start time of the all the events
+        """
+        ...
+
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
@@ -3545,6 +4122,12 @@ class TrackQuarter:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TrackQuarter: ...
     def clip(
         self, start: float, end: float, clip_end: bool = False
     ) -> symusic.core.TrackQuarter:
@@ -3585,8 +4168,8 @@ class TrackQuarter:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendQuarterList: ...
@@ -3694,6 +4277,12 @@ class TrackSecond:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.f32List,
+        new_times: symusic.core.f32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TrackSecond: ...
     def clip(
         self, start: float, end: float, clip_end: bool = False
     ) -> symusic.core.TrackSecond:
@@ -3734,8 +4323,8 @@ class TrackSecond:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendSecondList: ...
@@ -3843,6 +4432,12 @@ class TrackTick:
         """
         ...
 
+    def adjust_time(
+        self,
+        original_times: symusic.core.i32List,
+        new_times: symusic.core.i32List,
+        is_sorted: bool = False,
+    ) -> symusic.core.TrackTick: ...
     def clip(
         self, start: int, end: int, clip_end: bool = False
     ) -> symusic.core.TrackTick:
@@ -3883,8 +4478,8 @@ class TrackTick:
     def pianoroll(
         self,
         modes: list[str],
-        pitchRange: tuple[int, int] = (0, 127),
-        encodeVelocity: bool = False,
+        pitch_range: tuple[int, int] = (0, 128),
+        encode_velocity: bool = False,
     ) -> numpy.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendTickList: ...
@@ -3978,3 +4573,141 @@ class TrackTickList:
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
+
+def dump_wav(
+    path: str, data: numpy.typing.NDArray, sample_rate: int, use_int16: bool = True
+) -> None: ...
+
+class f32List:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[float], /) -> None:
+        """
+        Construct from an iterable object
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Default constructor
+        """
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.f32List) -> None:
+        """
+        Copy constructor
+        """
+        ...
+
+    def append(self, arg: float, /) -> None:
+        """
+        Append `arg` to the end of the list.
+        """
+        ...
+
+    def clear(self) -> None:
+        """
+        Remove all items from list.
+        """
+        ...
+
+    def count(self, arg: float, /) -> int:
+        """
+        Return number of occurrences of `arg`.
+        """
+        ...
+
+    def extend(self, arg: symusic.core.f32List, /) -> None:
+        """
+        Extend `self` by appending elements from `arg`.
+        """
+        ...
+
+    def insert(self, arg0: int, arg1: float, /) -> None:
+        """
+        Insert object `arg1` before index `arg0`.
+        """
+        ...
+
+    def pop(self, index: int = -1) -> float:
+        """
+        Remove and return item at `index` (default last).
+        """
+        ...
+
+    def remove(self, arg: float, /) -> None:
+        """
+        Remove first occurrence of `arg`.
+        """
+        ...
+
+class i32List:
+    """
+    None
+    """
+
+    def __init__(self, arg: Iterable[int], /) -> None:
+        """
+        Construct from an iterable object
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Default constructor
+        """
+        ...
+
+    @overload
+    def __init__(self, arg: symusic.core.i32List) -> None:
+        """
+        Copy constructor
+        """
+        ...
+
+    def append(self, arg: int, /) -> None:
+        """
+        Append `arg` to the end of the list.
+        """
+        ...
+
+    def clear(self) -> None:
+        """
+        Remove all items from list.
+        """
+        ...
+
+    def count(self, arg: int, /) -> int:
+        """
+        Return number of occurrences of `arg`.
+        """
+        ...
+
+    def extend(self, arg: symusic.core.i32List, /) -> None:
+        """
+        Extend `self` by appending elements from `arg`.
+        """
+        ...
+
+    def insert(self, arg0: int, arg1: int, /) -> None:
+        """
+        Insert object `arg1` before index `arg0`.
+        """
+        ...
+
+    def pop(self, index: int = -1) -> int:
+        """
+        Remove and return item at `index` (default last).
+        """
+        ...
+
+    def remove(self, arg: int, /) -> None:
+        """
+        Remove first occurrence of `arg`.
+        """
+        ...

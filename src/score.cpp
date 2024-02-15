@@ -16,24 +16,34 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Score<T>::start() const {
-    if(!tracks.size())
-        return 0;
+    if(this->empty()) return 0;
 
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const auto & track: tracks) {
+    for(const auto & track: tracks) {
         ans = std::min(ans, track.start());
-    }   return ans;
+    }
+    ans = std::min(ans, ops::start(time_signatures));
+    ans = std::min(ans, ops::start(key_signatures));
+    ans = std::min(ans, ops::start(tempos));
+    ans = std::min(ans, ops::start(lyrics));
+    ans = std::min(ans, ops::start(markers));
+    return ans;
 }
 
 template<TType T>
 typename T::unit Score<T>::end() const {
-    if(!tracks.size())
-        return 0;
+    if(this->empty()) return 0;
 
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
     for (const auto & track: tracks) {
         ans = std::max(ans, track.end());
-    }   return ans;
+    }
+    ans = std::max(ans, ops::end(time_signatures));
+    ans = std::max(ans, ops::end(key_signatures));
+    ans = std::max(ans, ops::end(tempos));
+    ans = std::max(ans, ops::end(lyrics));
+    ans = std::max(ans, ops::end(markers));
+    return ans;
 }
 
 template<TType T>

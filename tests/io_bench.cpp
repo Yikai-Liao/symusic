@@ -1,7 +1,7 @@
-#include "cassert"
 #include <vector>
 #include "nanobench.h"
 #include "fmt/core.h"
+#include "argparse.h"
 #ifdef _WIN32
 #include <Windows.h>
 std::wstring ToUtf16(const std::string & str)
@@ -104,31 +104,43 @@ size_t read_file_filebuf(const std::string& path) {
 }
 
 int main(int argc, char *argv[]) {
-    if(argc == 2) {
-        const std::string filename {argv[1]};
+    argparse::ArgumentParser program("io_bench");
+    program.add_argument("path").help("Path to the test file");
+    program.add_argument("-n")
+        .default_value(100)
+        .help("Number of iterations, for profiling")
+        .action([](const std::string &value) { return std::stoi(value); });
 
-        ankerl::nanobench::Bench().minEpochIterations(100)
-        .run("fread raw", [&] {
-            ankerl::nanobench::doNotOptimizeAway(read_file_fread(filename));
-        })
-#ifdef _WIN32
-        .run("fread win32", [&] {
-            ankerl::nanobench::doNotOptimizeAway(read_file_win32(filename));
-        })
-#endif
-        .run("fstream read", [&] {
-            ankerl::nanobench::doNotOptimizeAway(read_file_fs_buf(filename));
-        })
-        .run("fstream get", [&] {
-            ankerl::nanobench::doNotOptimizeAway(read_file_fs_get(filename));
-        })
-        .run("filebuf", [&] {
-            ankerl::nanobench::doNotOptimizeAway(read_file_filebuf(filename));
-        });
-    } else {
-        // std::cout << "Usage: ./note_count <midi_file_name>" << std::endl;
-        fmt::print("Usage: ./note_count <midi_file_name>/n");
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cout << program;
+        std::exit(1);
     }
 
+    const auto filename = program.get<std::string>("path");
+    const size_t n = program.get<int>("-n");
+    fmt::println("Filename: {}", filename);
+    fmt::println("Number of iterations: {}", n);
+
+    ankerl::nanobench::Bench().minEpochIterations(n)
+    .run("fread raw", [&] {
+        ankerl::nanobench::doNotOptimizeAway(read_file_fread(filename));
+    })
+#ifdef _WIN32
+    .run("fread win32", [&] {
+        ankerl::nanobench::doNotOptimizeAway(read_file_win32(filename));
+    })
+#endif
+    .run("fstream read", [&] {
+        ankerl::nanobench::doNotOptimizeAway(read_file_fs_buf(filename));
+    })
+    .run("fstream get", [&] {
+        ankerl::nanobench::doNotOptimizeAway(read_file_fs_get(filename));
+    })
+    .run("filebuf", [&] {
+        ankerl::nanobench::doNotOptimizeAway(read_file_filebuf(filename));
+    });
     return 0;
 }
