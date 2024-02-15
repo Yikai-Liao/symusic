@@ -139,7 +139,7 @@ vec<T> adjust_time_sorted(
         std::lower_bound(events.begin(), events.end(), original_times[0],
         [](const T &event, const typename T::unit &time) {return event.time < time;});
     // find the first event that is after(>) the last original time
-    auto end_event = events.back().time > original_times.back() ? events.end() :
+    auto end_event = events.back().time <= original_times.back() ? events.end() :
         std::upper_bound(begin_event, events.end(), original_times.back(),
         [get_end](const typename T::unit &time, const T &event) {return time < get_end(event);});
     // check if end_event > begin_event
