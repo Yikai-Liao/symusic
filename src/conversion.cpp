@@ -173,7 +173,7 @@ struct SecondConverter {
         }
         // convert duration according to the end time
         // reserve space for the end times (end(), index)
-        vec<std::pair<Tick::unit, u32>> end_times; end_times.reserve(origin.size());
+        vec<std::pair<typename From::unit, u32>> end_times; end_times.reserve(origin.size());
         for(size_t i = 0; i < origin.size(); ++i) {
             end_times.emplace_back(origin[i].end(), i);
         }   // sort them according to the end time
