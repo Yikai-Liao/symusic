@@ -271,7 +271,7 @@ struct Second2Quarter: SecondConverter<Second2Quarter, Quarter, Second> {
 
     [[nodiscard]] To::unit static get_time(
         const From::unit t, const To::unit pivot_to, const From::unit pivot_from, const f64 cur_factor) {
-        return pivot_to + static_cast<To::unit>(std::round(cur_factor * (t - pivot_from)));
+        return pivot_to + static_cast<To::unit>(cur_factor * (t - pivot_from));
     }
 };
 
