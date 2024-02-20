@@ -173,7 +173,7 @@ struct SecondConverter {
         }
         // convert duration according to the end time
         // reserve space for the end times (end(), index)
-        vec<std::pair<Tick::unit, u32>> end_times; end_times.reserve(origin.size());
+        vec<std::pair<typename From::unit, u32>> end_times; end_times.reserve(origin.size());
         for(size_t i = 0; i < origin.size(); ++i) {
             end_times.emplace_back(origin[i].end(), i);
         }   // sort them according to the end time
@@ -271,7 +271,7 @@ struct Second2Quarter: SecondConverter<Second2Quarter, Quarter, Second> {
 
     [[nodiscard]] To::unit static get_time(
         const From::unit t, const To::unit pivot_to, const From::unit pivot_from, const f64 cur_factor) {
-        return pivot_to + static_cast<To::unit>(std::round(cur_factor * (t - pivot_from)));
+        return pivot_to + static_cast<To::unit>(cur_factor * (t - pivot_from));
     }
 };
 
