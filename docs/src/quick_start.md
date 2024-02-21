@@ -250,13 +250,13 @@ From version 0.4.0, `symusic` supports a simple synthesis of the score using Sou
 It's our own implementation, called `prestosynth`, and you could find the repository [here](https://github.com/lzqlzzq/prestosynth).
 
 ```python
-from symusic import Score, Synthesizer, BuiltInSF3 ,dump_wave
+from symusic import Score, Synthesizer, BuiltInSF3 ,dump_wav
 
 s = Score("xxx.mid")
 
 # You could choose a builtin soundfont
 # And the following one is the default soundfont if you don't specify it when creating a synthesizer
-sf_path = BuiltInSF3.MuseScoreGenral().path
+sf_path = BuiltInSF3.MuseScoreGeneral().path()
 
 # sf3 and sf2 are both supported
 sf_path = "path/to/your/soundfont.sf3"
