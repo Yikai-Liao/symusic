@@ -19,10 +19,6 @@ int main(const int argc, const char *argv[]) {
         .default_value(0)
         .action([](const std::string &value) { return std::stoi(value); })
         .help("Quality of the synthesizer");
-    program.add_argument("-w", "--worker-num")
-        .default_value(1)
-        .action([](const std::string &value) { return std::stoi(value); })
-        .help("Number of workers for the synthesizer");
 
     try {
         program.parse_args(argc, argv);
@@ -38,7 +34,6 @@ int main(const int argc, const char *argv[]) {
     auto sample_rate = program.get<int>("--sample-rate");
     auto stereo = program.get<bool>("--stereo");
     auto quality = program.get<int>("--quality");
-    auto worker_num = program.get<int>("--worker-num");
 
 
     // show all the arguments
@@ -48,11 +43,11 @@ int main(const int argc, const char *argv[]) {
     fmt::println("Sample Rate:  {}", sample_rate);
     fmt::println("Stereo:       {}", stereo);
     fmt::println("Quality:      {}", quality);
-    fmt::println("Num Workers:  {}", worker_num);
+
 
     const auto data = read_file(midi_path);
     const auto s = Score<Second>::parse<DataFormat::MIDI>(data);
-    Synthesizer synth(sf_path, sample_rate, quality, worker_num);
+    Synthesizer synth(sf_path, sample_rate, quality);
     auto audio = synth.render(s, true);
     psynth::write_audio(output_path, audio, sample_rate);
     return 0;

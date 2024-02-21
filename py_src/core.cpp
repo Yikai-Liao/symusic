@@ -897,8 +897,8 @@ py::module_ & core_module(py::module_ & m){
 
 py::module_ & bind_synthesizer(py::module_ & m){
     py::class_<Synthesizer>(m, "Synthesizer")
-        .def(py::init<std::string &, u32, u8, u8>(),
-            py::arg("sf_path"), py::arg("sample_rate"), py::arg("quality"), py::arg("worker_num"))
+        .def(py::init<std::string &, u32, u8>(),
+            py::arg("sf_path"), py::arg("sample_rate"), py::arg("quality"))
         .def("render", &Synthesizer::render<Tick>, py::arg("score"), py::arg("stereo")=true)
         .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo")=true)
         .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo")=true);
