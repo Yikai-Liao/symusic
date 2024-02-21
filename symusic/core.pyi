@@ -2748,9 +2748,7 @@ class Synthesizer:
     None
     """
 
-    def __init__(
-        self, sf_path: str, sample_rate: int, quality: int, worker_num: int
-    ) -> None: ...
+    def __init__(self, sf_path: str, sample_rate: int, quality: int) -> None: ...
     def render(
         self, score: symusic.core.ScoreSecond, stereo: bool = True
     ) -> numpy.typing.NDArray:
