@@ -473,7 +473,7 @@ class SynthesizerFactory:
         quality: int = 0,
     ):
         if sf_path is None:
-            sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
+            sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
         sf_path = str(sf_path)
         return core.Synthesizer(sf_path, sample_rate, quality)
 

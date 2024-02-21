@@ -12,13 +12,13 @@ class Soundfont:
     url: str
     md5: str
 
-    def path(self, donwload: bool = False) -> Path:
-        if donwload and not self.exists():
+    def path(self, download: bool = True) -> Path:
+        if download and not self.exists():
             self.download()
         return user_data_path("soundfont", "symusic") / self.name
 
     def exists(self) -> bool:
-        path = self.path(donwload=False)
+        path = self.path(download=False)
         if not path.exists():
             return False
         with open(path, "rb") as f:
@@ -26,7 +26,7 @@ class Soundfont:
 
     def download(self) -> None:
         # Get path
-        path = self.path(donwload=False)
+        path = self.path(download=False)
         # Create directory if not exists
         path.parent.mkdir(parents=True, exist_ok=True)
         # Download
