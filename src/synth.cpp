@@ -24,13 +24,6 @@ namespace details {
         auto operator<=>(const TrackIdx &) const = default;
     };
 
-    // struct TrackIdxHash {
-    //     u64 operator()(const TrackIdx & idx) const noexcept {
-    //        return ankerl::unordered_dense::detail::wyhash::hash(*reinterpret_cast<const u16*>(&idx));
-    //     }
-    // };
-
-    // typedef ankerl::unordered_dense::map<TrackIdx, psynth::Track, TrackIdxHash> TrackMapper;
     typedef std::map<TrackIdx, psynth::Track> TrackMapper;
 
     vec<BankSelect> getBanks(const Track<Second> & track) {
