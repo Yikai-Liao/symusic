@@ -471,12 +471,11 @@ class SynthesizerFactory:
         sf_path: Union[str, Path, None] = None,
         sample_rate: int = 44100,
         quality: int = 0,
-        worker_num: int = 1,
     ):
         if sf_path is None:
             sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
         sf_path = str(sf_path)
-        return core.Synthesizer(sf_path, sample_rate, quality, worker_num)
+        return core.Synthesizer(sf_path, sample_rate, quality)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, core.Synthesizer)
