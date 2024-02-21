@@ -28,6 +28,8 @@ And a [document](https://yikai-liao.github.io/symusic/) is also available. Not c
 * Extremely fast `pickle` is now supported
 * `.numpy()` method for getting [SoA](https://en.wikipedia.org/wiki/AoS_and_SoA) data
 * `.filter(func, inplace)` method for filtering objets in all the "List" in symusic
+* A new synthesizer is now available! It comes from our another project [prestosynth](https://github.com/lzqlzzq/prestosynth).
+  Find usages in our document. Note that we will support more features of soundfont for sythesizing in the future.
 
 ## Installation
 ### Use pre-compiled version
@@ -68,6 +70,7 @@ pip install ./symusic
 ## Acknowledgement
 
 * [minimidi](https://github.com/lzqlzzq/minimidi) : A fast and lightweight midi parsing library written in cpp, which is the foundation of this project.
+* [prestosynth](https://github.com/lzqlzzq/prestosynth) : A new fast soundfont synthesizer written in cpp, which is the foundation of the synthesizer in this project.
 * [nanobind](https://github.com/wjakob/nanobind) : A efficient and lightweight library for binding C++ to Python, which is significantly faster than [pybind11](https://github.com/pybind/pybind11).
 * [zpp_bits](https://github.com/eyalz800/zpp_bits) : An extraordinary fast and lightweight single header library for serialization and deserialization. I use it to support pickle.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) The example code of the book "Modern C++ Programming Practice". We use the [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) in it for shortening the code.
