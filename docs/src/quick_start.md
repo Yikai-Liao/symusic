@@ -264,7 +264,6 @@ sf_path = "path/to/your/soundfont.sf3"
 synth = Synthesizer(
     sf_path = sf_path, # the path to the soundfont
     sample_rate = 44100, # the sample rate of the output wave, 44100 is the default value
-    worker_num = 1 # the number of threads used for synthesis, 1 is the default value
 )
 
 # audio is a 2D numpy array of float32, [channels, time]
