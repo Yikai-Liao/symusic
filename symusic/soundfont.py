@@ -55,7 +55,7 @@ class BuiltInSF3:
 
 class BuiltInSF2:
     @staticmethod
-    def MuseScoreGenral() -> Soundfont:
+    def MuseScoreGeneral() -> Soundfont:
         return Soundfont(
             name="MuseScore_General.sf2",
             url="https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",
