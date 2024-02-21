@@ -4,8 +4,8 @@ from operator import attrgetter
 from pathlib import Path
 
 import pytest
-from symusic import Note, Score, Track
 
+from symusic import Note, Score, Track
 from tests.utils import MIDI_PATHS
 
 # as tuples (original notes, original times, new times, expected notes)
