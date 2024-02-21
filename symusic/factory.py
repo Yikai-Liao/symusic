@@ -377,12 +377,12 @@ class TrackFactory:
     ) -> smt.Track:
         r"""
         Create a Track object with the given parameters.
-        Note that all of this parameters are optional,
+        Note that all of these parameters are optional,
         and they will be copied to the new Track object.
         So it is safe to use `[]` in the default value.
 
-        Of couse, copy will cause a little overhead, but it is acceptable.
-        And create a `Note` object (binded by pybind11) is much more expensive.
+        Of course, copy will cause a little overhead, but it is acceptable.
+        And create a `Note` object (bound by pybind11) is much more expensive.
         """
         new_track = self.empty(ttype)
         new_track.name = name
@@ -398,7 +398,7 @@ class TrackFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
     def empty(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
-        # create a empty track
+        # create an empty track
         return self.__core_classes.dispatch(ttype)()
 
 
