@@ -271,5 +271,5 @@ audio = synth.render(s, stereo=True) # stereo is True by default, which means yo
 
 # you could also dump the wave to a file
 # use_int16 is True by default, which means the output wave is int16, otherwise float32
-dump_wave("out.wav", audio, sample_rate=44100, use_int16=True)
+dump_wav("out.wav", audio, sample_rate=44100, use_int16=True)
 ```
