@@ -36,7 +36,7 @@ class Soundfont:
         dl.start()
         # Check if download is successful
         if not dl.isSuccessful():
-            raise Exception(
+            raise ConnectionError(
                 f"Failed to download {self.name} to {self.path}. "
                 + f"You could try to download it manually from {self.url}, "
                 + "and pass the path to the synthesizer."
