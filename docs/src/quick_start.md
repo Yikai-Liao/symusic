@@ -256,7 +256,7 @@ s = Score("xxx.mid")
 
 # You could choose a builtin soundfont
 # And the following one is the default soundfont if you don't specify it when creating a synthesizer
-sf_path = BuiltInSF3.MuseScoreGeneral().path()
+sf_path = BuiltInSF3.MuseScoreGeneral().path(donwload=True)
 
 # sf3 and sf2 are both supported
 sf_path = "path/to/your/soundfont.sf3"
