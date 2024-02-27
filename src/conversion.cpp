@@ -103,9 +103,12 @@ struct Quarter2Tick: SimpleConverter<Quarter2Tick, Tick, Quarter> {
 template<typename Converter, TType To, TType From>
 struct SecondConverter {
     f64 tpq;
-    vec<Tempo<From>> tempos{};
+    vec<typename To::unit> to_times;
+    vec<typename From::unit> from_times;
+    vec<f64> factors;
 
     explicit SecondConverter(const Score<From> & score): tpq(static_cast<f64>(score.ticks_per_quarter)){
+        vec<Tempo<From>> tempos;
         if(score.tempos.empty()) {
             // 120 qpm
             tempos = {{0, 500000}, {std::numeric_limits<typename From::unit>::max(), 500000}};
@@ -119,28 +122,46 @@ struct SecondConverter {
             // add a guard at the end
             tempos.emplace_back(std::numeric_limits<typename From::unit>::max(), tempos.back().mspq);
         }
+
+        const auto self = static_cast<const Converter*>(this);
+
+        typename To::unit pivot_to = 0;
+        typename From::unit pivot_from = 0;
+        double cur_factor = self->get_factor(tempos[0]);
+
+        to_times.reserve(tempos.size());
+        from_times.reserve(tempos.size());
+        factors.reserve(tempos.size());
+
+        to_times.emplace_back(pivot_to);
+        from_times.emplace_back(pivot_from);
+        factors.emplace_back(cur_factor);
+
+        for(auto i=1; i<tempos.size(); ++i) {
+            pivot_to = self->get_time(tempos[i].time, pivot_to, pivot_from, cur_factor);
+            pivot_from = tempos[i].time;
+            cur_factor = self->get_factor(tempos[i]);
+            to_times.emplace_back(pivot_to);
+            from_times.emplace_back(pivot_from);
+            factors.emplace_back(cur_factor);
+        }
     }
     template<template<class> class T>
     [[nodiscard]] vec<T<To>> time_vec(const vec<T<From>> & data) const {
         const auto self = static_cast<const Converter*>(this);
-        // copy and sort origin data
-        vec<T<From>> origin(data);  ops::sort_by_time(origin);
-        // reserve space for the result
-        vec<T<To>> ans; ans.reserve(origin.size());
-        // create an iterator for tempos
-        auto t_iter = tempos.begin() + 1;
-        typename To::unit pivot_to = 0;
-        typename From::unit pivot_from = 0;
-        double cur_factor = self->get_factor(tempos[0]);
-        for(const auto & event : origin) {
-            // move to next tempo if necessary
-            while(event.time > t_iter->time) {
-                pivot_to = self->get_time(t_iter->time, pivot_to, pivot_from, cur_factor);
-                pivot_from = t_iter->time;
-                cur_factor = self->get_factor(*t_iter);
-                ++t_iter;
+        vec<T<To>> ans; ans.reserve(data.size());
+        auto cur_range = std::make_pair(from_times[0], from_times[1]);
+        auto pivot_to = to_times[0];
+        auto cur_factor = factors[0];
+
+        for (const auto &event : data) {
+            if(event.time < cur_range.first | event.time >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.time) - from_times.begin() - 1;
+                cur_range = std::make_pair(from_times[i], from_times[i+1]);
+                pivot_to = to_times[i];
+                cur_factor = factors[i];
             }
-            ans.emplace_back(self->get_time(event.time, pivot_to, pivot_from, cur_factor), event);
+            ans.emplace_back(self->get_time(event.time, pivot_to, cur_range.first, cur_factor), event);
         }
         return ans;
     }
@@ -149,63 +170,27 @@ struct SecondConverter {
      [[nodiscard]] vec<T<To>> duration_vec(const vec<T<From>> & data, typename To::unit min_dur) const {
         const auto self = static_cast<const Converter*>(this);
         min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
-        // copy and sort origin data
-        vec<T<From>> origin(data);  ops::sort_by_time(origin);
-        // reserve space for the result
-        vec<T<To>> ans; ans.reserve(origin.size());
-        // create an iterator for tempos
-        auto t_iter = tempos.begin() + 1;
-        typename To::unit pivot_to = 0;
-        typename From::unit pivot_from = 0;
-        f64 cur_factor = self->get_factor(tempos[0]);
-        for(const auto & event : origin) {
-            // move to next tempo if necessary
-            while(event.time > t_iter->time) {
-                pivot_to = self->get_time(t_iter->time, pivot_to, pivot_from, cur_factor);
-                pivot_from = t_iter->time;
-                cur_factor = self->get_factor(*t_iter);
-                ++t_iter;
+        vec<T<To>> ans; ans.reserve(data.size());
+        auto cur_range = std::make_pair(from_times[0], from_times[1]);
+        auto pivot_to = to_times[0];
+        auto cur_factor = factors[0];
+        for (const auto &event : data) {
+            if(event.time < cur_range.first | event.time >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.time) - from_times.begin() - 1;
+                cur_range = std::make_pair(from_times[i], from_times[i+1]);
+                pivot_to = to_times[i];
+                cur_factor = factors[i];
             }
-            ans.emplace_back(
-                self->get_time(event.time, pivot_to, pivot_from, cur_factor),
-                0, event
-            );
-        }
-        // convert duration according to the end time
-        // reserve space for the end times (end(), index)
-        vec<std::pair<typename From::unit, u32>> end_times; end_times.reserve(origin.size());
-        for(size_t i = 0; i < origin.size(); ++i) {
-            end_times.emplace_back(origin[i].end(), i);
-        }   // sort them according to the end time
-        pdqsort_detail::insertion_sort(end_times.begin(), end_times.end(), [](const auto & a, const auto & b) {
-            return a.first < b.first;
-        });
-        // reset pivot
-        pivot_from = 0; pivot_to = 0;
-        // reset t_iter
-        t_iter = tempos.begin() + 1;
-        // reset cur_factor
-        cur_factor = self->get_factor(tempos[0]);
-        for(const auto & [end, idx] : end_times) {
-            while(end > t_iter->time) {
-                pivot_to = self->get_time(t_iter->time, pivot_to, pivot_from, cur_factor);
-                pivot_from = t_iter->time;
-                cur_factor = self->get_factor(*t_iter);
-                ++t_iter;
+            auto start = self->get_time(event.time, pivot_to, cur_range.first, cur_factor);
+            if(event.end() < cur_range.first | event.end() >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.end()) - from_times.begin() - 1;
+                cur_range = std::make_pair(from_times[i], from_times[i+1]);
+                pivot_to = to_times[i];
+                cur_factor = factors[i];
             }
-            ans[idx].duration = std::max(
-                min_dur,
-                self->get_time(end, pivot_to, pivot_from, cur_factor) - ans[idx].time
-            );
-        }
-        if constexpr (std::is_same_v<T<From>, Note<From>>) {
-            pdqsort_detail::insertion_sort(ans.begin(), ans.end(), [](const auto & a, const auto & b) {
-                return std::tie(a.time, a.duration, a.pitch) < std::tie(b.time, b.duration, b.pitch);
-            });
-        } else {
-            pdqsort_detail::insertion_sort(ans.begin(), ans.end(), [](const auto & a, const auto & b) {
-                return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
-            });
+            auto end = self->get_time(event.end(), pivot_to, cur_range.first, cur_factor);
+            auto duration = std::max(min_dur, end - start);
+            ans.emplace_back(start, duration, event);
         }
         return ans;
     }
@@ -249,7 +234,7 @@ struct Quarter2Second: SecondConverter<Quarter2Second, Second, Quarter> {
 
     explicit Quarter2Second(const Score<From> & score): SecondConverter{score} {}
 
-    [[nodiscard]] f64 get_factor(const Tempo<From> & tempo) const {
+    [[nodiscard]] static f64 get_factor(const Tempo<From> & tempo) {
         return static_cast<f64>(tempo.mspq) / 1000000.;
     }
 
@@ -265,7 +250,7 @@ struct Second2Quarter: SecondConverter<Second2Quarter, Quarter, Second> {
 
     explicit Second2Quarter(const Score<From> & score): SecondConverter{score} {}
 
-    [[nodiscard]] f64 get_factor(const Tempo<From> & tempo) const {
+    [[nodiscard]] static f64 get_factor(const Tempo<From> & tempo) {
         return 1000000. / static_cast<f64>(tempo.mspq);
     }
 

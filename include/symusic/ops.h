@@ -114,6 +114,7 @@ vec<T> clamp_dur(const vec<T>& events, typename T::unit min_dur, typename T::uni
     return clamp_dur_inplace(new_events, min_dur, max_dur);
 }
 
+namespace details {
 template<TimeEvent T>
 vec<T> adjust_time_sorted(
     const vec<T>& events, const vec<typename T::unit>& original_times, const vec<typename T::unit>& new_times) {
@@ -124,14 +125,6 @@ vec<T> adjust_time_sorted(
             return event.time + event.duration;
         }   return event.time;
     };
-    // assume that all the events, original_times and new_times are sorted
-    if(original_times.size() != new_times.size()) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have the same size");
-    }
-    // assume that original_times and new_times have at least 2 elements
-    if(original_times.size() < 2) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have at least 2 elements");
-    }
     // return empty vector if events is empty
     if(events.empty()) return {};
     // find the first event that is after(>=) the first original time
@@ -189,52 +182,132 @@ vec<T> adjust_time_sorted(
             event.duration -= event.time;
         }
     }
-
     return new_events;
 }
 
+
 template<TimeEvent T>
+vec<T> adjust_time_unsorted(
+    const vec<T>& events, const vec<typename T::unit>& original_times, const vec<typename T::unit>& new_times) {
+    // check if the events have duration
+    constexpr bool has_dur = HashDuration<T>;
+    auto get_end = [has_dur](const T &event) {
+        if constexpr (has_dur) {
+            return event.time + event.duration;
+        }   return event.time;
+    };
+    // return empty vector if events is empty
+    if(events.empty()) return {};
+    auto get_factor = [&original_times, &new_times](const size_t x) {
+        return static_cast<f64>(new_times[x] - new_times[x - 1]) /
+            static_cast<f64>(original_times[x] - original_times[x - 1]);
+    };
+    const auto range = std::make_pair(original_times.front(), original_times.back());
+    auto valid = [range](const T& event) {
+        if constexpr (has_dur) {
+            return (event.time >= range.first) & (event.time + event.duration <= range.second);
+        }   return (event.time >= range.first) & (event.time <= range.second);
+    };
+
+    auto cur_range = std::make_pair(original_times[0], original_times[1]);
+    auto cur_factor = get_factor(1);
+    auto pivot_new = new_times[0];
+
+    // create new events
+    vec<T> new_events;
+    new_events.reserve(events.size());
+    for(const auto &event: events) {
+        if(!valid(event)) continue;
+        if(event.time < cur_range.first | event.time > cur_range.second) {
+            auto i = std::lower_bound(original_times.begin() + 1, original_times.end(), event.time) - original_times.begin();
+            cur_factor = get_factor(i);
+            cur_range = std::make_pair(original_times[i - 1], original_times[i]);
+            pivot_new = new_times[i - 1];
+        }
+        auto start = pivot_new + static_cast<typename T::unit>(
+            cur_factor * static_cast<f64>(event.time - cur_range.first)
+        );
+        if constexpr (has_dur) {
+            auto original_end = get_end(event);
+            if (original_end > cur_range.second) {
+                auto i = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end) - original_times.begin();
+                cur_factor = get_factor(i);
+                cur_range = std::make_pair(original_times[i - 1], original_times[i]);
+                pivot_new = new_times[i - 1];
+            }
+            auto end = pivot_new + static_cast<typename T::unit>(
+                cur_factor * static_cast<f64>(original_end - cur_range.first)
+            );
+            new_events.emplace_back(start, end-start, event);
+        } else {
+            new_events.emplace_back(start, event);
+        }
+    }   return new_events;
+}
+
+template<typename T>
+void check_times(const vec<T>& original_times, const vec<T>& new_times) {
+    if(original_times.size() != new_times.size()) {
+        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have the same size");
+    }
+    if(original_times.size() < 2) {
+        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times should have at least 2 elements");
+    }
+    if(!std::is_sorted(original_times.begin(), original_times.end())) {
+        throw std::invalid_argument("symusic::ops::adjust_time: original_times should be sorted");
+    }
+    if(!std::is_sorted(new_times.begin(), new_times.end())) {
+        throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");
+    }
+}
+
+} // namespace details
+
+
+template<bool check_times = true, TimeEvent T>
 vec<T> adjust_time(
     const vec<T>& events, const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times, const bool sorted = false) {
-    if (sorted) { return adjust_time_sorted(events, original_times, new_times); }
-
-    vec<T> _events(events);
-    sort_by_time(_events);
-    vec<typename T::unit> _original_times(original_times);
-    sort(_original_times, std::less<typename T::unit>());
-    vec<typename T::unit> _new_times(new_times);
-    sort(_new_times, std::less<typename T::unit>());
-
-    return adjust_time_sorted(_events, _original_times, _new_times);
+    if constexpr (check_times) {
+        details::check_times(original_times, new_times);
+    }
+    if(sorted || std::is_sorted(events.begin(), events.end(), [](const T & a, const T & b) {return a.time < b.time;})) {
+        return details::adjust_time_sorted(events, original_times, new_times);
+    }   return details::adjust_time_unsorted(events, original_times, new_times);
 }
 
-template<TType T>
+template<bool check_times = true, TType T>
 Track<T> adjust_time(
     const Track<T> & track, const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times, const bool sorted = false) {
+    if constexpr (check_times) {
+        details::check_times(original_times, new_times);
+    }
     Track<T> new_track{track.name, track.program, track.is_drum};
-    new_track.notes = std::move(adjust_time(track.notes, original_times, new_times, sorted));
-    new_track.controls = std::move(adjust_time(track.controls, original_times, new_times, sorted));
-    new_track.pitch_bends = std::move(adjust_time(track.pitch_bends, original_times, new_times, sorted));
-    new_track.pedals = std::move(adjust_time(track.pedals, original_times, new_times, sorted));
+    new_track.notes = std::move(adjust_time<false>(track.notes, original_times, new_times, sorted));
+    new_track.controls = std::move(adjust_time<false>(track.controls, original_times, new_times, sorted));
+    new_track.pitch_bends = std::move(adjust_time<false>(track.pitch_bends, original_times, new_times, sorted));
+    new_track.pedals = std::move(adjust_time<false>(track.pedals, original_times, new_times, sorted));
     return new_track;
 }
 
-template<TType T>
+template<bool check_times = true, TType T>
 Score<T> adjust_time(
     const Score<T> & score, const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times, const bool sorted = false) {
+    if constexpr (check_times) {
+        details::check_times(original_times, new_times);
+    }
     Score<T> new_score{score.ticks_per_quarter};
     new_score.tracks.reserve(score.tracks.size());
     for(const auto & track : score.tracks) {
-        new_score.tracks.push_back(adjust_time(track, original_times, new_times, sorted));
+        new_score.tracks.push_back(adjust_time<false>(track, original_times, new_times, sorted));
     }
-    new_score.time_signatures = adjust_time(score.time_signatures, original_times, new_times, sorted);
-    new_score.key_signatures = adjust_time(score.key_signatures, original_times, new_times, sorted);
-    new_score.tempos = adjust_time(score.tempos, original_times, new_times, sorted);
-    new_score.lyrics = adjust_time(score.lyrics, original_times, new_times, sorted);
-    new_score.markers = adjust_time(score.markers, original_times, new_times, sorted);
+    new_score.time_signatures = adjust_time<false>(score.time_signatures, original_times, new_times, sorted);
+    new_score.key_signatures = adjust_time<false>(score.key_signatures, original_times, new_times, sorted);
+    new_score.tempos = adjust_time<false>(score.tempos, original_times, new_times, sorted);
+    new_score.lyrics = adjust_time<false>(score.lyrics, original_times, new_times, sorted);
+    new_score.markers = adjust_time<false>(score.markers, original_times, new_times, sorted);
     return new_score;
 }
 
