@@ -19,14 +19,23 @@ struct Track {
     std::string name;
     u8 program = 0;
     bool is_drum = false;
-    vec<Note<T>> notes;
-    vec<ControlChange<T>> controls;
-    vec<PitchBend<T>> pitch_bends;
-    vec<Pedal<T>> pedals;
+    pyvec<Note<T>> notes;
+    pyvec<ControlChange<T>> controls;
+    pyvec<PitchBend<T>> pitch_bends;
+    pyvec<Pedal<T>> pedals;
 
-    Track() = default;
+    Track(): notes{std::make_shared<vec<Note<T>>>()},
+             controls{std::make_shared<vec<ControlChange<T>>>()},
+             pitch_bends{std::make_shared<vec<PitchBend<T>>>()},
+             pedals{std::make_shared<vec<Pedal<T>>>()} {}
 
     Track(const Track &) = default;
+
+    Track(std::string name, const u8 program, const bool is_drum): Track() {
+        this->name = std::move(name);
+        this->program = program;
+        this->is_drum = is_drum;
+    }
 
     void move_other(Track && other) {
         name = std::move(other.name);
@@ -40,7 +49,18 @@ struct Track {
 
     Track(Track && other) noexcept { move_other(std::move(other));}
 
+    // shallow copy
     [[nodiscard]] Track copy() const { return {*this}; }
+
+    // deep copy
+    [[nodiscard]] Track deepcopy() const {
+        Track ret{name, program, is_drum};
+        ret.notes = std::make_shared<vec<Note<T>>>(*notes);
+        ret.controls = std::make_shared<vec<ControlChange<T>>>(*controls);
+        ret.pitch_bends = std::make_shared<vec<PitchBend<T>>>(*pitch_bends);
+        ret.pedals = std::make_shared<vec<Pedal<T>>>(*pedals);
+        return ret;
+    }
 
     Track& operator=(const Track &) = default;
     Track& operator=(Track && other) noexcept {
@@ -48,9 +68,6 @@ struct Track {
     }
     bool operator==(const Track & other) const = default;
     bool operator!=(const Track & other) const = default;
-
-    Track(std::string name, const u8 program, const bool is_drum):
-        name{std::move(name)}, program{program}, is_drum{is_drum} {}
 
     Track(
         std::string name,const u8 program, const bool is_drum,
@@ -64,7 +81,6 @@ struct Track {
 
     template<DataFormat F>
     [[nodiscard]] vec<u8> dumps() const;
-
 
     // return the start time of the track
     [[nodiscard]] unit start() const;
@@ -112,18 +128,6 @@ struct Track {
     // shift the velocity of all notes in the track, inplace, return self reference
     Track& shift_velocity_inplace(i8 offset);
 };
-
-// "Not Implemented" Error at compile time for parse and dumps
-//
-// template<TType T> template<DataFormat>
-// Track<T> Track<T>::parse(std::span<const u8>) {
-//     static_assert(true, "Not implemented"); return {};
-// }
-//
-// template<TType T> template<DataFormat>
-// vec<u8> Track<T>::dumps() const {
-//     static_assert(true, "Not implemented"); return {};
-// }
 
 }
 

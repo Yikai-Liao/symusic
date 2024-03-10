@@ -49,30 +49,30 @@ typename T::unit Score<T>::end() const {
 template<TType T>
 size_t Score<T>::note_num() const {
     size_t ans = 0;
-    for (const auto & track: tracks) {
-        ans += track.note_num();
+    for (const shared<const Track<T>> & track: tracks) {
+        ans += track->note_num();
     }   return ans;
 }
 
 template<TType T>
 bool Score<T>::empty() const {
-    return tracks.empty()
-        && time_signatures.empty()
-        && key_signatures.empty()
-        && tempos.empty()
-        && lyrics.empty()
-        && markers.empty();
+    return tracks->empty()
+        && time_signatures->empty()
+        && key_signatures->empty()
+        && tempos->empty()
+        && lyrics->empty()
+        && markers->empty();
 }
 
 template<TType T>
 size_t Score<T>::track_num() const {
-    return tracks.size();
+    return tracks->size();
 }
 
 template<TType T>
 Score<T>& Score<T>::sort_inplace(const bool reverse) {
 
-    for(auto &track: tracks) track.sort_inplace(reverse);
+    for(shared<Track<T>> &track: tracks) track->sort_inplace(reverse);
 
     ops::sort_by_time(time_signatures, reverse);
     ops::sort_by_time(key_signatures, reverse);

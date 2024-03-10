@@ -17,13 +17,22 @@ struct Score {
     typedef typename T::unit unit;
 
     i32 ticks_per_quarter{};
-    vec<Track<T>> tracks{};
-    vec<TimeSignature<T>> time_signatures{};
-    vec<KeySignature<T>> key_signatures{};
-    vec<Tempo<T>> tempos{};
-    vec<TextMeta<T>> lyrics, markers{};
+    // pyvec<U> = shared<vec<shared<U>>>
+    pyvec<Track<T>> tracks{};
+    pyvec<TimeSignature<T>> time_signatures{};
+    pyvec<KeySignature<T>> key_signatures{};
+    pyvec<Tempo<T>> tempos{};
+    pyvec<TextMeta<T>> lyrics, markers{};
 
-    Score() = default;
+    Score() {
+        ticks_per_quarter = 0;
+        tracks = std::make_shared<vec<Track<T>>>();
+        time_signatures = std::make_shared<vec<TimeSignature<T>>>();
+        key_signatures = std::make_shared<vec<KeySignature<T>>>();
+        tempos = std::make_shared<vec<Tempo<T>>>();
+        lyrics = std::make_shared<vec<TextMeta<T>>>();
+        markers = std::make_shared<vec<TextMeta<T>>>();
+    }
 
     Score(const Score&) = default;
 
@@ -38,21 +47,38 @@ struct Score {
         markers = std::move(other.markers);
     }
 
+    explicit Score(const i32 tpq): Score() {
+        ticks_per_quarter = tpq;
+    }
+
     Score& operator=(const Score&) = default;
     bool operator==(const Score & other) const = default;
     bool operator!=(const Score & other) const = default;
 
     [[nodiscard]] Score copy() const { return {*this}; }
 
-    explicit Score(const i32 tpq): ticks_per_quarter{tpq} {}
+    [[nodiscard]] Score deepcopy() const {
+        Score ret{ticks_per_quarter};
+        ret.tracks = std::make_shared<vec<Track<T>>>();
+        for(const shared<Track<T>> & track: *tracks) {
+            ret.tracks->push_back(track->deepcopy());
+        }
+        ret.time_signatures = std::make_shared<vec<TimeSignature<T>>>(*time_signatures);
+        ret.key_signatures = std::make_shared<vec<KeySignature<T>>>(*key_signatures);
+        ret.tempos = std::make_shared<vec<Tempo<T>>>(*tempos);
+        ret.lyrics = std::make_shared<vec<TextMeta<T>>>(*lyrics);
+        ret.markers = std::make_shared<vec<TextMeta<T>>>(*markers);
+        return ret;
+    }
+
 
     Score(
-        const i32 tpq, const vec<Track<T>> & tracks,
-        const vec<TimeSignature<T>> & time_signatures,
-        const vec<KeySignature<T>> & key_signatures,
-        const vec<Tempo<T>> & tempos,
-        const vec<TextMeta<T>> & lyrics,
-        const vec<TextMeta<T>> & markers
+        const i32 tpq, const pyvec<Track<T>> & tracks,
+        const pyvec<TimeSignature<T>> & time_signatures,
+        const pyvec<KeySignature<T>> & key_signatures,
+        const pyvec<Tempo<T>> & tempos,
+        const pyvec<TextMeta<T>> & lyrics,
+        const pyvec<TextMeta<T>> & markers
     ):  ticks_per_quarter{tpq}, tracks{tracks}, time_signatures{time_signatures},
         key_signatures{key_signatures}, tempos{tempos}, lyrics{lyrics}, markers{markers} {}
 
@@ -111,19 +137,6 @@ struct Score {
     // shift the velocity of all notes in the score, inplace, return self reference
     Score& shift_velocity_inplace(i8 offset);
 };
-
-// "Not Implemented" Error at compile time for parse and dumps
-
-// template<TType T> template<DataFormat>
-// Score<T> Score<T>::parse(std::span<const u8>) {
-//     static_assert(true, "Not implemented"); return {};
-// }
-//
-// template<TType T> template<DataFormat>
-// vec<u8> Score<T>::dumps() const {
-//     static_assert(true, "Not implemented"); return {};
-// }
-
 } // namespace symusic
 
 #endif //LIBSYMUSIC_TRACK_HSCORE_H

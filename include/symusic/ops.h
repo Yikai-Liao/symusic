@@ -15,43 +15,43 @@
 namespace symusic::ops {
 
 template<typename T>
-void sort_by_time(vec<T> & data, const bool reverse = false) {
+void sort_by_time(pyvec<T> data, const bool reverse = false) {
     if (reverse) {
-        pdqsort_branchless(data.begin(), data.end(), [](const T & a, const T & b) {return (a.time) > (b.time);});
+        pdqsort_branchless(data->begin(), data->end(), [](const shared<const T> & a, const shared<const T> & b) {return (a->time) > (b->time);});
     } else {
-        pdqsort_branchless(data.begin(), data.end(), [](const T & a, const T & b) {return (a.time) < (b.time);});
+        pdqsort_branchless(data->begin(), data->end(), [](const shared<const T> & a, const shared<const T> & b) {return (a->time) < (b->time);});
     }
 }
 
 template<TType T>
 void sort_notes(vec<Note<T>> & notes, const bool reverse = false) {
-    #define KEY(NOTE) std::tie((NOTE).time, (NOTE).duration, (NOTE).pitch, (NOTE).velocity)
+    #define KEY(NOTE) std::tie((NOTE)->time, (NOTE)->duration, (NOTE)->pitch, (NOTE)->velocity)
     if (reverse) {
-        pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> & a, const Note<T> & b) {return KEY(a) > KEY(b);});
+        pdqsort_branchless(notes->begin(), notes->end(), [](const shared<const Note<T>> & a, const shared<const Note<T>> & b) {return KEY(a) > KEY(b);});
     } else {
-        pdqsort_branchless(notes.begin(), notes.end(), [](const Note<T> & a, const Note<T> & b) {return KEY(a) < KEY(b);});
+        pdqsort_branchless(notes->begin(), notes->end(), [](const shared<const Note<T>> & a, const shared<const Note<T>> & b) {return KEY(a) < KEY(b);});
     }
     #undef KEY
 }
 
 template<TType T>
 void sort_pedals(vec<Pedal<T>> & pedals, const bool reverse = false) {
-    #define KEY(PEDAL) std::tie((PEDAL).time, (PEDAL).duration)
+    #define KEY(PEDAL) std::tie((PEDAL)->time, (PEDAL)->duration)
     if (reverse) {
-        pdqsort_branchless(pedals.begin(), pedals.end(), [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) > KEY(b);});
+        pdqsort_branchless(pedals->begin(), pedals->end(), [](const shared<const Pedal<T>> & a, const shared<const Pedal<T>> & b) {return KEY(a) > KEY(b);});
     } else {
-        pdqsort_branchless(pedals.begin(), pedals.end(), [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) < KEY(b);});
+        pdqsort_branchless(pedals->begin(), pedals->end(), [](const shared<const Pedal<T>> & a, const shared<const Pedal<T>> & b) {return KEY(a) < KEY(b);});
     }
     #undef KEY
 }
 
 template<TType T>
 void sort_tracks(vec<Track<T>> & tracks, const bool reverse = false) {
-    #define KEY(TRACK) std::make_tuple((TRACK).is_drum, (TRACK).program, (TRACK).name, (TRACK).note_num())
+    #define KEY(TRACK) std::make_tuple((TRACK)->is_drum, (TRACK)->program, (TRACK)->name, (TRACK)->note_num())
     if (reverse) {
-        pdqsort_branchless(tracks.begin(), tracks.end(), [](const Track<T> & a, const Track<T> & b) {return KEY(a) > KEY(b);});
+        pdqsort_branchless(tracks->begin(), tracks->end(), [](const shared<const Track<T>> & a, const shared<const Track<T>> & b) {return KEY(a) > KEY(b);});
     } else {
-        pdqsort_branchless(tracks.begin(), tracks.end(), [](const Track<T> & a, const Track<T> & b) {return KEY(a) < KEY(b);});
+        pdqsort_branchless(tracks->begin(), tracks->end(), [](const shared<const Track<T>> & a, const shared<const Track<T>> & b) {return KEY(a) < KEY(b);});
     }
     #undef KEY
 }
@@ -312,25 +312,25 @@ Score<T> adjust_time(
 }
 
 template<TimeEvent T>
-typename T::unit start(const vec<T>& events) {
-    if (events.empty()) return 0;
+typename T::unit start(const pyvec<const T>& events) {
+    if (events->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const auto & event: events) {
-        ans = std::min(ans, event.time);
+    for (const shared<const T> & event: *events) {
+        ans = std::min(ans, event->time);
     }
     return ans;
 }
 
 template<TimeEvent T>
-typename T::unit end(const vec<T>& events) {
-    if (events.empty()) return 0;
+typename T::unit end(const pyvec<const T>& events) {
+    if (events->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
-    auto get_end = [](const T &event) {
+    auto get_end = [](const shared<const T> &event) {
         if constexpr (HashDuration<T>) {
-            return event.time + event.duration;
-        }   return event.time;
+            return event->time + event->duration;
+        }   return event->time;
     };
-    for (const auto & event: events) {
+    for (const shared<const T> &event: *events) {
         ans = std::max(ans, get_end(event));
     }
     return ans;

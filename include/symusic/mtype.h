@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <memory>
 
 namespace symusic {
 // Simple Type Definitions Begin
@@ -25,6 +26,12 @@ using size_t = std::size_t;
 
 template<typename T>
 using vec = std::vector<T>;
+
+template<typename T>
+using shared = std::shared_ptr<T>;
+
+template<typename T>
+using pyvec = shared<vec<shared<T>>>;
 
 }
 
