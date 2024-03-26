@@ -95,13 +95,12 @@ Score<T> Score<T>::clip(unit start, unit end, bool clip_end) const {
     for(const auto & track: tracks) {
         new_tracks.emplace_back(track.clip(start, end, clip_end));
     }
-
     return {
         ticks_per_quarter,
         std::move(new_tracks),
-        std::move(ops::clip(time_signatures, start, end)),
-        std::move(ops::clip(key_signatures, start, end)),
-        std::move(ops::clip(tempos, start, end)),
+        std::move(ops::clip_with_sentinel(time_signatures, start, end)),
+        std::move(ops::clip_with_sentinel(key_signatures, start, end)),
+        std::move(ops::clip_with_sentinel(tempos, start, end)),
         std::move(ops::clip(lyrics, start, end)),
         std::move(ops::clip(markers, start, end))
     };
