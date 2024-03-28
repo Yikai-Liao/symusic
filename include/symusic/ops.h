@@ -98,6 +98,29 @@ vec<T> clip(const vec<T>& events, typename T::unit start, typename T::unit end, 
     }   return clip(events, start, end);
 }
 
+template<TimeEvent T>
+vec<T> clip_with_sentinel(const vec<T>& events, typename T::unit start, typename T::unit end) {
+    if(events.empty()) return {};
+
+    T sentinel;
+    sentinel.time = std::numeric_limits<typename T::unit>::min();
+    vec<T> ans; ans.reserve(events.size());
+    for(const auto & event: events) {
+        if(event.time <= start) {
+            if (sentinel.time < event.time) {
+                sentinel = event;   // store the last event before start
+            }
+        } else if (event.time < end) {
+            ans.push_back(event);
+        }
+    }
+
+    if(sentinel.time != std::numeric_limits<typename T::unit>::min()) {
+        sentinel.time = start;
+        ans.insert(ans.begin(), sentinel);
+    }   return ans;
+}
+
 // make sure T has time and duration fields using requires
 template<TimeEvent T>
 requires requires(T t) {{ t.duration } -> std::convertible_to<typename T::unit>;}
