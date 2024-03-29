@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <memory>
 
 namespace symusic {
 // Simple Type Definitions Begin
@@ -23,8 +24,11 @@ typedef float       f32;
 typedef double      f64;
 using size_t = std::size_t;
 
-template<typename T>
-using vec = std::vector<T>;
+template <class _Ty, class _Alloc = std::allocator<_Ty>>
+using vec = std::vector<_Ty, _Alloc>;
+
+template <class _Ty>
+using shared = std::shared_ptr<_Ty>;
 
 }
 

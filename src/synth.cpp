@@ -35,9 +35,9 @@ namespace details {
             return banks;
         }
         // filter bank select events
-        for(const auto & control : track.controls) {
-            if(control.number == 0) {
-                banks.emplace_back(control.time, control.value);
+        for(const shared<ControlChange<Second>> & control : track->controls) {
+            if(control->number == 0) {
+                banks.emplace_back(control->time, control->value);
             }
         }
         // if no bank select event, add default bank 0
@@ -55,15 +55,18 @@ namespace details {
         return banks;
     }
 
-    vec<psynth::Note> toPNotes(const vec<Note<Second>> & notes) {
-        // we will directly reinterpret symusic::Note<Second> to psynth::Note
-        // since they have the same memory layout
-        // float start, duration; uint8_t pitch, velocity;
+    vec<psynth::Note> toPNotes(const vec<shared<Note<Second>>> & notes) {
         static_assert(std::is_same_v<Second::unit, decltype(psynth::Note::start)>);
-        auto pnotes = vec<psynth::Note> {
-            reinterpret_cast<const psynth::Note*>(notes.data()),
-            reinterpret_cast<const psynth::Note*>(notes.data() + notes.size())
-        };
+        vec<psynth::Note> pnotes;
+        pnotes.resize(notes.size());
+        for(size_t i = 0; i < notes.size(); ++i) {
+            const Note<Second> & note = *notes[i];
+            psynth::Note & pnote = pnotes[i];
+            pnote.start = note.time;
+            pnote.duration = note.duration;
+            pnote.pitch = note.pitch;
+            pnote.velocity = note.velocity;
+        }
         ops::sort(pnotes, [](const psynth::Note & a, const psynth::Note & b) {
             return a.start < b.start;
         });
@@ -94,10 +97,10 @@ namespace details {
     psynth::Sequence toSequence(const Score<Second> & score) {
         psynth::Sequence sequence;
         TrackMapper track_mapper{};
-        for(const auto & score_track: score.tracks) {
-            auto banks = getBanks(score_track);
-            auto pnotes = toPNotes(score_track.notes);
-            divideNotes(pnotes, banks, track_mapper, score_track.program);
+        for(const shared<Track<Second>> & score_track: *(score.tracks)) {
+            auto banks = getBanks(*score_track);
+            auto pnotes = toPNotes(*score_track->notes);
+            divideNotes(pnotes, banks, track_mapper, score_track->program);
         }
         for(auto & [idx, track]: track_mapper) {
             if(track.notes.empty()) continue;

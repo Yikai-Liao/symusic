@@ -2,7 +2,7 @@
 // Created by lyk on 2023/12/26.
 //
 #include <stdexcept>
-
+#include "MetaMacro.h"
 #include "symusic/event.h"
 namespace symusic {
 

@@ -17,13 +17,20 @@ struct Score {
     typedef typename T::unit unit;
 
     i32 ticks_per_quarter{};
-    vec<Track<T>> tracks{};
-    vec<TimeSignature<T>> time_signatures{};
-    vec<KeySignature<T>> key_signatures{};
-    vec<Tempo<T>> tempos{};
-    vec<TextMeta<T>> lyrics, markers{};
+    shared<vec<shared<Track<T>>>> tracks{};
+    shared<vec<shared<TimeSignature<T>>>> time_signatures{};
+    shared<vec<shared<KeySignature<T>>>> key_signatures{};
+    shared<vec<shared<Tempo<T>>>> tempos{};
+    shared<vec<shared<TextMeta<T>>>> lyrics, markers{};
 
-    Score() = default;
+    Score(): ticks_per_quarter{0} {
+        tracks = std::make_shared<vec<Track<T>>>();
+        time_signatures = std::make_shared<vec<shared<TimeSignature<T>>>>();
+        key_signatures = std::make_shared<vec<shared<KeySignature<T>>>>();
+        tempos = std::make_shared<vec<shared<Tempo<T>>>>();
+        lyrics = std::make_shared<vec<shared<TextMeta<T>>>>();
+        markers = std::make_shared<vec<shared<TextMeta<T>>>>();
+    }
 
     Score(const Score&) = default;
 
@@ -38,14 +45,6 @@ struct Score {
         markers = std::move(other.markers);
     }
 
-    Score& operator=(const Score&) = default;
-    bool operator==(const Score & other) const = default;
-    bool operator!=(const Score & other) const = default;
-
-    [[nodiscard]] Score copy() const { return {*this}; }
-
-    explicit Score(const i32 tpq): ticks_per_quarter{tpq} {}
-
     Score(
         const i32 tpq, const vec<Track<T>> & tracks,
         const vec<TimeSignature<T>> & time_signatures,
@@ -53,8 +52,33 @@ struct Score {
         const vec<Tempo<T>> & tempos,
         const vec<TextMeta<T>> & lyrics,
         const vec<TextMeta<T>> & markers
-    ):  ticks_per_quarter{tpq}, tracks{tracks}, time_signatures{time_signatures},
-        key_signatures{key_signatures}, tempos{tempos}, lyrics{lyrics}, markers{markers} {}
+    ):  ticks_per_quarter{tpq} {
+        this->tracks = std::make_shared<vec<Track<T>>>();
+        this->tracks->reserve(tracks.size());
+        for (const Track<T> & track: tracks) {
+            this->tracks->push_back(std::move(track.deepcopy()));
+        }
+        this->time_signatures = std::make_shared<vec<shared<TimeSignature<T>>>>(time_signatures);
+        this->key_signatures = std::make_shared<vec<shared<KeySignature<T>>>>(key_signatures);
+        this->tempos = std::make_shared<vec<shared<Tempo<T>>>>(tempos);
+        this->lyrics = std::make_shared<vec<shared<TextMeta<T>>>>(lyrics);
+        this->markers = std::make_shared<vec<shared<TextMeta<T>>>>(markers);
+    }
+
+    Score& operator=(const Score&) = default;
+    bool operator==(const Score & other) const = default;
+    bool operator!=(const Score & other) const = default;
+
+    [[nodiscard]] Score copy() const { return {*this}; }
+    [[nodiscard]] Score deepcopy() const {
+        return {
+            ticks_per_quarter, *tracks,
+            *time_signatures, *key_signatures,
+            *tempos, *lyrics, *markers
+        };
+    }
+
+    explicit Score(const i32 tpq): ticks_per_quarter{tpq} {}
 
     template<DataFormat F>
     [[nodiscard]] static Score parse(std::span<const u8> bytes);
@@ -87,43 +111,31 @@ struct Score {
     [[nodiscard]] Score sort(bool reverse = false) const;
 
     // inplace sort, and return self reference
-    Score& sort_inplace(bool reverse = false);
+    void sort_inplace(bool reverse = false);
 
     // Clip all the events in the score, non-inplace, return a new Score
     // For events with duration, clip_end is used to determine whether to clip based on end time.
     [[nodiscard]] Score clip(unit start, unit end, bool clip_end = false) const;
+    void clip_inplace(unit start, unit end, bool clip_end = false);
 
     // shift the time of all the events in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_time(unit offset) const;
 
     // shift the time of all the events in the score, inplace, return self reference
-    Score& shift_time_inplace(unit offset);
+    void shift_time_inplace(unit offset);
 
     // shift the pitch of all notes in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_pitch(i8 offset) const;
 
     // shift the pitch of all notes in the score, inplace, return self reference
-    Score& shift_pitch_inplace(i8 offset);
+    void shift_pitch_inplace(i8 offset);
 
     // shift the velocity of all notes in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_velocity(i8 offset) const;
 
     // shift the velocity of all notes in the score, inplace, return self reference
-    Score& shift_velocity_inplace(i8 offset);
+    void shift_velocity_inplace(i8 offset);
 };
-
-// "Not Implemented" Error at compile time for parse and dumps
-
-// template<TType T> template<DataFormat>
-// Score<T> Score<T>::parse(std::span<const u8>) {
-//     static_assert(true, "Not implemented"); return {};
-// }
-//
-// template<TType T> template<DataFormat>
-// vec<u8> Score<T>::dumps() const {
-//     static_assert(true, "Not implemented"); return {};
-// }
-
 } // namespace symusic
 
 #endif //LIBSYMUSIC_TRACK_HSCORE_H

@@ -52,12 +52,25 @@ struct NoteArr {
         for (const auto &note: data) emplace_back(note);
     }
 
+    explicit NoteArr(std::span<const shared<Note<T>>> data) {
+        reserve(data.size());
+        for (const auto &note: data) emplace_back(*note);
+    }
+
     vec<Note<T>> to_vec() const {
         vec<Note<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], duration[i], pitch[i], velocity[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<Note<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<Note<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<Note<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &note: *capsule) ans->push_back(std::make_shared<Note<T>>(capsule, &note));
         return ans;
     }
 
@@ -91,12 +104,25 @@ struct PedalArr {
         for (const auto &pedal: data) emplace_back(pedal);
     }
 
+    explicit PedalArr(std::span<const shared<Pedal<T>>> data) {
+        reserve(data.size());
+        for (const auto &pedal: data) emplace_back(*pedal);
+    }
+
     vec<Pedal<T>> to_vec() const {
         vec<Pedal<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], duration[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<Pedal<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<shared<Pedal<T>>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<Pedal<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &pedal: *capsule) ans->push_back(std::make_shared<Pedal<T>>(capsule, &pedal));
         return ans;
     }
 
@@ -132,12 +158,25 @@ struct ControlChangeArr {
         for (const auto &control_change: data) emplace_back(control_change);
     }
 
+    explicit ControlChangeArr(std::span<const shared<ControlChange<T>>> data) {
+        reserve(data.size());
+        for (const auto &control_change: data) emplace_back(*control_change);
+    }
+
     vec<ControlChange<T>> to_vec() const {
         vec<ControlChange<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], number[i], value[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<ControlChange<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<ControlChange<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<ControlChange<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &control_change: *capsule) ans->push_back(std::make_shared<ControlChange<T>>(capsule, &control_change));
         return ans;
     }
 
@@ -173,12 +212,25 @@ struct TimeSignatureArr {
         for (const auto &time_signature: data) emplace_back(time_signature);
     }
 
+    explicit TimeSignatureArr(std::span<const shared<TimeSignature<T>>> data) {
+        reserve(data.size());
+        for (const auto &time_signature: data) emplace_back(*time_signature);
+    }
+
     vec<TimeSignature<T>> to_vec() const {
         vec<TimeSignature<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], numerator[i], denominator[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<TimeSignature<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<TimeSignature<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<TimeSignature<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &time_signature: *capsule) ans->push_back(std::make_shared<TimeSignature<T>>(capsule, &time_signature));
         return ans;
     }
 
@@ -215,12 +267,25 @@ struct KeySignatureArr {
         for (const auto &key_signature: data) emplace_back(key_signature);
     }
 
+    explicit KeySignatureArr(std::span<const shared<KeySignature<T>>> data) {
+        reserve(data.size());
+        for (const auto &key_signature: data) emplace_back(*key_signature);
+    }
+
     vec<KeySignature<T>> to_vec() const {
         vec<KeySignature<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], key[i], tonality[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<KeySignature<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<KeySignature<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<KeySignature<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &key_signature: *capsule) ans->push_back(std::make_shared<KeySignature<T>>(capsule, &key_signature));
         return ans;
     }
 
@@ -255,12 +320,25 @@ struct TempoArr {
         for (const auto &tempo: data) emplace_back(tempo);
     }
 
+    explicit TempoArr(std::span<const shared<Tempo<T>>> data) {
+        reserve(data.size());
+        for (const auto &tempo: data) emplace_back(*tempo);
+    }
+
     vec<Tempo<T>> to_vec() const {
         vec<Tempo<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], mspq[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<Tempo<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<Tempo<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<Tempo<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &tempo: *capsule) ans->push_back(std::make_shared<Tempo<T>>(capsule, &tempo));
         return ans;
     }
 
@@ -295,12 +373,25 @@ struct PitchBendArr {
         for (const auto &pitch_bend: data) emplace_back(pitch_bend);
     }
 
+    explicit PitchBendArr(std::span<const shared<PitchBend<T>>> data) {
+        reserve(data.size());
+        for (const auto &pitch_bend: data) emplace_back(*pitch_bend);
+    }
+
     vec<PitchBend<T>> to_vec() const {
         vec<PitchBend<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], value[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<PitchBend<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<PitchBend<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<PitchBend<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &pitch_bend: *capsule) ans->push_back(std::make_shared<PitchBend<T>>(capsule, &pitch_bend));
         return ans;
     }
 
@@ -335,12 +426,25 @@ struct TextMetaArr {
         for (const auto &text_meta: data) emplace_back(text_meta);
     }
 
+    explicit TextMetaArr(std::span<const shared<TextMeta<T>>> data) {
+        reserve(data.size());
+        for (const auto &text_meta: data) emplace_back(*text_meta);
+    }
+
     vec<TextMeta<T>> to_vec() const {
         vec<TextMeta<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], text[i]);
         }
+        return ans;
+    }
+
+    shared<vec<shared<TextMeta<T>>>> to_shared_vec() const {
+        auto capsule = std::make_shared<vec<TextMeta<T>>>(std::move(to_vec()));
+        auto ans = std::make_shared<vec<shared<TextMeta<T>>>>();
+        ans->reserve(capsule->size());
+        for(auto &text_meta: *capsule) ans->push_back(std::make_shared<TextMeta<T>>(capsule, &text_meta));
         return ans;
     }
 
