@@ -33,12 +33,18 @@ Score<To> convertInner(const Score<From> & score, const Converter & converter, c
 template<typename Converter, TType To, TType From>
 struct SimpleConverter {
     template<template<typename> typename T>
-    [[nodiscard]] vec<T<To>> time_vec(const vec<T<From>> & data) const {
+    [[nodiscard]] vec<shared<T<To>>> time_vec(const vec<shared<T<From>>> & data) const {
         const auto self = static_cast<const Converter*>(this);
-        vec<T<To>> ans;
+
+        shared<vec<T<To>>> capsule = std::make_shared<vec<T<To>>>();
+        capsule->reserve(data.size());
+
+        vec<shared<T<To>>> ans;
         ans.reserve(data.size());
-        for(const auto & d : data) {
-            ans.emplace_back(self->time(d.time), d);
+
+        for(const shared<T<From>> & d : data) {
+            capsule->emplace_back(self->time(d->time), *d);
+            ans.push_back(std::make_shared<T<To>>(capsule, &capsule->back()));
         }   return ans;
     }
 
@@ -46,14 +52,20 @@ struct SimpleConverter {
     [[nodiscard]] vec<T<To>> duration_vec(const vec<T<From>> & data, typename To::unit min_dur) const {
         const auto self = static_cast<const Converter*>(this);
         min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
-        vec<T<To>> ans;
+
+        shared<vec<T<To>>> capsule = std::make_shared<vec<T<To>>>();
+        capsule->reserve(data.size());
+
+        vec<shared<T<To>>> ans;
         ans.reserve(data.size());
-        for(const auto & d : data) {
-            ans.emplace_back(
-                self -> time(d.time),
-                std::max(min_dur, self->time(d.duration)),
-                d
+
+        for(const shared<T<From>> & d : data) {
+            capsule->emplace_back(
+                self->time(d->time),
+                std::max(min_dur, self->time(d->duration)),
+                *d
             );
+            ans.push_back(std::make_shared<T<To>>(capsule, &capsule->back()));
         }   return ans;
     }
 };
@@ -63,7 +75,7 @@ struct Tick2Tick: SimpleConverter<Tick2Tick, Tick, Tick> {
     typedef Tick To;
 
     explicit Tick2Tick(const Score<From> & score) {}
-    [[nodiscard]] To::unit time(const From::unit t) const { return t; }
+    static [[nodiscard]] To::unit time(const From::unit t) { return t; }
 };
 
 struct Quarter2Quarter: SimpleConverter<Quarter2Quarter, Quarter, Quarter> {
@@ -71,7 +83,7 @@ struct Quarter2Quarter: SimpleConverter<Quarter2Quarter, Quarter, Quarter> {
     typedef Quarter To;
 
     explicit Quarter2Quarter(const Score<From> & score) {}
-    [[nodiscard]] To::unit time(const From::unit t) const { return t; }
+    static [[nodiscard]] To::unit time(const From::unit t) { return t; }
 };
 
 struct Second2Second: SimpleConverter<Second2Second, Second, Second> {
@@ -79,7 +91,7 @@ struct Second2Second: SimpleConverter<Second2Second, Second, Second> {
     typedef Second To;
 
     explicit Second2Second(const Score<From> & score) {}
-    [[nodiscard]] To::unit time(const From::unit t) const { return t; }
+    static [[nodiscard]] To::unit time(const From::unit t) { return t; }
 };
 
 struct Tick2Quarter: SimpleConverter<Tick2Quarter, Quarter, Tick> {
@@ -109,12 +121,14 @@ struct SecondConverter {
 
     explicit SecondConverter(const Score<From> & score): tpq(static_cast<f64>(score.ticks_per_quarter)){
         vec<Tempo<From>> tempos;
-        if(score.tempos.empty()) {
+        if(score.tempos->empty()) {
             // 120 qpm
             tempos = {{0, 500000}, {std::numeric_limits<typename From::unit>::max(), 500000}};
         } else {
             tempos.reserve(score.tempos.size() + 2);
-            std::copy(score.tempos.begin(), score.tempos.end(), std::back_inserter(tempos));
+            for(const shared<Tempo<From>> & tempo: *(score.tempos)) {
+                tempos.emplace_back(*tempo);
+            }
             ops::sort_by_time(tempos);
             if(tempos.empty() || tempos[0].time != static_cast<typename From::unit>(0)) {
                 tempos.insert(tempos.begin(), Tempo<From>(0, 500000));
@@ -146,22 +160,29 @@ struct SecondConverter {
             factors.emplace_back(cur_factor);
         }
     }
+
     template<template<class> class T>
-    [[nodiscard]] vec<T<To>> time_vec(const vec<T<From>> & data) const {
+    [[nodiscard]] vec<shared<T<To>>> time_vec(const vec<shared<T<From>>> & data) const {
         const auto self = static_cast<const Converter*>(this);
-        vec<T<To>> ans; ans.reserve(data.size());
+        shared<vec<T<To>>> capsule = std::make_shared<vec<T<To>>>();
+        capsule->reserve(data.size());
+
+        vec<shared<T<To>>> ans;
+        ans.reserve(data.size());
+
         auto cur_range = std::make_pair(from_times[0], from_times[1]);
         auto pivot_to = to_times[0];
         auto cur_factor = factors[0];
 
-        for (const auto &event : data) {
-            if(event.time < cur_range.first | event.time >= cur_range.second) {
-                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.time) - from_times.begin() - 1;
+        for (const shared<T<From>> &event : data) {
+            if((event->time) < cur_range.first | (event->time) >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), event->time) - from_times.begin() - 1;
                 cur_range = std::make_pair(from_times[i], from_times[i+1]);
                 pivot_to = to_times[i];
                 cur_factor = factors[i];
             }
-            ans.emplace_back(self->get_time(event.time, pivot_to, cur_range.first, cur_factor), event);
+            capsule->emplace_back(self->get_time(event->time, pivot_to, cur_range.first, cur_factor), *event);
+            ans.push_back(std::make_shared<T<To>>(capsule, &capsule->back()));
         }
         return ans;
     }
@@ -170,25 +191,31 @@ struct SecondConverter {
      [[nodiscard]] vec<T<To>> duration_vec(const vec<T<From>> & data, typename To::unit min_dur) const {
         const auto self = static_cast<const Converter*>(this);
         min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
-        vec<T<To>> ans; ans.reserve(data.size());
+
+        shared<vec<T<To>>> capsule = std::make_shared<vec<T<To>>>();
+        capsule->reserve(data.size());
+
+        vec<shared<T<To>>> ans;
+        ans.reserve(data.size());
+
         auto cur_range = std::make_pair(from_times[0], from_times[1]);
         auto pivot_to = to_times[0];
         auto cur_factor = factors[0];
-        for (const auto &event : data) {
-            if(event.time < cur_range.first | event.time >= cur_range.second) {
-                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.time) - from_times.begin() - 1;
+        for (const shared<T<From>> &event : data) {
+            if((event->time) < cur_range.first | (event->time) >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), event->time) - from_times.begin() - 1;
                 cur_range = std::make_pair(from_times[i], from_times[i+1]);
                 pivot_to = to_times[i];
                 cur_factor = factors[i];
             }
-            auto start = self->get_time(event.time, pivot_to, cur_range.first, cur_factor);
-            if(event.end() < cur_range.first | event.end() >= cur_range.second) {
-                auto i = std::upper_bound(from_times.begin(), from_times.end(), event.end()) - from_times.begin() - 1;
+            auto start = self->get_time(event->time, pivot_to, cur_range.first, cur_factor);
+            if(auto end = event->end(); end < cur_range.first | end >= cur_range.second) {
+                auto i = std::upper_bound(from_times.begin(), from_times.end(), end) - from_times.begin() - 1;
                 cur_range = std::make_pair(from_times[i], from_times[i+1]);
                 pivot_to = to_times[i];
                 cur_factor = factors[i];
             }
-            auto end = self->get_time(event.end(), pivot_to, cur_range.first, cur_factor);
+            auto end = self->get_time(event->end(), pivot_to, cur_range.first, cur_factor);
             auto duration = std::max(min_dur, end - start);
             ans.emplace_back(start, duration, event);
         }
@@ -284,48 +311,63 @@ IMPLEMENT_CONVERT(Quarter,  Second)
 #undef IMPLEMENT_CONVERT
 
 namespace details {
+
+template<class T, class Convert>
+shared<vec<shared<T>>> resample_time(const vec<shared<T>> & data, Convert convert) {
+    auto capsule = std::make_shared<vec<T>>();
+    capsule->reserve(data.size());
+    vec<shared<T>> ans;
+    ans.reserve(data.size());
+    for(const auto &item: data) {
+        capsule->emplace_back(convert(item->time), *item);
+        ans.push_back(std::make_shared<T>(capsule, &capsule->back()));
+    }   return std::make_shared<vec<shared<T>>>(std::move(ans));
+}
+
+template<class T, class Convert>
+shared<vec<shared<T>>> resample_dur(const vec<shared<T>> & data, Convert convert, const typename T::unit min_dur) {
+    auto capsule = std::make_shared<vec<T>>();
+    capsule->reserve(data.size());
+    vec<shared<T>> ans;
+    ans.reserve(data.size());
+    for(const auto &item: data) {
+        capsule->emplace_back(
+            convert(item->time),
+            std::max(convert(item->duration), min_dur),
+            *item
+        );
+        ans.push_back(std::make_shared<T>(capsule, &capsule->back()));
+    }   return std::make_shared<vec<shared<T>>>(std::move(ans));
+}
+
 Score<Tick> resample_inner(const Score<Tick> & score, const i32 tpq, const i32 min_dur) {
     Score<Tick> ans(tpq);
+    const auto from_tpq = static_cast<double>(score.ticks_per_quarter);
+    auto convert = [tpq, from_tpq](const Tick::unit t) -> Tick::unit {
+        return static_cast<Tick::unit>(std::round(static_cast<double>(tpq * t) / from_tpq));
+    };
 
-#define CONVERT_TIME(VALUE) \
-    static_cast<i32>(std::round(static_cast<double>(tpq * (VALUE)) / static_cast<double>(score.ticks_per_quarter)))
+    // REPEAT_ON(RESAMPLE_GENERAL, time_signatures, key_signatures, tempos, lyrics, markers)
+    ans.time_signatures = details::resample_time(*score.time_signatures, convert);
+    ans.key_signatures = details::resample_time(*score.key_signatures, convert);
+    ans.tempos = details::resample_time(*score.tempos, convert);
+    ans.lyrics = details::resample_time(*score.lyrics, convert);
+    ans.markers = details::resample_time(*score.markers, convert);
 
-#define RESAMPLE_GENERAL(__COUNT, VEC)                      \
-    ans.VEC.reserve(score.VEC.size());                      \
-    for(const auto &item: score.VEC)                        \
-    ans.VEC.emplace_back(CONVERT_TIME(item.time), item);
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-
-#define RESAMPLE_DUR(__COUNT, VEC)                          \
-    ans.VEC.reserve(score.VEC.size());                      \
-    for(const auto &item: score.VEC)                        \
-        ans.VEC.emplace_back(                               \
-            CONVERT_TIME(item.time),                        \
-            MAX(                                            \
-                CONVERT_TIME(item.duration), min_dur        \
-            ), item                                         \
-       );
-
-    REPEAT_ON(RESAMPLE_GENERAL, time_signatures, key_signatures, tempos, lyrics, markers)
-    const size_t track_num = score.tracks.size();
-    ans.tracks = vec<Track<Tick>>(track_num);
-    for(size_t i = 0; i < track_num; ++i) {
-        const auto &track = score.tracks[i];
-        auto &new_track = ans.tracks[i];
-        new_track.name = track.name;
-        new_track.program = track.program;
-        new_track.is_drum = track.is_drum;
-        REPEAT_ON(RESAMPLE_DUR, tracks[i].notes, tracks[i].pedals)
-        REPEAT_ON(RESAMPLE_GENERAL, tracks[i].controls, tracks[i].pitch_bends)
+    const size_t track_num = score.tracks->size();
+    ans.tracks = std::make_shared<vec<shared<Track<Tick>>>>();
+    ans.tracks->reserve(track_num);
+    for(const auto & old_track: *score.tracks) {
+        auto new_track = std::make_shared<Track<Tick>>(old_track->name, old_track->program, old_track->is_drum);
+        new_track->notes = details::resample_dur(*old_track->notes, convert, min_dur);
+        new_track->pedals = details::resample_dur(*old_track->pedals, convert, min_dur);
+        new_track->pitch_bends = details::resample_time(*old_track->pitch_bends, convert);
+        new_track->controls = details::resample_time(*old_track->controls, convert);
+        ans.tracks->push_back(std::move(new_track));
     }
-
-#undef CONVERT_TIME
-#undef RESAMPLE_GENERAL
-#undef RESAMPLE_DUR
-#undef MAX
     return ans;
 }
+
 } // namespace details
 
 template<>

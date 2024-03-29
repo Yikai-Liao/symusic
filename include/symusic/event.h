@@ -7,8 +7,6 @@
 #include <span>
 #include <cmath>
 
-#include "MetaMacro.h"
-
 #include "symusic/mtype.h"
 #include "symusic/io/iodef.h"
 #include "symusic/time_unit.h"
@@ -20,13 +18,22 @@ namespace symusic {
     T() = default;                                              \
     T(const T&) = default;                                      \
     T copy() const { return {*this}; }                          \
+    T deepcopy() const { return {*this}; }                      \
     T& operator=(const T&) = default;                           \
     bool operator==(const T& other) const = default;            \
     bool operator!=(const T& other) const = default;
 
+// * -> operator for EVENT
+#define POINTER_METHODS(EVENT)                                \
+    [[nodiscard]] const EVENT* operator->() const { return this; }  \
+    [[nodiscard]] EVENT* operator->() { return this; }              \
+    [[nodiscard]] const EVENT& operator*() const { return *this; }  \
+    [[nodiscard]] EVENT& operator*() { return *this; }
+
 // Define Basic Declarations for TimeStamp
 #define BASIC_TIMESTAMP_METHODS(EVENT, T)                       \
     COMPILER_DEFAULT_METHODS(EVENT)                             \
+    POINTER_METHODS(EVENT)                                      \
     typedef T ttype;                                            \
     typedef typename T::unit unit;                              \
     [[nodiscard]] std::string to_string() const;                \
@@ -36,7 +43,6 @@ namespace symusic {
     [[nodiscard]] vec<u8> dumps() const;                        \
     EVENT shift_time(unit offset) const;                        \
     EVENT& shift_time_inplace(unit offset);
-
 
 /*
  *  List of all the events (based on TimeStamp):
@@ -220,13 +226,6 @@ struct TextMeta: TimeStamp<T> {
     vec<u8> EVENT<T>::dumps() const {                       \
         static_assert(true, "Not Implemented"); return {};  \
     }
-
-// "Not Implemented" Error at compile time for parse and dumps
-// include the header files corresponding to the specializations to avoid these errors
-// REPEAT_ON(
-//     ERROR_PARSE_DUMPS,
-//     Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
-// )
 
 #undef ERROR_PARSE_DUMPS
 

@@ -11,6 +11,7 @@
 
 #include "fmt/core.h"
 #include "fmt/ranges.h"
+#include "MetaMacro.h"
 
 #include "symusic/event.h"
 #include "symusic/track.h"
@@ -171,6 +172,20 @@ FORMATTER(
 #undef INNER_FORMATTER
 #undef HELPER
 
+template<typename T>
+struct formatter<std::shared_ptr<T>> {
+    constexpr auto parse(format_parse_context &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtCtx>
+    auto format(const std::shared_ptr<T> &data, FmtCtx &ctx) {
+        if (data) {
+            return fmt::format_to(ctx.out(), "{}", *data);
+        }   throw std::runtime_error("symusic: trying to format a nullptr");
+    }
+};
+
 // #undef SUMMARY_FORMAT
 }
 
@@ -194,27 +209,6 @@ REPEAT_ON(
     Score
 )
 #undef OSTREAMEABLE
-
-// #define OSTREAMEABLE(__COUNT, STRUCT_NAME)                                              \
-//     template<symusic::TType T>                                                          \
-//     std::ostream &operator<<(                                                           \
-//         std::ostream &os, const std::vector<symusic::STRUCT_NAME<T>> &data              \
-//     ) { return os << fmt::format("{}", data); }
-//
-//
-// REPEAT_ON(
-//     OSTREAMEABLE,
-//     Note,
-//     Pedal,
-//     ControlChange,
-//     TimeSignature,
-//     KeySignature,
-//     Tempo,
-//     PitchBend,
-//     TextMeta,
-//     Track
-// )
-// #undef OSTREAMEABLE
 
 // define a base formatter with parse that
 #endif //LIBSYMUSIC_REPR_H

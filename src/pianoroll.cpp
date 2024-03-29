@@ -99,11 +99,11 @@ ScorePianoroll ScorePianoroll::from_score(
     const std::vector<PianorollMode>& modes,
     const std::pair<uint8_t, uint8_t> pitchRange,
     const bool encodeVelocity) {
+    const auto & tracks = *score.tracks;
+    ScorePianoroll pianoroll(modes.size(), tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1);
 
-    ScorePianoroll pianoroll(modes.size(), score.tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1);
-
-    for(int trackIdx = 0; trackIdx < score.tracks.size(); ++trackIdx) {
-        const auto &track = score.tracks[trackIdx];
+    for(int trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
+        const Track<Tick> &track = *tracks[trackIdx];
         for(const auto &note : track.notes) {
             for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
                 pianoroll.set(modeIdx,
