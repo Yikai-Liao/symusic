@@ -10,6 +10,11 @@ option(BUILD_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
 
+# static link to libc
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
+
 # set /utf-8 for MSVC
 if(MSVC)
     add_compile_options(-bigobj)
