@@ -23,7 +23,7 @@ vec<shared<T>> deepcopy(const vec<shared<T>> & data) {
 
     for(const auto & event: data) {
         capsule->push_back(*event);
-        ans.push_back(std::make_shared<T>(capsule, &capsule.back()));
+        ans.emplace_back(capsule, &capsule->back());
     }   return ans;
 }
 
@@ -91,7 +91,7 @@ vec<shared<T>> filter(const vec<shared<T>>& data, Filter t_fiter) {
     auto capsule = std::make_shared<vec<T>>(std::move(new_data));
     vec<shared<T>> ans; ans.reserve(capsule->size());
     for(auto & event: *capsule) {
-        ans.push_back(std::make_shared<T>(capsule, &event));
+        ans.emplace_back(capsule, &event);
     }   return ans;
 }
 
