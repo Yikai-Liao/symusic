@@ -60,7 +60,7 @@ AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
 
 # 总是在定义返回类型后换行(deprecated)
-AlwaysBreakAfterDefinitionReturnType: None
+#AlwaysBreakAfterDefinitionReturnType: None
 
   # 总是在返回类型后换行: None, All, TopLevel(顶级函数，不包括在类中的函数),
 #   AllDefinitions(所有的定义，不包括声明), TopLevelDefinitions(所有的顶级函数的定义)
@@ -78,7 +78,7 @@ AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 
 # false表示所有形参要么都在同一行，要么都各自一行
-BinPackParameters: true
+BinPackParameters: false
 
 # 大括号换行，只有当 BreakBeforeBraces 设置为Custom时才有效
 BraceWrapping:
@@ -223,7 +223,7 @@ PenaltyExcessCharacter: 1000000
 # PenaltyIndentedWhitespace: 0
 
 # 将函数的返回类型放到它自己的行的penalty
-PenaltyReturnTypeOnItsOwnLine: 120
+PenaltyReturnTypeOnItsOwnLine: 200
 
 # 指针和引用的对齐: Left, Right, Middle
 PointerAlignment: Left

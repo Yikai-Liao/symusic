@@ -7,7 +7,6 @@
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-// #include "symusic/note_arr.h"
 #include "symusic/repr.h"
 
 namespace symusic {
