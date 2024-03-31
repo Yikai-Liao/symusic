@@ -23,8 +23,8 @@ template<DataFormat F, typename T>
 [[nodiscard]] T parse(std::span<const u8> bytes);
 
 template<DataFormat F, typename T>
-[[nodiscard]] vec<u8> dumps(const T &data);
+[[nodiscard]] vec<u8> dumps(const T& data);
 
-}
+}   // namespace symusic
 
-#endif //LIBSYMUSIC_IO_IODEF_H
+#endif   // LIBSYMUSIC_IO_IODEF_H

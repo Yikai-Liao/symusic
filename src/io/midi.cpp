@@ -20,70 +20,6 @@
 namespace symusic {
 
 namespace details {
-
-template<TType T>
-struct TrackNative {
-    std::string name;
-    u8 program{};
-    bool is_drum{};
-    vec<Note<T>> notes;
-    vec<ControlChange<T>> controls;
-    vec<PitchBend<T>> pitch_bends;
-    vec<Pedal<T>> pedals;
-    TrackNative() = default;
-    TrackNative(std::string name, const u8 program, const bool is_drum):
-        name{std::move(name)}, program{program}, is_drum{is_drum} {}
-    [[nodiscard]] bool empty() const {
-        return notes.empty() && controls.empty() && pitch_bends.empty() && pedals.empty();
-    }
-};
-
-template<typename T>
-struct ScoreNative {
-    u16 ticks_per_quarter;
-    vec<TimeSignature<T>> time_signatures;
-    vec<KeySignature<T>> key_signatures;
-    vec<Tempo<T>> tempos;
-    vec<TextMeta<T>> lyrics;
-    vec<TextMeta<T>> markers;
-    vec<TrackNative<T>> tracks;
-    explicit ScoreNative(u16 ticks_per_quarter): ticks_per_quarter(ticks_per_quarter) {}
-    [[nodiscard]] bool empty() const {
-        return time_signatures.empty() && key_signatures.empty() && tempos.empty()
-               && lyrics.empty() && markers.empty() && tracks.empty();
-    }
-};
-
-template<typename T>
-shared<vec<shared<T>>> to_shared_vec(vec<T> &&data) {
-    shared<vec<T>> capsule = std::make_shared<vec<T>>(std::move(data));
-    auto ans = std::make_shared<vec<shared<T>>>();
-    ans->reserve(capsule->size());
-    for(T &item: *capsule) {
-        ans->emplace_back(capsule, &item);
-    }   return ans;
-}
-
-template<TType T>
-[[nodiscard]] Score<T> to_score(ScoreNative<T> && s) {
-    Score<T> ans{s.ticks_per_quarter};
-    ans.time_signatures = to_shared_vec(std::move(s.time_signatures));
-    ans.key_signatures = to_shared_vec(std::move(s.key_signatures));
-    ans.tempos = to_shared_vec(std::move(s.tempos));
-    ans.lyrics = to_shared_vec(std::move(s.lyrics));
-    ans.markers = to_shared_vec(std::move(s.markers));
-    ans.tracks = std::make_shared<vec<shared<Track<T>>>>();
-    ans.tracks->reserve(s.tracks.size());
-    for(TrackNative<T> &track: s.tracks) {
-        auto shared_track = std::make_shared<Track<T>>(track.name, track.program, track.is_drum);
-        shared_track->notes = to_shared_vec(std::move(track.notes));
-        shared_track->controls = to_shared_vec(std::move(track.controls));
-        shared_track->pitch_bends = to_shared_vec(std::move(track.pitch_bends));
-        shared_track->pedals = to_shared_vec(std::move(track.pedals));
-        ans.tracks->push_back(std::move(shared_track));
-    }   return ans;
-}
-
 // define some utils
 template<typename T>
 struct NoteOn: TimeStamp<T> {
@@ -378,7 +314,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
     ops::sort_by_time(score.tempos);
     ops::sort_by_time(score.lyrics);
     ops::sort_by_time(score.markers);
-    return to_score(std::move(score));
+    return to_shared(std::move(score));
 }
 
 minimidi::file::MidiFile to_midi(const Score<Tick> & score) {

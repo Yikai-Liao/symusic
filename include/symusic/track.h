@@ -15,89 +15,88 @@
 namespace symusic {
 template<TType T>
 struct Track {
-    typedef T ttype;
+    typedef T                ttype;
     typedef typename T::unit unit;
 
-    std::string name;
-    u8 program = 0;
-    bool is_drum = false;
-    shared<vec<shared<Note<T>>>>            notes;
-    shared<vec<shared<ControlChange<T>>>>   controls;
-    shared<vec<shared<PitchBend<T>>>>       pitch_bends;
-    shared<vec<shared<Pedal<T>>>>           pedals;
+    std::string                           name;
+    u8                                    program = 0;
+    bool                                  is_drum = false;
+    shared<vec<shared<Note<T>>>>          notes;
+    shared<vec<shared<ControlChange<T>>>> controls;
+    shared<vec<shared<PitchBend<T>>>>     pitch_bends;
+    shared<vec<shared<Pedal<T>>>>         pedals;
 
     POINTER_METHODS(Track)
 
-    Track(): name{""}, program{0}, is_drum{false} {
-        notes = std::make_shared<vec<shared<Note<T>>>>();
-        controls = std::make_shared<vec<shared<ControlChange<T>>>>();
+    Track() : name{""}, program{0}, is_drum{false} {
+        notes       = std::make_shared<vec<shared<Note<T>>>>();
+        controls    = std::make_shared<vec<shared<ControlChange<T>>>>();
         pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>();
-        pedals = std::make_shared<vec<shared<Pedal<T>>>>();
+        pedals      = std::make_shared<vec<shared<Pedal<T>>>>();
     }
 
-    Track(const Track &) = default;
+    Track(const Track&) = default;
 
-    Track(std::string name, const u8 program, const bool is_drum):
+    Track(std::string name, const u8 program, const bool is_drum) :
         name{std::move(name)}, program{program}, is_drum{is_drum} {
-        notes = std::make_shared<vec<shared<Note<T>>>>();
-        controls = std::make_shared<vec<shared<ControlChange<T>>>>();
+        notes       = std::make_shared<vec<shared<Note<T>>>>();
+        controls    = std::make_shared<vec<shared<ControlChange<T>>>>();
         pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>();
-        pedals = std::make_shared<vec<shared<Pedal<T>>>>();
+        pedals      = std::make_shared<vec<shared<Pedal<T>>>>();
     }
 
-    void move_other(Track && other) {
-        name = std::move(other.name);
-        program = other.program;
-        is_drum = other.is_drum;
-        notes = std::move(other.notes);
-        controls = std::move(other.controls);
+    void move_other(Track&& other) {
+        name        = std::move(other.name);
+        program     = other.program;
+        is_drum     = other.is_drum;
+        notes       = std::move(other.notes);
+        controls    = std::move(other.controls);
         pitch_bends = std::move(other.pitch_bends);
-        pedals = std::move(other.pedals);
+        pedals      = std::move(other.pedals);
     }
 
-    Track(Track && other) noexcept { move_other(std::move(other));}
+    Track(Track&& other) noexcept { move_other(std::move(other)); }
 
     Track(
-        std::string name,const u8 program, const bool is_drum,
-        const vec<Note<T>> & notes, const vec<ControlChange<T>> & controls,
-        const vec<PitchBend<T>> & pitch_bends, const vec<Pedal<T>> & pedals
-    ): name{std::move(name)}, program{program}, is_drum{is_drum} {
-        this->notes = std::make_shared<vec<shared<Note<T>>>>(notes);
-        this->controls = std::make_shared<vec<shared<ControlChange<T>>>>(controls);
+        std::string name, const u8 program, const bool is_drum, const vec<Note<T>>& notes,
+        const vec<ControlChange<T>>& controls, const vec<PitchBend<T>>& pitch_bends,
+        const vec<Pedal<T>>& pedals
+    ) : name{std::move(name)}, program{program}, is_drum{is_drum} {
+        this->notes       = std::make_shared<vec<shared<Note<T>>>>(notes);
+        this->controls    = std::make_shared<vec<shared<ControlChange<T>>>>(controls);
         this->pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>(pitch_bends);
-        this->pedals = std::make_shared<vec<shared<Pedal<T>>>>(pedals);
+        this->pedals      = std::make_shared<vec<shared<Pedal<T>>>>(pedals);
     }
 
     Track(
-        std::string name, const u8 program, const bool is_drum,
-        shared<vec<shared<Note<T>>>> notes, shared<vec<shared<ControlChange<T>>> > controls,
+        std::string name, const u8 program, const bool is_drum, shared<vec<shared<Note<T>>>> notes,
+        shared<vec<shared<ControlChange<T>>>> controls,
         shared<vec<shared<PitchBend<T>>>> pitch_bends, shared<vec<shared<Pedal<T>>>> pedals
-    ): name{std::move(name)}, program{program}, is_drum{is_drum},
-       notes{std::move(notes)}, controls{std::move(controls)},
-       pitch_bends{std::move(pitch_bends)}, pedals{std::move(pedals)} {}
+    ) :
+        name{std::move(name)}, program{program}, is_drum{is_drum}, notes{std::move(notes)},
+        controls{std::move(controls)}, pitch_bends{std::move(pitch_bends)},
+        pedals{std::move(pedals)} {}
 
     // shallow copy
     [[nodiscard]] Track copy() const { return {*this}; }
 
     [[nodiscard]] Track deepcopy() const {
-        return {
-            name, program, is_drum,
-            *notes, *controls, *pitch_bends, *pedals
-        };
+        return {name, program, is_drum, *notes, *controls, *pitch_bends, *pedals};
     }
 
-    Track& operator=(const Track &) = default;
-    Track& operator=(Track && other) noexcept {
-        move_other(std::move(other)); return *this;
+    Track& operator=(const Track&) = default;
+    Track& operator=(Track&& other) noexcept {
+        move_other(std::move(other));
+        return *this;
     }
 
-    bool operator==(const Track & other) const {
+    bool operator==(const Track& other) const {
         return name == other.name && program == other.program && is_drum == other.is_drum &&
-            *notes == *other.notes && *controls == *other.controls &&
-            *pitch_bends == *other.pitch_bends && *pedals == *other.pedals;
+               *notes == *other.notes && *controls == *other.controls &&
+               *pitch_bends == *other.pitch_bends && *pedals == *other.pedals;
     };
 
-    bool operator!=(const Track & other) const { return !(*this == other); }
+    bool operator!=(const Track& other) const { return !(*this == other); }
 
     template<DataFormat F>
     [[nodiscard]] static Track parse(std::span<const u8> bytes);
@@ -132,7 +131,7 @@ struct Track {
 
     // Clip all the events in the track, non-inplace, return a new Track
     // For events with duration, clip_end is used to determine whether to clip based on end time.
-    void clip_inplace(unit start, unit end, bool clip_end = false);
+    void                clip_inplace(unit start, unit end, bool clip_end = false);
     [[nodiscard]] Track clip(unit start, unit end, bool clip_end = false) const;
 
     // shift the time of all the events in the track, non-inplace, return a new Track
@@ -154,7 +153,36 @@ struct Track {
     void shift_velocity_inplace(i8 offset);
 };
 
+/*
+ *  TrackNative is a original version of Track, which doesn't use shared_ptr
+ */
 
-}
+template<TType T>
+struct TrackNative {
+    std::string           name;
+    u8                    program{};
+    bool                  is_drum{};
+    vec<Note<T>>          notes;
+    vec<ControlChange<T>> controls;
+    vec<PitchBend<T>>     pitch_bends;
+    vec<Pedal<T>>         pedals;
 
-#endif //LIBSYMUSIC_TRACK_H
+    TrackNative() = default;
+
+    TrackNative(std::string name, const u8 program, const bool is_drum) :
+        name{std::move(name)}, program{program}, is_drum{is_drum} {}
+
+    [[nodiscard]] bool empty() const {
+        return notes.empty() && controls.empty() && pitch_bends.empty() && pedals.empty();
+    }
+
+    template<DataFormat F>
+    [[nodiscard]] static TrackNative parse(std::span<const u8> bytes);
+
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
+};
+
+}   // namespace symusic
+
+#endif   // LIBSYMUSIC_TRACK_H
