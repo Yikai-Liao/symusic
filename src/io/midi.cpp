@@ -16,12 +16,73 @@
 #include "symusic/ops.h"
 #include "symusic/utils.h"
 #include "symusic/conversion.h"
-#include "symusic/io/common.h"
-
 
 namespace symusic {
 
 namespace details {
+
+template<TType T>
+struct TrackNative {
+    std::string name;
+    u8 program{};
+    bool is_drum{};
+    vec<Note<T>> notes;
+    vec<ControlChange<T>> controls;
+    vec<PitchBend<T>> pitch_bends;
+    vec<Pedal<T>> pedals;
+    TrackNative() = default;
+    TrackNative(std::string name, const u8 program, const bool is_drum):
+        name{std::move(name)}, program{program}, is_drum{is_drum} {}
+    [[nodiscard]] bool empty() const {
+        return notes.empty() && controls.empty() && pitch_bends.empty() && pedals.empty();
+    }
+};
+
+template<typename T>
+struct ScoreNative {
+    u16 ticks_per_quarter;
+    vec<TimeSignature<T>> time_signatures;
+    vec<KeySignature<T>> key_signatures;
+    vec<Tempo<T>> tempos;
+    vec<TextMeta<T>> lyrics;
+    vec<TextMeta<T>> markers;
+    vec<TrackNative<T>> tracks;
+    explicit ScoreNative(u16 ticks_per_quarter): ticks_per_quarter(ticks_per_quarter) {}
+    [[nodiscard]] bool empty() const {
+        return time_signatures.empty() && key_signatures.empty() && tempos.empty()
+               && lyrics.empty() && markers.empty() && tracks.empty();
+    }
+};
+
+template<typename T>
+shared<vec<shared<T>>> to_shared_vec(vec<T> &&data) {
+    shared<vec<T>> capsule = std::make_shared<vec<T>>(std::move(data));
+    auto ans = std::make_shared<vec<shared<T>>>();
+    ans->reserve(capsule->size());
+    for(T &item: *capsule) {
+        ans->emplace_back(capsule, &item);
+    }   return ans;
+}
+
+template<TType T>
+[[nodiscard]] Score<T> to_score(ScoreNative<T> && s) {
+    Score<T> ans{s.ticks_per_quarter};
+    ans.time_signatures = to_shared_vec(std::move(s.time_signatures));
+    ans.key_signatures = to_shared_vec(std::move(s.key_signatures));
+    ans.tempos = to_shared_vec(std::move(s.tempos));
+    ans.lyrics = to_shared_vec(std::move(s.lyrics));
+    ans.markers = to_shared_vec(std::move(s.markers));
+    ans.tracks = std::make_shared<vec<shared<Track<T>>>>();
+    ans.tracks->reserve(s.tracks.size());
+    for(TrackNative<T> &track: s.tracks) {
+        auto shared_track = std::make_shared<Track<T>>(track.name, track.program, track.is_drum);
+        shared_track->notes = to_shared_vec(std::move(track.notes));
+        shared_track->controls = to_shared_vec(std::move(track.controls));
+        shared_track->pitch_bends = to_shared_vec(std::move(track.pitch_bends));
+        shared_track->pedals = to_shared_vec(std::move(track.pedals));
+        ans.tracks->push_back(std::move(shared_track));
+    }   return ans;
+}
 
 // define some utils
 template<typename T>
@@ -89,9 +150,9 @@ struct TrackIdx {
 
 
 template <typename T>
-Track<T> &get_track(
-    std::map<TrackIdx, Track<T>> &track_map,
-    Track<T> (& stragglers)[16],
+TrackNative<T> &get_track(
+    std::map<TrackIdx, TrackNative<T>> &track_map,
+    TrackNative<T> (& stragglers)[16],
     const uint8_t channel, const uint8_t program,
     const size_t message_num, const bool create_new) {
     TrackIdx track_idx{channel, program};
@@ -126,17 +187,17 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
     typedef typename T::unit unit;
     // remove this redundant copy in the future
     const u16 tpq = midi.get_tick_per_quarter();
-    Score<T> score(tpq); // create a score with the given ticks per quarter
+    ScoreNative<T> score(tpq); // create a score with the given ticks per quarter
     namespace message = minimidi::message; // alias
     // (channel, pitch) -> (start, velocity)
     NoteOnQueue<Tick> last_note_on[16][128] = {};
 
     for(const auto &midi_track: midi.tracks) {
         // (channel, program) -> Track
-        std::map<TrackIdx, Track<T>> track_map;
+        std::map<TrackIdx, TrackNative<T>> track_map;
         // channel -> Track
-        Track<T> stragglers[16];
-        Track<T>* last_track = nullptr;
+        TrackNative<T> stragglers[16];
+        TrackNative<T>* last_track = nullptr;
         u8 last_channel = 255, last_program = 255;
         // channel -> program
         uint8_t cur_instr[16] = {0};
@@ -174,7 +235,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                         "Get pitch=" + std::to_string(pitch));
                     auto &note_on_queue = last_note_on[channel][pitch];
                     u8 program  = cur_instr[channel];
-                    Track<T>* track;
+                    TrackNative<T>* track;
                     if (last_channel == channel && last_program == program) {
                         track = last_track;
                     } else {
@@ -303,7 +364,6 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                 track.notes.shrink_to_fit();
             if(static_cast<double>(track.controls.size()) * 1.5 < static_cast<double>(track.controls.capacity()))
                 track.controls.shrink_to_fit();
-//            ops::sort_notes(track.notes);
             pdqsort_detail::insertion_sort(track.notes.begin(), track.notes.end(), [](const auto &a, const auto &b) {
                 return std::tie(a.time, a.pitch, a.duration) < std::tie(b.time, b.pitch, b.duration);
             });
@@ -318,7 +378,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
     ops::sort_by_time(score.tempos);
     ops::sort_by_time(score.lyrics);
     ops::sort_by_time(score.markers);
-    return score;
+    return to_score(std::move(score));
 }
 
 minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
@@ -327,46 +387,46 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
         static_cast<u16>(score.ticks_per_quarter)
     };
     namespace message = minimidi::message;
-    midi.tracks.reserve(score.tracks.size() + 1);
+    midi.tracks.reserve(score.tracks->size() + 1);
 
     {   // add meta messages
         message::Messages msgs{};
         msgs.reserve(
-            score.time_signatures.size()
-            + score.key_signatures.size()
-            + score.tempos.size()
-            + score.lyrics.size()
-            + score.markers.size()
+            score.time_signatures->size()
+            + score.key_signatures->size()
+            + score.tempos->size()
+            + score.lyrics->size()
+            + score.markers->size()
             + 10
         );
         // add time signatures
-        for(const auto &time_signature: score.time_signatures) {
+        for(const auto &time_signature: *score.time_signatures) {
             msgs.emplace_back(message::Message::TimeSignature(
-                time_signature.time, time_signature.numerator, time_signature.denominator
+                time_signature->time, time_signature->numerator, time_signature->denominator
             ));
         }
         // add key signatures
-        for(const auto &key_signature: score.key_signatures) {
+        for(const auto &key_signature: *score.key_signatures) {
             msgs.emplace_back(message::Message::KeySignature(
-                key_signature.time, key_signature.key, key_signature.tonality
+                key_signature->time, key_signature->key, key_signature->tonality
             ));
         }
         // add tempos
-        for(const auto &tempo: score.tempos) {
+        for(const auto &tempo: *score.tempos) {
             msgs.emplace_back(message::Message::SetTempo(
-                tempo.time, tempo.mspq
+                tempo->time, tempo->mspq
             ));
         }
         // add lyrics
-        for(const auto &lyric: score.lyrics) {
+        for(const auto &lyric: *score.lyrics) {
             msgs.emplace_back(message::Message::Lyric(
-                lyric.time, lyric.text
+                lyric->time, lyric->text
             ));
         }
         // add markers
-        for(const auto &marker: score.markers) {
+        for(const auto &marker: *score.markers) {
             msgs.emplace_back(message::Message::Marker(
-                marker.time, marker.text
+                marker->time, marker->text
             ));
         }
         // messages will be sorted by time in minimidi
@@ -375,30 +435,34 @@ minimidi::file::MidiFile to_midi(const Score<Tick> & score) {
 
     const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10 ,11, 12, 13, 14, 15};
 
-    for(size_t idx=0; const auto &track: score.tracks) {
+    for(size_t idx=0; const auto &track: *score.tracks) {
         message::Messages msgs{};
-        msgs.reserve(track.note_num() * 2 + track.controls.size() + track.pitch_bends.size() + 10);
-        const u8 channel = track.is_drum ? 9 : valid_channel[idx % 15];
+        msgs.reserve(track->note_num() * 2 + track->controls->size() + track->pitch_bends->size() + 10);
+        const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
         // add track name
-        if(!track.name.empty())
-            msgs.emplace_back(message::Message::TrackName(0, track.name));
+        if(!track->name.empty())
+            msgs.emplace_back(message::Message::TrackName(0, track->name));
         // add program change
-        msgs.emplace_back(message::Message::ProgramChange(0, channel, track.program));
+        msgs.emplace_back(message::Message::ProgramChange(0, channel, track->program));
         // Todo add check for Pedal
         // add control change
-        for(const auto &control: track.controls) {
+        for(const auto &control: *track->controls) {
             msgs.emplace_back(message::Message::ControlChange(
-                control.time, channel, control.number, control.value
+                control->time, channel, control->number, control->value
             ));
         }
         // add pitch bend
-        for(const auto &pitch_bend: track.pitch_bends) {
+        for(const auto &pitch_bend: *track->pitch_bends) {
             msgs.emplace_back(message::Message::PitchBend(
-                pitch_bend.time, channel, static_cast<i16>(pitch_bend.value)
+                pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
             ));
         }
         // add notes
-        vec<Note<Tick>> notes {track.notes};
+        vec<Note<Tick>> notes;
+        notes.reserve(track->note_num());
+        for(const auto &note: *track->notes) {
+            notes.emplace_back(*note);
+        }
         ops::sort(notes.begin(), notes.end(), [](const auto &a, const auto &b) {
             return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
         });
