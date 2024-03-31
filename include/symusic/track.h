@@ -58,20 +58,29 @@ struct Track {
     Track(Track&& other) noexcept { move_other(std::move(other)); }
 
     Track(
-        std::string name, const u8 program, const bool is_drum, const vec<Note<T>>& notes,
-        const vec<ControlChange<T>>& controls, const vec<PitchBend<T>>& pitch_bends,
-        const vec<Pedal<T>>& pedals
-    ) : name{std::move(name)}, program{program}, is_drum{is_drum} {
-        this->notes       = std::make_shared<vec<shared<Note<T>>>>(notes);
-        this->controls    = std::make_shared<vec<shared<ControlChange<T>>>>(controls);
-        this->pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>(pitch_bends);
-        this->pedals      = std::make_shared<vec<shared<Pedal<T>>>>(pedals);
-    }
+        std::string           name,
+        const u8              program,
+        const bool            is_drum,
+        vec<Note<T>>          notes,
+        vec<ControlChange<T>> controls,
+        vec<PitchBend<T>>     pitch_bends,
+        vec<Pedal<T>>         pedals
+    ) :
+        name{std::move(name)}, program{program}, is_drum{is_drum},
+        notes{details::to_shared_vec(std::move(notes))},
+        controls{details::to_shared_vec(std::move(controls))},
+        pitch_bends{details::to_shared_vec(std::move(pitch_bends))},
+        pedals{details::to_shared_vec(std::move(pedals))} {}
+
 
     Track(
-        std::string name, const u8 program, const bool is_drum, shared<vec<shared<Note<T>>>> notes,
+        std::string                           name,
+        const u8                              program,
+        const bool                            is_drum,
+        shared<vec<shared<Note<T>>>>          notes,
         shared<vec<shared<ControlChange<T>>>> controls,
-        shared<vec<shared<PitchBend<T>>>> pitch_bends, shared<vec<shared<Pedal<T>>>> pedals
+        shared<vec<shared<PitchBend<T>>>>     pitch_bends,
+        shared<vec<shared<Pedal<T>>>>         pedals
     ) :
         name{std::move(name)}, program{program}, is_drum{is_drum}, notes{std::move(notes)},
         controls{std::move(controls)}, pitch_bends{std::move(pitch_bends)},
@@ -81,7 +90,15 @@ struct Track {
     [[nodiscard]] Track copy() const { return {*this}; }
 
     [[nodiscard]] Track deepcopy() const {
-        return {name, program, is_drum, *notes, *controls, *pitch_bends, *pedals};
+        return {
+            name,
+            program,
+            is_drum,
+            std::move(details::deepcopy(notes)),
+            std::move(details::deepcopy(controls)),
+            std::move(details::deepcopy(pitch_bends)),
+            std::move(details::deepcopy(pedals))
+        };
     }
 
     Track& operator=(const Track&) = default;
@@ -131,7 +148,8 @@ struct Track {
 
     // Clip all the events in the track, non-inplace, return a new Track
     // For events with duration, clip_end is used to determine whether to clip based on end time.
-    void                clip_inplace(unit start, unit end, bool clip_end = false);
+    void clip_inplace(unit start, unit end, bool clip_end = false);
+
     [[nodiscard]] Track clip(unit start, unit end, bool clip_end = false) const;
 
     // shift the time of all the events in the track, non-inplace, return a new Track

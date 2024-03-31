@@ -35,7 +35,7 @@ namespace details {
             return banks;
         }
         // filter bank select events
-        for(const shared<ControlChange<Second>> & control : track->controls) {
+        for(const shared<ControlChange<Second>> & control : *track.controls) {
             if(control->number == 0) {
                 banks.emplace_back(control->time, control->value);
             }

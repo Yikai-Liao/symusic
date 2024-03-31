@@ -14,19 +14,6 @@
 
 namespace symusic::ops {
 
-template<typename T>
-vec<shared<T>> deepcopy(const vec<shared<T>> & data) {
-    shared<vec<T>> capsule;
-    vec<shared<T>> ans;
-    capsule->reserve(data.size());
-    ans.reserve(data.size());
-
-    for(const auto & event: data) {
-        capsule->push_back(*event);
-        ans.emplace_back(capsule, &capsule->back());
-    }   return ans;
-}
-
 template<typename T, class Comp>
 void sort(vec<T> & data, const bool reverse, Comp cmp) {
     if (reverse) {
@@ -45,21 +32,21 @@ void sort_by_time(vec<T> & data, const bool reverse = false) {
 template<TType T>
 void sort_notes(vec<shared<Note<T>>> & notes, const bool reverse = false) {
     #define KEY(NOTE) std::tie((NOTE)->time, (NOTE)->duration, (NOTE)->pitch, (NOTE)->velocity)
-    sort(notes, reverse, [](const Note<T> & a, const Note<T> & b) {return KEY(a) < KEY(b);});
+    sort(notes, reverse, [](const auto & a, const auto & b) {return KEY(a) < KEY(b);});
     #undef KEY
 }
 
 template<TType T>
 void sort_pedals(vec<shared<Pedal<T>>> & pedals, const bool reverse = false) {
     #define KEY(PEDAL) std::tie((PEDAL)->time, (PEDAL)->duration)
-    sort(pedals, reverse, [](const Pedal<T> & a, const Pedal<T> & b) {return KEY(a) < KEY(b);});
+    sort(pedals, reverse, [](const auto & a, const auto & b) {return KEY(a) < KEY(b);});
     #undef KEY
 }
 
 template<TType T>
 void sort_tracks(vec<shared<Track<T>>> & tracks, const bool reverse = false) {
     #define KEY(TRACK) std::make_tuple((TRACK)->is_drum, (TRACK)->program, (TRACK)->name, (TRACK)->note_num())
-    sort(tracks, reverse, [](const Track<T> & a, const Track<T> & b) {return KEY(&a) < KEY(&b);});
+    sort(tracks, reverse, [](const auto & a, const auto & b) {return KEY(&a) < KEY(&b);});
 }
 
 
@@ -123,10 +110,12 @@ vec<shared<T>> clip(const vec<shared<T>>& events, typename T::unit start, typena
 
 template<TimeEvent T>
 void clip_inplace(vec<shared<T>>& events, typename T::unit start, typename T::unit end, const bool clip_end=false) {
-    if constexpr (HashDuration<T> && clip_end) {
-        filter_inplace(events, [start, end](const shared<T> &event) {
-            return ((event->time) >= start) && ((event->end()) <= end);
-        });
+    if constexpr (HashDuration<T>) {
+        if (clip_end) {
+            filter_inplace(events, [start, end](const shared<T> &event) {
+                return ((event->time) >= start) && ((event->end()) <= end);
+            });
+        }
     }   filter_inplace(events, [start, end](const shared<T> &event) {
             return ((event->time) >= start) && ((event->time) < end);
     });
