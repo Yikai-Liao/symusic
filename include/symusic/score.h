@@ -4,81 +4,82 @@
 #pragma once
 
 #ifndef LIBSYMUSIC_TRACK_HSCORE_H
-#define LIBSYMUSIC_TRACK_HSCORE_H
+#    define LIBSYMUSIC_TRACK_HSCORE_H
 
-#include "symusic/event.h"
-#include "symusic/track.h"
+#    include "symusic/event.h"
+#    include "symusic/track.h"
 
 namespace symusic {
 
 template<TType T>
 struct Score {
-    typedef T ttype;
+    typedef T                ttype;
     typedef typename T::unit unit;
 
-    i32 ticks_per_quarter{};
-    shared<vec<shared<Track<T>>>> tracks{};
+    i32                                   ticks_per_quarter{};
+    shared<vec<shared<Track<T>>>>         tracks{};
     shared<vec<shared<TimeSignature<T>>>> time_signatures{};
-    shared<vec<shared<KeySignature<T>>>> key_signatures{};
-    shared<vec<shared<Tempo<T>>>> tempos{};
-    shared<vec<shared<TextMeta<T>>>> lyrics, markers{};
+    shared<vec<shared<KeySignature<T>>>>  key_signatures{};
+    shared<vec<shared<Tempo<T>>>>         tempos{};
+    shared<vec<shared<TextMeta<T>>>>      lyrics, markers{};
 
-    Score(): ticks_per_quarter{0} {
-        tracks = std::make_shared<vec<Track<T>>>();
+    Score() : ticks_per_quarter{0} {
+        tracks          = std::make_shared<vec<Track<T>>>();
         time_signatures = std::make_shared<vec<shared<TimeSignature<T>>>>();
-        key_signatures = std::make_shared<vec<shared<KeySignature<T>>>>();
-        tempos = std::make_shared<vec<shared<Tempo<T>>>>();
-        lyrics = std::make_shared<vec<shared<TextMeta<T>>>>();
-        markers = std::make_shared<vec<shared<TextMeta<T>>>>();
+        key_signatures  = std::make_shared<vec<shared<KeySignature<T>>>>();
+        tempos          = std::make_shared<vec<shared<Tempo<T>>>>();
+        lyrics          = std::make_shared<vec<shared<TextMeta<T>>>>();
+        markers         = std::make_shared<vec<shared<TextMeta<T>>>>();
     }
 
     Score(const Score&) = default;
 
-    Score(Score && other) noexcept {
+    Score(Score&& other) noexcept {
         // move constructor
         ticks_per_quarter = other.ticks_per_quarter;
-        tracks = std::move(other.tracks);
-        time_signatures = std::move(other.time_signatures);
-        key_signatures = std::move(other.key_signatures);
-        tempos = std::move(other.tempos);
-        lyrics = std::move(other.lyrics);
-        markers = std::move(other.markers);
+        tracks            = std::move(other.tracks);
+        time_signatures   = std::move(other.time_signatures);
+        key_signatures    = std::move(other.key_signatures);
+        tempos            = std::move(other.tempos);
+        lyrics            = std::move(other.lyrics);
+        markers           = std::move(other.markers);
     }
 
     Score(
-        const i32 tpq, const vec<Track<T>> & tracks,
-        const vec<TimeSignature<T>> & time_signatures,
-        const vec<KeySignature<T>> & key_signatures,
-        const vec<Tempo<T>> & tempos,
-        const vec<TextMeta<T>> & lyrics,
-        const vec<TextMeta<T>> & markers
-    ):  ticks_per_quarter{tpq} {
+        const i32 tpq, const vec<Track<T>>& tracks, const vec<TimeSignature<T>>& time_signatures,
+        const vec<KeySignature<T>>& key_signatures, const vec<Tempo<T>>& tempos,
+        const vec<TextMeta<T>>& lyrics, const vec<TextMeta<T>>& markers
+    ) : ticks_per_quarter{tpq} {
         this->tracks = std::make_shared<vec<Track<T>>>();
         this->tracks->reserve(tracks.size());
-        for (const Track<T> & track: tracks) {
+        for (const Track<T>& track : tracks) {
             this->tracks->push_back(std::move(track.deepcopy()));
         }
         this->time_signatures = std::make_shared<vec<shared<TimeSignature<T>>>>(time_signatures);
-        this->key_signatures = std::make_shared<vec<shared<KeySignature<T>>>>(key_signatures);
-        this->tempos = std::make_shared<vec<shared<Tempo<T>>>>(tempos);
-        this->lyrics = std::make_shared<vec<shared<TextMeta<T>>>>(lyrics);
-        this->markers = std::make_shared<vec<shared<TextMeta<T>>>>(markers);
+        this->key_signatures  = std::make_shared<vec<shared<KeySignature<T>>>>(key_signatures);
+        this->tempos          = std::make_shared<vec<shared<Tempo<T>>>>(tempos);
+        this->lyrics          = std::make_shared<vec<shared<TextMeta<T>>>>(lyrics);
+        this->markers         = std::make_shared<vec<shared<TextMeta<T>>>>(markers);
     }
 
-    Score& operator=(const Score&) = default;
-    bool operator==(const Score & other) const = default;
-    bool operator!=(const Score & other) const = default;
+    Score& operator=(const Score&)              = default;
+    bool   operator==(const Score& other) const = default;
+    bool   operator!=(const Score& other) const = default;
 
     [[nodiscard]] Score copy() const { return {*this}; }
     [[nodiscard]] Score deepcopy() const {
         return {
-            ticks_per_quarter, *tracks,
-            *time_signatures, *key_signatures,
-            *tempos, *lyrics, *markers
+            ticks_per_quarter,
+            *tracks,
+            *time_signatures,
+            *key_signatures,
+            *tempos,
+            *lyrics,
+            *markers
         };
     }
 
-    explicit Score(const i32 tpq): ticks_per_quarter{tpq} {}
+    explicit Score(const i32 tpq) : ticks_per_quarter{tpq} {}
 
     template<DataFormat F>
     [[nodiscard]] static Score parse(std::span<const u8> bytes);
@@ -116,7 +117,7 @@ struct Score {
     // Clip all the events in the score, non-inplace, return a new Score
     // For events with duration, clip_end is used to determine whether to clip based on end time.
     [[nodiscard]] Score clip(unit start, unit end, bool clip_end = false) const;
-    void clip_inplace(unit start, unit end, bool clip_end = false);
+    void                clip_inplace(unit start, unit end, bool clip_end = false);
 
     // shift the time of all the events in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_time(unit offset) const;
@@ -136,6 +137,34 @@ struct Score {
     // shift the velocity of all notes in the score, inplace, return self reference
     void shift_velocity_inplace(i8 offset);
 };
-} // namespace symusic
 
-#endif //LIBSYMUSIC_TRACK_HSCORE_H
+/*
+ *  ScoreNative is an original version of Score, which doesn't use shared_ptr
+ */
+
+template<typename T>
+struct ScoreNative {
+    u16                   ticks_per_quarter;
+    vec<TimeSignature<T>> time_signatures;
+    vec<KeySignature<T>>  key_signatures;
+    vec<Tempo<T>>         tempos;
+    vec<TextMeta<T>>      lyrics;
+    vec<TextMeta<T>>      markers;
+    vec<TrackNative<T>>   tracks;
+
+    explicit ScoreNative(const u16 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
+
+    [[nodiscard]] bool empty() const {
+        return time_signatures.empty() && key_signatures.empty() && tempos.empty() &&
+               lyrics.empty() && markers.empty() && tracks.empty();
+    }
+
+    template<DataFormat F>
+    [[nodiscard]] static ScoreNative parse(std::span<const u8> bytes);
+
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
+};
+}   // namespace symusic
+
+#endif   // LIBSYMUSIC_TRACK_HSCORE_H
