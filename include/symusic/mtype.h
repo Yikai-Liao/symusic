@@ -49,20 +49,6 @@ vec<T> to_native_vec(const shared<vec<shared<T>>>& data) {
     return ans;
 }
 
-template<typename T>
-vec<shared<T>> deepcopy(const vec<shared<T>>& data) {
-    shared<vec<T>> capsule;
-    vec<shared<T>> ans;
-    capsule->reserve(data.size());
-    ans.reserve(data.size());
-
-    for (const auto& event : data) {
-        capsule->push_back(*event);
-        ans.emplace_back(capsule, &capsule->back());
-    }
-    return ans;
-}
-
 // concept HasDeepcopy
 template<typename T>
 concept HasDeepcopy = requires(const T& t) {
@@ -70,19 +56,24 @@ concept HasDeepcopy = requires(const T& t) {
 };
 
 template<typename T>
-shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& data) {
+vec<shared<T>> deepcopy(const vec<shared<T>>& data) {
     auto capsule = std::make_shared<vec<T>>();
-    capsule->reserve(data->size());
-    auto ans = std::make_shared<vec<shared<T>>>();
-    ans->reserve(data->size());
-    for(const auto& event : *data) {
+    capsule->reserve(data.size());
+    vec<shared<T>> ans;
+    ans.reserve(data.size());
+    for(const auto& event : data) {
         if constexpr (HasDeepcopy<T>) {
             capsule->push_back(std::move(event->deepcopy()));
         } else {
             capsule->push_back(*event);
         }
-        ans->emplace_back(capsule, &capsule->back());
+        ans.emplace_back(capsule, &capsule->back());
     }   return ans;
+}
+
+template<typename T>
+shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& data) {
+    return std::make_shared<vec<shared<T>>>(std::move(deepcopy(*data)));
 }
 
 }   // namespace details
