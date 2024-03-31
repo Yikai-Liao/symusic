@@ -10,6 +10,7 @@ option(BUILD_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
 
+
 # set /utf-8 for MSVC
 if(MSVC)
     add_compile_options(-bigobj)
