@@ -45,9 +45,8 @@ public:
      TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim);
     ~TrackPianoroll();
 
-    template<TType T>
     static TrackPianoroll from_track(
-        const Track<T>&                track,
+        const Track<Tick>&                track,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitchRange,
         bool                              encodeVelocity
@@ -82,9 +81,8 @@ public:
      ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim);
     ~ScorePianoroll();
 
-    template<TType T>
     static ScorePianoroll from_score(
-        const Score<T>&                   score,
+        const Score<Tick>&                   score,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitchRange,
         bool                              encodeVelocity
@@ -92,7 +90,7 @@ public:
 
     pianoroll_t* data();
 
-    const pianoroll_t* data() const;
+    [[nodiscard]] const pianoroll_t* data() const;
 
     pianoroll_t* release();
 

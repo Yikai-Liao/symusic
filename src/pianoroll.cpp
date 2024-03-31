@@ -15,9 +15,8 @@ TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim) 
 
 TrackPianoroll::~TrackPianoroll() { delete this->dataPtr; };
 
-template<TType T>
 TrackPianoroll TrackPianoroll::from_track(
-    const Track<T>&                   track,
+    const Track<Tick>&                track,
     const std::vector<PianorollMode>& modes,
     const std::pair<uint8_t, uint8_t> pitchRange,
     const bool                        encodeVelocity
@@ -98,9 +97,8 @@ ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim,
 
 ScorePianoroll::~ScorePianoroll() { delete this->dataPtr; };
 
-template<TType T>
 ScorePianoroll ScorePianoroll::from_score(
-    const Score<T>&                score,
+    const Score<Tick>&                score,
     const std::vector<PianorollMode>& modes,
     const std::pair<uint8_t, uint8_t> pitchRange,
     const bool                        encodeVelocity
@@ -111,16 +109,15 @@ ScorePianoroll ScorePianoroll::from_score(
     );
 
     for (int trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
-        const Track<Tick>& track = *tracks[trackIdx];
-        for (const auto& note : track.notes) {
+        for (const Track<Tick>& track = *tracks[trackIdx]; const auto& note : *track.notes) {
             for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
                 pianoroll.set(
                     modeIdx,
                     trackIdx,
-                    note.pitch - pitchRange.first,
-                    modes[modeIdx] != PianorollMode::offset ? note.start() : note.end(),
-                    modes[modeIdx] == PianorollMode::frame ? note.duration : 1,
-                    encodeVelocity ? note.velocity : 1
+                    note->pitch - pitchRange.first,
+                    modes[modeIdx] != PianorollMode::offset ? note->start() : note->end(),
+                    modes[modeIdx] == PianorollMode::frame ? note->duration : 1,
+                    encodeVelocity ? note->velocity : 1
                 );
             }
         }
