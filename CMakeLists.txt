@@ -46,6 +46,9 @@ if(BUILD_PY)
         OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
         list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
         find_package(nanobind CONFIG REQUIRED)
+    # show python executable path
+    message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
+
     find_package(nanobind CONFIG REQUIRED)
 
     nanobind_add_module(core py_src/core.cpp)
