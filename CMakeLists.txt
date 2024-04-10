@@ -25,6 +25,7 @@ add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
 include_directories(include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
+include_directories(3rdparty)
 
 file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
 
@@ -48,7 +49,7 @@ if(BUILD_PY)
         find_package(nanobind CONFIG REQUIRED)
     find_package(nanobind CONFIG REQUIRED)
 
-    nanobind_add_module(core py_src/core.cpp)
+    nanobind_add_module(core NOMINSIZE  py_src/core.cpp)
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
