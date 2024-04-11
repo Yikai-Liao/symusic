@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include "pyvec.hpp"
 
 namespace symusic {
 // Simple Type Definitions Begin
@@ -30,54 +31,7 @@ using vec = std::vector<_Ty, _Alloc>;
 template<class _Ty>
 using shared = std::shared_ptr<_Ty>;
 
-namespace details {
-
-template<typename T>
-shared<vec<shared<T>>> to_shared_vec(vec<T>&& data) {
-    shared<vec<T>> capsule = std::make_shared<vec<T>>(std::move(data));
-    auto           ans     = std::make_shared<vec<shared<T>>>();
-    ans->reserve(capsule->size());
-    for (T& item : *capsule) { ans->emplace_back(capsule, &item); }
-    return ans;
-}
-
-template<typename T>
-vec<T> to_native_vec(const shared<vec<shared<T>>>& data) {
-    vec<T> ans;
-    ans.reserve(data->size());
-    for (const shared<T>& item : *data) { ans.push_back(*item); }
-    return ans;
-}
-
-// concept HasDeepcopy
-template<typename T>
-concept HasDeepcopy = requires(const T& t) {
-    { t.deepcopy() } -> std::same_as<T>;
-};
-
-template<typename T>
-vec<shared<T>> deepcopy(const vec<shared<T>>& data) {
-    auto capsule = std::make_shared<vec<T>>();
-    capsule->reserve(data.size());
-    vec<shared<T>> ans;
-    ans.reserve(data.size());
-    for(const auto& event : data) {
-        if constexpr (HasDeepcopy<T>) {
-            capsule->push_back(std::move(event->deepcopy()));
-        } else {
-            capsule->push_back(*event);
-        }
-        ans.emplace_back(capsule, &capsule->back());
-    }   return ans;
-}
-
-template<typename T>
-shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& data) {
-    return std::make_shared<vec<shared<T>>>(std::move(deepcopy(*data)));
-}
-
-}   // namespace details
-
+using pycontainer::pyvec;
 }   // namespace symusic
 
 
