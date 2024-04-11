@@ -10,6 +10,7 @@
 #include "symusic/mtype.h"
 #include "symusic/io/iodef.h"
 #include "symusic/time_unit.h"
+#include "iostream"
 
 namespace symusic {
 
@@ -42,8 +43,7 @@ namespace symusic {
     template<DataFormat F>                                       \
     [[nodiscard]] vec<u8> dumps() const;                         \
     EVENT                 shift_time(unit offset) const;         \
-    EVENT&                shift_time_inplace(unit offset);
-
+    EVENT&                shift_time_inplace(unit offset);       \
 /*
  *  List of all the events (based on TimeStamp):
  *  - Note(duration: unit, pitch: i8, velocity: i8)

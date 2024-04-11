@@ -21,6 +21,7 @@ endif()
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
@@ -36,6 +37,7 @@ add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
 target_link_libraries(symusic prestosynth)
+target_link_libraries(symusic pyvec)
 
 if(BUILD_PY)
     message("Building python binding.")
@@ -51,13 +53,13 @@ if(BUILD_PY)
 
     find_package(nanobind CONFIG REQUIRED)
 
-    nanobind_add_module(core py_src/core.cpp)
+    nanobind_add_module(core NOMINSIZE py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h)
     target_link_libraries(core PRIVATE symusic)
 
-    install(TARGETS core LIBRARY DESTINATION symusic)
-    # install abc2midi and midi2abc
-    add_subdirectory(3rdparty/abcmidi)
-    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+#    install(TARGETS core LIBRARY DESTINATION symusic)
+#    # install abc2midi and midi2abc
+#    add_subdirectory(3rdparty/abcmidi)
+#    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
 endif()
 
 if(BUILD_TEST)
@@ -69,6 +71,7 @@ if(BUILD_TEST)
     add_executable(synth tests/synth.cpp)
     add_executable(sequence tests/sequence.cpp)
     add_executable(adjust_time tests/adjust_time.cpp)
+    add_executable(copy_shared tests/copy_shared_bench.cpp)
 
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
@@ -76,6 +79,7 @@ if(BUILD_TEST)
     target_link_libraries(synth PUBLIC symusic)
     target_link_libraries(sequence PUBLIC symusic)
     target_link_libraries(adjust_time PUBLIC symusic)
+    target_link_libraries(copy_shared PUBLIC nanobench)
 
 endif()
 
