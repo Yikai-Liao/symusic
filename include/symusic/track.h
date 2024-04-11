@@ -18,13 +18,13 @@ struct Track {
     typedef T                ttype;
     typedef typename T::unit unit;
 
-    std::string                           name;
-    u8                                    program = 0;
-    bool                                  is_drum = false;
-    shared<vec<shared<Note<T>>>>          notes;
-    shared<vec<shared<ControlChange<T>>>> controls;
-    shared<vec<shared<PitchBend<T>>>>     pitch_bends;
-    shared<vec<shared<Pedal<T>>>>         pedals;
+    std::string                     name;
+    u8                              program = 0;
+    bool                            is_drum = false;
+    shared<pyvec<Note<T>>>          notes;
+    shared<pyvec<ControlChange<T>>> controls;
+    shared<pyvec<PitchBend<T>>>     pitch_bends;
+    shared<pyvec<Pedal<T>>>         pedals;
 
     POINTER_METHODS(Track)
 
@@ -39,10 +39,10 @@ struct Track {
 
     Track(std::string name, const u8 program, const bool is_drum) :
         name{std::move(name)}, program{program}, is_drum{is_drum} {
-        notes       = std::make_shared<vec<shared<Note<T>>>>();
-        controls    = std::make_shared<vec<shared<ControlChange<T>>>>();
-        pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>();
-        pedals      = std::make_shared<vec<shared<Pedal<T>>>>();
+        notes       = std::make_shared<pyvec<Note<T>>>();
+        controls    = std::make_shared<pyvec<ControlChange<T>>>();
+        pitch_bends = std::make_shared<pyvec<PitchBend<T>>>();
+        pedals      = std::make_shared<pyvec<Pedal<T>>>();
     }
 
     void move_other(Track&& other) {
@@ -58,29 +58,32 @@ struct Track {
     Track(Track&& other) noexcept { move_other(std::move(other)); }
 
     Track(
-        std::string           name,
-        const u8              program,
-        const bool            is_drum,
-        vec<Note<T>>          notes,
-        vec<ControlChange<T>> controls,
-        vec<PitchBend<T>>     pitch_bends,
-        vec<Pedal<T>>         pedals
-    ) :
-        name{std::move(name)}, program{program}, is_drum{is_drum},
-        notes{details::to_shared_vec(std::move(notes))},
-        controls{details::to_shared_vec(std::move(controls))},
-        pitch_bends{details::to_shared_vec(std::move(pitch_bends))},
-        pedals{details::to_shared_vec(std::move(pedals))} {}
+        std::string               name,
+        const u8                  program,
+        const bool                is_drum,
+        pyvec<Note<T>>&&          notes,
+        pyvec<ControlChange<T>>&& controls,
+        pyvec<PitchBend<T>>&&     pitch_bends,
+        pyvec<Pedal<T>>&&         pedals
+    ) {
+        this->name        = std::move(name);
+        this->program     = program;
+        this->is_drum     = is_drum;
+        this->notes       = std::make_shared<pyvec<Note<T>>>(std::move(notes));
+        this->controls    = std::make_shared<pyvec<ControlChange<T>>>(std::move(controls));
+        this->pitch_bends = std::make_shared<pyvec<PitchBend<T>>>(std::move(pitch_bends));
+        this->pedals      = std::make_shared<pyvec<Pedal<T>>>(std::move(pedals));
+    }
 
 
     Track(
-        std::string                           name,
-        const u8                              program,
-        const bool                            is_drum,
-        shared<vec<shared<Note<T>>>>          notes,
-        shared<vec<shared<ControlChange<T>>>> controls,
-        shared<vec<shared<PitchBend<T>>>>     pitch_bends,
-        shared<vec<shared<Pedal<T>>>>         pedals
+        std::string                     name,
+        const u8                        program,
+        const bool                      is_drum,
+        shared<pyvec<Note<T>>>          notes,
+        shared<pyvec<ControlChange<T>>> controls,
+        shared<pyvec<PitchBend<T>>>     pitch_bends,
+        shared<pyvec<Pedal<T>>>         pedals
     ) :
         name{std::move(name)}, program{program}, is_drum{is_drum}, notes{std::move(notes)},
         controls{std::move(controls)}, pitch_bends{std::move(pitch_bends)},
@@ -94,10 +97,10 @@ struct Track {
             name,
             program,
             is_drum,
-            std::move(details::deepcopy(notes)),
-            std::move(details::deepcopy(controls)),
-            std::move(details::deepcopy(pitch_bends)),
-            std::move(details::deepcopy(pedals))
+            std::move(notes->deepcopy()),
+            std::move(controls->deepcopy()),
+            std::move(pitch_bends->deepcopy()),
+            std::move(pedals->deepcopy())
         };
     }
 
