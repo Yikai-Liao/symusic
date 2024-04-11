@@ -439,71 +439,71 @@ Score<Tick> resample(const Score<Second>& score, const i32 tpq, const i32 min_du
     return details::resample_inner(convert<Tick>(score), tpq, min_dur);
 }
 
-/*
- *  Conversion between shared and native
- */
-
-template<TType T>
-Track<T> to_shared(TrackNative<T>&& track) {
-    Track<T> new_track{std::move(track.name), track.program, track.is_drum};
-    new_track.notes       = details::to_shared_vec(std::move(track.notes));
-    new_track.controls    = details::to_shared_vec(std::move(track.controls));
-    new_track.pitch_bends = details::to_shared_vec(std::move(track.pitch_bends));
-    new_track.pedals      = details::to_shared_vec(std::move(track.pedals));
-    return new_track;
-}
-
-template<TType T>
-Score<T> to_shared(ScoreNative<T>&& score) {
-    Score<T> new_score{score.ticks_per_quarter};
-    new_score.time_signatures = details::to_shared_vec(std::move(score.time_signatures));
-    new_score.key_signatures  = details::to_shared_vec(std::move(score.key_signatures));
-    new_score.tempos          = details::to_shared_vec(std::move(score.tempos));
-    new_score.lyrics          = details::to_shared_vec(std::move(score.lyrics));
-    new_score.markers         = details::to_shared_vec(std::move(score.markers));
-    new_score.tracks.reserve(score.tracks.size());
-    for (TrackNative<T>&& track : std::move(score.tracks)) {
-        new_score.tracks.push_back(std::move(to_shared(std::move(track))));
-    }
-    return new_score;
-}
-
-template<TType T>
-TrackNative<T> to_native(const Track<T>& track) {
-    TrackNative<T> new_track{track.name, track.program, track.is_drum};
-    new_track.notes       = details::to_native_vec(track.notes);
-    new_track.controls    = details::to_native_vec(track.controls);
-    new_track.pitch_bends = details::to_native_vec(track.pitch_bends);
-    new_track.pedals      = details::to_native_vec(track.pedals);
-    return new_track;
-}
-
-template<TType T>
-ScoreNative<T> to_native(const Score<T>& score) {
-    ScoreNative<T> new_score{score.ticks_per_quarter};
-    new_score.time_signatures = details::to_native_vec(score.time_signatures);
-    new_score.key_signatures  = details::to_native_vec(score.key_signatures);
-    new_score.tempos          = details::to_native_vec(score.tempos);
-    new_score.lyrics          = details::to_native_vec(score.lyrics);
-    new_score.markers         = details::to_native_vec(score.markers);
-    new_score.tracks.reserve(score.tracks.size());
-    for (const shared<Track<T>>& track : *score.tracks) {
-        new_score.tracks.push_back(std::move(to_native(*track)));
-    }
-    return new_score;
-}
+// /*
+//  *  Conversion between shared and native
+//  */
+//
+// template<TType T>
+// Track<T> to_shared(TrackNative<T>&& track) {
+//     Track<T> new_track{std::move(track.name), track.program, track.is_drum};
+//     new_track.notes       = details::to_shared_vec(std::move(track.notes));
+//     new_track.controls    = details::to_shared_vec(std::move(track.controls));
+//     new_track.pitch_bends = details::to_shared_vec(std::move(track.pitch_bends));
+//     new_track.pedals      = details::to_shared_vec(std::move(track.pedals));
+//     return new_track;
+// }
+//
+// template<TType T>
+// Score<T> to_shared(ScoreNative<T>&& score) {
+//     Score<T> new_score{score.ticks_per_quarter};
+//     new_score.time_signatures = details::to_shared_vec(std::move(score.time_signatures));
+//     new_score.key_signatures  = details::to_shared_vec(std::move(score.key_signatures));
+//     new_score.tempos          = details::to_shared_vec(std::move(score.tempos));
+//     new_score.lyrics          = details::to_shared_vec(std::move(score.lyrics));
+//     new_score.markers         = details::to_shared_vec(std::move(score.markers));
+//     new_score.tracks.reserve(score.tracks.size());
+//     for (TrackNative<T>&& track : std::move(score.tracks)) {
+//         new_score.tracks.push_back(std::move(to_shared(std::move(track))));
+//     }
+//     return new_score;
+// }
+//
+// template<TType T>
+// TrackNative<T> to_native(const Track<T>& track) {
+//     TrackNative<T> new_track{track.name, track.program, track.is_drum};
+//     new_track.notes       = details::to_native_vec(track.notes);
+//     new_track.controls    = details::to_native_vec(track.controls);
+//     new_track.pitch_bends = details::to_native_vec(track.pitch_bends);
+//     new_track.pedals      = details::to_native_vec(track.pedals);
+//     return new_track;
+// }
+//
+// template<TType T>
+// ScoreNative<T> to_native(const Score<T>& score) {
+//     ScoreNative<T> new_score{score.ticks_per_quarter};
+//     new_score.time_signatures = details::to_native_vec(score.time_signatures);
+//     new_score.key_signatures  = details::to_native_vec(score.key_signatures);
+//     new_score.tempos          = details::to_native_vec(score.tempos);
+//     new_score.lyrics          = details::to_native_vec(score.lyrics);
+//     new_score.markers         = details::to_native_vec(score.markers);
+//     new_score.tracks.reserve(score.tracks.size());
+//     for (const shared<Track<T>>& track : *score.tracks) {
+//         new_score.tracks.push_back(std::move(to_native(*track)));
+//     }
+//     return new_score;
+// }
 
 // Explicit instantiation to_shared and to_native
-#define INSTANTIATE_TO_SHARED_AND_NATIVE(T)                     \
-    extern template Track<T>       to_shared(TrackNative<T>&&); \
-    extern template Score<T>       to_shared(ScoreNative<T>&&); \
-    extern template TrackNative<T> to_native(const Track<T>&);  \
-    extern template ScoreNative<T> to_native(const Score<T>&);
-
-INSTANTIATE_TO_SHARED_AND_NATIVE(Tick)
-INSTANTIATE_TO_SHARED_AND_NATIVE(Quarter)
-INSTANTIATE_TO_SHARED_AND_NATIVE(Second)
-
-#undef INSTANTIATE_TO_SHARED_AND_NATIVE
+// #define INSTANTIATE_TO_SHARED_AND_NATIVE(T)                     \
+//     extern template Track<T>       to_shared(TrackNative<T>&&); \
+//     extern template Score<T>       to_shared(ScoreNative<T>&&); \
+//     extern template TrackNative<T> to_native(const Track<T>&);  \
+//     extern template ScoreNative<T> to_native(const Score<T>&);
+//
+// INSTANTIATE_TO_SHARED_AND_NATIVE(Tick)
+// INSTANTIATE_TO_SHARED_AND_NATIVE(Quarter)
+// INSTANTIATE_TO_SHARED_AND_NATIVE(Second)
+//
+// #undef INSTANTIATE_TO_SHARED_AND_NATIVE
 
 }   // namespace symusic

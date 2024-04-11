@@ -141,7 +141,7 @@ struct Score {
 
 template<typename T>
 struct ScoreNative {
-    u16                   ticks_per_quarter;
+    i32                   ticks_per_quarter;
     vec<TimeSignature<T>> time_signatures;
     vec<KeySignature<T>>  key_signatures;
     vec<Tempo<T>>         tempos;
@@ -151,7 +151,7 @@ struct ScoreNative {
 
     ScoreNative() : ticks_per_quarter(0) {}
 
-    explicit ScoreNative(const u16 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
+    explicit ScoreNative(const i32 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
 
     [[nodiscard]] bool empty() const {
         return time_signatures.empty() && key_signatures.empty() && tempos.empty() &&
