@@ -71,7 +71,6 @@ if(BUILD_TEST)
     add_executable(synth tests/synth.cpp)
     add_executable(sequence tests/sequence.cpp)
     add_executable(adjust_time tests/adjust_time.cpp)
-    add_executable(copy_shared tests/copy_shared_bench.cpp)
 
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
@@ -79,7 +78,6 @@ if(BUILD_TEST)
     target_link_libraries(synth PUBLIC symusic)
     target_link_libraries(sequence PUBLIC symusic)
     target_link_libraries(adjust_time PUBLIC symusic)
-    target_link_libraries(copy_shared PUBLIC nanobench)
 
 endif()
 
