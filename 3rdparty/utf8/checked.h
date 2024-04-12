@@ -356,4 +356,3 @@ namespace utf8
 #endif // C++ 11 or later
 
 #endif //header guard
-
