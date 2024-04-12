@@ -143,15 +143,15 @@ namespace internal
     inline bool is_overlong_sequence(utfchar32_t cp, int length)
     {
         if (cp < 0x80) {
-            if (length != 1) 
+            if (length != 1)
                 return true;
         }
         else if (cp < 0x800) {
-            if (length != 2) 
+            if (length != 2)
                 return true;
         }
         else if (cp < 0x10000) {
-            if (length != 3) 
+            if (length != 3)
                 return true;
         }
         return false;
@@ -189,7 +189,7 @@ namespace internal
     template <typename octet_iterator>
     utf_error get_sequence_2(octet_iterator& it, octet_iterator end, utfchar32_t& code_point)
     {
-        if (it == end) 
+        if (it == end)
             return NOT_ENOUGH_ROOM;
 
         code_point = utf8::internal::mask8(*it);
@@ -206,7 +206,7 @@ namespace internal
     {
         if (it == end)
             return NOT_ENOUGH_ROOM;
-            
+
         code_point = utf8::internal::mask8(*it);
 
         UTF8_CPP_INCREASE_AND_RETURN_ON_ERROR(it, end)
@@ -290,7 +290,7 @@ namespace internal
                 else
                     err = OVERLONG_SEQUENCE;
             }
-            else 
+            else
                 err = INVALID_CODE_POINT;
         }
 
@@ -329,11 +329,11 @@ namespace internal
                 if (is_trail_surrogate(second_word)) {
                     code_point = (first_word << 10) + second_word + SURROGATE_OFFSET;
                     return UTF8_OK;
-                } else 
-                    err = INCOMPLETE_SEQUENCE; 
-                
+                } else
+                    err = INCOMPLETE_SEQUENCE;
+
             } else {
-                err = INVALID_LEAD;               
+                err = INVALID_LEAD;
             }
         }
         // error branch
@@ -365,7 +365,7 @@ namespace internal
         }
         return result;
     }
-    
+
     // One of the following overloads will be invoked from the API calls
 
     // A simple (but dangerous) case: the caller appends byte(s) to a char array
@@ -444,7 +444,7 @@ namespace internal
     inline const char* find_invalid(const char* str)
     {
         const char* end = str + std::strlen(str);
-        return find_invalid(str, end); 
+        return find_invalid(str, end);
     }
 
     inline std::size_t find_invalid(const std::string& s)
@@ -484,9 +484,7 @@ namespace internal
     inline bool starts_with_bom(const std::string& s)
     {
         return starts_with_bom(s.begin(), s.end());
-    } 
+    }
 } // namespace utf8
 
 #endif // header guard
-
-
