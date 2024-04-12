@@ -36,7 +36,7 @@ TrackNative<T> to_native(const Track<T>& track);
  */
 
 template<TType T>
-shared<Track<T>> to_shared(TrackNative<T>&& track) {
+Track<T> to_shared(TrackNative<T>&& track) {
     Track<T> new_track{std::move(track.name), track.program, track.is_drum};
     new_track.notes    = std::make_shared<vec<shared<Note<T>>>>(std::move(track.notes));
     new_track.controls = std::make_shared<vec<shared<ControlChange<T>>>>(std::move(track.controls));
