@@ -49,10 +49,11 @@ bool Track<T>::empty() const {
 
 template<TType T>
 void Track<T>::sort_inplace(const bool reverse) {
-    notes->sort(reverse, &Note<T>::default_key);
-    controls->sort(reverse, &ControlChange<T>::default_key);
-    pitch_bends->sort(reverse, &PitchBend<T>::default_key);
-    pedals->sort(reverse, &Pedal<T>::default_key);
+    auto key = [](const auto & event) { return event.default_key(); };
+    notes->sort(reverse, key);
+    controls->sort(reverse, key);
+    pitch_bends->sort(reverse, key);
+    pedals->sort(reverse, key);
 }
 
 template<TType T>

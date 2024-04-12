@@ -99,15 +99,17 @@ template<TimeEvent T>
 void clip_inplace(
     pyvec<T>& events, typename T::unit start, typename T::unit end, const bool clip_end = false
 ) {
-    if constexpr (HashDuration<T> && clip_end) {
-        events.filter([start, end](const T& event) {
-            return ((event.time) >= start) && ((event.end()) <= end);
-        });
-    } else {
-        events.filter([start, end](const T& event) {
-            return ((event.time) >= start) && ((event.time) < end);
-        });
+    if constexpr (HashDuration<T>) {
+        if (clip_end) {
+            events.filter([start, end](const T& event) {
+                return ((event.time) >= start) && ((event.end()) <= end);
+            });
+            return;
+        }
     }
+    events.filter([start, end](const T& event) {
+        return ((event.time) >= start) && ((event.time) < end);
+    });
 }
 
 template<TimeEvent T>   // used for events with duration (e.g. Note and Pedal)
@@ -191,8 +193,8 @@ void adjust_time_inplace_inner(
     // return empty vector if events is empty
     if (events.empty()) return;
     auto get_factor = [&original_times, &new_times](const size_t x) {
-        return static_cast<f64>(new_times[x] - new_times[x - 1]) /
-               static_cast<f64>(original_times[x] - original_times[x - 1]);
+        return static_cast<f64>(new_times[x] - new_times[x - 1])
+               / static_cast<f64>(original_times[x] - original_times[x - 1]);
     };
 
     const auto range = std::make_pair(original_times.front(), original_times.back());

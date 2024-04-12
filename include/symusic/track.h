@@ -29,10 +29,10 @@ struct Track {
     POINTER_METHODS(Track)
 
     Track() : name{""}, program{0}, is_drum{false} {
-        notes       = std::make_shared<vec<shared<Note<T>>>>();
-        controls    = std::make_shared<vec<shared<ControlChange<T>>>>();
-        pitch_bends = std::make_shared<vec<shared<PitchBend<T>>>>();
-        pedals      = std::make_shared<vec<shared<Pedal<T>>>>();
+        notes       = std::make_shared<pyvec<Note<T>>>();
+        controls    = std::make_shared<pyvec<ControlChange<T>>>();
+        pitch_bends = std::make_shared<pyvec<PitchBend<T>>>();
+        pedals      = std::make_shared<pyvec<Pedal<T>>>();
     }
 
     Track(const Track&) = default;

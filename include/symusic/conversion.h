@@ -38,29 +38,31 @@ TrackNative<T> to_native(const Track<T>& track);
 template<TType T>
 Track<T> to_shared(TrackNative<T>&& track) {
     Track<T> new_track{std::move(track.name), track.program, track.is_drum};
-    new_track.notes    = std::make_shared<vec<shared<Note<T>>>>(std::move(track.notes));
-    new_track.controls = std::make_shared<vec<shared<ControlChange<T>>>>(std::move(track.controls));
-    new_track.pedals   = std::make_shared<vec<shared<Pedal<T>>>>(std::move(track.pedals));
-    new_track.pitch_bends
-        = std::make_shared<vec<shared<PitchBend<T>>>>(std::move(track.pitch_bends));
+    new_track.notes       = std::make_shared<pyvec<Note<T>>>(std::move(track.notes));
+    new_track.controls    = std::make_shared<pyvec<ControlChange<T>>>(std::move(track.controls));
+    new_track.pedals      = std::make_shared<pyvec<Pedal<T>>>(std::move(track.pedals));
+    new_track.pitch_bends = std::make_shared<pyvec<PitchBend<T>>>(std::move(track.pitch_bends));
     return new_track;
 }
 
 template<TType T>
 Score<T> to_shared(ScoreNative<T>&& score) {
     Score<T> new_score{score.ticks_per_quarter};
-    new_score.tempos  = std::make_shared<vec<Tempo<T>>>(std::move(score.tempos));
-    new_score.lyrics  = std::make_shared<vec<TextMeta<T>>>(std::move(score.lyrics));
-    new_score.markers = std::make_shared<vec<TextMeta<T>>>(std::move(score.markers));
+    new_score.tempos  = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
+    new_score.lyrics  = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.lyrics));
+    new_score.markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
     new_score.time_signatures
-        = std::make_shared<vec<TimeSignature<T>>>(std::move(score.time_signatures));
+        = std::make_shared<pyvec<TimeSignature<T>>>(std::move(score.time_signatures));
     new_score.key_signatures
-        = std::make_shared<vec<KeySignature<T>>>(std::move(score.key_signatures));
-
+        = std::make_shared<pyvec<KeySignature<T>>>(std::move(score.key_signatures));
     new_score.tracks->reserve(score.tracks.size());
+    // clang-format off
     for (auto& track : score.tracks) {
-        new_score.tracks->emplace_back(std::move(to_shared(std::move(track))));
+        new_score.tracks->push_back(
+            std::make_shared<Track<T>>(std::move(to_shared(std::move(track))
+        )));
     }
+    // clang-format on
     return new_score;
 }
 
