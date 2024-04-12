@@ -44,16 +44,16 @@ namespace symusic {
     [[nodiscard]] vec<u8> dumps() const;                         \
     EVENT                 shift_time(unit offset) const;         \
     EVENT&                shift_time_inplace(unit offset);       \
-/*
- *  List of all the events (based on TimeStamp):
- *  - Note(duration: unit, pitch: i8, velocity: i8)
- *  - Pedal(duration: unit)
- *  - ControlChange(number: u8, value: u8)
- *  - TimeSignature(numerator: u8, denominator: u8)
- *  - KeySignature(key: i8, tonality: u8)
- *  - Tempo(mspq: i32)
- *  - PitchBend(value: i32)
- *  - TextMeta(text: string)
+/*                                                               \
+ *  List of all the events (based on TimeStamp):                 \
+ *  - Note(duration: unit, pitch: i8, velocity: i8)              \
+ *  - Pedal(duration: unit)                                      \
+ *  - ControlChange(number: u8, value: u8)                       \
+ *  - TimeSignature(numerator: u8, denominator: u8)              \
+ *  - KeySignature(key: i8, tonality: u8)                        \
+ *  - Tempo(mspq: i32)                                           \
+ *  - PitchBend(value: i32)                                      \
+ *  - TextMeta(text: string)                                     \
  */
 
 // Define TimeStamp for events like Note
@@ -96,6 +96,8 @@ struct Note : TimeStamp<T> {
 
     [[nodiscard]] bool empty() const { return duration <= 0 || velocity <= 0; }
 
+    auto default_key() const { return std::tie(this->time, duration, pitch, velocity); }
+
     Note  shift_pitch(i8 offset) const;
     Note& shift_pitch_inplace(i8 offset);
 
@@ -117,6 +119,8 @@ struct Pedal : TimeStamp<T> {
 
     [[nodiscard]] unit start() const { return this->time; }
     [[nodiscard]] unit end() const { return this->time + duration; }
+
+    auto default_key() const { return std::tie(this->time, duration); }
 };
 
 template<TType T>
@@ -131,6 +135,8 @@ struct ControlChange : TimeStamp<T> {
     template<class U>
     ControlChange(const unit time, const ControlChange<U>& other) :
         TimeStamp<T>{time}, number{other.number}, value{other.value} {}
+
+    auto default_key() const { return std::tie(this->time, number, value); }
 };
 
 template<TType T>
@@ -145,6 +151,8 @@ struct TimeSignature : TimeStamp<T> {
     template<class U>
     TimeSignature(const unit time, const TimeSignature<U>& other) :
         TimeStamp<T>{time}, numerator{other.numerator}, denominator{other.denominator} {}
+
+    auto default_key() const { return this->time; }
 };
 
 template<TType T>
@@ -161,6 +169,8 @@ struct KeySignature : TimeStamp<T> {
         TimeStamp<T>{time}, key{other.key}, tonality{other.tonality} {}
 
     [[nodiscard]] u8 degree() const { return (key * 5) % 12 + tonality * 12; }
+
+    auto default_key() const { return this->time; }
 };
 
 template<TType T>
@@ -193,6 +203,8 @@ struct Tempo : TimeStamp<T> {
         mspq = qpm2mspq(t_qpm);
         return *this;
     }
+
+    auto default_key() const { return std::tie(this->time); }
 };
 
 template<TType T>
@@ -206,6 +218,8 @@ struct PitchBend : TimeStamp<T> {
     template<class U>
     PitchBend(const unit time, const PitchBend<U>& other) :
         TimeStamp<T>{time}, value{other.value} {}
+
+    auto default_key() const { return this->time; }
 };
 
 template<TType T>
@@ -218,6 +232,8 @@ struct TextMeta : TimeStamp<T> {
 
     template<class U>
     TextMeta(const unit time, const TextMeta<U>& other) : TimeStamp<T>{time}, text{other.text} {}
+
+    auto default_key() const { return this->time; }
 };
 
 #undef COMPILER_DEFAULT_METHODS

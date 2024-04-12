@@ -16,20 +16,20 @@ struct Score {
     typedef T                ttype;
     typedef typename T::unit unit;
 
-    i32                                   ticks_per_quarter{};
-    shared<vec<shared<Track<T>>>>         tracks{};
-    shared<vec<shared<TimeSignature<T>>>> time_signatures{};
-    shared<vec<shared<KeySignature<T>>>>  key_signatures{};
-    shared<vec<shared<Tempo<T>>>>         tempos{};
-    shared<vec<shared<TextMeta<T>>>>      lyrics, markers{};
+    i32                             ticks_per_quarter;
+    shared<vec<shared<Track<T>>>>   tracks;   // track is not small object, use shared_ptr
+    shared<pyvec<TimeSignature<T>>> time_signatures;
+    shared<pyvec<KeySignature<T>>>  key_signatures;
+    shared<pyvec<Tempo<T>>>         tempos;
+    shared<pyvec<TextMeta<T>>>      lyrics, markers;
 
     Score() : ticks_per_quarter{0} {
         tracks          = std::make_shared<vec<shared<Track<T>>>>();
-        time_signatures = std::make_shared<vec<shared<TimeSignature<T>>>>();
-        key_signatures  = std::make_shared<vec<shared<KeySignature<T>>>>();
-        tempos          = std::make_shared<vec<shared<Tempo<T>>>>();
-        lyrics          = std::make_shared<vec<shared<TextMeta<T>>>>();
-        markers         = std::make_shared<vec<shared<TextMeta<T>>>>();
+        time_signatures = std::make_shared<pyvec<TimeSignature<T>>>();
+        key_signatures  = std::make_shared<pyvec<KeySignature<T>>>();
+        tempos          = std::make_shared<pyvec<Tempo<T>>>();
+        lyrics          = std::make_shared<pyvec<TextMeta<T>>>();
+        markers         = std::make_shared<pyvec<TextMeta<T>>>();
     }
 
     Score(const Score&) = default;
@@ -46,13 +46,13 @@ struct Score {
     }
 
     Score(
-        const i32                             tpq,
-        shared<vec<shared<Track<T>>>>         tracks,
-        shared<vec<shared<TimeSignature<T>>>> time_signatures,
-        shared<vec<shared<KeySignature<T>>>>  key_signatures,
-        shared<vec<shared<Tempo<T>>>>         tempos,
-        shared<vec<shared<TextMeta<T>>>>      lyrics,
-        shared<vec<shared<TextMeta<T>>>>      markers
+        const i32                       tpq,
+        shared<vec<shared<Track<T>>>>   tracks,
+        shared<pyvec<TimeSignature<T>>> time_signatures,
+        shared<pyvec<KeySignature<T>>>  key_signatures,
+        shared<pyvec<Tempo<T>>>         tempos,
+        shared<pyvec<TextMeta<T>>>      lyrics,
+        shared<pyvec<TextMeta<T>>>      markers
     ) :
         ticks_per_quarter{tpq}, tracks{std::move(tracks)},
         time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
@@ -65,14 +65,19 @@ struct Score {
     [[nodiscard]] Score copy() const { return {*this}; }
 
     [[nodiscard]] Score deepcopy() const {
+        auto new_tracks = std::make_shared<vec<shared<Track<T>>>>();
+        new_tracks->reserve(tracks->size());
+        for (const auto& track : *tracks) {
+            new_tracks->push_back(std::make_shared<Track<T>>(std::move(track->deepcopy())));
+        }
         return {
             ticks_per_quarter,
-            std::move(details::deepcopy(tracks)),
-            std::move(details::deepcopy(time_signatures)),
-            std::move(details::deepcopy(key_signatures)),
-            std::move(details::deepcopy(tempos)),
-            std::move(details::deepcopy(lyrics)),
-            std::move(details::deepcopy(markers))
+            std::move(new_tracks),
+            std::move(time_signatures->deepcopy()),
+            std::move(key_signatures->deepcopy()),
+            std::move(tempos->deepcopy()),
+            std::move(lyrics->deepcopy()),
+            std::move(markers->deepcopy())
         };
     }
 
