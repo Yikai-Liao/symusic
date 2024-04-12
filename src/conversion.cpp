@@ -48,12 +48,12 @@ struct SimpleConverter {
         capsule.reserve(data.size());
 
         for (const T<From>& d : data) { capsule.emplace_back(self->time(d.time), d); }
-        return {std::move(capsule)};
+        return pyvec<T<To>>(std::move(capsule));
     }
 
     template<template<class> class T>
     [[nodiscard]] pyvec<T<To>> duration_vec(
-        const vec<shared<T<From>>>& data, typename To::unit min_dur
+        const pyvec<T<From>>& data, typename To::unit min_dur
     ) const {
         const auto self = static_cast<const Converter*>(this);
         min_dur         = std::max(min_dur, static_cast<typename To::unit>(0));
@@ -66,7 +66,7 @@ struct SimpleConverter {
                 self->time(d->time), std::max(min_dur, self->time(d->duration)), d
             );
         }
-        return {std::move(capsule)};
+        return pyvec<T<To>>(std::move(capsule));
     }
 };
 
@@ -190,7 +190,7 @@ struct SecondConverter {
                 self->get_time(event->time, pivot_to, cur_range.first, cur_factor), *event
             );
         }
-        return {std::move(capsule)};
+        return pyvec<T<To>>(std::move(capsule));
     }
 
     template<template<class> class T>
@@ -225,7 +225,7 @@ struct SecondConverter {
             auto duration = std::max(min_dur, end - start);
             capsule.emplace_back(start, duration, *event);
         }
-        return {std::move(capsule)};
+        return pyvec<T<To>>(std::move(capsule));
     }
 };
 

@@ -46,6 +46,24 @@ struct Score {
     }
 
     Score(
+        const i32                     tpq,
+        shared<vec<shared<Track<T>>>> tracks,
+        pyvec<TimeSignature<T>>&&     time_signatures,
+        pyvec<KeySignature<T>>&&      key_signatures,
+        pyvec<Tempo<T>>&&             tempos,
+        pyvec<TextMeta<T>>&&          lyrics,
+        pyvec<TextMeta<T>>&&          markers
+    ) : ticks_per_quarter{tpq}, tracks{std::move(tracks)} {
+        this->time_signatures
+            = std::make_shared<pyvec<TimeSignature<T>>>(std::move(time_signatures));
+        this->key_signatures = std::make_shared<pyvec<KeySignature<T>>>(std::move(key_signatures));
+        this->tempos         = std::make_shared<pyvec<Tempo<T>>>(std::move(tempos));
+        this->lyrics         = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
+        this->markers        = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
+    }
+
+
+    Score(
         const i32                       tpq,
         shared<vec<shared<Track<T>>>>   tracks,
         shared<pyvec<TimeSignature<T>>> time_signatures,
@@ -81,7 +99,9 @@ struct Score {
         };
     }
 
-    explicit Score(const i32 tpq) : ticks_per_quarter{tpq} {}
+    explicit Score(const i32 tpq): Score() {
+        ticks_per_quarter = tpq;
+    }
 
     template<DataFormat F>
     [[nodiscard]] static Score parse(std::span<const u8> bytes);
@@ -159,8 +179,8 @@ struct ScoreNative {
     explicit ScoreNative(const i32 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
 
     [[nodiscard]] bool empty() const {
-        return time_signatures.empty() && key_signatures.empty() && tempos.empty() &&
-               lyrics.empty() && markers.empty() && tracks.empty();
+        return time_signatures.empty() && key_signatures.empty() && tempos.empty() && lyrics.empty()
+               && markers.empty() && tracks.empty();
     }
 
     template<DataFormat F>
