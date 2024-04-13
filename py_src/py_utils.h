@@ -37,8 +37,8 @@ nb::bytes to_bytes(const shared<T>& self) {
 }
 
 template<TimeEvent T>
-nb::bytes vec_to_bytes(const shared<vec<shared<T>>>& self) {
-    const vec<unsigned char> data = dumps<DataFormat::ZPP>(details::to_native_vec(self));
+nb::bytes vec_to_bytes(const pyvec<T>& self) {
+    const vec<unsigned char> data = dumps<DataFormat::ZPP>(self.collect());
     return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
@@ -51,11 +51,11 @@ void from_bytes(shared<T>& self, const nb::bytes& bytes) {
 }
 
 template<TimeEvent T>
-void vec_from_bytes(shared<vec<shared<T>>>& self, const nb::bytes& bytes) {
+void vec_from_bytes(shared<pyvec<T>>& self, const nb::bytes& bytes) {
     const auto      data = std::string_view(bytes.c_str(), bytes.size());
     const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
     auto            native_ans = symusic::parse<symusic::DataFormat::ZPP, vec<T>>(span);
-    new (&self) shared<vec<shared<T>>>(std::move(details::to_shared_vec(std::move(native_ans))));
+    new (&self) shared<pyvec<T>>(std::make_shared<pyvec<T>>(std::move(native_ans)));
 }
 
 template<typename T>
@@ -80,6 +80,12 @@ bool operator!=(const shared<T>& a, const shared<T>& b) {
  *  - TextMeta(text: string)
  */
 
+namespace details {
+template<typename T>
+std::shared_ptr<pyvec<T>> to_shared_vec(vec<T>&& vec) {
+    return std::make_shared<pyvec<T>>(std::move(vec));
+}
+}   // namespace details
 
 template<TType T, typename unit = typename T::unit>
 auto note_from_numpy(
@@ -105,9 +111,7 @@ auto pedal_from_numpy(NDARR(unit, 1) time, NDARR(unit, 1) duration) {
     }
     vec<Pedal<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), duration(i));
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), duration(i)); }
     return details::to_shared_vec(std::move(ans));
 }
 
@@ -119,9 +123,7 @@ auto controlchange_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8
     }
     vec<ControlChange<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), number(i), value(i));
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), number(i), value(i)); }
     return details::to_shared_vec(std::move(ans));
 }
 
@@ -133,9 +135,7 @@ auto timesig_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1
     }
     vec<TimeSignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), numerator(i), denominator(i));
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), numerator(i), denominator(i)); }
     return details::to_shared_vec(std::move(ans));
 }
 
@@ -147,23 +147,17 @@ auto keysig_from_numpy(NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(u8, 1) tonal
     }
     vec<KeySignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), key(i), tonality(i));
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), key(i), tonality(i)); }
     return details::to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
 auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
     auto size = time.size();
-    if (size != mspq.size()) {
-        throw std::invalid_argument("time, mspq must have the same size");
-    }
+    if (size != mspq.size()) { throw std::invalid_argument("time, mspq must have the same size"); }
     vec<Tempo<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), mspq(i));
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), mspq(i)); }
     return details::to_shared_vec(std::move(ans));
 }
 
@@ -179,11 +173,6 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
     typedef shared<vec<self_t>> vec_t;
 
     auto copy_func = [](const shared<T>& self) { return std::make_shared<T>(*self); };
-
-    auto vec_copy_func     = [](const vec_t& self) { return std::make_shared<vec<self_t>>(*self); };
-    auto vec_deepcopy_func = [](const vec_t& self) {
-        return details::deepcopy(self);
-    };
 
     // clang-format off
     auto event = nb::class_<shared<T>>(m, name.c_str())
@@ -214,15 +203,11 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def(nb::self != nb::self)  // NOLINT
         .def("__getstate__", &to_bytes<T>)
         .def("__setstate__", &from_bytes<T>)
-        .def("_use_count", [](const shared<T>& self) { return self.use_count(); })
+        .def("__use_count", [](const shared<T>& self) { return self.use_count(); })
     ;
 
-    auto vec_class = bind_shared_vector_copy<vec<self_t>>(m, ("Vec" + name).c_str())
+    auto vec_class = bind_shared_pyvec<T>(m, (name+"List").c_str())
         .def_prop_ro("ttype", [](const vec_t& self) { return typename T::ttype(); })
-        .def("__copy__", vec_copy_func)
-        .def("__deepcopy__", vec_deepcopy_func)
-        .def("copy", vec_copy_func)
-        .def("deepcopy", vec_deepcopy_func)
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
     ;
@@ -238,8 +223,8 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
     );
 
 #define TO_NUMPY_INNER(ARR_TYPE, ...)                                                             \
-    [](const shared<vec<self_t>>& self) {                                                         \
-        auto*       temp = new ARR_TYPE<T>{*self};                                                \
+    [](const shared<pyvec<self_inner>>& self) {                                                   \
+        auto*       temp = new ARR_TYPE<T>(*self);                                                \
         nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<ARR_TYPE<T>*>(p); }); \
         size_t      size = self->size();                                                          \
         nb::dict    ans{};                                                                        \
@@ -254,12 +239,31 @@ template<TType T>
 auto bind_note(nb::module_& m, const std::string& name_) {
     typedef typename T::unit unit;
     typedef shared<Note<T>>  self_t;
+    using self_inner = Note<T>;
 
     const std::string name = "Note" + name_;
     auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name);
 
-    auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
-
+    // auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
+    auto to_numpy = [](const shared<pyvec<self_inner>>& self) {
+        auto*       temp = new NoteArr<T>(*self);
+        nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<NoteArr<T>*>(p); });
+        size_t      size = self->size();
+        nb::dict    ans{};
+        ans["time"] = nb::ndarray<nb::numpy, typename decltype(temp->time)::value_type>(
+            temp->time.data(), {size}, deleter
+        );
+        ans["duration"] = nb::ndarray<nb::numpy, typename decltype(temp->duration)::value_type>(
+            temp->duration.data(), {size}, deleter
+        );
+        ans["pitch"] = nb::ndarray<nb::numpy, typename decltype(temp->pitch)::value_type>(
+            temp->pitch.data(), {size}, deleter
+        );
+        ans["velocity"] = nb::ndarray<nb::numpy, typename decltype(temp->velocity)::value_type>(
+            temp->velocity.data(), {size}, deleter
+        );
+        return ans;
+    };
     // clang-format off
     note.def_prop_rw(RW_COPY(unit,  "start",    time))
         .def_prop_rw(RW_COPY(unit,  "duration", duration))

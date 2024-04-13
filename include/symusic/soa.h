@@ -50,7 +50,7 @@ struct NoteArr {
         for (const auto& note : data) emplace_back(note);
     }
 
-    explicit NoteArr(const pyvec<T>& data) {
+    explicit NoteArr(const pyvec<Note<T>>& data) {
         reserve(data.size());
         for (const auto& note : data) emplace_back(note);
     }

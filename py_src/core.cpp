@@ -1236,5 +1236,4 @@ NB_MODULE(core, m) {
     //
     // core_module(m);
     // bind_synthesizer(m);
-    nb::slice
 }
