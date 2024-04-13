@@ -10,6 +10,7 @@
 #pragma once
 #include <nanobind/stl/bind_vector.h>
 #include <memory>
+#include <pyvec.hpp>
 
 namespace pyutils {
 
@@ -208,7 +209,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
         "bind_vector(): the value type must be copy-constructible."
     );
 
-    handle cl_cur = type<Vector>();
+    handle cl_cur = type<std::shared_ptr<Vector>>();
     if (cl_cur.is_valid()) {
         // Binding already exists, don't re-create
         return borrow<class_<std::shared_ptr<Vector>>>(cl_cur);
@@ -372,6 +373,146 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
                        v->erase(p);
                    else
                        throw value_error();
+               },
+               "Remove first occurrence of `arg`.");
+    }
+
+    return cl;
+}
+
+// template <typename Vector, typename... Args>
+template<typename T, typename ...Args>
+nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(nanobind::handle scope, const char *name, Args &&...args) {
+    using namespace nanobind;
+    using namespace pycontainer;
+
+    using Vector = pyvec<T>;
+    using ValueRef = std::shared_ptr<T>;
+    using self_t = std::shared_ptr<Vector>;
+
+    handle cl_cur = type<self_t>();
+    if (cl_cur.is_valid()) {
+        // Binding already exists, don't re-create
+        return borrow<class_<self_t>>(cl_cur);
+    }
+
+    auto cl = class_<self_t>(scope, name, std::forward<Args>(args)...)
+        .def("__init__", [](self_t *self) { new (self) self_t(std::move(std::make_shared<Vector>())); })
+
+        .def("__len__", [](const self_t &v) { return v->size(); })
+
+        .def("__bool__",
+             [](const self_t &v) { return !v->empty(); },
+             "Check whether the vector is nonempty")
+
+        // .def("__repr__",
+        //      [](handle_t<self_t> h) {
+        //         return steal<str>(detail::repr_list(h.ptr()));
+        //      })
+
+        .def("__iter__",
+             [](self_t &v) {
+                 return make_iterator(type<self_t>(), "Iterator", v->sbegin(), v->send());
+             }, keep_alive<0, 1>())
+
+        .def("__getitem__",
+             [](self_t &v, Py_ssize_t i) -> ValueRef {
+                 return v->getitem(i);
+             }, rv_policy::copy)
+
+        .def("clear", [](self_t &v) { v->clear(); },
+             "Remove all items from list.");
+
+        cl.def("__init__", [](self_t *self, const self_t &other) {
+            new (self) self_t(std::move(std::make_shared<Vector>(*other)));
+        }, "Shallow Copy constructor");
+
+        cl.def("__init__", [](self_t &v, typed<iterable, detail::iterable_type_id<ValueRef>> &seq) {
+            new (&v) self_t(std::move(std::make_shared<Vector>()));
+            v->reserve(len_hint(seq.value));
+            for (handle h : seq.value)
+                v->push_back(*cast<ValueRef>(h));
+        }, "Construct from an iterable object");
+
+        implicitly_convertible<iterable, self_t>();
+
+        cl.def("append",
+               [](self_t &v, const ValueRef &value) { v->append(value); },
+               "Append `arg` to the end of the list.")
+
+        .def("insert",
+            [](self_t &v, Py_ssize_t i, const ValueRef &x) {
+                v->insert(i, x);
+            },  "Insert object `arg1` before index `arg0`.")
+
+        .def("pop",
+            [](self_t &v, Py_ssize_t i) { return v->pop(i); },
+            arg("index") = -1,
+            "Remove and return item at `index` (default last).")
+
+      .def("extend",
+           [](self_t &v, const self_t &src) {
+               v->extend(*src);
+           },
+           "Extend `self` by appending elements from `arg`.")
+
+      .def("__setitem__",
+           [](self_t &v, Py_ssize_t i, const ValueRef &value) {
+               v->setitem(i, value);
+           })
+
+      .def("__delitem__",
+           [](self_t &v, Py_ssize_t i) {
+                v->delitem(i);
+           })
+
+      .def("__getitem__",
+           [](const self_t &v, const nanobind::slice &slice) -> self_t {
+               auto [start, stop, step, length] = slice.compute(v->size());
+               return std::make_shared<Vector>(std::move(v->getitem({start, stop, step})));
+           })
+
+      .def("__setitem__",
+           [](self_t &v, const nanobind::slice &slice, const self_t &other) {
+               auto [start, stop, step, length] = slice.compute(v->size());
+               v->setitem({start, stop, step}, *other);
+           })
+
+      .def("__delitem__",
+           [](self_t &v, const nanobind::slice &slice) {
+               auto [start, stop, step, length] = slice.compute(v->size());
+               if (length == 0) return;
+               v->delitem({start, stop, step});
+           })
+
+    .def("__copy__", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->copy())); })
+    .def("copy", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->copy())); })
+
+    .def("__deepcopy__", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->deepcopy())); })
+    .def("deepcopy", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->deepcopy())); })
+
+    .def("__use_count", [](const self_t &v) { return v.use_count(); });
+
+    if constexpr (detail::is_equality_comparable_v<T>) {
+        cl.def(self == self)
+          .def(self != self)
+
+          .def("__contains__",
+               [](const self_t &v, const ValueRef &x) {
+                   return v->contains(x);
+               })
+
+          .def("__contains__", // fallback for incompatible types
+               [](const self_t &, handle) { return false; })
+
+          .def("count",
+               [](const self_t &v, const ValueRef &x) {
+                   return v->count(x);
+               }, "Return number of occurrences of `arg`.")
+
+          .def("remove",
+               [](self_t &v, const ValueRef &x) {
+                   v->remove(x);
                },
                "Remove first occurrence of `arg`.");
     }
