@@ -180,7 +180,7 @@ vec<shared<T>> clamp_dur(
 namespace details {
 template<TimeEvent T>
 void adjust_time_inplace_inner(
-    const pyvec<T>&              events,
+    pyvec<T>&                    events,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
@@ -280,7 +280,7 @@ void adjust_time_inplace(
 
 template<bool check_times = true, TType T>
 void adjust_time_inplace(
-    const Track<T>&              track,
+    Track<T>&                    track,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
@@ -293,7 +293,7 @@ void adjust_time_inplace(
 
 template<bool check_times = true, TType T>
 void adjust_time_inplace(
-    const Score<T>&              score,
+    Score<T>&                    score,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
@@ -314,7 +314,7 @@ T adjust_time(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    T new_data = data->deepcopy();
+    T new_data = data.deepcopy();
     adjust_time_inplace<false>(new_data, original_times, new_times);
     return new_data;
 }
