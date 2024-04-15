@@ -161,12 +161,14 @@ namespace symusic {
 //     auto vec_T = py::bind_vector<vec<shared<T>>>(m, std::string(name + "List").c_str())
 //         .def_prop_ro("ttype", [](const vec<shared<T>> &) {
 //         return typename T::ttype(); });
-//         // .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false, py::arg("inplace")=true)
+//         // .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false,
+//         py::arg("inplace")=true)
 //         // .def("__repr__", [](const vec<T> &self) {
 //         // return fmt::format("{}", fmt::join(self, ",\n"));
 //         // })
 //         // .def("__copy__" , &copy_vec<T>)
-//         // .def("__deepcopy__" , py::overload_cast<const vec<shared<T>> &>(&details::deepcopy<T>))
+//         // .def("__deepcopy__" , py::overload_cast<const vec<shared<T>>
+//         &>(&details::deepcopy<T>))
 //         // .def("copy", &copy_vec<T>)
 //         // .def("deepcopy", py::overload_cast<const vec<shared<T>> &>(&details::deepcopy<T>))
 //         // .def("__getstate__", [](const vec<shared<T>> &self) {
@@ -177,7 +179,8 @@ namespace symusic {
 //         // self = std::move(to_shared(std::move(from_bytes<vec<T>>(bytes))));
 //         // })
 //         // .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
-//         // // .def("adjust_time", &ops::adjust_time<true, T>, py::arg("original_times"), py::arg("new_times"), py::arg("is_sorted")=false)
+//         // // .def("adjust_time", &ops::adjust_time<true, T>, py::arg("original_times"),
+//         py::arg("new_times"), py::arg("is_sorted")=false)
 //         // .def("start", &ops::start<T>, "Return the start time of the all the events")
 //         // .def("end", &ops::end<T>, "Return the end time of the all the events");
 //
@@ -233,7 +236,8 @@ namespace symusic {
 //             "shift_velocity",
 //             [](Note<T>& self, const int8_t offset, const bool inplace) {
 //                 if (inplace)
-//                     return py::cast(self.shift_velocity_inplace(offset), py::rv_policy::reference);
+//                     return py::cast(self.shift_velocity_inplace(offset),
+//                     py::rv_policy::reference);
 //                 else
 //                     return py::cast(self.shift_velocity(offset), py::rv_policy::move);
 //             },
@@ -242,25 +246,25 @@ namespace symusic {
 //             "Shift the velocity by offset"
 //         )
 //         .def(
-             // "from_numpy",
-             // [](NDARR(unit, 1) time,
-             //    NDARR(unit, 1) duration,
-             //    NDARR(i8, 1) pitch,
-             //    NDARR(i8, 1) velocity) {
-             //     if (time.size() != duration.size() || time.size() != pitch.size() ||
-             //         time.size() != velocity.size()) {
-             //         throw std::invalid_argument(
-             //             "time, duration, pitch, velocity must have the same size"
-             //         );
-             //     }
-             //     auto         size = time.size();
-             //     vec<Note<T>> ans;
-             //     ans.reserve(size);
-             //     for (size_t i = 0; i < size; ++i) {
-             //         ans.emplace_back(time(i), duration(i), pitch(i), velocity(i));
-             //     }
-             //     return details::to_shared_vec(std::move(ans));
-             // }
+// "from_numpy",
+// [](NDARR(unit, 1) time,
+//    NDARR(unit, 1) duration,
+//    NDARR(i8, 1) pitch,
+//    NDARR(i8, 1) velocity) {
+//     if (time.size() != duration.size() || time.size() != pitch.size() ||
+//         time.size() != velocity.size()) {
+//         throw std::invalid_argument(
+//             "time, duration, pitch, velocity must have the same size"
+//         );
+//     }
+//     auto         size = time.size();
+//     vec<Note<T>> ans;
+//     ans.reserve(size);
+//     for (size_t i = 0; i < size; ++i) {
+//         ans.emplace_back(time(i), duration(i), pitch(i), velocity(i));
+//     }
+//     return details::to_shared_vec(std::move(ans));
+// }
 //         );
 // }
 //
@@ -273,18 +277,18 @@ namespace symusic {
 //     const auto               name = "KeySignature" + name_;
 //
 //     auto [k, k_vec] = time_stamp_base<symusic::KeySignature<T>>(m, name);
-     // k_vec.def("numpy", [](const vec<shared<KeySignature<T>>>& self) {
-     //     auto*       temp = new KeySignatureArr<T>{self};
-     //     py::capsule deleter(temp, [](void* p) noexcept {
-     //         delete static_cast<KeySignatureArr<T>*>(p);
-     //     });
-     //     size_t      size = self.size();
-     //     py::dict    ans{};
-     //     ans["time"]     = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-     //     ans["key"]      = py::ndarray<py::numpy, i8>{temp->key.data(), {size}, deleter};
-     //     ans["tonality"] = py::ndarray<py::numpy, i8>{temp->tonality.data(), {size}, deleter};
-     //     return ans;
-     // });
+// k_vec.def("numpy", [](const vec<shared<KeySignature<T>>>& self) {
+//     auto*       temp = new KeySignatureArr<T>{self};
+//     py::capsule deleter(temp, [](void* p) noexcept {
+//         delete static_cast<KeySignatureArr<T>*>(p);
+//     });
+//     size_t      size = self.size();
+//     py::dict    ans{};
+//     ans["time"]     = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
+//     ans["key"]      = py::ndarray<py::numpy, i8>{temp->key.data(), {size}, deleter};
+//     ans["tonality"] = py::ndarray<py::numpy, i8>{temp->tonality.data(), {size}, deleter};
+//     return ans;
+// });
 //     return k.def(py::init<unit, i8, i8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
 //         .def_rw("key", &KeySignature<T>::key)
 //         .def_rw("tonality", &KeySignature<T>::tonality)
@@ -303,7 +307,8 @@ namespace symusic {
 //
 // // bind symusic::TimeSignature<T>
 // template<typename T>
-// py::class_<TimeSignature<T>> bind_time_signature_class(py::module_& m, const std::string& name_) {
+// py::class_<TimeSignature<T>> bind_time_signature_class(py::module_& m, const std::string& name_)
+// {
 //     typedef typename T::unit unit;
 //     const auto               name = "TimeSignature" + name_;
 //     auto [time_sig, time_sig_vec] = time_stamp_base<symusic::TimeSignature<T>>(m, name);
@@ -316,8 +321,8 @@ namespace symusic {
 //         py::dict    ans{};
 //         ans["time"]        = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
 //         ans["numerator"]   = py::ndarray<py::numpy, u8>{temp->numerator.data(), {size}, deleter};
-//         ans["denominator"] = py::ndarray<py::numpy, u8>{temp->denominator.data(), {size}, deleter};
-//         return ans;
+//         ans["denominator"] = py::ndarray<py::numpy, u8>{temp->denominator.data(), {size},
+//         deleter}; return ans;
 //     });
 //     return time_sig.def(py::init<unit, u8, u8>())
 //         .def_rw("numerator", &TimeSignature<T>::numerator)
@@ -343,11 +348,12 @@ namespace symusic {
 //
 // // bind symusic::ControlChange<T>
 // template<typename T>
-// py::class_<ControlChange<T>> bind_control_change_class(py::module_& m, const std::string& name_) {
+// py::class_<ControlChange<T>> bind_control_change_class(py::module_& m, const std::string& name_)
+// {
 //     typedef typename T::unit unit;
 //     const auto               name             = "ControlChange" + name_;
-//     auto [control_change, control_change_vec] = time_stamp_base<symusic::ControlChange<T>>(m, name);
-//     control_change_vec.def("numpy", [](const vec<shared<ControlChange<T>>>& self) {
+//     auto [control_change, control_change_vec] = time_stamp_base<symusic::ControlChange<T>>(m,
+//     name); control_change_vec.def("numpy", [](const vec<shared<ControlChange<T>>>& self) {
 //         auto*       temp = new ControlChangeArr<T>{self};
 //         py::capsule deleter(temp, [](void* p) noexcept {
 //             delete static_cast<ControlChangeArr<T>*>(p);
@@ -461,7 +467,8 @@ namespace symusic {
 //
 // // bind symusic::PitchBend<T>
 // template<typename T>
-// py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module_& m, const std::string& name_) {
+// py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module_& m, const std::string& name_)
+// {
 //     typedef typename T::unit unit;
 //     const auto               name     = "PitchBend" + name_;
 //     auto [pitch_bend, pitch_bend_vec] = time_stamp_base<symusic::PitchBend<T>>(m, name);
@@ -556,7 +563,8 @@ namespace symusic {
 //
 // // shift velocity track
 // template<typename T>
-// py::object py_shift_velocity_track(Track<T>& self, const int8_t offset, const bool inplace = true) {
+// py::object py_shift_velocity_track(Track<T>& self, const int8_t offset, const bool inplace =
+// true) {
 //     if (inplace) {
 //         return py::cast(self.shift_velocity_inplace(offset), py::rv_policy::reference);
 //     } else {
@@ -609,7 +617,8 @@ namespace symusic {
 //             //     py::arg("clip_end") = false
 //             // )
 //             // .def(
-//             //     "shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace") = false
+//             //     "shift_time", &py_shift_time_track<T>, py::arg("offset"), py::arg("inplace") =
+//             false
 //             // )
 //             // .def(
 //             //     "shift_pitch",
@@ -645,7 +654,8 @@ namespace symusic {
 //             //             modesEnum[i] = symusic::str_to_pianoroll_mode(modes[i]);
 //             //         }
 //             //         TrackPianoroll pianoroll =
-//             //             TrackPianoroll::from_track(self, modesEnum, pitchRange, encodeVelocity);
+//             //             TrackPianoroll::from_track(self, modesEnum, pitchRange,
+//             encodeVelocity);
 //             //
 //             //         return py::ndarray<py::numpy, pianoroll_t>{
 //             //             const_cast<uint8_t*>(pianoroll.release()),
@@ -739,7 +749,8 @@ namespace symusic {
 //
 // // py shift velocity score
 // template<typename T>
-// py::object py_shift_velocity_score(Score<T>& self, const int8_t offset, const bool inplace = true) {
+// py::object py_shift_velocity_score(Score<T>& self, const int8_t offset, const bool inplace =
+// true) {
 //     if (inplace) {
 //         return py::cast(self.shift_velocity_inplace(offset), py::rv_policy::reference);
 //     } else {
@@ -910,7 +921,8 @@ namespace symusic {
 //         // https://github.com/pybind/pybind11/issues/1693
 //         .def("dump_midi", &dump_midi<T, std::string>, "Dump to midi file", py::arg("path"))
 //         .def(
-//             "dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file", py::arg("path")
+//             "dump_midi", &dump_midi<T, std::filesystem::path>, "Dump to midi file",
+//             py::arg("path")
 //         )
 //         .def(
 //             "dumps_midi",
@@ -968,8 +980,10 @@ namespace symusic {
 //         //     py::arg("end"),
 //         //     py::arg("clip_end") = false
 //         // )
-//         // .def("shift_time", &py_shift_time_score<T>, py::arg("offset"), py::arg("inplace") = false)
-//         // .def("shift_pitch", &py_shift_pitch_score<T>, py::arg("offset"), py::arg("inplace") = false)
+//         // .def("shift_time", &py_shift_time_score<T>, py::arg("offset"), py::arg("inplace") =
+//         false)
+//         // .def("shift_pitch", &py_shift_pitch_score<T>, py::arg("offset"), py::arg("inplace") =
+//         false)
 //         // .def(
 //         //     "shift_velocity",
 //         //     &py_shift_velocity_score<T>,
@@ -1026,12 +1040,14 @@ namespace symusic {
 // }
 //
 // template<typename T>
-// py::object convert_score(const Score<T>& self, const py::object& ttype, const py::object& min_dur) {
+// py::object convert_score(const Score<T>& self, const py::object& ttype, const py::object&
+// min_dur) {
 //     if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
 //     if (py::isinstance<Tick>(ttype))
 //         return py::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), py::rv_policy::move);
 //     if (py::isinstance<Quarter>(ttype))
-//         return py::cast(convert<Quarter>(self, cast_time<Quarter>(min_dur)), py::rv_policy::move);
+//         return py::cast(convert<Quarter>(self, cast_time<Quarter>(min_dur)),
+//         py::rv_policy::move);
 //     if (py::isinstance<Second>(ttype))
 //         return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
 //     if (py::isinstance<py::str>(ttype)) {
@@ -1044,7 +1060,8 @@ namespace symusic {
 //                 convert<Quarter>(self, cast_time<Quarter>(min_dur)), py::rv_policy::move
 //             );
 //         if (ttype_str == "second")
-//             return py::cast(convert<Second>(self, cast_time<Second>(min_dur)), py::rv_policy::move);
+//             return py::cast(convert<Second>(self, cast_time<Second>(min_dur)),
+//             py::rv_policy::move);
 //     }
 //     throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
 // }
@@ -1160,8 +1177,10 @@ namespace symusic {
 //             py::arg("quality")
 //         );
 //         // .def("render", &Synthesizer::render<Tick>, py::arg("score"), py::arg("stereo") = true)
-//         // .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo") = true)
-//         // .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo") = true);
+//         // .def("render", &Synthesizer::render<Quarter>, py::arg("score"), py::arg("stereo") =
+//         true)
+//         // .def("render", &Synthesizer::render<Second>, py::arg("score"), py::arg("stereo") =
+//         true);
 //
 //     // m.def(
 //     //     "dump_wav",
@@ -1174,12 +1193,23 @@ namespace symusic {
 //     return m;
 // }
 
+#define BIND_EVENT(__COUNT, BIND_FUNC) \
+    BIND_FUNC<Tick>(m, "Tick");        \
+    BIND_FUNC<Quarter>(m, "Quarter");  \
+    BIND_FUNC<Second>(m, "Second");
+
 using namespace pyutils;
 NB_MODULE(core, m) {
     m.attr("_MIDI2ABC") = std::string("");
-    bind_note<Tick>(m, "Tick");
-    bind_note<Quarter>(m, "Quarter");
-    bind_note<Second>(m, "Second");
+    // clang-format off
+    REPEAT_ON(
+        BIND_EVENT,
+        bind_note, bind_keysig, bind_timesig, bind_tempo,
+        bind_controlchange, bind_pedal, bind_pitchbend, bind_textmeta
+    )
+    // clang-format on
+
+
 
 
     // py::bind_vector<vec<f32>>(m, "f32List");
@@ -1221,4 +1251,4 @@ NB_MODULE(core, m) {
     // core_module(m);
     // bind_synthesizer(m);
 }
-}
+}   // namespace symusic

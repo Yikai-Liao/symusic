@@ -162,6 +162,16 @@ auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
 }
 
 template<TType T, typename unit = typename T::unit>
+auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
+    auto size = time.size();
+    if (size != value.size()) { throw std::invalid_argument("time, value must have the same size"); }
+    vec<PitchBend<T>> ans;
+    ans.reserve(size);
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), value(i)); }
+    return details::to_shared_vec(std::move(ans));
+}
+
+template<TType T, typename unit = typename T::unit>
 auto textmeta_from_numpy(NDARR(unit, 1) time, NDARR(std::string, 1) text) {
     throw std::runtime_error("TextMeta does not support numpy");
 }
@@ -319,11 +329,234 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     ;
 
     note_vec
-        .def("to_numpy", to_numpy)
+        .def("numpy", to_numpy)
         .def_static("from_numpy", &note_from_numpy<T>)
     ;
     // clang-format on
     return std::make_tuple(note, note_vec);
 }
+
+template<TType T>
+auto bind_keysig(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<KeySignature<T>> self_t;
+    using self_inner = KeySignature<T>;
+
+    const std::string name = "KeySignature" + name_;
+    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
+
+    // auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
+    auto to_numpy = [](const shared<pyvec<self_inner> >& self) {
+        auto*       temp = new KeySignatureArr<T>(*self);
+        nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<KeySignatureArr<T>*>(p); });
+        size_t      size = self->size();
+        nb::dict    ans{};
+        ans["time"] = nb::ndarray<nb::numpy, typename decltype(temp->time)::value_type>(
+            temp->time.data(),
+            {size},
+            deleter);
+        ans["key"] = nb::ndarray<nb::numpy, typename decltype(temp->key)::value_type>(
+            temp->key.data(),
+            {size},
+            deleter);
+        ans["tonality"] = nb::ndarray<nb::numpy, typename decltype(temp->tonality)::value_type>(
+            temp->tonality.data(),
+            {size},
+            deleter);
+        return ans;
+    };
+    // clang-format off
+    keysig
+        .def_prop_rw(RW_COPY(i8, "key", key))
+        .def_prop_rw(RW_COPY(i8, "tonality", tonality))
+        .def("__init__", &pyinit<KeySignature<T>, unit, i8, i8>,
+            nb::arg("time"), nb::arg("key"), nb::arg("tonality")=0)
+    ;
+
+    keysig_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &keysig_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(keysig, keysig_vec);
+}
+
+template<TType T>
+auto bind_timesig(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<TimeSignature<T>> self_t;
+    using self_inner = TimeSignature<T>;
+
+    const std::string name = "TimeSignature" + name_;
+    auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name);
+
+    auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
+
+    // clang-format off
+    timesig
+        .def_prop_rw(RW_COPY(u8, "numerator", numerator))
+        .def_prop_rw(RW_COPY(u8, "denominator", denominator))
+        .def("__init__", &pyinit<TimeSignature<T>, unit, u8, u8>,
+            nb::arg("time"), nb::arg("numerator"), nb::arg("denominator"))
+    ;
+
+    timesig_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &timesig_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(timesig, timesig_vec);
+}
+
+template<TType T>
+auto bind_controlchange(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<ControlChange<T>> self_t;
+    using self_inner = ControlChange<T>;
+
+    const std::string name = "ControlChange" + name_;
+    auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name);
+
+    auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
+
+    // clang-format off
+    controlchange
+        .def_prop_rw(RW_COPY(u8, "number", number))
+        .def_prop_rw(RW_COPY(u8, "value", value))
+        .def("__init__", &pyinit<ControlChange<T>, unit, u8, u8>,
+            nb::arg("time"), nb::arg("number"), nb::arg("value"))
+    ;
+
+    controlchange_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &controlchange_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(controlchange, controlchange_vec);
+}
+
+template<TType T>
+auto bind_pedal(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<Pedal<T>> self_t;
+    using self_inner = Pedal<T>;
+
+    const std::string name = "Pedal" + name_;
+    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name);
+
+    auto to_numpy = TO_NUMPY(PedalArr, time, duration);
+
+    // clang-format off
+    pedal
+        .def_prop_rw(RW_COPY(unit, "start", time))
+        .def_prop_rw(RW_COPY(unit, "duration", duration))
+        .def_prop_rw("end", [](const self_t& self) { return self->end(); },
+            [](self_t& self, unit value) { self->duration = value - self->time;})
+        .def("__init__", &pyinit<Pedal<T>, unit, unit>,
+            nb::arg("time"), nb::arg("duration"))
+    ;
+
+    pedal_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &pedal_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(pedal, pedal_vec);
+}
+
+template<TType T>
+auto bind_tempo(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<Tempo<T>> self_t;
+    using self_inner = Tempo<T>;
+
+    const std::string name = "Tempo" + name_;
+    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name);
+
+    auto to_numpy = TO_NUMPY(TempoArr, time, mspq);
+
+    // clang-format off
+    tempo
+        .def_prop_rw(RW_COPY(i32, "mspq", mspq))
+        .def("__init__", [](self_t *self, const unit time, std::optional<f64> qpm, std::optional<i32> mspq) {
+            new (self) shared<Tempo<T>>(std::move(std::make_shared<Tempo<T>>()));
+            self_t & tempo = *self;
+            if(qpm.has_value()) {
+                tempo->set_qpm(*qpm);
+            } else if(mspq.has_value()) {
+                tempo->mspq = *mspq;
+            } else {
+                throw std::invalid_argument("qpm or mspq must be specified");
+            }
+        }, nb::arg("time"), nb::arg("qpm")=nb::none(), nb::arg("mspq")=nb::none())
+        .def_prop_rw(
+            "tempo", [](const self_t& self) { return self->qpm(); },
+            [](self_t& self, f64 value) { self->set_qpm(value); })
+        .def_prop_rw(
+            "qpm", [](const self_t& self) { return self->qpm(); },
+            [](self_t& self, f64 value) { self->set_qpm(value); })
+    ;
+
+    tempo_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &tempo_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(tempo, tempo_vec);
+}
+
+template<TType T>
+auto bind_pitchbend(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<PitchBend<T>> self_t;
+    using self_inner = PitchBend<T>;
+
+    const std::string name = "PitchBend" + name_;
+    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name);
+
+    auto to_numpy = TO_NUMPY(PitchBendArr, time, value);
+
+    // clang-format off
+    pitchbend
+        .def_prop_rw(RW_COPY(i32, "value", value))
+        .def("__init__", &pyinit<PitchBend<T>, unit, i32>,
+            nb::arg("time"), nb::arg("value"))
+    ;
+
+    pitchbend_vec
+        .def("numpy", to_numpy)
+        .def_static("from_numpy", &pitchbend_from_numpy<T>)
+    ;
+    // clang-format on
+    return std::make_tuple(pitchbend, pitchbend_vec);
+}
+
+template<TType T>
+auto bind_textmeta(nb::module_& m, const std::string& name_) {
+    typedef typename T::unit unit;
+    typedef shared<TextMeta<T>> self_t;
+    using self_inner = TextMeta<T>;
+
+    const std::string name = "TextMeta" + name_;
+    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name);
+
+    // clang-format off
+    textmeta
+        .def_prop_rw(RW_COPY(std::string, "text", text))
+        .def("__init__", &pyinit<TextMeta<T>, unit, std::string>,
+            nb::arg("time"), nb::arg("text"))
+    ;
+
+    textmeta_vec
+        .def("numpy", [](const self_t & self) {
+            throw std::runtime_error("TextMeta does not support numpy");
+        })
+        .def_static("from_numpy", [](){ throw std::runtime_error("TextMeta does not support from_numpy"); })
+    ;
+    // clang-format on
+    return std::make_tuple(textmeta, textmeta_vec);
+}
+
+
 }   // namespace pyutils
 #endif   // PY_UTILS_H

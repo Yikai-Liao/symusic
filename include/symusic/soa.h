@@ -90,7 +90,7 @@ struct PedalArr {
         for (const auto& pedal : data) emplace_back(pedal);
     }
 
-    explicit PedalArr(const pyvec<T>& data) {
+    explicit PedalArr(const pyvec<Pedal<T>>& data) {
         reserve(data.size());
         for (const auto& pedal : data) emplace_back(pedal);
     }
@@ -132,7 +132,7 @@ struct ControlChangeArr {
         for (const auto& control_change : data) emplace_back(control_change);
     }
 
-    explicit ControlChangeArr(const pyvec<T>& data) {
+    explicit ControlChangeArr(const pyvec<ControlChange<T>>& data) {
         reserve(data.size());
         for (const auto& control_change : data) emplace_back(control_change);
     }
@@ -174,7 +174,7 @@ struct TimeSignatureArr {
         for (const auto& time_signature : data) emplace_back(time_signature);
     }
 
-    explicit TimeSignatureArr(const pyvec<T>& data) {
+    explicit TimeSignatureArr(const pyvec<TimeSignature<T>>& data) {
         reserve(data.size());
         for (const auto& time_signature : data) emplace_back(time_signature);
     }
@@ -219,7 +219,7 @@ struct KeySignatureArr {
         for (const auto& key_signature : data) emplace_back(key_signature);
     }
 
-    explicit KeySignatureArr(const pyvec<T>& data) {
+    explicit KeySignatureArr(const pyvec<KeySignature<T>>& data) {
         reserve(data.size());
         for (const auto& key_signature : data) emplace_back(key_signature);
     }
@@ -258,7 +258,7 @@ struct TempoArr {
         for (const auto& tempo : data) emplace_back(tempo);
     }
 
-    explicit TempoArr(const pyvec<T>& data) {
+    explicit TempoArr(const pyvec<Tempo<T>>& data) {
         reserve(data.size());
         for (const auto& tempo : data) emplace_back(tempo);
     }
@@ -299,9 +299,9 @@ struct PitchBendArr {
         for (const auto& pitch_bend : data) emplace_back(pitch_bend);
     }
 
-    explicit PitchBendArr(std::span<const shared<PitchBend<T>>> data) {
+    explicit PitchBendArr(const pyvec<PitchBend<T>>& data) {
         reserve(data.size());
-        for (const auto& pitch_bend : data) emplace_back(*pitch_bend);
+        for (const auto& pitch_bend : data) emplace_back(pitch_bend);
     }
 
     vec<PitchBend<T>> to_vec() const {
@@ -340,7 +340,7 @@ struct TextMetaArr {
         for (const auto& text_meta : data) emplace_back(text_meta);
     }
 
-    explicit TextMetaArr(const pyvec<T>& data) {
+    explicit TextMetaArr(const pyvec<TextMeta<T>>& data) {
         reserve(data.size());
         for (const auto& text_meta : data) emplace_back(text_meta);
     }
