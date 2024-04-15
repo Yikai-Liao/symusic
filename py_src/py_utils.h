@@ -168,9 +168,9 @@ auto textmeta_from_numpy(NDARR(unit, 1) time, NDARR(std::string, 1) text) {
 
 template<typename T>
 auto bind_time_stamp(nb::module_& m, const std::string& name) {
-    typedef typename T::unit    unit;
-    typedef shared<T>           self_t;
-    typedef shared<vec<self_t>> vec_t;
+    typedef typename T::unit unit;
+    typedef shared<T>        self_t;
+    typedef shared<pyvec<T>> vec_t;
 
     auto copy_func = [](const shared<T>& self) { return std::make_shared<T>(*self); };
 
@@ -210,6 +210,16 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def_prop_ro("ttype", [](const vec_t& self) { return typename T::ttype(); })
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
+        .def("sort", [](const vec_t& v, const nb::object & key, const bool reverse, const bool inplace) -> vec_t {
+            vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
+            if(key.is_none()) {
+                ans->sort(reverse, [](const auto& e) { return e.default_key(); });
+            } else {
+                ans->sort(reverse, key);
+            }
+            return ans;
+        },  nb::rv_policy::copy,
+        nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true);
     ;
     // clang-format on
     return std::make_tuple(event, vec_class);
