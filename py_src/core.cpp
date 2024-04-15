@@ -18,504 +18,8 @@
 
 #pragma warning(disable : 4996)
 
-namespace py = nanobind;
+namespace nb = nanobind;
 namespace symusic {
-//
-// #define DECLARE_OBJ(__COUNT, NAME)        \
-//     extern template struct NAME<Tick>;    \
-//     extern template struct NAME<Quarter>; \
-//     extern template struct NAME<Second>;
-//
-// REPEAT_ON(
-//     DECLARE_OBJ,
-//     Note,
-//     ControlChange,
-//     Pedal,
-//     TimeSignature,
-//     KeySignature,
-//     Tempo,
-//     PitchBend,
-//     TextMeta,
-//     Track,
-//     Score
-// )
-//
-// }   // namespace symusic
-//
-// #undef DECLARE_OBJ
-//
-// using namespace symusic;
-//
-//
-
-//
-// template<typename T>
-// void sort_by_key(vec<shared<T>>& self, const py::callable& key) {
-//     pdqsort(self.begin(), self.end(), [&key](const shared<T>& a, const shared<T>& b) {
-//         return key(a) < key(b);
-//     });
-// }
-//
-// template<template<typename> typename T, typename U>
-// vec<T<U>>& py_sort_inplace(vec<shared<T<U>>>& self, const py::object& key, const bool reverse) {
-//     if (key.is_none()) {
-//         if constexpr (std::is_same_v<T<U>, Note<U>>)
-//             ops::sort_notes(self);
-//         else if constexpr (std::is_same_v<T<U>, Pedal<U>>)
-//             ops::sort_pedals(self);
-//         else if constexpr (std::is_same_v<T<U>, Track<U>>)
-//             ops::sort_tracks(self);
-//         else
-//             ops::sort_by_time(self);
-//     } else
-//         sort_by_key<T<U>>(self, py::cast<py::callable>(key));
-//     if (reverse) std::reverse(self.begin(), self.end());
-//     return self;
-// }
-//
-// template<typename T>
-// py::object py_sort(
-//     vec<shared<T>>& self, const py::object& key, const bool reverse, const bool inplace = false
-// ) {
-//     if (inplace) {
-//         py_sort_inplace(self, key, reverse);
-//         return py::cast(self, py::rv_policy::reference);
-//     } else {
-//         auto copy = details::deepcopy(self);
-//         return py::cast(py_sort_inplace(copy, key, reverse), py::rv_policy::move);
-//     }
-// }
-//
-// template<typename T>
-// py::bytes py_to_bytes(const T& self) {
-//     auto data = dumps<DataFormat::ZPP>(self);
-//     return py::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-// }
-//
-// template<typename T>
-// T from_bytes(const py::bytes& bytes) {
-//     // cast bytes to string_view
-//     const auto      data = std::string_view(bytes.c_str(), bytes.size());
-//     const std::span span(reinterpret_cast<const u8*>(data.data()), data.size());
-//     return parse<DataFormat::ZPP, T>(span);
-// }
-//
-// template<typename T>
-// void py_from_bytes(T& self, const py::bytes& bytes) {
-//     new (&self) T();
-//     self = std::move(from_bytes<T>(bytes));
-// }
-//
-// template<typename T>
-// py::object py_filter(vec<T>& self, py::callable& func, const bool inplace) {
-//     vec<T> ans;
-//     ans.reserve(self.size());
-//     for (auto& item : self) {
-//         if (py::cast<bool>(func(item))) ans.push_back(item);
-//     }
-//     if (inplace) {
-//         self = std::move(ans);
-//         return py::cast(self, py::rv_policy::reference);
-//     }
-//     return py::cast(ans, py::rv_policy::move);
-// }
-//
-// template<typename T>
-// vec<T> copy_vec(const vec<T>& self) {
-//     return vec<T>(self);
-// }
-//
-// #define NDARR(DTYPE, DIM) py::ndarray<DTYPE, py::ndim<DIM>, py::c_contig, py::device::cpu>
-//
-// template<typename T>
-// std::tuple<py::class_<T>, py::class_<vec<shared<T>>>> time_stamp_base(
-//     py::module_& m, const std::string& name
-// ) {
-//     typedef typename T::unit unit;
-//
-//     auto event = py::class_<T>(m, name.c_str())
-//                      .def_rw("time", &T::time)
-//                      .def_prop_ro("ttype", [](const T&) { return typename T::ttype(); })
-//                      .def(
-//                          "shift_time",
-//                          [](T& self, const unit offset, const bool inplace) {
-//                              if (inplace)
-//                                  return self.shift_time_inplace(offset);
-//                              else
-//                                  return self.shift_time(offset);
-//                          },
-//                          py::arg("offset"),
-//                          py::arg("inplace") = false,
-//                          "Shift the event time by offset"
-//                      )
-//                      .def(py::init<const T&>(), "Copy constructor", py::arg("other"))
-//                      .def("copy", &T::copy, "Deep copy", py::rv_policy::move)
-//                      .def("__copy__", &T::copy, "Deep copy")
-//                      .def("__deepcopy__", &T::copy, "Deep copy")
-//                      .def("__repr__", &T::to_string)
-//                      .def(py::self == py::self)   // NOLINT
-//                      .def(py::self != py::self)   // NOLINT
-//                      .def("__getstate__", &py_to_bytes<T>)
-//                      .def("__setstate__", &py_from_bytes<T>);
-//
-//     auto vec_T = py::bind_vector<vec<shared<T>>>(m, std::string(name + "List").c_str())
-//         .def_prop_ro("ttype", [](const vec<shared<T>> &) {
-//         return typename T::ttype(); });
-//         // .def("sort", &py_sort<T>, py::arg("key")=py::none(), py::arg("reverse")=false,
-//         py::arg("inplace")=true)
-//         // .def("__repr__", [](const vec<T> &self) {
-//         // return fmt::format("{}", fmt::join(self, ",\n"));
-//         // })
-//         // .def("__copy__" , &copy_vec<T>)
-//         // .def("__deepcopy__" , py::overload_cast<const vec<shared<T>>
-//         &>(&details::deepcopy<T>))
-//         // .def("copy", &copy_vec<T>)
-//         // .def("deepcopy", py::overload_cast<const vec<shared<T>> &>(&details::deepcopy<T>))
-//         // .def("__getstate__", [](const vec<shared<T>> &self) {
-//         // return py_to_bytes(details::to_native_vec(self));
-//         // }
-//         // .def("__setstate__", [](vec<shared<T>> &self, const py::bytes &bytes) {
-//         // new (&self) vec<shared<T>>();
-//         // self = std::move(to_shared(std::move(from_bytes<vec<T>>(bytes))));
-//         // })
-//         // .def("filter", &py_filter<T>, py::arg("func"), py::arg("inplace")=false)
-//         // // .def("adjust_time", &ops::adjust_time<true, T>, py::arg("original_times"),
-//         py::arg("new_times"), py::arg("is_sorted")=false)
-//         // .def("start", &ops::start<T>, "Return the start time of the all the events")
-//         // .def("end", &ops::end<T>, "Return the end time of the all the events");
-//
-//     return std::make_tuple(event, vec_T);
-// }
-//
-// // a template functions for binding all specializations of Note, and return it
-// template<typename T>
-// py::class_<Note<T>> bind_note_class(py::module_& m, const std::string& name_) {
-//     typedef typename T::unit unit;
-//     const std::string        name = "Note" + name_;
-//
-//     auto [note, note_vec] = time_stamp_base<Note<T>>(m, name);
-//     note_vec.def("numpy", [](const vec<shared<Note<T>>>& self) {
-//         auto*       temp = new NoteArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept { delete static_cast<NoteArr<T>*>(p); });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"]     = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["duration"] = py::ndarray<py::numpy, unit>{temp->duration.data(), {size}, deleter};
-//         ans["pitch"]    = py::ndarray<py::numpy, i8>{temp->pitch.data(), {size}, deleter};
-//         ans["velocity"] = py::ndarray<py::numpy, i8>{temp->velocity.data(), {size}, deleter};
-//         return ans;
-//     });
-//     return note
-//         .def(
-//             py::init<unit, unit, int8_t, int8_t>(),
-//             py::arg("start"),
-//             py::arg("duration"),
-//             py::arg("pitch"),
-//             py::arg("velocity")
-//         )
-//         .def_rw("start", &Note<T>::time)
-//         .def_rw("duration", &Note<T>::duration)
-//         .def_rw("pitch", &Note<T>::pitch)
-//         .def_rw("velocity", &Note<T>::velocity)
-//         .def_prop_ro("end", &Note<T>::end)
-//         .def("empty", &Note<T>::empty, "duration <= 0 or velocity <= 0")
-//         .def("end_time", &Note<T>::end)
-//         .def(
-//             "shift_pitch",
-//             [](Note<T>& self, const int8_t offset, const bool inplace) {
-//                 if (inplace)
-//                     return py::cast(self.shift_pitch_inplace(offset), py::rv_policy::reference);
-//                 else
-//                     return py::cast(self.shift_pitch(offset), py::rv_policy::move);
-//             },
-//             py::arg("offset"),
-//             py::arg("inplace") = false,
-//             "Shift the pitch by offset"
-//         )
-//         .def(
-//             "shift_velocity",
-//             [](Note<T>& self, const int8_t offset, const bool inplace) {
-//                 if (inplace)
-//                     return py::cast(self.shift_velocity_inplace(offset),
-//                     py::rv_policy::reference);
-//                 else
-//                     return py::cast(self.shift_velocity(offset), py::rv_policy::move);
-//             },
-//             py::arg("offset"),
-//             py::arg("inplace") = false,
-//             "Shift the velocity by offset"
-//         )
-//         .def(
-// "from_numpy",
-// [](NDARR(unit, 1) time,
-//    NDARR(unit, 1) duration,
-//    NDARR(i8, 1) pitch,
-//    NDARR(i8, 1) velocity) {
-//     if (time.size() != duration.size() || time.size() != pitch.size() ||
-//         time.size() != velocity.size()) {
-//         throw std::invalid_argument(
-//             "time, duration, pitch, velocity must have the same size"
-//         );
-//     }
-//     auto         size = time.size();
-//     vec<Note<T>> ans;
-//     ans.reserve(size);
-//     for (size_t i = 0; i < size; ++i) {
-//         ans.emplace_back(time(i), duration(i), pitch(i), velocity(i));
-//     }
-//     return details::to_shared_vec(std::move(ans));
-// }
-//         );
-// }
-//
-// // bind symusic::KeySignature<T>
-// template<typename T>
-// py::class_<symusic::KeySignature<T>> bind_key_signature_class(
-//     py::module_& m, const std::string& name_
-// ) {
-//     typedef typename T::unit unit;
-//     const auto               name = "KeySignature" + name_;
-//
-//     auto [k, k_vec] = time_stamp_base<symusic::KeySignature<T>>(m, name);
-// k_vec.def("numpy", [](const vec<shared<KeySignature<T>>>& self) {
-//     auto*       temp = new KeySignatureArr<T>{self};
-//     py::capsule deleter(temp, [](void* p) noexcept {
-//         delete static_cast<KeySignatureArr<T>*>(p);
-//     });
-//     size_t      size = self.size();
-//     py::dict    ans{};
-//     ans["time"]     = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//     ans["key"]      = py::ndarray<py::numpy, i8>{temp->key.data(), {size}, deleter};
-//     ans["tonality"] = py::ndarray<py::numpy, i8>{temp->tonality.data(), {size}, deleter};
-//     return ans;
-// });
-//     return k.def(py::init<unit, i8, i8>(), py::arg("time"), py::arg("key"), py::arg("tonality"))
-//         .def_rw("key", &KeySignature<T>::key)
-//         .def_rw("tonality", &KeySignature<T>::tonality)
-//         .def_prop_ro("degree", &KeySignature<T>::degree)
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(i8, 1) tonality) {
-//             if (time.size() != key.size() || time.size() != tonality.size()) {
-//                 throw std::invalid_argument("time, key, tonality must have the same size");
-//             }
-//             auto                 size = time.size();
-//             vec<KeySignature<T>> ans;
-//             ans.reserve(size);
-//             for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), key(i), tonality(i)); }
-//             return details::to_shared_vec(std::move(ans));
-//         });
-// }
-//
-// // bind symusic::TimeSignature<T>
-// template<typename T>
-// py::class_<TimeSignature<T>> bind_time_signature_class(py::module_& m, const std::string& name_)
-// {
-//     typedef typename T::unit unit;
-//     const auto               name = "TimeSignature" + name_;
-//     auto [time_sig, time_sig_vec] = time_stamp_base<symusic::TimeSignature<T>>(m, name);
-//     time_sig_vec.def("numpy", [](const vec<shared<TimeSignature<T>>>& self) {
-//         auto*       temp = new TimeSignatureArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept {
-//             delete static_cast<TimeSignatureArr<T>*>(p);
-//         });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"]        = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["numerator"]   = py::ndarray<py::numpy, u8>{temp->numerator.data(), {size}, deleter};
-//         ans["denominator"] = py::ndarray<py::numpy, u8>{temp->denominator.data(), {size},
-//         deleter}; return ans;
-//     });
-//     return time_sig.def(py::init<unit, u8, u8>())
-//         .def_rw("numerator", &TimeSignature<T>::numerator)
-//         .def_rw("denominator", &TimeSignature<T>::denominator)
-//         .def(
-//             "from_numpy",
-//             [](NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1) denominator) {
-//                 if (time.size() != numerator.size() || time.size() != denominator.size()) {
-//                     throw std::invalid_argument(
-//                         "time, numerator, denominator must have the same size"
-//                     );
-//                 }
-//                 auto                  size = time.size();
-//                 vec<TimeSignature<T>> ans;
-//                 ans.reserve(size);
-//                 for (size_t i = 0; i < size; ++i) {
-//                     ans.emplace_back(time(i), numerator(i), denominator(i));
-//                 }
-//                 return details::to_shared_vec(std::move(ans));
-//             }
-//         );
-// }
-//
-// // bind symusic::ControlChange<T>
-// template<typename T>
-// py::class_<ControlChange<T>> bind_control_change_class(py::module_& m, const std::string& name_)
-// {
-//     typedef typename T::unit unit;
-//     const auto               name             = "ControlChange" + name_;
-//     auto [control_change, control_change_vec] = time_stamp_base<symusic::ControlChange<T>>(m,
-//     name); control_change_vec.def("numpy", [](const vec<shared<ControlChange<T>>>& self) {
-//         auto*       temp = new ControlChangeArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept {
-//             delete static_cast<ControlChangeArr<T>*>(p);
-//         });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"]   = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["number"] = py::ndarray<py::numpy, u8>{temp->number.data(), {size}, deleter};
-//         ans["value"]  = py::ndarray<py::numpy, u8>{temp->value.data(), {size}, deleter};
-//         return ans;
-//     });
-//
-//     return control_change
-//         .def(py::init<unit, u8, u8>(), py::arg("time"), py::arg("number"), py::arg("value"))
-//         .def_rw("value", &symusic::ControlChange<T>::value)
-//         .def_rw("number", &symusic::ControlChange<T>::number)
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8, 1) value) {
-//             if (time.size() != number.size() || time.size() != value.size()) {
-//                 throw std::invalid_argument("time, number, value must have the same size");
-//             }
-//             auto                           size = time.size();
-//             vec<symusic::ControlChange<T>> ans;
-//             ans.reserve(size);
-//             for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), number(i), value(i)); }
-//             return details::to_shared_vec(std::move(ans));
-//         });
-// }
-//
-// // bind Pedal<T>
-// template<typename T>
-// py::class_<symusic::Pedal<T>> bind_pedal_class(py::module_& m, const std::string& name_) {
-//     typedef typename T::unit unit;
-//     const auto               name = "Pedal" + name_;
-//
-//     auto [pedal, pedal_vec] = time_stamp_base<symusic::Pedal<T>>(m, name);
-//
-//     pedal_vec.def("numpy", [](const vec<shared<Pedal<T>>>& self) {
-//         auto*       temp = new PedalArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept { delete static_cast<PedalArr<T>*>(p); });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"]     = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["duration"] = py::ndarray<py::numpy, unit>{temp->duration.data(), {size}, deleter};
-//         return ans;
-//     });
-//
-//
-//     return pedal.def(py::init<unit, unit>(), py::arg("time"), py::arg("duration"))
-//         .def_rw("duration", &symusic::Pedal<T>::duration)
-//         .def_prop_ro("end", &symusic::Pedal<T>::end)
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(unit, 1) duration) {
-//             if (time.size() != duration.size()) {
-//                 throw std::invalid_argument("time, duration must have the same size");
-//             }
-//             auto                   size = time.size();
-//             vec<symusic::Pedal<T>> ans;
-//             ans.reserve(size);
-//             for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), duration(i)); }
-//             return details::to_shared_vec(std::move(ans));
-//         });
-// }
-//
-// // bind symusic::Tempo<T>
-// template<typename T>
-// py::class_<symusic::Tempo<T>> bind_tempo_class(py::module_& m, const std::string& name_) {
-//     typedef typename T::unit unit;
-//     const auto               name = "Tempo" + name_;
-//     auto [tempo, tempo_vec]       = time_stamp_base<symusic::Tempo<T>>(m, name);
-//     tempo_vec.def("numpy", [](const vec<shared<Tempo<T>>>& self) {
-//         auto*       temp = new TempoArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept { delete static_cast<TempoArr<T>*>(p); });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"] = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["mspq"] = py::ndarray<py::numpy, i32>{temp->mspq.data(), {size}, deleter};
-//         return ans;
-//     });
-//     return tempo
-//         .def(
-//             "__init__",
-//             [](Tempo<T>* self, unit time, std::optional<double> qpm, std::optional<i32> mspq) {
-//                 new (self) Tempo<T>();
-//                 self->time = time;
-//                 if (qpm.has_value())
-//                     self->set_qpm(*qpm);
-//                 else if (mspq.has_value())
-//                     self->mspq = *mspq;
-//                 else
-//                     throw std::invalid_argument("qpm or mspq must be specified");
-//             },
-//             py::arg("time"),
-//             py::arg("qpm")  = py::none(),
-//             py::arg("mspq") = py::none()
-//         )
-//         .def_rw("mspq", &symusic::Tempo<T>::mspq, "Microseconds per quarter note")
-//         .def_prop_rw("tempo", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "The same as qpm")
-//         .def_prop_rw(
-//             "qpm", &Tempo<T>::qpm, &Tempo<T>::set_qpm, "Quarter per minute, the same as tempo"
-//         )
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
-//             if (time.size() != mspq.size()) {
-//                 throw std::invalid_argument("time, mspq must have the same size");
-//             }
-//             auto                   size = time.size();
-//             vec<symusic::Tempo<T>> ans;
-//             ans.reserve(size);
-//             for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), mspq(i)); }
-//             return details::to_shared_vec(std::move(ans));
-//         });
-// }
-//
-// // bind symusic::PitchBend<T>
-// template<typename T>
-// py::class_<symusic::PitchBend<T>> bind_pitch_bend_class(py::module_& m, const std::string& name_)
-// {
-//     typedef typename T::unit unit;
-//     const auto               name     = "PitchBend" + name_;
-//     auto [pitch_bend, pitch_bend_vec] = time_stamp_base<symusic::PitchBend<T>>(m, name);
-//     pitch_bend_vec.def("numpy", [](const vec<shared<PitchBend<T>>>& self) {
-//         auto*       temp = new PitchBendArr<T>{self};
-//         py::capsule deleter(temp, [](void* p) noexcept {
-//             delete static_cast<PitchBendArr<T>*>(p);
-//         });
-//         size_t      size = self.size();
-//         py::dict    ans{};
-//         ans["time"]  = py::ndarray<py::numpy, unit>{temp->time.data(), {size}, deleter};
-//         ans["value"] = py::ndarray<py::numpy, i32>{temp->value.data(), {size}, deleter};
-//         return ans;
-//     });
-//
-//     return pitch_bend.def(py::init<unit, i32>(), py::arg("time"), py::arg("value"))
-//         .def_rw("value", &PitchBend<T>::value)
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(i32, 1) value) {
-//             if (time.size() != value.size()) {
-//                 throw std::invalid_argument("time, value must have the same size");
-//             }
-//             auto                       size = time.size();
-//             vec<symusic::PitchBend<T>> ans;
-//             ans.reserve(size);
-//             for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), value(i)); }
-//             return details::to_shared_vec(std::move(ans));
-//         });
-// }
-//
-// // bind symusic::TextMeta<T>
-// template<typename T>
-// py::class_<symusic::TextMeta<T>> bind_text_meta_class(py::module_& m, const std::string& name_) {
-//     typedef typename T::unit unit;
-//     const auto               name = "TextMeta" + name_;
-//
-//     auto [text_meta, text_meta_vec] = time_stamp_base<symusic::TextMeta<T>>(m, name);
-//     text_meta_vec.def("numpy", [](const vec<shared<TextMeta<T>>>& self) {
-//         throw std::runtime_error("TextMeta does not support numpy");
-//     });
-//
-//     return text_meta.def(py::init<unit, std::string&>(), py::arg("time"), py::arg("text"))
-//         .def_rw("text", &symusic::TextMeta<T>::text)
-//         .def("from_numpy", [](NDARR(unit, 1) time, NDARR(std::string, 1) text) {
-//             throw std::runtime_error("TextMeta does not support numpy");
-//         });
-// }
-//
 // template<typename T>
 // Track<T>& py_sort_track_inplace(Track<T>& self, py::object& key, const bool reverse) {
 //     py_sort_inplace(*self.notes, key, reverse);
@@ -1192,6 +696,48 @@ namespace symusic {
 //     // );
 //     return m;
 // }
+using namespace pyutils;
+template<TType T>
+auto bind_track(nb::module_& m, const std::string& name_) {
+    const auto name = "Track" + name_;
+    using unit      = typename T::unit;
+    using self_t    = shared<Track<T>>;
+    using track_t   = Track<T>;
+    using vec_t     = shared<pyvec<track_t>>;
+
+    auto copy_func = [](const self_t& self) { return std::make_shared<track_t>(*self); };
+    auto deepcopy_func
+        = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
+
+    // clang-format off
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str())
+        .def("__init__", &pyinit<Track<T>>)
+        .def("__init__", [](self_t *self, const self_t& other) {
+            new (self) std::shared_ptr<track_t>(std::move(std::make_shared<track_t>(*other)));
+        }, "Copy constructor", nb::arg("other"))
+        .def("copy", copy_func, nb::rv_policy::copy)
+        .def("__copy__", copy_func, nb::rv_policy::copy)
+        .def("deepcopy", deepcopy_func, nb::rv_policy::copy)
+        .def("__deepcopy__", deepcopy_func, nb::rv_policy::copy)
+        .def("__repr__", [](const self_t& self) { return self->to_string(); })
+        .def("__getstate__", &to_bytes<track_t>)
+        .def("__setstate__", &from_bytes<track_t>)
+        .def_prop_ro("ttype", [](const self_t&) { return T(); })
+        .def_prop_rw(RW_COPY(shared<pyvec<Note<T>>>, "notes", notes))
+        .def_prop_rw(RW_COPY(shared<pyvec<ControlChange<T>>>, "controls", controls))
+        .def_prop_rw(RW_COPY(shared<pyvec<Pedal<T>>>, "pedals", pedals))
+        .def_prop_rw(RW_COPY(shared<pyvec<PitchBend<T>>>, "pitch_bends", pitch_bends))
+        .def_prop_rw(RW_COPY(bool, "is_drum", is_drum))
+        .def_prop_rw(RW_COPY(u8, "program", program))
+        .def_prop_rw(RW_COPY(std::string, "name", name))
+        .def(nb::self == nb::self)   // NOLINT
+        .def(nb::self != nb::self);  // NOLINT
+    ;
+    // clang-format on
+    return track;
+}
+
+
 
 #define BIND_EVENT(__COUNT, BIND_FUNC) \
     BIND_FUNC<Tick>(m, "Tick");        \
@@ -1207,7 +753,12 @@ NB_MODULE(core, m) {
         bind_note, bind_keysig, bind_timesig, bind_tempo,
         bind_controlchange, bind_pedal, bind_pitchbend, bind_textmeta
     )
+    #undef BIND_EVENT
     // clang-format on
+
+    bind_track<Tick>(m, "Tick");
+    bind_track<Quarter>(m, "Quarter");
+    bind_track<Second>(m, "Second");
 
 
 
