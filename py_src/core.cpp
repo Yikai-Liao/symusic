@@ -3,23 +3,23 @@
 //
 #include <string>
 #include <random>
-// #include <nanobind/nanobind.h>
+#include <nanobind/nanobind.h>
 // #include <nanobind/stl/shared_ptr.h>
 // #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
-// #include <nanobind/stl/vector.h>
+#include <nanobind/stl/vector.h>
 // #include <nanobind/ndarray.h>
 // #include <nanobind/eigen/dense.h>
 // #include <nanobind/stl/filesystem.h>
 // #include <nanobind/stl/bind_vector.h>
 #include "symusic.h"
 #include "py_utils.h"
-// #include "MetaMacro.h"
+#include "MetaMacro.h"
 
 #pragma warning(disable : 4996)
 
 namespace py = nanobind;
-// namespace symusic {
+namespace symusic {
 //
 // #define DECLARE_OBJ(__COUNT, NAME)        \
 //     extern template struct NAME<Tick>;    \
@@ -47,23 +47,7 @@ namespace py = nanobind;
 // using namespace symusic;
 //
 //
-// #define OPAQUE_VEC(i, TYPE)                    \
-//     NB_MAKE_OPAQUE(vec<shared<TYPE<Tick>>>)    \
-//     NB_MAKE_OPAQUE(vec<shared<TYPE<Quarter>>>) \
-//     NB_MAKE_OPAQUE(vec<shared<TYPE<Second>>>)
-//
-// REPEAT_ON(
-//     OPAQUE_VEC,
-//     Note,
-//     ControlChange,
-//     Pedal,
-//     TimeSignature,
-//     KeySignature,
-//     Tempo,
-//     PitchBend,
-//     TextMeta,
-//     Track
-// )
+
 //
 // template<typename T>
 // void sort_by_key(vec<shared<T>>& self, const py::callable& key) {
@@ -1236,4 +1220,5 @@ NB_MODULE(core, m) {
     //
     // core_module(m);
     // bind_synthesizer(m);
+}
 }

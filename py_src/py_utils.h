@@ -181,10 +181,9 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def(
             "shift_time",
             [](const self_t& self, const unit offset, const bool inplace) {
-                if (inplace) {
-                    self->shift_time_inplace(offset);
-                    return self;
-                }   return std::make_shared<T>(std::move(self->shift_time(offset)));
+                self_t ans = inplace? self : std::make_shared<T>(*self);
+                ans->shift_time(offset);
+                return ans;
             },
             nb::rv_policy::copy,
             nb::arg("offset"),
@@ -210,25 +209,43 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def_prop_ro("ttype", [](const vec_t& self) { return typename T::ttype(); })
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
-        .def("sort", [](vec_t& v, const nb::object & key, const bool reverse, const bool inplace) -> vec_t {
-            vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
-            if(key.is_none()) {
-                ans->sort(reverse, [](const auto& e) { return e.default_key(); });
-            } else {
-                ans->sort(reverse, key);
-            }
-            return ans;
-        },  nb::rv_policy::copy,
-        nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true)
-        .def("filter", [](vec_t& v, const nb::object & func, const bool inplace) -> vec_t {
-            vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
-            if(func.is_none()) {
-                throw std::invalid_argument("symusic::filter: You need to provide a function, not None!");
-            }
-            ans->filter(func);
-            return ans;
-        }, nb::rv_policy::copy,
-        nb::arg("func") = nb::none(), nb::arg("inplace") = true)
+        .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
+        .def("sort", [](vec_t& v, nb::object & key, const bool reverse, const bool inplace) -> vec_t {
+                vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
+                if(key.is_none()) {
+                    ans->sort(reverse, [](const auto& e) { return e.default_key(); });
+                } else {
+                    ans->sort(reverse, key);
+                }
+                return ans;
+            },  nb::rv_policy::copy,
+            nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true
+        )
+        .def("filter", [](vec_t& v, nb::object & func, const bool inplace) -> vec_t {
+                vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
+                if(func.is_none()) {
+                    throw std::invalid_argument("symusic::filter: You need to provide a function, not None!");
+                }
+                ans->filter(func);
+                return ans;
+            }, nb::rv_policy::copy,
+            nb::arg("func") = nb::none(), nb::arg("inplace") = true
+        )
+        .def("is_sorted", [](const vec_t& v, nb::object & key, bool reverse) -> bool {
+                if(key.is_none()) {
+                    return v->is_sorted(reverse, [](const auto& e) { return e.default_key(); });
+                } else {
+                    return v->is_sorted(reverse, key);
+                }
+            }, nb::arg("key") = nb::none(), nb::arg("reverse") = false
+        )
+        .def("adjust_time", [](vec_t& v, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) -> vec_t {
+                vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->deepcopy()));
+                ops::adjust_time_inplace(*ans, original_times, new_times);
+                return ans;
+            }, nb::rv_policy::copy,
+            nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = true
+        )
     ;
     // clang-format on
     return std::make_tuple(event, vec_class);
@@ -263,26 +280,8 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     const std::string name = "Note" + name_;
     auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name);
 
-    // auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
-    auto to_numpy = [](const shared<pyvec<self_inner>>& self) {
-        auto*       temp = new NoteArr<T>(*self);
-        nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<NoteArr<T>*>(p); });
-        size_t      size = self->size();
-        nb::dict    ans{};
-        ans["time"] = nb::ndarray<nb::numpy, typename decltype(temp->time)::value_type>(
-            temp->time.data(), {size}, deleter
-        );
-        ans["duration"] = nb::ndarray<nb::numpy, typename decltype(temp->duration)::value_type>(
-            temp->duration.data(), {size}, deleter
-        );
-        ans["pitch"] = nb::ndarray<nb::numpy, typename decltype(temp->pitch)::value_type>(
-            temp->pitch.data(), {size}, deleter
-        );
-        ans["velocity"] = nb::ndarray<nb::numpy, typename decltype(temp->velocity)::value_type>(
-            temp->velocity.data(), {size}, deleter
-        );
-        return ans;
-    };
+    auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
+
     // clang-format off
     note.def_prop_rw(RW_COPY(unit,  "start",    time))
         .def_prop_rw(RW_COPY(unit,  "duration", duration))
@@ -290,6 +289,33 @@ auto bind_note(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(i8,    "velocity", velocity))
         .def("__init__", &pyinit<Note<T>, unit, unit, i8, i8>,
             nb::arg("time"), nb::arg("duration"), nb::arg("pitch"), nb::arg("velocity")=0)
+        .def_prop_rw(
+            "end", [](const self_t& self) { return self->end(); },
+            [](self_t& self, unit value) { self->duration = value - self->time;})
+        .def("empty", [](const self_t& self) { return self->empty(); })
+        .def("ent_time", [](const self_t& self) { return self->end(); })
+        .def(
+            "shift_pitch",
+            [](self_t& self, const int8_t offset, const bool inplace) {
+                self_t ans = inplace? self : std::make_shared<Note<T>>(*self);
+                ans->shift_pitch_inplace(offset);
+                return ans;
+            }, nb::rv_policy::copy,
+            nb::arg("offset"),
+            nb::arg("inplace") = false,
+            "Shift the pitch by offset"
+        )
+        .def(
+            "shift_velocity",
+            [](Note<T>& self, const int8_t offset, const bool inplace) {
+                Note<T> ans = inplace? self : Note<T>(self);
+                ans.shift_velocity_inplace(offset);
+                return ans;
+            }, nb::rv_policy::copy,
+            nb::arg("offset"),
+            nb::arg("inplace") = false,
+            "Shift the velocity by offset"
+        )
     ;
 
     note_vec
@@ -299,6 +325,5 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     // clang-format on
     return std::make_tuple(note, note_vec);
 }
-
 }   // namespace pyutils
 #endif   // PY_UTILS_H

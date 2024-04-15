@@ -184,6 +184,7 @@ void adjust_time_inplace_inner(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
+    using unit = typename T::unit;
     // check if the events have duration
     constexpr bool has_dur = HashDuration<T>;
     auto           get_end = [has_dur](const T& event) {
@@ -193,17 +194,15 @@ void adjust_time_inplace_inner(
     // return empty vector if events is empty
     if (events.empty()) return;
     auto get_factor = [&original_times, &new_times](const size_t x) {
-        return static_cast<f64>(new_times[x] - new_times[x - 1])
+        f64 factor = static_cast<f64>(new_times[x] - new_times[x - 1])
                / static_cast<f64>(original_times[x] - original_times[x - 1]);
+        return factor;
     };
 
     const auto range = std::make_pair(original_times.front(), original_times.back());
 
-    auto valid = [range](const T& event) {
-        if constexpr (has_dur) {
-            return (event.time >= range.first) & (event.end() <= range.second);
-        }
-        return (event.time >= range.first) & (event.time <= range.second);
+    auto valid = [get_end, range](const T& event) {
+        return (event.time >= range.first) & (get_end(event) <= range.second);
     };
 
     auto cur_range  = std::make_pair(original_times[0], original_times[1]);
@@ -218,14 +217,12 @@ void adjust_time_inplace_inner(
         if ((event.time) < cur_range.first | (event.time) > cur_range.second) {
             auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), event.time)
                 - original_times.begin();
-            
             cur_factor = get_factor(idx);
             cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
             pivot_new  = new_times[idx - 1];
         }
-        auto start = pivot_new
+        unit start = pivot_new
             + static_cast<typename T::unit>(cur_factor * static_cast<f64>(event.time - cur_range.first));
-        event.time = start;
         if constexpr (has_dur) {
             auto original_end = get_end(event);
             if (original_end > cur_range.second) {
@@ -235,11 +232,11 @@ void adjust_time_inplace_inner(
                 cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
                 pivot_new  = new_times[idx - 1];
             }
-            auto end = pivot_new
+            unit end = pivot_new
                 + static_cast<typename T::unit>(cur_factor * static_cast<f64>(original_end - cur_range.first));
             event.duration = end - start;
         }
-        // events[i++] = std::move(events[j]);
+        event.time = start;
         *(events.pbegin() + i) = *(events.pbegin() + j);
         ++i;
     }
