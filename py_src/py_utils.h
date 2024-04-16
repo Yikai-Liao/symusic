@@ -345,26 +345,7 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     const std::string name = "KeySignature" + name_;
     auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
 
-    // auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
-    auto to_numpy = [](const shared<pyvec<self_inner> >& self) {
-        auto*       temp = new KeySignatureArr<T>(*self);
-        nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<KeySignatureArr<T>*>(p); });
-        size_t      size = self->size();
-        nb::dict    ans{};
-        ans["time"] = nb::ndarray<nb::numpy, typename decltype(temp->time)::value_type>(
-            temp->time.data(),
-            {size},
-            deleter);
-        ans["key"] = nb::ndarray<nb::numpy, typename decltype(temp->key)::value_type>(
-            temp->key.data(),
-            {size},
-            deleter);
-        ans["tonality"] = nb::ndarray<nb::numpy, typename decltype(temp->tonality)::value_type>(
-            temp->tonality.data(),
-            {size},
-            deleter);
-        return ans;
-    };
+    auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
     // clang-format off
     keysig
         .def_prop_rw(RW_COPY(i8, "key", key))
