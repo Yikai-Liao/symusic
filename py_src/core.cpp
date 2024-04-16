@@ -696,6 +696,16 @@ namespace symusic {
 //     // );
 //     return m;
 // }
+
+template<typename T>
+shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& self) {
+    auto ans = std::make_shared<vec<shared<T>>>();
+    ans->reserve(self->size());
+    for (const auto& item : *self) { ans->push_back(std::make_shared<T>(std::move(item->deepcopy()))); }
+    return ans;
+}
+
+
 using namespace pyutils;
 template<TType T>
 auto bind_track(nb::module_& m, const std::string& name_) {
@@ -703,7 +713,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     using unit      = typename T::unit;
     using self_t    = shared<Track<T>>;
     using track_t   = Track<T>;
-    using vec_t     = shared<pyvec<track_t>>;
+    using vec_t     = shared<vec<self_t>>;
 
     auto copy_func = [](const self_t& self) { return std::make_shared<track_t>(*self); };
     auto deepcopy_func
@@ -790,7 +800,37 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             };
         });
     }
+
+    auto track_vec = bind_shared_vector_copy<vec<self_t>>(m, name + "List")
+        .def_prop_ro("ttype", [](const vec_t&) { return T(); })
+        .def("filter", [](const vec_t& self, nb::object & func, const bool inplace) {
+            auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
+            auto it = std::remove_if(ans->begin(), ans->end(), [&](const self_t& t) {
+                return !nb::cast<bool>(func(t));
+            });
+            ans->erase(it, ans->end());
+            return ans;
+        })
+        .def("sort", [](vec_t& self, const bool reverse, nb::object& key, const bool inplace) {
+            auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
+            if(key.is_none()) {
+                auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
+                if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
+                else std::sort(ans->begin(), ans->end(), cmp);
+            } else {
+                auto cmp = [&](const self_t& a, const self_t& b) { return key(a) < key(b); };
+                if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
+                else std::sort(ans->begin(), ans->end(), cmp);
+            }   return ans;
+        })
+        .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
+            auto ans = inplace ? self : deepcopy(self);
+            for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);
+            return ans;
+        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false)
+    ;
     // clang-format on
+
     return track;
 }
 

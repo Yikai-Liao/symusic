@@ -89,6 +89,8 @@ struct Track {
         controls{std::move(controls)}, pitch_bends{std::move(pitch_bends)},
         pedals{std::move(pedals)} {}
 
+    auto default_key() const { return std::make_tuple(is_drum, program, name, notes->size()); }
+
     // shallow copy
     [[nodiscard]] Track copy() const { return {*this}; }
 
