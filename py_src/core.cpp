@@ -828,6 +828,23 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);
             return ans;
         }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false)
+        .def("copy",          [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
+        .def("__copy__",      [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
+        .def("deepcopy",      &deepcopy<vec<self_t>>)
+        .def("__deepcopy__",  &deepcopy<vec<self_t>>)
+        .def("__getstate__",  [](const vec_t& self) {
+            vec<Track<T>> native;
+            native.reserve(self->size());
+            for (const auto& item : *self) { native.emplace_back(*item); }
+            return to_bytes(native);
+        })
+        .def("__setstate__",  [](vec_t& self, const nb::bytes& bytes) {
+            const auto      data = std::string_view(bytes.c_str(), bytes.size());
+            const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+            auto            native = symusic::parse<symusic::DataFormat::ZPP, vec<track_t>>(span);
+            new (&self) shared<vec<self_t>>(std::make_shared<vec<self_t>>());
+            for (auto& item : native) { self->push_back(std::make_shared<track_t>(std::move(item))); }
+        })
     ;
     // clang-format on
 
@@ -856,9 +873,6 @@ NB_MODULE(core, m) {
     bind_track<Tick>(m, "Tick");
     bind_track<Quarter>(m, "Quarter");
     bind_track<Second>(m, "Second");
-
-
-
 
     // py::bind_vector<vec<f32>>(m, "f32List");
     // py::bind_vector<vec<i32>>(m, "i32List");
