@@ -731,8 +731,65 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(u8, "program", program))
         .def_prop_rw(RW_COPY(std::string, "name", name))
         .def(nb::self == nb::self)   // NOLINT
-        .def(nb::self != nb::self);  // NOLINT
+        .def(nb::self != nb::self)   // NOLINT
+        .def("end", [](const self_t& self) { return self->end(); })
+        .def("start", [](const self_t& self) { return self->start(); })
+        .def("note_num", [](const self_t& self) { return self->note_num(); })
+        .def("empty", [](const self_t& self) { return self->empty(); })
+        // TODO: we still need to determine the default value of "inplace"
+        // TODO: we still need to determine the copy depth
+        .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->clip_inplace(start, end, clip_end);
+            return ans;
+        }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false)
+        .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->sort_inplace(reverse);
+            return ans;
+        }, nb::arg("reverse") = false, nb::arg("inplace") = false)
+        .def("adjust_time", [](self_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ops::adjust_time_inplace(*ans, original_times, new_times);
+            return ans;
+        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false)
+        .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->shift_time_inplace(offset);
+            return ans;
+        }, nb::arg("offset"), nb::arg("inplace") = false)
+        .def("shift_pitch", [](self_t& self, const i8 offset, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->shift_pitch_inplace(offset);
+            return ans;
+        }, nb::arg("offset"), nb::arg("inplace") = false)
+        .def("shift_velocity", [](self_t& self, const i8 offset, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->shift_velocity_inplace(offset);
+            return ans;
+        }, nb::arg("offset"), nb::arg("inplace") = false)
     ;
+
+    if constexpr (std::is_same_v<T, Tick>) {
+        track.def("pianoroll", [](
+            const self_t&           self,
+            const vec<std::string>& modes,
+            const std::pair<i8, i8> pitch_range,
+            const bool              encode_velocity) {
+            vec<PianorollMode> mode_enums(modes.size());
+            for (int i = 0; i < modes.size(); ++i) {
+                mode_enums[i] = str_to_pianoroll_mode(modes[i]);
+            }
+            auto pianoroll = TrackPianoroll::from_track(self, mode_enums, pitch_range, encode_velocity);
+            return nb::ndarray<nb::numpy, pianoroll_t>{
+                const_cast<u8*>(pianoroll.release()), {
+                    std::get<0>(pianoroll.dims()),
+                    std::get<1>(pianoroll.dims()),
+                    std::get<2>(pianoroll.dims()),
+                }
+            };
+        });
+    }
     // clang-format on
     return track;
 }
