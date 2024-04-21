@@ -11,6 +11,7 @@
 
 #include "minimidi/MiniMidi.hpp"
 #include "pdqsort.h"
+#include "MetaMacro.h"
 
 #include "symusic/score.h"
 #include "symusic/ops.h"
@@ -484,5 +485,18 @@ template<>
 vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
     return details::to_midi(convert<Tick>(*this)).to_bytes();
 }
+
+#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                 \
+    template<>                                                              \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) { \
+        return Score<T>::parse<DataFormat::MIDI>(bytes);                    \
+    }                                                                       \
+    template<>                                                              \
+    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {       \
+        return data.dumps<DataFormat::MIDI>();                              \
+    }
+
+REPEAT_ON(INSTANTIATE_GLOBAL_FUNC, Tick, Quarter, Second)
+#undef INSTANTIATE_GLOBAL_FUNC
 
 }   // namespace symusic
