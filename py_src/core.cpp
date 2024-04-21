@@ -4,14 +4,12 @@
 #include <string>
 #include <random>
 #include <nanobind/nanobind.h>
-// #include <nanobind/stl/shared_ptr.h>
-// #include <nanobind/stl/optional.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
-// #include <nanobind/ndarray.h>
-// #include <nanobind/eigen/dense.h>
-// #include <nanobind/stl/filesystem.h>
-// #include <nanobind/stl/bind_vector.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/eigen/dense.h>
+#include <nanobind/stl/filesystem.h>
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
@@ -114,6 +112,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             new (&self) self_t(std::move(std::make_shared<Track<T>>(std::move(to_shared(std::move(ans))))));
         })
         .def_prop_ro("ttype", [](const self_t&) { return T(); })
+        .def("__use_count", [](const self_t& self) { return self.use_count(); })
         .def_prop_rw(RW_COPY(shared<pyvec<Note<T>>>, "notes", notes))
         .def_prop_rw(RW_COPY(shared<pyvec<ControlChange<T>>>, "controls", controls))
         .def_prop_rw(RW_COPY(shared<pyvec<Pedal<T>>>, "pedals", pedals))
@@ -229,6 +228,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
                 self->push_back(std::make_shared<track_t>(std::move(to_shared(std::move(item)))));
             }
         })
+        .def("__use_count",   [](const vec_t& self) { return self.use_count(); })
     ;
     // clang-format on
     return std::make_tuple(track, track_vec);
@@ -439,6 +439,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "lyrics", lyrics))
         .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers))
         .def_prop_ro("ttype", [](const self_t&) { return T(); })
+        .def("__use_count", [](const self_t& self) { return self.use_count(); })
         // member functions
         .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), "Convert to another time unit")
         .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
