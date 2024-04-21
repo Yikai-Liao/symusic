@@ -56,10 +56,10 @@ if(BUILD_PY)
     nanobind_add_module(core NOMINSIZE py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h)
     target_link_libraries(core PRIVATE symusic)
 
-#    install(TARGETS core LIBRARY DESTINATION symusic)
-#    # install abc2midi and midi2abc
-#    add_subdirectory(3rdparty/abcmidi)
-#    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+    install(TARGETS core LIBRARY DESTINATION symusic)
+    # install abc2midi and midi2abc
+    add_subdirectory(3rdparty/abcmidi)
+    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
 endif()
 
 if(BUILD_TEST)
