@@ -482,7 +482,7 @@ vec<u8> Score<Quarter>::dumps<DataFormat::MIDI>() const {
 template<>
 template<>
 vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
-    throw std::runtime_error("Second is not supported yet");
+    return details::to_midi(convert<Tick>(*this)).to_bytes();
 }
 
 }   // namespace symusic
