@@ -701,7 +701,9 @@ template<typename T>
 shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& self) {
     auto ans = std::make_shared<vec<shared<T>>>();
     ans->reserve(self->size());
-    for (const auto& item : *self) { ans->push_back(std::make_shared<T>(std::move(item->deepcopy()))); }
+    for (const auto& item : *self) {
+        ans->push_back(std::make_shared<T>(std::move(item->deepcopy())));
+    }
     return ans;
 }
 
@@ -847,8 +849,88 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         })
     ;
     // clang-format on
+    return std::make_tuple(track, track_vec);
+}
 
-    return track;
+template<TType T>
+typename T::unit cast_time(const nb::object& t) {
+    typedef typename T::unit unit;
+    if (t.is_none()) return static_cast<unit>(0);
+    return nb::cast<unit>(t);
+}
+
+template<typename T>
+nb::object convert_score(const Score<T>& self, const nb::object& ttype, const nb::object&
+min_dur) {
+    if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
+    if (nb::isinstance<Tick>(ttype))
+        return nb::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), nb::rv_policy::move);
+    if (nb::isinstance<Quarter>(ttype))
+        return nb::cast(convert<Quarter>(self, cast_time<Quarter>(min_dur)),
+        nb::rv_policy::move);
+    if (nb::isinstance<Second>(ttype))
+        return nb::cast(convert<Second>(self, cast_time<Second>(min_dur)), nb::rv_policy::move);
+    if (nb::isinstance<nb::str>(ttype)) {
+        // convert ttype to lower case
+        const auto ttype_str = nb::cast<std::string>(ttype.attr("lower")());
+        if (ttype_str == "tick")
+            return nb::cast(convert<Tick>(self, cast_time<Tick>(min_dur)), nb::rv_policy::move);
+        if (ttype_str == "quarter")
+            return nb::cast(
+                convert<Quarter>(self, cast_time<Quarter>(min_dur)), nb::rv_policy::move
+            );
+        if (ttype_str == "second")
+            return nb::cast(convert<Second>(self, cast_time<Second>(min_dur)),
+            nb::rv_policy::move);
+    }
+    throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
+}
+
+template<TType T>
+auto bind_score(nb::module_& m, const std::string& name_) {
+    const auto name = "Score" + name_;
+    using unit      = typename T::unit;
+    using self_t    = Score<T>;
+
+    auto midi2score = [](const auto& path) {
+        auto data = read_file(path);
+        self_t s = self_t::template parse<DataFormat::MIDI>(data);
+        return s;
+    };
+    
+    // clang-format off
+    return nb::class_<self_t>(m, name.c_str())
+        .def(nb::init<const i32>(), nb::arg("tpq"))
+        .def(nb::init<const self_t&>(), nb::arg("other"))
+        .def("__init__", [midi2score](self_t* self, const std::string& path) {
+            new (self) self_t(std::move(midi2score(path)));
+        }, "Load from midi file", nb::arg("path"))
+        .def("__init__", [midi2score](self_t* self, const std::filesystem::path& path) {
+            new (self) self_t(std::move(midi2score(path)));
+        }, "Load from midi file", nb::arg("path"))
+        .def("copy", &self_t::copy, "Shallow copy", nb::rv_policy::move)
+        .def("__copy__", &self_t::copy, "Shallow copy", nb::rv_policy::move)
+        .def("deepcopy", &self_t::deepcopy, "Deep copy", nb::rv_policy::move)
+        .def("__deepcopy__", &self_t::deepcopy, "Deep copy", nb::rv_policy::move)
+        .def("__repr__", &self_t::to_string)
+        .def(nb::self == nb::self)   // NOLINT
+        .def(nb::self != nb::self)   // NOLINT
+        // attributes
+        .def_rw("tracks", &self_t::tracks, nb::rv_policy::copy)
+        .def_rw("time_signatures", &self_t::time_signatures, nb::rv_policy::copy)
+        .def_rw("key_signatures", &self_t::key_signatures, nb::rv_policy::copy)
+        .def_rw("tempos", &self_t::tempos, nb::rv_policy::copy)
+        .def_rw("lyrics", &self_t::lyrics, nb::rv_policy::copy)
+        .def_rw("markers", &self_t::markers, nb::rv_policy::copy)
+        .def_prop_ro("ttype", []() { return T(); })
+        // member functions
+        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), "Convert to another time unit")
+        .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
+            const unit min_dur_ = min_dur.has_value() ? *min_dur : 0;
+            return resample(self, tpq, min_dur_);
+        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::move, "Resample to another ticks per quarter")
+    ;
+    // clang-format on
 }
 
 
