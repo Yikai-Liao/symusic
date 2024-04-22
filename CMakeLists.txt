@@ -26,6 +26,7 @@ add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 include_directories(include)
 include_directories(3rdparty/pdqsort)
 include_directories(3rdparty/zpp_bits)
+include_directories(3rdparty)
 
 file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
 
