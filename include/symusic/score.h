@@ -76,9 +76,29 @@ struct Score {
         time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
         tempos{std::move(tempos)}, lyrics{std::move(lyrics)}, markers{std::move(markers)} {}
 
-    Score& operator=(const Score&)              = default;
-    bool   operator==(const Score& other) const = default;
-    bool   operator!=(const Score& other) const = default;
+    Score& operator=(const Score&) = default;
+
+    bool operator==(const Score& other) const {
+
+        auto tracks_equal
+            = [](const shared<vec<shared<Track<T>>>>& a, const shared<vec<shared<Track<T>>>>& b) {
+                  if (a == b) return true;
+                  if (a->size() != b->size()) return false;
+                  for (size_t i = 0; i < a->size(); i++) {
+                      const auto& track1 = a->operator[](i);
+                      const auto& track2 = b->operator[](i);
+                      if (track1 != track2 && *track1 != *track2) return false;
+                  }
+                  return true;
+              };
+
+        return ticks_per_quarter == other.ticks_per_quarter && tracks_equal(tracks, other.tracks)
+               && *time_signatures == *other.time_signatures
+               && *key_signatures == *other.key_signatures && *tempos == *other.tempos
+               && *lyrics == *other.lyrics && *markers == *other.markers;
+    }
+
+    bool operator!=(const Score& other) const { return !(*this == other); }
 
     [[nodiscard]] Score copy() const { return {*this}; }
 
@@ -99,9 +119,7 @@ struct Score {
         };
     }
 
-    explicit Score(const i32 tpq): Score() {
-        ticks_per_quarter = tpq;
-    }
+    explicit Score(const i32 tpq) : Score() { ticks_per_quarter = tpq; }
 
     template<DataFormat F>
     [[nodiscard]] static Score parse(std::span<const u8> bytes);

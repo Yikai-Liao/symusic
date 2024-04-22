@@ -113,9 +113,9 @@ struct Track {
     }
 
     bool operator==(const Track& other) const {
-        return name == other.name && program == other.program && is_drum == other.is_drum &&
-               *notes == *other.notes && *controls == *other.controls &&
-               *pitch_bends == *other.pitch_bends && *pedals == *other.pedals;
+        return name == other.name && program == other.program && is_drum == other.is_drum
+               && *notes == *other.notes && *controls == *other.controls
+               && *pitch_bends == *other.pitch_bends && *pedals == *other.pedals;
     };
 
     bool operator!=(const Track& other) const { return !(*this == other); }
