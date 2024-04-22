@@ -120,8 +120,10 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(bool, "is_drum", is_drum))
         .def_prop_rw(RW_COPY(u8, "program", program))
         .def_prop_rw(RW_COPY(std::string, "name", name))
-        .def(nb::self == nb::self)   // NOLINT
-        .def(nb::self != nb::self)   // NOLINT
+        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; })
+        .def("__eq__", [](const self_t&, nb::handle) { return false; })
+        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; })
+        .def("__ne__", [](const self_t&, nb::handle) { return true; })
         .def("end", [](const self_t& self) { return self->end(); })
         .def("start", [](const self_t& self) { return self->start(); })
         .def("note_num", [](const self_t& self) { return self->note_num(); })
@@ -186,22 +188,35 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("filter", [](const vec_t& self, nb::object & func, const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             auto it = std::remove_if(ans->begin(), ans->end(), [&](const self_t& t) {
-                return !nb::cast<bool>(func(t));
+                return !nb::cast<bool>(nb::cast<nb::callable>(func)(t));
             });
             ans->erase(it, ans->end());
             return ans;
         })
-        .def("sort", [](vec_t& self, const bool reverse, nb::object& key, const bool inplace) {
+        .def("sort", [](vec_t& self, const bool reverse, const nb::object& key, const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             if(key.is_none()) {
                 auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
                 if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
                 else std::sort(ans->begin(), ans->end(), cmp);
             } else {
-                auto cmp = [&](const self_t& a, const self_t& b) { return key(a) < key(b); };
+                auto key_ = nb::cast<nb::callable>(key);
+                auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
                 if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
                 else std::sort(ans->begin(), ans->end(), cmp);
             }   return ans;
+        })
+        .def("is_sorted", [](const vec_t& self, const bool reverse, const nb::object& key) {
+            if(key.is_none()) {
+                auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
+                if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
+                else return std::is_sorted(self->begin(), self->end(), cmp);
+            } else {
+                auto key_ = nb::cast<nb::callable>(key);
+                auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
+                if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
+                else return std::is_sorted(self->begin(), self->end(), cmp);
+            }
         })
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : deepcopy(self);
@@ -231,6 +246,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("__use_count",   [](const vec_t& self) { return self.use_count(); })
     ;
     // clang-format on
+    nb::implicitly_convertible<nb::list, shared<vec<shared<Track<T>>>>>();
     return std::make_tuple(track, track_vec);
 }
 
@@ -390,8 +406,10 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def("deepcopy", deepcopy_func, "Deep copy", nb::rv_policy::copy)
         .def("__deepcopy__", deepcopy_func, "Deep copy", nb::rv_policy::copy)
         .def("__repr__", [](const self_t& self) { return self->to_string(); })
-        .def(nb::self == nb::self)   // NOLINT
-        .def(nb::self != nb::self)   // NOLINT
+        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; })
+        .def("__eq__", [](const self_t&, nb::handle) { return false; })
+        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; })
+        .def("__ne__", [](const self_t&, nb::handle) { return true; })
         // parse and dump
         .def("__getstate__", [](const self_t& self) {
             const auto native = to_native(*self);
