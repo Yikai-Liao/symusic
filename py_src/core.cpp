@@ -127,9 +127,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("end", [](const self_t& self) { return self->end(); })
         .def("start", [](const self_t& self) { return self->start(); })
         .def("note_num", [](const self_t& self) { return self->note_num(); })
-        .def("empty", [](const self_t& self) { return self->empty(); })
-        // TODO: we still need to determine the default value of "inplace"
-        // TODO: we still need to determine the copy depth
+        .def("empty", [](const self_t& self) { return self->empty(); }
         .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->clip_inplace(start, end, clip_end);
@@ -470,6 +468,12 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(std::move(self->sort(reverse)));
         }, nb::arg("reverse") = false, nb::arg("inplace") = false)
+        .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
+            if (inplace) {
+                self->clip_inplace(start, end, clip_end);
+                return self;
+            }   return std::make_shared<Score<T>>(std::move(self->clip(start, end, clip_end)));
+        }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false)
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);
