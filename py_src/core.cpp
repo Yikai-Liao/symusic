@@ -185,7 +185,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
 
     auto track_vec = bind_shared_vector_copy<vec<self_t>>(m, (name + "List").c_str())
         .def_prop_ro("ttype", [](const vec_t&) { return T(); })
-        .def("filter", [](const vec_t& self, nb::object & func, const bool inplace) {
+        .def("filter", [](const vec_t& self, const nb::object & func, const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             auto it = std::remove_if(ans->begin(), ans->end(), [&](const self_t& t) {
                 return !nb::cast<bool>(nb::cast<nb::callable>(func)(t));
@@ -193,20 +193,20 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             ans->erase(it, ans->end());
             return ans;
         })
-        .def("sort", [](vec_t& self, const bool reverse, const nb::object& key, const bool inplace) {
+        .def("sort", [](vec_t& self, const nb::object& key, const bool reverse,  const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             if(key.is_none()) {
                 auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
                 if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
-                else std::sort(ans->begin(), ans->end(), cmp);
+                else gfx::timsort(ans->begin(), ans->end(), cmp);
             } else {
                 auto key_ = nb::cast<nb::callable>(key);
                 auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
                 if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
-                else std::sort(ans->begin(), ans->end(), cmp);
+                else gfx::timsort(ans->begin(), ans->end(), cmp);
             }   return ans;
-        })
-        .def("is_sorted", [](const vec_t& self, const bool reverse, const nb::object& key) {
+        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = false)
+        .def("is_sorted", [](const vec_t& self, const nb::object& key, const bool reverse) {
             if(key.is_none()) {
                 auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
                 if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
@@ -217,7 +217,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
                 if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
                 else return std::is_sorted(self->begin(), self->end(), cmp);
             }
-        })
+        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false)
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : deepcopy(self);
             for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);

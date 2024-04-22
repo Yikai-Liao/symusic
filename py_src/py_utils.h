@@ -216,12 +216,12 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
         .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
-        .def("sort", [](vec_t& v, nb::object & key, const bool reverse, const bool inplace) -> vec_t {
+        .def("sort", [](vec_t& v, const nb::object & key, const bool reverse, const bool inplace) -> vec_t {
                 vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
                 if(key.is_none()) {
-                    ans->sort(reverse, [](const auto& e) { return e.default_key(); });
+                    ans->sort([](const auto& e) { return e.default_key(); }, reverse);
                 } else {
-                    ans->sort(reverse, nb::cast<nb::callable>(key));
+                    ans->sort_shared(nb::cast<nb::callable>(key), reverse);
                 }
                 return ans;
             },  nb::rv_policy::copy,
@@ -232,16 +232,16 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
                 if(func.is_none()) {
                     throw std::invalid_argument("symusic::filter: You need to provide a function, not None!");
                 }
-                ans->filter(nb::cast<nb::callable>(func));
+                ans->filter_shared(nb::cast<nb::callable>(func));
                 return ans;
             }, nb::rv_policy::copy,
             nb::arg("func") = nb::none(), nb::arg("inplace") = true
         )
         .def("is_sorted", [](const vec_t& v, nb::object & key, bool reverse) -> bool {
                 if(key.is_none()) {
-                    return v->is_sorted(reverse, [](const auto& e) { return e.default_key(); });
+                    return v->is_sorted([](const auto& e) { return e.default_key(); }, reverse);
                 } else {
-                    return v->is_sorted(reverse, nb::cast<nb::callable>(key));
+                    return v->is_sorted_shared( nb::cast<nb::callable>(key), reverse);
                 }
             }, nb::arg("key") = nb::none(), nb::arg("reverse") = false
         )
