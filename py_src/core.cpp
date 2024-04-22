@@ -270,7 +270,7 @@ nb::object convert_score(
 template<TType T, typename PATH>
 shared<Score<T>> midi2score(PATH path) {
     auto     data = read_file(path);
-    Score<T> s    = Score<T>:: parse<DataFormat::MIDI>(data);
+    Score<T> s    = Score<T>::template parse<DataFormat::MIDI>(data);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
