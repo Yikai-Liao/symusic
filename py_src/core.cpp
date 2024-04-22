@@ -127,7 +127,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("end", [](const self_t& self) { return self->end(); })
         .def("start", [](const self_t& self) { return self->start(); })
         .def("note_num", [](const self_t& self) { return self->note_num(); })
-        .def("empty", [](const self_t& self) { return self->empty(); }
+        .def("empty", [](const self_t& self) { return self->empty(); })
         .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->clip_inplace(start, end, clip_end);
