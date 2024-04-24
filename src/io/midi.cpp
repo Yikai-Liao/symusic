@@ -183,7 +183,7 @@ requires (std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
                         last_channel = channel;
                         last_program = program;
                     }
-                    if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
+                    if ((!note_on_queue.empty()) && (cur_tick >= note_on_queue.front().time)) {
                         auto const &note_on = note_on_queue.front();
                         typename T::unit duration = tick2unit(cur_tick - note_on.time);
                         track->notes.emplace_back(
