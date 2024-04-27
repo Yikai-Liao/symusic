@@ -285,10 +285,23 @@ IMPLEMENT_CONVERT(Quarter,  Second)
 
 namespace details {
 Score<Tick> resample_inner(const Score<Tick> & score, const i32 tpq, const i32 min_dur) {
+    if(tpq <= 0) {
+        throw std::invalid_argument("symusic::resample: ticks_per_quarter must be positive");
+    }
+    if(min_dur < 0) {
+        throw std::invalid_argument("symusic::resample: min_dur must be non-negative");
+    }
     Score<Tick> ans(tpq);
+    const f64 scale_rate = static_cast<f64>(tpq) / static_cast<f64>(score.ticks_per_quarter);
+
+    auto f64toi32 = [](const f64 x) {
+        if(x > static_cast<f64>(std::numeric_limits<i32>::max())) {
+            throw std::overflow_error("symusic::resample: time after resample (" + std::to_string(x) + ") is out of int32 range");
+        }   return static_cast<i32>(std::round(x));
+    };
 
 #define CONVERT_TIME(VALUE) \
-    static_cast<i32>(std::round(static_cast<double>(tpq * (VALUE)) / static_cast<double>(score.ticks_per_quarter)))
+    f64toi32(scale_rate * static_cast<f64>(VALUE))
 
 #define RESAMPLE_GENERAL(__COUNT, VEC)                      \
     ans.VEC.reserve(score.VEC.size());                      \
