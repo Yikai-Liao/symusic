@@ -6,6 +6,7 @@
 #include <cmath>
 #include "symusic/conversion.h"
 #include "symusic/ops.h"
+#include "symusic/mtype.h"
 
 namespace symusic {
 
@@ -359,10 +360,23 @@ shared<pyvec<T>> resample_dur(
 }
 
 Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 min_dur) {
+    if(tpq <= 0) {
+        throw std::invalid_argument("symusic::resample: ticks_per_quarter must be positive");
+    }
+    if(min_dur < 0) {
+        throw std::invalid_argument("symusic::resample: min_dur must be non-negative");
+    }
     Score<Tick> ans(tpq);
+    const f64 scale_rate = static_cast<f64>(tpq) / static_cast<f64>(score.ticks_per_quarter);
+    auto f64toi32 = [](const f64 x) {
+        if(x > static_cast<f64>(std::numeric_limits<i32>::max())) {
+            throw std::overflow_error("symusic::resample: time after resample (" + std::to_string(x) + ") is out of int32 range");
+        }   return static_cast<i32>(std::round(x));
+    };
+
     const auto  from_tpq = static_cast<double>(score.ticks_per_quarter);
-    auto        convert  = [tpq, from_tpq](const Tick::unit t) -> Tick::unit {
-        return static_cast<Tick::unit>(std::round(static_cast<double>(tpq * t) / from_tpq));
+    auto        convert  = [f64toi32, scale_rate](const Tick::unit t) -> Tick::unit {
+        return f64toi32(scale_rate * static_cast<f64>(t));
     };
 
     // REPEAT_ON(RESAMPLE_GENERAL, time_signatures, key_signatures, tempos, lyrics, markers)
