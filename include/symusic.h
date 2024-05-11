@@ -16,6 +16,7 @@
 #include "symusic/soa.h"
 
 #include "symusic/io/common.h"
+#include "symusic/io/midi.h"
 #include "symusic/synth.h"
 
 #endif //LIBSYMUSIC_SYMUSIC_H

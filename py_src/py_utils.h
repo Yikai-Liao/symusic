@@ -11,13 +11,14 @@
 #include "nanobind/operators.h"
 #include <nanobind/ndarray.h>
 
+
+
+
+
 namespace pyutils {
 
-using symusic::shared;
-using symusic::vec;
-
-namespace nb = nanobind;
 using namespace symusic;
+namespace nb = nanobind;
 
 #define NDARR(DTYPE, DIM) nb::ndarray<DTYPE, nb::ndim<DIM>, nb::c_contig, nb::device::cpu>
 
@@ -56,16 +57,6 @@ void vec_from_bytes(shared<pyvec<T>>& self, const nb::bytes& bytes) {
     const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
     auto            native_ans = symusic::parse<symusic::DataFormat::ZPP, vec<T>>(span);
     new (&self) shared<pyvec<T>>(std::make_shared<pyvec<T>>(std::move(native_ans)));
-}
-
-template<typename T>
-bool operator==(const shared<T>& a, const shared<T>& b) {
-    return *a == *b;
-}
-
-template<typename T>
-bool operator!=(const shared<T>& a, const shared<T>& b) {
-    return *a != *b;
 }
 
 /*
@@ -164,7 +155,9 @@ auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
 template<TType T, typename unit = typename T::unit>
 auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
     auto size = time.size();
-    if (size != value.size()) { throw std::invalid_argument("time, value must have the same size"); }
+    if (size != value.size()) {
+        throw std::invalid_argument("time, value must have the same size");
+    }
     vec<PitchBend<T>> ans;
     ans.reserve(size);
     for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), value(i)); }
@@ -208,7 +201,10 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def("__copy__", copy_func)
         .def("__deepcopy__", copy_func)
         .def("__repr__", [](const shared<T>& self) { return self->to_string(); })
-        .def(nb::self == nb::self)  // NOLINT
+        .def("__eq__", [](const shared<T>& self, const shared<T>& other) -> bool { return *self == *other; })
+        .def("__eq__", [](const shared<T>&, const nb::object&) -> bool { return false; })
+        .def("__ne__", [](const shared<T>& self, const shared<T>& other) -> bool { return *self != *other; })
+        .def("__ne__", [](const shared<T>&, const nb::object&) -> bool { return true; })
         .def(nb::self != nb::self)  // NOLINT
         .def("__getstate__", &to_bytes<T>)
         .def("__setstate__", &from_bytes<T>)
@@ -220,12 +216,12 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
         .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
-        .def("sort", [](vec_t& v, nb::object & key, const bool reverse, const bool inplace) -> vec_t {
+        .def("sort", [](vec_t& v, const nb::object & key, const bool reverse, const bool inplace) -> vec_t {
                 vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
                 if(key.is_none()) {
-                    ans->sort(reverse, [](const auto& e) { return e.default_key(); });
+                    ans->sort([](const auto& e) { return e.default_key(); }, reverse);
                 } else {
-                    ans->sort(reverse, key);
+                    ans->sort_shared(nb::cast<nb::callable>(key), reverse);
                 }
                 return ans;
             },  nb::rv_policy::copy,
@@ -236,16 +232,16 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
                 if(func.is_none()) {
                     throw std::invalid_argument("symusic::filter: You need to provide a function, not None!");
                 }
-                ans->filter(func);
+                ans->filter_shared(nb::cast<nb::callable>(func));
                 return ans;
             }, nb::rv_policy::copy,
             nb::arg("func") = nb::none(), nb::arg("inplace") = true
         )
         .def("is_sorted", [](const vec_t& v, nb::object & key, bool reverse) -> bool {
                 if(key.is_none()) {
-                    return v->is_sorted(reverse, [](const auto& e) { return e.default_key(); });
+                    return v->is_sorted([](const auto& e) { return e.default_key(); }, reverse);
                 } else {
-                    return v->is_sorted(reverse, key);
+                    return v->is_sorted_shared( nb::cast<nb::callable>(key), reverse);
                 }
             }, nb::arg("key") = nb::none(), nb::arg("reverse") = false
         )
@@ -258,6 +254,7 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         )
     ;
     // clang-format on
+    nb::implicitly_convertible<nb::list, shared<pyvec<T>>>();
     return std::make_tuple(event, vec_class);
 }
 
@@ -338,11 +335,11 @@ auto bind_note(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_keysig(nb::module_& m, const std::string& name_) {
-    typedef typename T::unit unit;
+    typedef typename T::unit        unit;
     typedef shared<KeySignature<T>> self_t;
     using self_inner = KeySignature<T>;
 
-    const std::string name = "KeySignature" + name_;
+    const std::string name    = "KeySignature" + name_;
     auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
@@ -364,11 +361,11 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_timesig(nb::module_& m, const std::string& name_) {
-    typedef typename T::unit unit;
+    typedef typename T::unit         unit;
     typedef shared<TimeSignature<T>> self_t;
     using self_inner = TimeSignature<T>;
 
-    const std::string name = "TimeSignature" + name_;
+    const std::string name      = "TimeSignature" + name_;
     auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
@@ -391,11 +388,11 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_controlchange(nb::module_& m, const std::string& name_) {
-    typedef typename T::unit unit;
+    typedef typename T::unit         unit;
     typedef shared<ControlChange<T>> self_t;
     using self_inner = ControlChange<T>;
 
-    const std::string name = "ControlChange" + name_;
+    const std::string name                  = "ControlChange" + name_;
     auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
@@ -422,7 +419,7 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     typedef shared<Pedal<T>> self_t;
     using self_inner = Pedal<T>;
 
-    const std::string name = "Pedal" + name_;
+    const std::string name  = "Pedal" + name_;
     auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(PedalArr, time, duration);
@@ -451,7 +448,7 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     typedef shared<Tempo<T>> self_t;
     using self_inner = Tempo<T>;
 
-    const std::string name = "Tempo" + name_;
+    const std::string name  = "Tempo" + name_;
     auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(TempoArr, time, mspq);
@@ -488,11 +485,11 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_pitchbend(nb::module_& m, const std::string& name_) {
-    typedef typename T::unit unit;
+    typedef typename T::unit     unit;
     typedef shared<PitchBend<T>> self_t;
     using self_inner = PitchBend<T>;
 
-    const std::string name = "PitchBend" + name_;
+    const std::string name          = "PitchBend" + name_;
     auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(PitchBendArr, time, value);
@@ -514,11 +511,11 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_textmeta(nb::module_& m, const std::string& name_) {
-    typedef typename T::unit unit;
+    typedef typename T::unit    unit;
     typedef shared<TextMeta<T>> self_t;
     using self_inner = TextMeta<T>;
 
-    const std::string name = "TextMeta" + name_;
+    const std::string name        = "TextMeta" + name_;
     auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name);
 
     // clang-format off

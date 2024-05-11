@@ -11,6 +11,7 @@
 
 #include "minimidi/MiniMidi.hpp"
 #include "pdqsort.h"
+#include "MetaMacro.h"
 
 #include "symusic/score.h"
 #include "symusic/ops.h"
@@ -198,7 +199,7 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                     last_channel = channel;
                     last_program = program;
                 }
-                if ((!note_on_queue.empty()) && (cur_tick > note_on_queue.front().time)) {
+                if ((!note_on_queue.empty()) && (cur_tick >= note_on_queue.front().time)) {
                     auto const&      note_on  = note_on_queue.front();
                     typename T::unit duration = tick2unit(cur_tick - note_on.time);
                     track->notes.emplace_back(
@@ -482,7 +483,20 @@ vec<u8> Score<Quarter>::dumps<DataFormat::MIDI>() const {
 template<>
 template<>
 vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
-    throw std::runtime_error("Second is not supported yet");
+    return details::to_midi(convert<Tick>(*this)).to_bytes();
 }
+
+#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                 \
+    template<>                                                              \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) { \
+        return Score<T>::parse<DataFormat::MIDI>(bytes);                    \
+    }                                                                       \
+    template<>                                                              \
+    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {       \
+        return data.dumps<DataFormat::MIDI>();                              \
+    }
+
+REPEAT_ON(INSTANTIATE_GLOBAL_FUNC, Tick, Quarter, Second)
+#undef INSTANTIATE_GLOBAL_FUNC
 
 }   // namespace symusic
