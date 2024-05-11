@@ -141,6 +141,7 @@ class CoreClasses(Generic[T, Q, S]):
 @dataclass(frozen=True)
 class NoteFactory:
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
+    __core_lists = CoreClasses(core.NoteTickList, core.NoteQuarterList, core.NoteSecondList)
 
     def __call__(
         self,
@@ -169,7 +170,7 @@ class NoteFactory:
         velocity: ndarray,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralNoteList:
-        return self.__core_classes.dispatch(ttype).from_numpy(
+        return self.__core_lists.dispatch(ttype).from_numpy(
             time, duration, pitch, velocity
         )
 
@@ -178,6 +179,9 @@ class NoteFactory:
 class KeySignatureFactory:
     __core_classes = CoreClasses(
         core.KeySignatureTick, core.KeySignatureQuarter, core.KeySignatureSecond
+    )
+    __core_lists = CoreClasses(
+        core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList
     )
 
     def __call__(
@@ -199,13 +203,16 @@ class KeySignatureFactory:
         tonality: ndarray,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralKeySignatureList:
-        return self.__core_classes.dispatch(ttype).from_numpy(time, key, tonality)
+        return self.__core_lists.dispatch(ttype).from_numpy(time, key, tonality)
 
 
 @dataclass(frozen=True)
 class TimeSignatureFactory:
     __core_classes = CoreClasses(
         core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond
+    )
+    __core_lists = CoreClasses(
+        core.TimeSignatureTickList, core.TimeSignatureQuarterList, core.TimeSignatureSecondList
     )
 
     def __call__(
@@ -227,7 +234,7 @@ class TimeSignatureFactory:
         denominator: ndarray,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralTimeSignatureList:
-        return self.__core_classes.dispatch(ttype).from_numpy(
+        return self.__core_lists.dispatch(ttype).from_numpy(
             time, numerator, denominator
         )
 
@@ -236,6 +243,9 @@ class TimeSignatureFactory:
 class ControlChangeFactory:
     __core_classes = CoreClasses(
         core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond
+    )
+    __core_lists = CoreClasses(
+        core.ControlChangeTickList, core.ControlChangeQuarterList, core.ControlChangeSecondList
     )
 
     def __call__(
@@ -257,12 +267,13 @@ class ControlChangeFactory:
         value: ndarray,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralControlChangeList:
-        return self.__core_classes.dispatch(ttype).from_numpy(time, number, value)
+        return self.__core_lists.dispatch(ttype).from_numpy(time, number, value)
 
 
 @dataclass(frozen=True)
 class TempoFactory:
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
+    __core_lists = CoreClasses(core.TempoTickList, core.TempoQuarterList, core.TempoSecondList)
 
     def __call__(
         self,
@@ -286,12 +297,13 @@ class TempoFactory:
     def from_numpy(
         self, time: ndarray, mspq: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.GeneralTempoList:
-        return self.__core_classes.dispatch(ttype).from_numpy(time, mspq)
+        return self.__core_lists.dispatch(ttype).from_numpy(time, mspq)
 
 
 @dataclass(frozen=True)
 class PedalFactory:
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
+    __core_lists = CoreClasses(core.PedalTickList, core.PedalQuarterList, core.PedalSecondList)
 
     def __call__(
         self,
@@ -310,13 +322,16 @@ class PedalFactory:
         duration: ndarray,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralPedalList:
-        return self.__core_classes.dispatch(ttype).from_numpy(time, duration)
+        return self.__core_lists.dispatch(ttype).from_numpy(time, duration)
 
 
 @dataclass(frozen=True)
 class PitchBendFactory:
     __core_classes = CoreClasses(
         core.PitchBendTick, core.PitchBendQuarter, core.PitchBendSecond
+    )
+    __core_lists = CoreClasses(
+        core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList
     )
 
     def __call__(
@@ -333,13 +348,16 @@ class PitchBendFactory:
     def from_numpy(
         self, time: ndarray, value: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
     ) -> smt.GeneralPitchBendList:
-        return self.__core_classes.dispatch(ttype).from_numpy(time, value)
+        return self.__core_lists.dispatch(ttype).from_numpy(time, value)
 
 
 @dataclass(frozen=True)
 class TextMetaFactory:
     __core_classes = CoreClasses(
         core.TextMetaTick, core.TextMetaQuarter, core.TextMetaSecond
+    )
+    __core_lists = CoreClasses(
+        core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList
     )
 
     def __call__(

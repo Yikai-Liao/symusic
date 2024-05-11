@@ -66,11 +66,11 @@ void Score<T>::sort_inplace(const bool reverse) {
 
     for (auto& track : *tracks) track->sort_inplace(reverse);
     auto key = [](const auto& event) { return event.default_key(); };
-    time_signatures->sort(reverse, key);
-    key_signatures->sort(reverse, key);
-    tempos->sort(reverse, key);
-    lyrics->sort(reverse, key);
-    markers->sort(reverse, key);
+    time_signatures->sort(key, reverse);
+    key_signatures->sort(key, reverse);
+    tempos->sort(key, reverse);
+    lyrics->sort(key, reverse);
+    markers->sort(key, reverse);
 }
 
 template<TType T>

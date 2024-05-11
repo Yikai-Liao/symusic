@@ -350,12 +350,35 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
     }
 
     if constexpr (detail::is_equality_comparable_v<Value>) {
-        cl.def(self == self)
-          .def(self != self)
+        auto equal = [](const self_t &v, const self_t &other) {
+            if(!v) return !other;
+            if(v->size() != other->size()) return false;
+            for(size_t i = 0; i < v->size(); i++) {
+                const auto& a = v->operator[](i);
+                const auto& b = other->operator[](i);
+                if(a!=b && *a!=*b) return false;
+            }   return true;
+        };
+        auto eq_list = [](const self_t &v, const list &other){
+            if (!v) return false;
+            if (v->size() != len(other)) return false;
+            for (size_t i = 0; i < v->size(); i++) {
+                if (*v->operator[](i) != *cast<Value>(other[i]))
+                    return false;
+            }   return true;
+        };
+        cl.def("__eq__", equal)
+          .def("__eq__", [](const self_t &, const object &) { return false; })
+          .def("__eq__", eq_list)
+          .def("__ne__", [&](const self_t &v, const self_t &other) { return !equal(v, other); })
+          .def("__ne__", [](const self_t &, const object &) { return true; })
+          .def("__ne__", [&](const self_t &v, const list &other) { return !eq_list(v, other); })
 
           .def("__contains__",
                [](const self_t &v, const Value &x) {
-                   return std::find(v->begin(), v->end(), x) != v->end();
+                   for(size_t i = 0; i < v->size(); i++) {
+                       if(*v->operator[](i) == *x) return true;
+                   }   return false;
                })
 
           .def("__contains__", // fallback for incompatible types
@@ -363,16 +386,23 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
 
           .def("count",
                [](const self_t &v, const Value &x) {
-                   return std::count(v->begin(), v->end(), x);
+                     size_t count = 0;
+                     for(size_t i = 0; i < v->size(); i++) {
+                         const auto &a = v->operator[](i);
+                         if(a == x || *a == *x) count++;
+                     }   return count;
                }, "Return number of occurrences of `arg`.")
 
           .def("remove",
                [](self_t &v, const Value &x) {
-                   auto p = std::find(v->begin(), v->end(), x);
-                   if (p != v->end())
-                       v->erase(p);
-                   else
-                       throw value_error();
+                   for(size_t i = 0; i < v->size(); i++) {
+                       const auto &a = v->operator[](i);
+                       if(a == x || *a == *x) {
+                           v->erase(v->begin() + i);
+                           return;
+                       }
+                   }
+                   throw value_error();
                },
                "Remove first occurrence of `arg`.");
     }
@@ -493,9 +523,23 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(nanob
 
     .def("__use_count", [](const self_t &v) { return v.use_count(); });
 
+
+
     if constexpr (detail::is_equality_comparable_v<T>) {
-        cl.def(self == self)
-          .def(self != self)
+        auto eq_list = [](const self_t &v, const list &other){
+            if (v->size() != len(other)) return false;
+            for (size_t i = 0; i < v->size(); i++) {
+                if (*v->operator[](i) != *cast<ValueRef>(other[i]))
+                    return false;
+            }   return true;
+        };
+
+        cl.def("__eq__", [](const self_t &v, const self_t &other) { return *v == *other; })
+          .def("__eq__", eq_list)
+          .def("__eq__", [](const self_t &, handle) { return false; })
+          .def("__ne__", [](const self_t &v, const self_t &other) { return *v != *other; })
+          .def("__ne__", [&](const self_t &v, const list &other) { return !eq_list(v, other); })
+          .def("__ne__", [](const self_t &, handle) { return true; })
 
           .def("__contains__",
                [](const self_t &v, const ValueRef &x) {

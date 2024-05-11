@@ -10,6 +10,7 @@
 
 #include "symusic/io/iodef.h"
 #include "symusic/score.h"
+#include "MetaMacro.h"
 
 namespace symusic {
 
