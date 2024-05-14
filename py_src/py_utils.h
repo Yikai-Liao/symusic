@@ -250,7 +250,7 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
                 ops::adjust_time_inplace(*ans, original_times, new_times);
                 return ans;
             }, nb::rv_policy::copy,
-            nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = true
+            nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false
         )
     ;
     // clang-format on
