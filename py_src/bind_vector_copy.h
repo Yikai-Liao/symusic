@@ -515,11 +515,13 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(nanob
                v->delitem({start, stop, step});
            })
 
-    .def("__copy__", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->copy())); })
     .def("copy", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->copy())); })
+    .def("__copy__", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->copy())); })
 
-    .def("__deepcopy__", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->deepcopy())); })
     .def("deepcopy", [](const self_t &v) { return std::make_shared<Vector>(std::move(v->deepcopy())); })
+    .def("__deepcopy__", [](const self_t &v, const handle&, const handle&) {
+        return std::make_shared<Vector>(std::move(v->deepcopy()));
+    }, arg("memo")=none(), arg("_nil")=none())
 
     .def("__use_count", [](const self_t &v) { return v.use_count(); });
 
