@@ -461,11 +461,12 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(i32, "mspq", mspq))
         .def("__init__", [](self_t *self, const unit time, std::optional<f64> qpm, std::optional<i32> mspq) {
             new (self) shared<Tempo<T>>(std::move(std::make_shared<Tempo<T>>()));
-            self_t & tempo = *self;
+            self_t & t = *self;
+            t->time = time;
             if(qpm.has_value()) {
-                tempo->set_qpm(*qpm);
+                t->set_qpm(*qpm);
             } else if(mspq.has_value()) {
-                tempo->mspq = *mspq;
+                t->mspq = *mspq;
             } else {
                 throw std::invalid_argument("qpm or mspq must be specified");
             }
