@@ -98,7 +98,9 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("copy", copy_func, nb::rv_policy::copy)
         .def("__copy__", copy_func, nb::rv_policy::copy)
         .def("deepcopy", deepcopy_func, nb::rv_policy::copy)
-        .def("__deepcopy__", deepcopy_func, nb::rv_policy::copy)
+        .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
+            return deepcopy_func(self);
+        }, nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::copy)
         .def("__repr__", [](const self_t& self) { return self->to_string(); })
         .def("__getstate__", [](const self_t& self) {
             const auto native = to_native(*self);
@@ -224,7 +226,8 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("copy",          [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
         .def("__copy__",      [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
         .def("deepcopy",      &deepcopy<Track<T>>)
-        .def("__deepcopy__",  &deepcopy<Track<T>>)
+        .def("__deepcopy__",  [](const vec_t& self, const nb::handle, const nb::handle) { return deepcopy(self); },
+            nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move)
         .def("__getstate__",  [](const vec_t& self) {
             vec<TrackNative<T>> native;
             native.reserve(self->size());
@@ -401,8 +404,10 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, "Copy constructor", nb::arg("other"))
         .def("copy", copy_func, "Shallow copy", nb::rv_policy::copy)
         .def("__copy__", copy_func, "Shallow copy", nb::rv_policy::copy)
-        .def("deepcopy", deepcopy_func, "Deep copy", nb::rv_policy::copy)
-        .def("__deepcopy__", deepcopy_func, "Deep copy", nb::rv_policy::copy)
+        .def("deepcopy", deepcopy_func, "Deep copy", nb::rv_policy::move)
+        .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
+            return deepcopy_func(self);
+        }, "Deep copy", nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move)
         .def("__repr__", [](const self_t& self) { return self->to_string(); })
         .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; })
         .def("__eq__", [](const self_t&, nb::handle) { return false; })
