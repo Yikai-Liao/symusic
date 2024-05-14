@@ -137,7 +137,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->sort_inplace(reverse);
             return ans;
-        }, nb::arg("reverse") = false, nb::arg("inplace") = false)
+        }, nb::arg("reverse") = false, nb::arg("inplace") = true)
         .def("adjust_time", [](self_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ops::adjust_time_inplace(*ans, original_times, new_times);
@@ -195,15 +195,15 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             if(key.is_none()) {
                 auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
-                if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
+                if (reverse) gfx::timsort(ans->rbegin(), ans->rend(), cmp);
                 else gfx::timsort(ans->begin(), ans->end(), cmp);
             } else {
                 auto key_ = nb::cast<nb::callable>(key);
                 auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
-                if (reverse) std::sort(ans->rbegin(), ans->rend(), cmp);
+                if (reverse) gfx::timsort(ans->rbegin(), ans->rend(), cmp);
                 else gfx::timsort(ans->begin(), ans->end(), cmp);
             }   return ans;
-        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = false)
+        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true)
         .def("is_sorted", [](const vec_t& self, const nb::object& key, const bool reverse) {
             if(key.is_none()) {
                 auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
@@ -467,7 +467,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 self->sort_inplace(reverse);
                 return self;
             }   return std::make_shared<Score<T>>(std::move(self->sort(reverse)));
-        }, nb::arg("reverse") = false, nb::arg("inplace") = false)
+        }, nb::arg("reverse") = false, nb::arg("inplace") = true)
         .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
             if (inplace) {
                 self->clip_inplace(start, end, clip_end);
