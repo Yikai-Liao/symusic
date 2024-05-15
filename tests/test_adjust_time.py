@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from symusic import Note, Score, Track
-from tests.utils import MIDI_PATHS
+from tests.utils import MIDI_PATHS_ALL
 
 # as tuples (original notes, original times, new times, expected notes)
 NOTES_OG = [Note(0, 4, 72, 72), Note(4, 6, 72, 72), Note(8, 4, 72, 72)]
@@ -58,7 +58,7 @@ def test_adjust_time(test_case: tuple[list[Note], list[int], list[int], list[Not
     assert midi_adjusted.tracks[0].notes == notes_expected
 
 
-@pytest.mark.parametrize("midi_path", MIDI_PATHS, ids=attrgetter("name"))
+@pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 @pytest.mark.parametrize("times", TIMES)
 def test_adjust_time_midi(midi_path: Path, times: tuple[list[int], list[int]]):
     """Test the `adjust_time` method just by running it on test MIDIs."""
