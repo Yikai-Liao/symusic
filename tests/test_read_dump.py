@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 
 from symusic import Score
-from tests.utils import MIDI_PATHS
+from tests.utils import MIDI_PATHS_ALL
 
 
-@pytest.mark.parametrize("midi_path", MIDI_PATHS, ids=attrgetter("name"))
+@pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 def test_load_dump(midi_path: Path, tmp_path: Path):
     """Test that a MIDI loaded and saved unchanged is indeed the save as before."""
     midi1 = Score(midi_path)
