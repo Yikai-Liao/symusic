@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from symusic import Score
-from tests.utils import MIDI_PATHS
+from tests.utils import MIDI_PATHS_ALL
 
 
 class ScoreTimeMapper:
@@ -44,7 +44,7 @@ class ScoreTimeMapper:
         return (tempo_ticks + (seconds - tempo_times) / seconds_per_tick).astype(int)
 
 
-@pytest.mark.parametrize("midi_path", MIDI_PATHS, ids=attrgetter("name"))
+@pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 def test_second_conversion(midi_path: Path):
     s_tick = Score(midi_path, ttype="tick", fmt="midi")
     s_sec = s_tick.to("second")
