@@ -58,7 +58,7 @@ if(BUILD_SYMUSIC_PY)
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
-    # install abc2midi and midi2abc
+#   install abc2midi and midi2abc
     add_subdirectory(3rdparty/abcmidi)
     install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
 endif()
