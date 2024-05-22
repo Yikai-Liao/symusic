@@ -72,11 +72,7 @@ BUILD_SYMUSIC_PY = "ON"
 
 [tool.scikit-build.metadata]
 version.provider = "scikit_build_core.metadata.regex"
-version.input = "symusic/__init__.py"
-
-[tool.skbuild]
-packages = ["symusic"]
-cmake-args = []
+version.input = "python/symusic/__init__.py"
 
 [project.optional-dependencies]
 test = ["pytest-cov", "pytest-xdist[psutil]"]
