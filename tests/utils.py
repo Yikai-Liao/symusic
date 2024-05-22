@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 HERE = Path(__file__).parent
 
-TESTCASES_PATH = HERE.parent / "testcases"
+TESTCASES_PATH = HERE / "testcases"
 MIDI_PATHS_ONE_TRACK = sorted((TESTCASES_PATH / "MIDIs_one_track").rglob("*.mid"))
 MIDI_PATHS_MULTITRACK = sorted((TESTCASES_PATH / "MIDIs_multitrack").rglob("*.mid"))
 MIDI_PATHS_CORRUPTED = sorted((TESTCASES_PATH / "MIDIs_corrupted").rglob("*.mid"))
@@ -21,7 +21,7 @@ MIDI_PATHS_ALL = MIDI_PATHS_ONE_TRACK + MIDI_PATHS_MULTITRACK
 
 
 def merge_tracks(
-    tracks: list[Track] | TrackTickList | Score, effects: bool = True
+        tracks: list[Track] | TrackTickList | Score, effects: bool = True
 ) -> Track:
     r"""
     Merge several ``symusic.Track``\s.
@@ -117,7 +117,7 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
     :return: the concatenated ``symusic.Score``.
     """
     if not all(
-        score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
+            score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
     ):
         err_msg = "The provided scores do not have all the same time division."
         raise ValueError(err_msg)
