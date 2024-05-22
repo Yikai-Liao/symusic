@@ -18,7 +18,7 @@ from symusic import (
     TimeSignature,
 )
 
-from .utils import (
+from tests.py.utils import (
     MIDI_PATHS_MULTITRACK,
     MIDI_PATHS_ONE_TRACK,
     concat_scores,
