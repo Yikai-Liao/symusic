@@ -2,4 +2,5 @@ graft 3rdparty
 graft include
 graft src
 graft py_src
+graft python
 include CMakeLists.txt
