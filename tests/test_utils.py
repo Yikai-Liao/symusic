@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from copy import copy
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import pytest
@@ -76,7 +76,7 @@ def test_containers_assertions():
 @pytest.mark.parametrize("file_path", MIDI_PATHS_ONE_TRACK)
 def test_check_scores_equals(file_path: Path):
     score = Score(file_path)
-    score_copy = copy(score)
+    score_copy = deepcopy(score)
 
     # Check when midi is untouched
     assert score == score_copy
@@ -93,7 +93,7 @@ def test_check_scores_equals(file_path: Path):
     # Altering track events
     if len(score_copy.tracks) > 0:
         # Altering pedals
-        score_copy = copy(score)
+        score_copy = deepcopy(score)
         if len(score_copy.tracks[0].pedals) == 0:
             score_copy.tracks[0].pedals.append(Pedal(0, 10))
         else:
@@ -101,7 +101,7 @@ def test_check_scores_equals(file_path: Path):
         assert score != score_copy
 
         # Altering pitch bends
-        score_copy = copy(score)
+        score_copy = deepcopy(score)
         if len(score_copy.tracks[0].pitch_bends) == 0:
             score_copy.tracks[0].pitch_bends.append(PitchBend(50, 10))
         else:
@@ -109,7 +109,7 @@ def test_check_scores_equals(file_path: Path):
         assert score != score_copy
 
     # Altering tempos
-    score_copy = copy(score)
+    score_copy = deepcopy(score)
     if len(score_copy.tempos) == 0:
         score_copy.tempos.append(Tempo(50, 10))
     else:
@@ -117,7 +117,7 @@ def test_check_scores_equals(file_path: Path):
     assert score != score_copy
 
     # Altering time signatures
-    score_copy = copy(score)
+    score_copy = deepcopy(score)
     if len(score_copy.time_signatures) == 0:
         score_copy.time_signatures.append(TimeSignature(10, 4, 4))
     else:
@@ -133,8 +133,8 @@ def test_merge_tracks(
     score.tracks = [score.tracks[0]]
 
     # Duplicate the track and merge it
-    original_track = copy(score.tracks[0])
-    score.tracks.append(copy(score.tracks[0]))
+    original_track = deepcopy(score.tracks[0])
+    score.tracks.append(deepcopy(score.tracks[0]))
 
     # Test merge with effects
     merge_tracks(score, effects=True)
