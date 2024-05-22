@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from symusic import Score
-from tests.utils import MIDI_PATHS_ALL
+from tests.py.utils import MIDI_PATHS_ALL
 
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))

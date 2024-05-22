@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from symusic import Note, Score, Track
-from tests.utils import MIDI_PATHS_ALL
+from tests.py.utils import MIDI_PATHS_ALL
 
 # as tuples (original notes, original times, new times, expected notes)
 NOTES_OG = [Note(0, 4, 72, 72), Note(4, 6, 72, 72), Note(8, 4, 72, 72)]

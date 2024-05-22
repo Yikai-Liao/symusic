@@ -7,7 +7,6 @@
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-// #include "symusic/note_arr.h"
 #include "symusic/repr.h"
 
 namespace symusic {
@@ -27,38 +26,22 @@ REPEAT_ON(
     EVENT_TO_STRING,
     Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
 )
-// template <TType T>
-// std::string Note<T>::to_string() const { return fmt::format("{:d}", *this); }
-//
-// template std::string Note<Tick>::to_string() const;
-// template std::string Note<Quarter>::to_string() const;
-// template std::string Note<Second>::to_string() const;
 
-// #undef EVENT_TO_STRING
-
-// Implement summary for Track, NoteArr and Score
+// Implement summary for Track and Score
 template<TType T>
 std::string Track<T>::summary() const {
     return fmt::format(
         "Track(ttype={}, program={}, is_drum={}, name={}, notes={})",
-        T(), program, is_drum, name, notes.size()
+        T(), program, is_drum, name, notes->size()
     );
 }
-
-// template<TType T>
-// std::string NoteArr<T>::summary() const {
-//     return fmt::format(
-//         "NoteArr(ttype={}, program={}, is_drum={}, name={}, notes={})",
-//         T(), program, is_drum, name, pitch.size()
-//     );
-// }
 
 template<TType T>
 std::string Score<T>::summary() const {
     return fmt::format(
         "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={}, lyrics={})",
-        T(), ticks_per_quarter, start(), end(), tracks.size(), note_num(),
-        time_signatures.size(), key_signatures.size(), markers.size(), lyrics.size()
+        T(), ticks_per_quarter, start(), end(), tracks->size(), note_num(),
+        time_signatures->size(), key_signatures->size(), markers->size(), lyrics->size()
     );
 }
 
