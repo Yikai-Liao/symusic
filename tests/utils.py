@@ -14,11 +14,12 @@ if TYPE_CHECKING:
 HERE = Path(__file__).parent
 
 TESTCASES_PATH = HERE / "testcases"
-MIDI_PATHS_ONE_TRACK = sorted((TESTCASES_PATH / "MIDIs_one_track").rglob("*.mid"))
-MIDI_PATHS_MULTITRACK = sorted((TESTCASES_PATH / "MIDIs_multitrack").rglob("*.mid"))
+MIDI_PATHS_ONE_TRACK = sorted((TESTCASES_PATH / "One_track_MIDIs").rglob("*.mid"))
+MIDI_PATHS_MULTITRACK = sorted((TESTCASES_PATH / "Multitrack_MIDIs").rglob("*.mid"))
 MIDI_PATHS_CORRUPTED = sorted((TESTCASES_PATH / "MIDIs_corrupted").rglob("*.mid"))
 MIDI_PATHS_ALL = MIDI_PATHS_ONE_TRACK + MIDI_PATHS_MULTITRACK
-
+print(TESTCASES_PATH)
+print(MIDI_PATHS_ONE_TRACK)
 
 def merge_tracks(
         tracks: list[Track] | TrackTickList | Score, effects: bool = True
@@ -127,11 +128,11 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
 
     # Create the concatenated Score with empty tracks
     score_concat = Score(scores[0].ticks_per_quarter)
-    score_concat.tracks = scores[0].tracks
+    score_concat.tracks = scores[0].tracks.deepcopy()
 
     for mi in range(len(scores)):
         # Shift the Score
-        score = scores[mi]
+        score = scores[mi].deepcopy()
         if mi > 0:
             score = score.shift_time(end_ticks[mi - 1])
 
