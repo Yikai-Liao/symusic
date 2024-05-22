@@ -27,14 +27,12 @@ namespace symusic {
 template<TType T>
 struct NoteArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time, duration;
-    vec<i8> pitch, velocity;
+    vec<i8>   pitch, velocity;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, duration, pitch, velocity)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, duration, pitch, velocity) }
 
     void emplace_back(const unit _time, const unit _duration, const i8 _pitch, const i8 _velocity) {
         time.emplace_back(_time);
@@ -43,13 +41,18 @@ struct NoteArr {
         velocity.emplace_back(_velocity);
     }
 
-    void emplace_back(const Note<T> &note) {
+    void emplace_back(const Note<T>& note) {
         emplace_back(note.time, note.duration, note.pitch, note.velocity);
     }
 
     explicit NoteArr(std::span<const Note<T>> data) {
         reserve(data.size());
-        for (const auto &note: data) emplace_back(note);
+        for (const auto& note : data) emplace_back(note);
+    }
+
+    explicit NoteArr(const pyvec<Note<T>>& data) {
+        reserve(data.size());
+        for (const auto& note : data) emplace_back(note);
     }
 
     vec<Note<T>> to_vec() const {
@@ -61,61 +64,58 @@ struct NoteArr {
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<Note<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct PedalArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time, duration;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, duration)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, duration) }
 
     void emplace_back(const unit _time, const unit _duration) {
         time.emplace_back(_time);
         duration.emplace_back(_duration);
     }
 
-    void emplace_back(const Pedal<T> &pedal) {
-        emplace_back(pedal.time, pedal.duration);
-    }
+    void emplace_back(const Pedal<T>& pedal) { emplace_back(pedal.time, pedal.duration); }
 
     explicit PedalArr(std::span<const Pedal<T>> data) {
         reserve(data.size());
-        for (const auto &pedal: data) emplace_back(pedal);
+        for (const auto& pedal : data) emplace_back(pedal);
+    }
+
+    explicit PedalArr(const pyvec<Pedal<T>>& data) {
+        reserve(data.size());
+        for (const auto& pedal : data) emplace_back(pedal);
     }
 
     vec<Pedal<T>> to_vec() const {
         vec<Pedal<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], duration[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], duration[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<Pedal<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct ControlChangeArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time;
-    vec<u8> number, value;
+    vec<u8>   number, value;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, number, value)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, number, value) }
 
     void emplace_back(const unit _time, const u8 _number, const u8 _value) {
         time.emplace_back(_time);
@@ -123,40 +123,41 @@ struct ControlChangeArr {
         value.emplace_back(_value);
     }
 
-    void emplace_back(const ControlChange<T> &control_change) {
+    void emplace_back(const ControlChange<T>& control_change) {
         emplace_back(control_change.time, control_change.number, control_change.value);
     }
 
     explicit ControlChangeArr(std::span<const ControlChange<T>> data) {
         reserve(data.size());
-        for (const auto &control_change: data) emplace_back(control_change);
+        for (const auto& control_change : data) emplace_back(control_change);
+    }
+
+    explicit ControlChangeArr(const pyvec<ControlChange<T>>& data) {
+        reserve(data.size());
+        for (const auto& control_change : data) emplace_back(control_change);
     }
 
     vec<ControlChange<T>> to_vec() const {
         vec<ControlChange<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], number[i], value[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], number[i], value[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<ControlChange<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct TimeSignatureArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time;
-    vec<u8> numerator, denominator;
+    vec<u8>   numerator, denominator;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, numerator, denominator)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, numerator, denominator) }
 
     void emplace_back(const unit _time, const u8 _numerator, const u8 _denominator) {
         time.emplace_back(_time);
@@ -164,13 +165,18 @@ struct TimeSignatureArr {
         denominator.emplace_back(_denominator);
     }
 
-    void emplace_back(const TimeSignature<T> &time_signature) {
+    void emplace_back(const TimeSignature<T>& time_signature) {
         emplace_back(time_signature.time, time_signature.numerator, time_signature.denominator);
     }
 
     explicit TimeSignatureArr(std::span<const TimeSignature<T>> data) {
         reserve(data.size());
-        for (const auto &time_signature: data) emplace_back(time_signature);
+        for (const auto& time_signature : data) emplace_back(time_signature);
+    }
+
+    explicit TimeSignatureArr(const pyvec<TimeSignature<T>>& data) {
+        reserve(data.size());
+        for (const auto& time_signature : data) emplace_back(time_signature);
     }
 
     vec<TimeSignature<T>> to_vec() const {
@@ -182,23 +188,21 @@ struct TimeSignatureArr {
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<TimeSignature<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct KeySignatureArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time;
-    vec<i8> key;
-    vec<u8> tonality;
+    vec<i8>   key;
+    vec<u8>   tonality;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, key, tonality)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, key, tonality) }
 
     void emplace_back(const unit _time, const i8 _key, const u8 _tonality) {
         time.emplace_back(_time);
@@ -206,149 +210,153 @@ struct KeySignatureArr {
         tonality.emplace_back(_tonality);
     }
 
-    void emplace_back(const KeySignature<T> &key_signature) {
+    void emplace_back(const KeySignature<T>& key_signature) {
         emplace_back(key_signature.time, key_signature.key, key_signature.tonality);
     }
 
     explicit KeySignatureArr(std::span<const KeySignature<T>> data) {
         reserve(data.size());
-        for (const auto &key_signature: data) emplace_back(key_signature);
+        for (const auto& key_signature : data) emplace_back(key_signature);
+    }
+
+    explicit KeySignatureArr(const pyvec<KeySignature<T>>& data) {
+        reserve(data.size());
+        for (const auto& key_signature : data) emplace_back(key_signature);
     }
 
     vec<KeySignature<T>> to_vec() const {
         vec<KeySignature<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], key[i], tonality[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], key[i], tonality[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<KeySignature<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct TempoArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time;
-    vec<i32> mspq;
+    vec<i32>  mspq;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, mspq)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, mspq) }
 
     void emplace_back(const unit _time, const i32 _mspq) {
         time.emplace_back(_time);
         mspq.emplace_back(_mspq);
     }
 
-    void emplace_back(const Tempo<T> &tempo) {
-        emplace_back(tempo.time, tempo.mspq);
-    }
+    void emplace_back(const Tempo<T>& tempo) { emplace_back(tempo.time, tempo.mspq); }
 
     explicit TempoArr(std::span<const Tempo<T>> data) {
         reserve(data.size());
-        for (const auto &tempo: data) emplace_back(tempo);
+        for (const auto& tempo : data) emplace_back(tempo);
+    }
+
+    explicit TempoArr(const pyvec<Tempo<T>>& data) {
+        reserve(data.size());
+        for (const auto& tempo : data) emplace_back(tempo);
     }
 
     vec<Tempo<T>> to_vec() const {
         vec<Tempo<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], mspq[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], mspq[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<Tempo<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct PitchBendArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
     vec<unit> time;
-    vec<i32> value;
+    vec<i32>  value;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, value)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, value) }
 
     void emplace_back(const unit _time, const i32 _value) {
         time.emplace_back(_time);
         value.emplace_back(_value);
     }
 
-    void emplace_back(const PitchBend<T> &pitch_bend) {
+    void emplace_back(const PitchBend<T>& pitch_bend) {
         emplace_back(pitch_bend.time, pitch_bend.value);
     }
 
     explicit PitchBendArr(std::span<const PitchBend<T>> data) {
         reserve(data.size());
-        for (const auto &pitch_bend: data) emplace_back(pitch_bend);
+        for (const auto& pitch_bend : data) emplace_back(pitch_bend);
+    }
+
+    explicit PitchBendArr(const pyvec<PitchBend<T>>& data) {
+        reserve(data.size());
+        for (const auto& pitch_bend : data) emplace_back(pitch_bend);
     }
 
     vec<PitchBend<T>> to_vec() const {
         vec<PitchBend<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], value[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], value[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<PitchBend<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 template<TType T>
 struct TextMetaArr {
     typedef typename T::unit unit;
-    typedef T ttype;
+    typedef T                ttype;
 
-    vec<unit> time;
+    vec<unit>        time;
     vec<std::string> text;
 
-    void reserve(const size_t _size) {
-        REPEAT_ON(RESERVE, time, text)
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, text) }
 
-    void emplace_back(const unit _time, const std::string &_text) {
+    void emplace_back(const unit _time, const std::string& _text) {
         time.emplace_back(_time);
         text.emplace_back(_text);
     }
 
-    void emplace_back(const TextMeta<T> &text_meta) {
+    void emplace_back(const TextMeta<T>& text_meta) {
         emplace_back(text_meta.time, text_meta.text);
     }
 
     explicit TextMetaArr(std::span<const TextMeta<T>> data) {
         reserve(data.size());
-        for (const auto &text_meta: data) emplace_back(text_meta);
+        for (const auto& text_meta : data) emplace_back(text_meta);
+    }
+
+    explicit TextMetaArr(const pyvec<TextMeta<T>>& data) {
+        reserve(data.size());
+        for (const auto& text_meta : data) emplace_back(text_meta);
     }
 
     vec<TextMeta<T>> to_vec() const {
         vec<TextMeta<T>> ans;
         ans.reserve(time.size());
-        for (size_t i = 0; i < time.size(); ++i) {
-            ans.emplace_back(time[i], text[i]);
-        }
+        for (size_t i = 0; i < time.size(); ++i) { ans.emplace_back(time[i], text[i]); }
         return ans;
     }
 
-    [[nodiscard]] size_t size() const {
-        return time.size();
-    }
+    auto to_pyvec() const { return pyvec<TextMeta<T>>(std::move(to_vec())); }
+
+    [[nodiscard]] size_t size() const { return time.size(); }
 };
 
 #undef RESERVE
-}
-#endif //LIBSYMUSIC_SOA_H
+}   // namespace symusic
+#endif   // LIBSYMUSIC_SOA_H

@@ -11,6 +11,7 @@
 
 #include "fmt/core.h"
 #include "fmt/ranges.h"
+#include "MetaMacro.h"
 
 #include "symusic/event.h"
 #include "symusic/track.h"
@@ -114,62 +115,76 @@ std::string fix_float(const T value) {
 
 FORMATTER(
     Note, d,
-    "Note(time={}, duration={}, pitch={}, velocity={})",
-    "Note({}, {}, {}, {})",
-    fix_float(d.time), fix_float(d.duration), d.pitch, d.velocity
+    "Note(time={}, duration={}, pitch={}, velocity={}, ttype='{}')",
+    "Note({}, {}, {}, {}, '{}')",
+    fix_float(d.time), fix_float(d.duration), d.pitch, d.velocity, T()
 )
 
 FORMATTER(
     Pedal, d,
-    "Pedal(time={}, duration={})",
-    "Pedal({}, {})",
-    fix_float(d.time), d.duration
+    "Pedal(time={}, duration={}, ttype='{}')",
+    "Pedal({}, {}, '{}')",
+    fix_float(d.time), d.duration, T()
 )
 
 FORMATTER(
     ControlChange, d,
-    "ControlChange(time={}, number={}, value={})",
-    "ControlChange({}, {}, {})",
-    fix_float(d.time), d.number, d.value
+    "ControlChange(time={}, number={}, value={}, ttype='{}')",
+    "ControlChange({}, {}, {}, '{}')",
+    fix_float(d.time), d.number, d.value, T()
 )
 
 FORMATTER(
     TimeSignature, d,
-    "TimeSignature(time={}, numerator={}, denominator={})",
-    "TimeSignature({}, {}, {})",
-    fix_float(d.time), d.numerator, d.denominator
+    "TimeSignature(time={}, numerator={}, denominator={}, ttype='{}')",
+    "TimeSignature({}, {}, {}, '{}')",
+    fix_float(d.time), d.numerator, d.denominator, T()
 )
 
 FORMATTER(
     KeySignature, d,
-    "KeySignature(time={}, key={}, tonality={}, degree={})",
-    "KeySignature({}, {}, {}, {})",
-    fix_float(d.time), d.key, d.tonality, d.degree()
+    "KeySignature(time={}, key={}, tonality={}, degree={}, ttype='{}')",
+    "KeySignature({}, {}, {}, {}, '{}')",
+    fix_float(d.time), d.key, d.tonality, d.degree(), T()
 )
 
 FORMATTER(
     Tempo, d,
-    "Tempo(time={}, qpm={}, mspq={})",
-    "Tempo({}, {}, {})",
-    fix_float(d.time), d.qpm(), d.mspq
+    "Tempo(time={}, qpm={}, mspq={}, ttype='{}')",
+    "Tempo({}, {}, {}, '{}')",
+    fix_float(d.time), d.qpm(), d.mspq, T()
 )
 
 FORMATTER(
     PitchBend, d,
-    "PitchBend(time={}, value={})",
-    "PitchBend({}, {})",
-    fix_float(d.time), d.value
+    "PitchBend(time={}, value={}, ttype='{}')",
+    "PitchBend({}, {}, '{}')",
+    fix_float(d.time), d.value, T()
 )
 
 FORMATTER(
     TextMeta, d,
-    "Text(time={}, text=\"{}\")",
-    "Text({}, \"{}\")",
-    fix_float(d.time), d.text
+    "Text(time={}, text='{}', ttype='{}')",
+    "Text({}, '{}', '{}')",
+    fix_float(d.time), d.text, T()
 )
 #undef FORMATTER
 #undef INNER_FORMATTER
 #undef HELPER
+
+template<typename T>
+struct formatter<std::shared_ptr<T>> {
+    constexpr auto parse(format_parse_context &ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FmtCtx>
+    auto format(const std::shared_ptr<T> &data, FmtCtx &ctx) {
+        if (data) {
+            return fmt::format_to(ctx.out(), "{}", *data);
+        }   throw std::runtime_error("symusic: trying to format a nullptr");
+    }
+};
 
 // #undef SUMMARY_FORMAT
 }
@@ -194,27 +209,6 @@ REPEAT_ON(
     Score
 )
 #undef OSTREAMEABLE
-
-// #define OSTREAMEABLE(__COUNT, STRUCT_NAME)                                              \
-//     template<symusic::TType T>                                                          \
-//     std::ostream &operator<<(                                                           \
-//         std::ostream &os, const std::vector<symusic::STRUCT_NAME<T>> &data              \
-//     ) { return os << fmt::format("{}", data); }
-//
-//
-// REPEAT_ON(
-//     OSTREAMEABLE,
-//     Note,
-//     Pedal,
-//     ControlChange,
-//     TimeSignature,
-//     KeySignature,
-//     Tempo,
-//     PitchBend,
-//     TextMeta,
-//     Track
-// )
-// #undef OSTREAMEABLE
 
 // define a base formatter with parse that
 #endif //LIBSYMUSIC_REPR_H

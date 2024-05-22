@@ -19,3 +19,6 @@
 [submodule "3rdparty/prestosynth"]
 	path = 3rdparty/prestosynth
 	url = https://github.com/lzqlzzq/prestosynth.git
+[submodule "3rdparty/pyvec"]
+	path = 3rdparty/pyvec
+	url = https://github.com/Yikai-Liao/pyvec.git

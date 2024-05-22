@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from symusic import Score
-from tests.utils import MIDI_PATHS_ALL
+from tests.py.utils import MIDI_PATHS_ALL
 
 
 class ScoreTimeMapper:
