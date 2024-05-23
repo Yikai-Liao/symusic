@@ -61,7 +61,7 @@ template<TType T>
 struct TimeStamp {
     typedef T                ttype;
     typedef typename T::unit unit;
-    unit                     time;
+    unit                     time = 0;
 
     COMPILER_DEFAULT_METHODS(TimeStamp)
 

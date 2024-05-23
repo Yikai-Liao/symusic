@@ -7,6 +7,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 
 option(BUILD_SYMUSIC_PY "Build the python binding of symusic" OFF)
 option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
+option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
 
@@ -78,6 +79,24 @@ if(BUILD_SYMUSIC_EXAMPLE)
     target_link_libraries(synth PUBLIC symusic)
     target_link_libraries(adjust_time PUBLIC symusic)
 endif()
+
+if(BUILD_SYMUSIC_TEST)
+    Include(FetchContent)
+    FetchContent_Declare(
+            Catch2
+            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+            GIT_TAG v3.4.0 # or a later release
+    )
+    FetchContent_MakeAvailable(Catch2)
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+    add_executable(symusic_test tests/cpp/test_main.cpp)
+    target_include_directories(symusic_test PRIVATE tests/cpp)
+    target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
+    include(CTest)
+    include(Catch)
+    catch_discover_tests(symusic_test)
+endif()
+
 
 if (ENABLE_LTO)
     include(CheckIPOSupported)

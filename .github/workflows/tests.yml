@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 jobs:
-  tests:
+  py_test:
     name: Tests on ${{ matrix.os }} with python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -42,3 +42,22 @@ jobs:
 
       - name: Codecov
         uses: codecov/codecov-action@v3.1.0
+
+  cpp_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run CPP Tests
+        run: |
+          cd build
+          ctest -C Debug --output-on-failure --verbose
