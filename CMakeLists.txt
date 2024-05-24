@@ -94,7 +94,11 @@ if(BUILD_SYMUSIC_TEST)
     target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
     include(CTest)
     include(Catch)
-    catch_discover_tests(symusic_test)
+    enable_testing()
+    add_test(
+        NAME symusic_ctest
+        COMMAND $<TARGET_FILE:symusic_test> --success
+    )
 endif()
 
 
