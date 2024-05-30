@@ -3,10 +3,11 @@ requires = [
     "setuptools>=42",
     "scikit-build>=0.13",
     "scikit-build-core>=0.3.3",
-    "nanobind>=1.8.0",
+    "nanobind==v1.9.2",
     "cmake>=3.20",
     "ninja",
 ]
+
 build-backend = "scikit_build_core.build"
 
 [project]
