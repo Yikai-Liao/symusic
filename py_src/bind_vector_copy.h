@@ -64,10 +64,10 @@ nanobind::class_<Vector> bind_vector_copy(nanobind::handle scope, const char *na
         cl.def(init<const Vector &>(),
                "Copy constructor");
 
-        cl.def("__init__", [](Vector *v, typed<iterable, detail::iterable_type_id<Value>> &seq) {
+        cl.def("__init__", [](Vector *v, typed<iterable, Value> &seq) {
             new (v) Vector();
-            v->reserve(len_hint(seq.value));
-            for (handle h : seq.value)
+            v->reserve(len_hint(seq));
+            for (handle h : seq)
                 v->push_back(cast<Value>(h));
         }, "Construct from an iterable object");
 
@@ -248,10 +248,10 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
             new (self) self_t(std::move(std::make_shared<Vector>(*other)));
         }, "Shallow Copy constructor");
 
-        cl.def("__init__", [](self_t &v, typed<iterable, detail::iterable_type_id<Value>> &seq) {
+        cl.def("__init__", [](self_t &v, typed<iterable, Value> &seq) {
             new (&v) self_t(std::move(std::make_shared<Vector>()));
-            v->reserve(len_hint(seq.value));
-            for (handle h : seq.value)
+            v->reserve(len_hint(seq));
+            for (handle h : seq)
                 v->push_back(cast<Value>(h));
         }, "Construct from an iterable object");
 
@@ -457,10 +457,10 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(nanob
             new (self) self_t(std::move(std::make_shared<Vector>(*other)));
         }, "Shallow Copy constructor");
 
-        cl.def("__init__", [](self_t &v, typed<iterable, detail::iterable_type_id<ValueRef>> &seq) {
+        cl.def("__init__", [](self_t &v, typed<iterable, ValueRef> &seq) {
             new (&v) self_t(std::move(std::make_shared<Vector>()));
-            v->reserve(len_hint(seq.value));
-            for (handle h : seq.value)
+            v->reserve(len_hint(seq));
+            for (handle h : seq)
                 v->push_back(*cast<ValueRef>(h));
         }, "Construct from an iterable object");
 
