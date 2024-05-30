@@ -173,12 +173,14 @@ auto bind_track(nb::module_& m, const std::string& name_) {
                 mode_enums[i] = str_to_pianoroll_mode(modes[i]);
             }
             auto pianoroll = TrackPianoroll::from_track(*self, mode_enums, pitch_range, encode_velocity);
+            auto* data = const_cast<u8*>(pianoroll.release());
+            nb::capsule owner(data, [](void* d) noexcept { delete[] (u8*) d; });
             return nb::ndarray<nb::numpy, pianoroll_t>{
-                const_cast<u8*>(pianoroll.release()), {
+                data, {
                     std::get<0>(pianoroll.dims()),
                     std::get<1>(pianoroll.dims()),
                     std::get<2>(pianoroll.dims()),
-                }
+                }, owner
             };
         });
     }
@@ -522,12 +524,15 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 }
                 auto pianoroll
                     = ScorePianoroll::from_score(*self, mode_enums, pitch_range, encode_velocity);
+                auto* data = const_cast<u8*>(pianoroll.release());
+                nb::capsule owner(data, [](void* d) noexcept { delete[] (u8*) d; });
                 return nb::ndarray<nb::numpy, pianoroll_t>{
-                    const_cast<u8*>(pianoroll.release()),
-                    {std::get<0>(pianoroll.dims()),
-                     std::get<1>(pianoroll.dims()),
-                     std::get<2>(pianoroll.dims()),
-                     std::get<3>(pianoroll.dims())}
+                    data, {
+                        std::get<0>(pianoroll.dims()),
+                        std::get<1>(pianoroll.dims()),
+                        std::get<2>(pianoroll.dims()),
+                        std::get<3>(pianoroll.dims())
+                    },  owner
                 };
             },
             nb::arg("modes"),
