@@ -1,9 +1,9 @@
 try:
     from typing import Protocol  # type: ignore
 except ImportError:
-    from typing_extensions import Protocol  # type: ignore
+    from typing import Protocol  # type: ignore
 
-from typing import List, Union
+from typing import Union
 
 from . import core  # type: ignore
 
@@ -45,13 +45,19 @@ GeneralTimeUnit = Union[TimeUnit, str]
 TimeDtype = Union[int, float]
 Note = Union[core.NoteTick, core.NoteQuarter, core.NoteSecond]
 KeySignature = Union[
-    core.KeySignatureTick, core.KeySignatureQuarter, core.KeySignatureSecond
+    core.KeySignatureTick,
+    core.KeySignatureQuarter,
+    core.KeySignatureSecond,
 ]
 TimeSignature = Union[
-    core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond
+    core.TimeSignatureTick,
+    core.TimeSignatureQuarter,
+    core.TimeSignatureSecond,
 ]
 ControlChange = Union[
-    core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond
+    core.ControlChangeTick,
+    core.ControlChangeQuarter,
+    core.ControlChangeSecond,
 ]
 Tempo = Union[core.TempoTick, core.TempoQuarter, core.TempoSecond]
 Pedal = Union[core.PedalTick, core.PedalQuarter, core.PedalSecond]
@@ -62,7 +68,9 @@ Score = Union[core.ScoreTick, core.ScoreQuarter, ScoreSecond]
 
 NoteList = Union[core.NoteTickList, core.NoteQuarterList, core.NoteSecondList]
 KeySignatureList = Union[
-    core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList
+    core.KeySignatureTickList,
+    core.KeySignatureQuarterList,
+    core.KeySignatureSecondList,
 ]
 TimeSignatureList = Union[
     core.TimeSignatureTickList,
@@ -77,22 +85,26 @@ ControlChangeList = Union[
 TempoList = Union[core.TempoTickList, core.TempoQuarterList, core.TempoSecondList]
 PedalList = Union[core.PedalTickList, core.PedalQuarterList, core.PedalSecondList]
 PitchBendList = Union[
-    core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList
+    core.PitchBendTickList,
+    core.PitchBendQuarterList,
+    core.PitchBendSecondList,
 ]
 TextMetaList = Union[
-    core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList
+    core.TextMetaTickList,
+    core.TextMetaQuarterList,
+    core.TextMetaSecondList,
 ]
 TrackList = Union[core.TrackTickList, core.TrackQuarterList, core.TrackSecondList]
 
-GeneralNoteList = Union[NoteList, List[Note]]
-GeneralKeySignatureList = Union[KeySignatureList, List[KeySignature]]
-GeneralTimeSignatureList = Union[TimeSignatureList, List[TimeSignature]]
-GeneralControlChangeList = Union[ControlChangeList, List[ControlChange]]
-GeneralTempoList = Union[TempoList, List[Tempo]]
-GeneralPedalList = Union[PedalList, List[Pedal]]
-GeneralPitchBendList = Union[PitchBendList, List[PitchBend]]
-GeneralTextMetaList = Union[TextMetaList, List[TextMeta]]
-GeneralTrackList = Union[TrackList, List[Track]]
+GeneralNoteList = Union[NoteList, list[Note]]
+GeneralKeySignatureList = Union[KeySignatureList, list[KeySignature]]
+GeneralTimeSignatureList = Union[TimeSignatureList, list[TimeSignature]]
+GeneralControlChangeList = Union[ControlChangeList, list[ControlChange]]
+GeneralTempoList = Union[TempoList, list[Tempo]]
+GeneralPedalList = Union[PedalList, list[Pedal]]
+GeneralPitchBendList = Union[PitchBendList, list[PitchBend]]
+GeneralTextMetaList = Union[TextMetaList, list[TextMeta]]
+GeneralTrackList = Union[TrackList, list[Track]]
 
 
 # TimeDtype = Union[int, float]
