@@ -2,8 +2,8 @@ from operator import attrgetter
 from pathlib import Path
 
 import pytest
-
 from symusic import Score
+
 from tests.utils import MIDI_PATHS_ALL
 
 

@@ -1,43 +1,39 @@
 import os
-from typing import Callable, Iterable, Optional, overload
+from collections.abc import Callable, Iterable
+from typing import overload
 
-import numpy
+import numpy as np
 
 import symusic.core
 
 class ControlChangeQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.ControlChangeQuarter) -> None:
-        """
-        __init__(self, time: float, number: int, value: int) -> None
+        """__init__(self, time: float, number: int, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.ControlChangeQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.ControlChangeQuarterList: ...
     @property
     def number(self) -> int: ...
     @number.setter
     def number(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.ControlChangeQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -51,29 +47,18 @@ class ControlChangeQuarter:
     def value(self, arg: int, /) -> None: ...
 
 class ControlChangeQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.ControlChangeQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.ControlChangeQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -82,101 +67,72 @@ class ControlChangeQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.ControlChangeQuarterList: ...
     def append(self, arg: symusic.core.ControlChangeQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.ControlChangeQuarterList: ...
     def count(self, arg: symusic.core.ControlChangeQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.ControlChangeQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.ControlChangeQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.ControlChangeQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.ControlChangeQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class ControlChangeSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.ControlChangeSecond) -> None:
-        """
-        __init__(self, time: float, number: int, value: int) -> None
+        """__init__(self, time: float, number: int, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.ControlChangeSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.ControlChangeSecondList: ...
     @property
     def number(self) -> int: ...
     @number.setter
     def number(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.ControlChangeSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -190,29 +146,18 @@ class ControlChangeSecond:
     def value(self, arg: int, /) -> None: ...
 
 class ControlChangeSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.ControlChangeSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.ControlChangeSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -221,101 +166,72 @@ class ControlChangeSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.ControlChangeSecondList: ...
     def append(self, arg: symusic.core.ControlChangeSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.ControlChangeSecondList: ...
     def count(self, arg: symusic.core.ControlChangeSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.ControlChangeSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.ControlChangeSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.ControlChangeSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.ControlChangeSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class ControlChangeTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.ControlChangeTick) -> None:
-        """
-        __init__(self, time: int, number: int, value: int) -> None
+        """__init__(self, time: int, number: int, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.ControlChangeTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.ControlChangeTickList: ...
     @property
     def number(self) -> int: ...
     @number.setter
     def number(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: int, inplace: bool = False
+        self,
+        offset: int,
+        inplace: bool = False,
     ) -> symusic.core.ControlChangeTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> int: ...
@@ -329,29 +245,18 @@ class ControlChangeTick:
     def value(self, arg: int, /) -> None: ...
 
 class ControlChangeTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.ControlChangeTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.ControlChangeTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -360,103 +265,74 @@ class ControlChangeTickList:
         is_sorted: bool = False,
     ) -> symusic.core.ControlChangeTickList: ...
     def append(self, arg: symusic.core.ControlChangeTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.ControlChangeTickList: ...
     def count(self, arg: symusic.core.ControlChangeTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.ControlChangeTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.ControlChangeTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.ControlChangeTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.ControlChangeTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class KeySignatureQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.KeySignatureQuarter) -> None:
-        """
-        __init__(self, time: float, key: int, tonality: int) -> None
+        """__init__(self, time: float, key: int, tonality: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.KeySignatureQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def degree(self) -> int: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.KeySignatureQuarterList: ...
     @property
     def key(self) -> int: ...
     @key.setter
     def key(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.KeySignatureQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -470,29 +346,18 @@ class KeySignatureQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class KeySignatureQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.KeySignatureQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.KeySignatureQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -501,103 +366,74 @@ class KeySignatureQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.KeySignatureQuarterList: ...
     def append(self, arg: symusic.core.KeySignatureQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.KeySignatureQuarterList: ...
     def count(self, arg: symusic.core.KeySignatureQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.KeySignatureQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.KeySignatureQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.KeySignatureQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.KeySignatureQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class KeySignatureSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.KeySignatureSecond) -> None:
-        """
-        __init__(self, time: float, key: int, tonality: int) -> None
+        """__init__(self, time: float, key: int, tonality: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.KeySignatureSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def degree(self) -> int: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.KeySignatureSecondList: ...
     @property
     def key(self) -> int: ...
     @key.setter
     def key(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.KeySignatureSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -611,29 +447,18 @@ class KeySignatureSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class KeySignatureSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.KeySignatureSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.KeySignatureSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -642,103 +467,74 @@ class KeySignatureSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.KeySignatureSecondList: ...
     def append(self, arg: symusic.core.KeySignatureSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.KeySignatureSecondList: ...
     def count(self, arg: symusic.core.KeySignatureSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.KeySignatureSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.KeySignatureSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.KeySignatureSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.KeySignatureSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class KeySignatureTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.KeySignatureTick) -> None:
-        """
-        __init__(self, time: int, key: int, tonality: int) -> None
+        """__init__(self, time: int, key: int, tonality: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.KeySignatureTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def degree(self) -> int: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.KeySignatureTickList: ...
     @property
     def key(self) -> int: ...
     @key.setter
     def key(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: int, inplace: bool = False
+        self,
+        offset: int,
+        inplace: bool = False,
     ) -> symusic.core.KeySignatureTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> int: ...
@@ -752,29 +548,18 @@ class KeySignatureTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class KeySignatureTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.KeySignatureTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.KeySignatureTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -783,105 +568,71 @@ class KeySignatureTickList:
         is_sorted: bool = False,
     ) -> symusic.core.KeySignatureTickList: ...
     def append(self, arg: symusic.core.KeySignatureTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.KeySignatureTickList: ...
     def count(self, arg: symusic.core.KeySignatureTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.KeySignatureTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.KeySignatureTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.KeySignatureTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.KeySignatureTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class NoteQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.NoteQuarter) -> None:
-        """
-        __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
+        """__init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.NoteQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> float: ...
     @duration.setter
     def duration(self, arg: float, /) -> None: ...
     def empty(self) -> bool:
-        """
-        duration <= 0 or velocity <= 0
-        """
-        ...
+        """Duration <= 0 or velocity <= 0"""
 
     @property
     def end(self) -> float: ...
     def end_time(self) -> float: ...
     def from_numpy(
         self,
-        arg0: numpy.typing.NDArray,
-        arg1: numpy.typing.NDArray,
-        arg2: numpy.typing.NDArray,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        arg2: np.typing.NDArray,
         /,
     ) -> symusic.core.NoteQuarterList: ...
     @property
@@ -889,24 +640,17 @@ class NoteQuarter:
     @pitch.setter
     def pitch(self, arg: int, /) -> None: ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the pitch by offset
-        """
-        ...
+        """Shift the pitch by offset"""
 
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.NoteQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     def shift_velocity(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the velocity by offset
-        """
-        ...
+        """Shift the velocity by offset"""
 
     @property
     def start(self) -> float: ...
@@ -924,29 +668,18 @@ class NoteQuarter:
     def velocity(self, arg: int, /) -> None: ...
 
 class NoteQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.NoteQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.NoteQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -955,105 +688,71 @@ class NoteQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.NoteQuarterList: ...
     def append(self, arg: symusic.core.NoteQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.NoteQuarterList: ...
     def count(self, arg: symusic.core.NoteQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.NoteQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.NoteQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.NoteQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.NoteQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class NoteSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.NoteSecond) -> None:
-        """
-        __init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
+        """__init__(self, start: float, duration: float, pitch: int, velocity: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.NoteSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> float: ...
     @duration.setter
     def duration(self, arg: float, /) -> None: ...
     def empty(self) -> bool:
-        """
-        duration <= 0 or velocity <= 0
-        """
-        ...
+        """Duration <= 0 or velocity <= 0"""
 
     @property
     def end(self) -> float: ...
     def end_time(self) -> float: ...
     def from_numpy(
         self,
-        arg0: numpy.typing.NDArray,
-        arg1: numpy.typing.NDArray,
-        arg2: numpy.typing.NDArray,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        arg2: np.typing.NDArray,
         /,
     ) -> symusic.core.NoteSecondList: ...
     @property
@@ -1061,24 +760,17 @@ class NoteSecond:
     @pitch.setter
     def pitch(self, arg: int, /) -> None: ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the pitch by offset
-        """
-        ...
+        """Shift the pitch by offset"""
 
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.NoteSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     def shift_velocity(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the velocity by offset
-        """
-        ...
+        """Shift the velocity by offset"""
 
     @property
     def start(self) -> float: ...
@@ -1096,29 +788,18 @@ class NoteSecond:
     def velocity(self, arg: int, /) -> None: ...
 
 class NoteSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.NoteSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.NoteSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1127,105 +808,71 @@ class NoteSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.NoteSecondList: ...
     def append(self, arg: symusic.core.NoteSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.NoteSecondList: ...
     def count(self, arg: symusic.core.NoteSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.NoteSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.NoteSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.NoteSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.NoteSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class NoteTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.NoteTick) -> None:
-        """
-        __init__(self, start: int, duration: int, pitch: int, velocity: int) -> None
+        """__init__(self, start: int, duration: int, pitch: int, velocity: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.NoteTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> int: ...
     @duration.setter
     def duration(self, arg: int, /) -> None: ...
     def empty(self) -> bool:
-        """
-        duration <= 0 or velocity <= 0
-        """
-        ...
+        """Duration <= 0 or velocity <= 0"""
 
     @property
     def end(self) -> int: ...
     def end_time(self) -> int: ...
     def from_numpy(
         self,
-        arg0: numpy.typing.NDArray,
-        arg1: numpy.typing.NDArray,
-        arg2: numpy.typing.NDArray,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        arg2: np.typing.NDArray,
         /,
     ) -> symusic.core.NoteTickList: ...
     @property
@@ -1233,22 +880,13 @@ class NoteTick:
     @pitch.setter
     def pitch(self, arg: int, /) -> None: ...
     def shift_pitch(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the pitch by offset
-        """
-        ...
+        """Shift the pitch by offset"""
 
     def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.NoteTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     def shift_velocity(self, offset: int, inplace: bool = False) -> object:
-        """
-        Shift the velocity by offset
-        """
-        ...
+        """Shift the velocity by offset"""
 
     @property
     def start(self) -> int: ...
@@ -1266,29 +904,18 @@ class NoteTick:
     def velocity(self, arg: int, /) -> None: ...
 
 class NoteTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.NoteTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.NoteTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1297,86 +924,55 @@ class NoteTickList:
         is_sorted: bool = False,
     ) -> symusic.core.NoteTickList: ...
     def append(self, arg: symusic.core.NoteTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.NoteTickList: ...
     def count(self, arg: symusic.core.NoteTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.NoteTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.NoteTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.NoteTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.NoteTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class PedalQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PedalQuarter) -> None:
-        """
-        __init__(self, time: float, duration: float) -> None
+        """__init__(self, time: float, duration: float) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PedalQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> float: ...
@@ -1385,15 +981,16 @@ class PedalQuarter:
     @property
     def end(self) -> float: ...
     def from_numpy(
-        self, arg: numpy.typing.NDArray, /
+        self,
+        arg: np.typing.NDArray,
+        /,
     ) -> symusic.core.PedalQuarterList: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.PedalQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -1403,29 +1000,18 @@ class PedalQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class PedalQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PedalQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PedalQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1434,86 +1020,55 @@ class PedalQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.PedalQuarterList: ...
     def append(self, arg: symusic.core.PedalQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PedalQuarterList: ...
     def count(self, arg: symusic.core.PedalQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PedalQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PedalQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PedalQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PedalQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class PedalSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PedalSecond) -> None:
-        """
-        __init__(self, time: float, duration: float) -> None
+        """__init__(self, time: float, duration: float) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PedalSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> float: ...
@@ -1521,16 +1076,13 @@ class PedalSecond:
     def duration(self, arg: float, /) -> None: ...
     @property
     def end(self) -> float: ...
-    def from_numpy(
-        self, arg: numpy.typing.NDArray, /
-    ) -> symusic.core.PedalSecondList: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> symusic.core.PedalSecondList: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.PedalSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -1540,29 +1092,18 @@ class PedalSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class PedalSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PedalSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PedalSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1571,86 +1112,55 @@ class PedalSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.PedalSecondList: ...
     def append(self, arg: symusic.core.PedalSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PedalSecondList: ...
     def count(self, arg: symusic.core.PedalSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PedalSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PedalSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PedalSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PedalSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class PedalTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PedalTick) -> None:
-        """
-        __init__(self, time: int, duration: int) -> None
+        """__init__(self, time: int, duration: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PedalTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def duration(self) -> int: ...
@@ -1658,14 +1168,9 @@ class PedalTick:
     def duration(self, arg: int, /) -> None: ...
     @property
     def end(self) -> int: ...
-    def from_numpy(
-        self, arg: numpy.typing.NDArray, /
-    ) -> symusic.core.PedalTickList: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> symusic.core.PedalTickList: ...
     def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.PedalTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> int: ...
@@ -1675,29 +1180,18 @@ class PedalTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class PedalTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PedalTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PedalTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1706,97 +1200,67 @@ class PedalTickList:
         is_sorted: bool = False,
     ) -> symusic.core.PedalTickList: ...
     def append(self, arg: symusic.core.PedalTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PedalTickList: ...
     def count(self, arg: symusic.core.PedalTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PedalTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PedalTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PedalTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PedalTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class PitchBendQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PitchBendQuarter) -> None:
-        """
-        __init__(self, time: float, value: int) -> None
+        """__init__(self, time: float, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PitchBendQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg: numpy.typing.NDArray, /
+        self,
+        arg: np.typing.NDArray,
+        /,
     ) -> symusic.core.PitchBendQuarterList: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.PitchBendQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -1810,29 +1274,18 @@ class PitchBendQuarter:
     def value(self, arg: int, /) -> None: ...
 
 class PitchBendQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PitchBendQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PitchBendQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1841,97 +1294,67 @@ class PitchBendQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.PitchBendQuarterList: ...
     def append(self, arg: symusic.core.PitchBendQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PitchBendQuarterList: ...
     def count(self, arg: symusic.core.PitchBendQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PitchBendQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PitchBendQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PitchBendQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PitchBendQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class PitchBendSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PitchBendSecond) -> None:
-        """
-        __init__(self, time: float, value: int) -> None
+        """__init__(self, time: float, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PitchBendSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg: numpy.typing.NDArray, /
+        self,
+        arg: np.typing.NDArray,
+        /,
     ) -> symusic.core.PitchBendSecondList: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.PitchBendSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -1945,29 +1368,18 @@ class PitchBendSecond:
     def value(self, arg: int, /) -> None: ...
 
 class PitchBendSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PitchBendSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PitchBendSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -1976,97 +1388,67 @@ class PitchBendSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.PitchBendSecondList: ...
     def append(self, arg: symusic.core.PitchBendSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PitchBendSecondList: ...
     def count(self, arg: symusic.core.PitchBendSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PitchBendSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PitchBendSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PitchBendSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PitchBendSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class PitchBendTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.PitchBendTick) -> None:
-        """
-        __init__(self, time: int, value: int) -> None
+        """__init__(self, time: int, value: int) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.PitchBendTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg: numpy.typing.NDArray, /
+        self,
+        arg: np.typing.NDArray,
+        /,
     ) -> symusic.core.PitchBendTickList: ...
     def shift_time(
-        self, offset: int, inplace: bool = False
+        self,
+        offset: int,
+        inplace: bool = False,
     ) -> symusic.core.PitchBendTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> int: ...
@@ -2080,29 +1462,18 @@ class PitchBendTick:
     def value(self, arg: int, /) -> None: ...
 
 class PitchBendTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.PitchBendTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.PitchBendTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -2111,100 +1482,63 @@ class PitchBendTickList:
         is_sorted: bool = False,
     ) -> symusic.core.PitchBendTickList: ...
     def append(self, arg: symusic.core.PitchBendTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.PitchBendTickList: ...
     def count(self, arg: symusic.core.PitchBendTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.PitchBendTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.PitchBendTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.PitchBendTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.PitchBendTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class Quarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None: ...
     def is_time_unit(self) -> bool: ...
 
 class ScoreQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, path: os.PathLike) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     @overload
     def __init__(self, other: symusic.core.ScoreQuarter) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     @overload
     def __init__(self, path: str) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     def adjust_time(
         self,
@@ -2213,85 +1547,53 @@ class ScoreQuarter:
         is_sorted: bool = False,
     ) -> symusic.core.ScoreQuarter: ...
     def clip(
-        self, start: float, end: float, clip_end: bool = False
+        self,
+        start: float,
+        end: float,
+        clip_end: bool = False,
     ) -> symusic.core.ScoreQuarter:
-        """
-        Clip events a given time range
-        """
-        ...
+        """Clip events a given time range"""
 
     def copy(self) -> symusic.core.ScoreQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     @overload
     def dump_abc(self, path: str, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     def dump_midi(self, path: os.PathLike) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     @overload
     def dump_midi(self, path: str) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     def dumps_abc(self, warn: bool = True) -> str:
-        """
-        Dump to abc string
-        """
-        ...
+        """Dump to abc string"""
 
     def dumps_midi(self) -> bytes:
-        """
-        Dump to midi in memory(bytes)
-        """
-        ...
+        """Dump to midi in memory(bytes)"""
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreQuarter:
-        """
-        Load from abc string
-        """
-        ...
+        """Load from abc string"""
 
     def from_file(
-        path: os.PathLike, fmt: Optional[str] = None
+        path: os.PathLike,
+        fmt: str | None = None,
     ) -> symusic.core.ScoreQuarter:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     @overload
-    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreQuarter:
-        """
-        Load from midi file
-        """
-        ...
+    def from_file(path: str, fmt: str | None = None) -> symusic.core.ScoreQuarter:
+        """Load from midi file"""
 
     def from_midi(arg: bytes, /) -> symusic.core.ScoreQuarter:
-        """
-        Load from midi in memory(bytes)
-        """
-        ...
+        """Load from midi in memory(bytes)"""
 
     @property
     def key_signatures(self) -> symusic.core.KeySignatureQuarterList: ...
@@ -2311,20 +1613,18 @@ class ScoreQuarter:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 127),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
-    def resample(
-        self, tpq: int, min_dur: Optional[int] = None
-    ) -> symusic.core.ScoreTick:
-        """
-        Resample to another ticks per quarter
-        """
-        ...
+    ) -> np.typing.NDArray: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> symusic.core.ScoreTick:
+        """Resample to another ticks per quarter"""
 
     def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -2339,26 +1639,19 @@ class ScoreQuarter:
     def time_signatures(self) -> symusic.core.TimeSignatureQuarterList: ...
     @time_signatures.setter
     def time_signatures(
-        self, arg: symusic.core.TimeSignatureQuarterList, /
+        self,
+        arg: symusic.core.TimeSignatureQuarterList,
+        /,
     ) -> None: ...
-    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
-        """
-        Convert to another time unit
-        """
-        ...
+    def to(self, ttype: object, min_dur: object | None = None) -> object:
+        """Convert to another time unit"""
 
     @property
     def tpq(self) -> int:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
     @tpq.setter
     def tpq(self, arg: int, /) -> None:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
 
     @property
     def tracks(self) -> symusic.core.TrackQuarterList: ...
@@ -2368,29 +1661,18 @@ class ScoreQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class ScoreSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, path: os.PathLike) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     @overload
     def __init__(self, other: symusic.core.ScoreSecond) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     @overload
     def __init__(self, path: str) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     def adjust_time(
         self,
@@ -2399,85 +1681,53 @@ class ScoreSecond:
         is_sorted: bool = False,
     ) -> symusic.core.ScoreSecond: ...
     def clip(
-        self, start: float, end: float, clip_end: bool = False
+        self,
+        start: float,
+        end: float,
+        clip_end: bool = False,
     ) -> symusic.core.ScoreSecond:
-        """
-        Clip events a given time range
-        """
-        ...
+        """Clip events a given time range"""
 
     def copy(self) -> symusic.core.ScoreSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     @overload
     def dump_abc(self, path: str, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     def dump_midi(self, path: os.PathLike) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     @overload
     def dump_midi(self, path: str) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     def dumps_abc(self, warn: bool = True) -> str:
-        """
-        Dump to abc string
-        """
-        ...
+        """Dump to abc string"""
 
     def dumps_midi(self) -> bytes:
-        """
-        Dump to midi in memory(bytes)
-        """
-        ...
+        """Dump to midi in memory(bytes)"""
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
     def from_abc(abc: str) -> symusic.core.ScoreSecond:
-        """
-        Load from abc string
-        """
-        ...
+        """Load from abc string"""
 
     def from_file(
-        path: os.PathLike, fmt: Optional[str] = None
+        path: os.PathLike,
+        fmt: str | None = None,
     ) -> symusic.core.ScoreSecond:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     @overload
-    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreSecond:
-        """
-        Load from midi file
-        """
-        ...
+    def from_file(path: str, fmt: str | None = None) -> symusic.core.ScoreSecond:
+        """Load from midi file"""
 
     def from_midi(arg: bytes, /) -> symusic.core.ScoreSecond:
-        """
-        Load from midi in memory(bytes)
-        """
-        ...
+        """Load from midi in memory(bytes)"""
 
     @property
     def key_signatures(self) -> symusic.core.KeySignatureSecondList: ...
@@ -2497,20 +1747,18 @@ class ScoreSecond:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 127),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
-    def resample(
-        self, tpq: int, min_dur: Optional[int] = None
-    ) -> symusic.core.ScoreTick:
-        """
-        Resample to another ticks per quarter
-        """
-        ...
+    ) -> np.typing.NDArray: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> symusic.core.ScoreTick:
+        """Resample to another ticks per quarter"""
 
     def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float: ...
     @property
@@ -2525,24 +1773,15 @@ class ScoreSecond:
     def time_signatures(self) -> symusic.core.TimeSignatureSecondList: ...
     @time_signatures.setter
     def time_signatures(self, arg: symusic.core.TimeSignatureSecondList, /) -> None: ...
-    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
-        """
-        Convert to another time unit
-        """
-        ...
+    def to(self, ttype: object, min_dur: object | None = None) -> object:
+        """Convert to another time unit"""
 
     @property
     def tpq(self) -> int:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
     @tpq.setter
     def tpq(self, arg: int, /) -> None:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
 
     @property
     def tracks(self) -> symusic.core.TrackSecondList: ...
@@ -2552,29 +1791,18 @@ class ScoreSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class ScoreTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, path: os.PathLike) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     @overload
     def __init__(self, other: symusic.core.ScoreTick) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     @overload
     def __init__(self, path: str) -> None:
-        """
-        Load from midi file
-        """
-        ...
+        """Load from midi file"""
 
     def adjust_time(
         self,
@@ -2583,85 +1811,50 @@ class ScoreTick:
         is_sorted: bool = False,
     ) -> symusic.core.ScoreTick: ...
     def clip(
-        self, start: int, end: int, clip_end: bool = False
+        self,
+        start: int,
+        end: int,
+        clip_end: bool = False,
     ) -> symusic.core.ScoreTick:
-        """
-        Clip events a given time range
-        """
-        ...
+        """Clip events a given time range"""
 
     def copy(self) -> symusic.core.ScoreTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def dump_abc(self, path: os.PathLike, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     @overload
     def dump_abc(self, path: str, warn: bool = True) -> None:
-        """
-        Dump to abc file
-        """
-        ...
+        """Dump to abc file"""
 
     def dump_midi(self, path: os.PathLike) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     @overload
     def dump_midi(self, path: str) -> None:
-        """
-        Dump to midi file
-        """
-        ...
+        """Dump to midi file"""
 
     def dumps_abc(self, warn: bool = True) -> str:
-        """
-        Dump to abc string
-        """
-        ...
+        """Dump to abc string"""
 
     def dumps_midi(self) -> bytes:
-        """
-        Dump to midi in memory(bytes)
-        """
-        ...
+        """Dump to midi in memory(bytes)"""
 
     def empty(self) -> bool: ...
     def end(self) -> int: ...
     def from_abc(abc: str) -> symusic.core.ScoreTick:
-        """
-        Load from abc string
-        """
-        ...
+        """Load from abc string"""
 
-    def from_file(
-        path: os.PathLike, fmt: Optional[str] = None
-    ) -> symusic.core.ScoreTick:
-        """
-        Load from midi file
-        """
-        ...
+    def from_file(path: os.PathLike, fmt: str | None = None) -> symusic.core.ScoreTick:
+        """Load from midi file"""
 
     @overload
-    def from_file(path: str, fmt: Optional[str] = None) -> symusic.core.ScoreTick:
-        """
-        Load from midi file
-        """
-        ...
+    def from_file(path: str, fmt: str | None = None) -> symusic.core.ScoreTick:
+        """Load from midi file"""
 
     def from_midi(arg: bytes, /) -> symusic.core.ScoreTick:
-        """
-        Load from midi in memory(bytes)
-        """
-        ...
+        """Load from midi in memory(bytes)"""
 
     @property
     def key_signatures(self) -> symusic.core.KeySignatureTickList: ...
@@ -2681,20 +1874,18 @@ class ScoreTick:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 127),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
-    def resample(
-        self, tpq: int, min_dur: Optional[int] = None
-    ) -> symusic.core.ScoreTick:
-        """
-        Resample to another ticks per quarter
-        """
-        ...
+    ) -> np.typing.NDArray: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> symusic.core.ScoreTick:
+        """Resample to another ticks per quarter"""
 
     def shift_pitch(self, offset: int, inplace: bool = False) -> object: ...
     def shift_time(self, offset: int, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int: ...
     @property
@@ -2709,24 +1900,15 @@ class ScoreTick:
     def time_signatures(self) -> symusic.core.TimeSignatureTickList: ...
     @time_signatures.setter
     def time_signatures(self, arg: symusic.core.TimeSignatureTickList, /) -> None: ...
-    def to(self, ttype: object, min_dur: Optional[object] = None) -> object:
-        """
-        Convert to another time unit
-        """
-        ...
+    def to(self, ttype: object, min_dur: object | None = None) -> object:
+        """Convert to another time unit"""
 
     @property
     def tpq(self) -> int:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
     @tpq.setter
     def tpq(self, arg: int, /) -> None:
-        """
-        Ticks per quarter note, the same as ticks_per_quarter
-        """
-        ...
+        """Ticks per quarter note, the same as ticks_per_quarter"""
 
     @property
     def tracks(self) -> symusic.core.TrackTickList: ...
@@ -2736,113 +1918,82 @@ class ScoreTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class Second:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None: ...
     def is_time_unit(self) -> bool: ...
 
 class Synthesizer:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, sf_path: str, sample_rate: int, quality: int) -> None: ...
     def render(
-        self, score: symusic.core.ScoreSecond, stereo: bool = True
-    ) -> numpy.typing.NDArray:
-        """
-        render(self, score: symusic.core.ScoreSecond, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
-        """
-        ...
+        self,
+        score: symusic.core.ScoreSecond,
+        stereo: bool = True,
+    ) -> np.typing.NDArray:
+        """render(self, score: symusic.core.ScoreSecond, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']"""
 
     @overload
     def render(
-        self, score: symusic.core.ScoreTick, stereo: bool = True
-    ) -> numpy.typing.NDArray:
-        """
-        render(self, score: symusic.core.ScoreTick, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
-        """
-        ...
+        self,
+        score: symusic.core.ScoreTick,
+        stereo: bool = True,
+    ) -> np.typing.NDArray:
+        """render(self, score: symusic.core.ScoreTick, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']"""
 
     @overload
     def render(
-        self, score: symusic.core.ScoreQuarter, stereo: bool = True
-    ) -> numpy.typing.NDArray:
-        """
-        render(self, score: symusic.core.ScoreQuarter, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']
-        """
-        ...
+        self,
+        score: symusic.core.ScoreQuarter,
+        stereo: bool = True,
+    ) -> np.typing.NDArray:
+        """render(self, score: symusic.core.ScoreQuarter, stereo: bool = True) -> numpy.ndarray[dtype=float32, shape=(*, *), order='F']"""
 
 class TempoQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TempoQuarter) -> None:
-        """
-        __init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+        """__init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TempoQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def from_numpy(
-        self, arg: numpy.typing.NDArray, /
+        self,
+        arg: np.typing.NDArray,
+        /,
     ) -> symusic.core.TempoQuarterList: ...
     @property
     def mspq(self) -> int:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
     @mspq.setter
     def mspq(self, arg: int, /) -> None:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
 
     @property
     def qpm(self) -> float:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
     @qpm.setter
     def qpm(self, arg: float, /) -> symusic.core.TempoQuarter:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
 
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TempoQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def tempo(self) -> float:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
     @tempo.setter
     def tempo(self, arg: float, /) -> symusic.core.TempoQuarter:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
 
     @property
     def time(self) -> float: ...
@@ -2852,29 +2003,18 @@ class TempoQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TempoQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TempoQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TempoQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -2883,136 +2023,84 @@ class TempoQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.TempoQuarterList: ...
     def append(self, arg: symusic.core.TempoQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TempoQuarterList: ...
     def count(self, arg: symusic.core.TempoQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TempoQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TempoQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TempoQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TempoQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TempoSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TempoSecond) -> None:
-        """
-        __init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+        """__init__(self, time: float, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TempoSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
-    def from_numpy(
-        self, arg: numpy.typing.NDArray, /
-    ) -> symusic.core.TempoSecondList: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> symusic.core.TempoSecondList: ...
     @property
     def mspq(self) -> int:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
     @mspq.setter
     def mspq(self, arg: int, /) -> None:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
 
     @property
     def qpm(self) -> float:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
     @qpm.setter
     def qpm(self, arg: float, /) -> symusic.core.TempoSecond:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
 
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TempoSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def tempo(self) -> float:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
     @tempo.setter
     def tempo(self, arg: float, /) -> symusic.core.TempoSecond:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
 
     @property
     def time(self) -> float: ...
@@ -3022,29 +2110,18 @@ class TempoSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class TempoSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TempoSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TempoSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3053,134 +2130,80 @@ class TempoSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.TempoSecondList: ...
     def append(self, arg: symusic.core.TempoSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TempoSecondList: ...
     def count(self, arg: symusic.core.TempoSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TempoSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TempoSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TempoSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TempoSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class TempoTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TempoTick) -> None:
-        """
-        __init__(self, time: int, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
+        """__init__(self, time: int, qpm: Optional[float] = None, mspq: Optional[int] = None) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TempoTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
-    def from_numpy(
-        self, arg: numpy.typing.NDArray, /
-    ) -> symusic.core.TempoTickList: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> symusic.core.TempoTickList: ...
     @property
     def mspq(self) -> int:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
     @mspq.setter
     def mspq(self, arg: int, /) -> None:
-        """
-        Microseconds per quarter note
-        """
-        ...
+        """Microseconds per quarter note"""
 
     @property
     def qpm(self) -> float:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
     @qpm.setter
     def qpm(self, arg: float, /) -> symusic.core.TempoTick:
-        """
-        Quarter per minute, the same as tempo
-        """
-        ...
+        """Quarter per minute, the same as tempo"""
 
     def shift_time(self, offset: int, inplace: bool = False) -> symusic.core.TempoTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def tempo(self) -> float:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
     @tempo.setter
     def tempo(self, arg: float, /) -> symusic.core.TempoTick:
-        """
-        The same as qpm
-        """
-        ...
+        """The same as qpm"""
 
     @property
     def time(self) -> int: ...
@@ -3190,29 +2213,18 @@ class TempoTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class TempoTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TempoTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TempoTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3221,95 +2233,63 @@ class TempoTickList:
         is_sorted: bool = False,
     ) -> symusic.core.TempoTickList: ...
     def append(self, arg: symusic.core.TempoTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TempoTickList: ...
     def count(self, arg: symusic.core.TempoTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TempoTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TempoTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TempoTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TempoTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class TextMetaQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TextMetaQuarter) -> None:
-        """
-        __init__(self, time: float, text: str) -> None
+        """__init__(self, time: float, text: str) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TextMetaQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
-    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TextMetaQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def text(self) -> str: ...
@@ -3323,29 +2303,18 @@ class TextMetaQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TextMetaQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TextMetaQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TextMetaQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3354,95 +2323,63 @@ class TextMetaQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.TextMetaQuarterList: ...
     def append(self, arg: symusic.core.TextMetaQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TextMetaQuarterList: ...
     def count(self, arg: symusic.core.TextMetaQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TextMetaQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TextMetaQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> None: ...
     def pop(self, index: int = -1) -> symusic.core.TextMetaQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TextMetaQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TextMetaSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TextMetaSecond) -> None:
-        """
-        __init__(self, time: float, text: str) -> None
+        """__init__(self, time: float, text: str) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TextMetaSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
-    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TextMetaSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def text(self) -> str: ...
@@ -3456,29 +2393,18 @@ class TextMetaSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class TextMetaSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TextMetaSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TextMetaSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3487,95 +2413,63 @@ class TextMetaSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.TextMetaSecondList: ...
     def append(self, arg: symusic.core.TextMetaSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TextMetaSecondList: ...
     def count(self, arg: symusic.core.TextMetaSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TextMetaSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TextMetaSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> None: ...
     def pop(self, index: int = -1) -> symusic.core.TextMetaSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TextMetaSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class TextMetaTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TextMetaTick) -> None:
-        """
-        __init__(self, time: int, text: str) -> None
+        """__init__(self, time: int, text: str) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TextMetaTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
-    def from_numpy(self, arg: numpy.typing.NDArray, /) -> None: ...
+    def from_numpy(self, arg: np.typing.NDArray, /) -> None: ...
     def shift_time(
-        self, offset: int, inplace: bool = False
+        self,
+        offset: int,
+        inplace: bool = False,
     ) -> symusic.core.TextMetaTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def text(self) -> str: ...
@@ -3589,29 +2483,18 @@ class TextMetaTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class TextMetaTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TextMetaTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TextMetaTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3620,113 +2503,82 @@ class TextMetaTickList:
         is_sorted: bool = False,
     ) -> symusic.core.TextMetaTickList: ...
     def append(self, arg: symusic.core.TextMetaTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TextMetaTickList: ...
     def count(self, arg: symusic.core.TextMetaTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TextMetaTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TextMetaTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> None: ...
     def pop(self, index: int = -1) -> symusic.core.TextMetaTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TextMetaTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class Tick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None: ...
     def is_time_unit(self) -> bool: ...
 
 class TimeSignatureQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TimeSignatureQuarter) -> None:
-        """
-        __init__(self, arg0: float, arg1: int, arg2: int, /) -> None
+        """__init__(self, arg0: float, arg1: int, arg2: int, /) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TimeSignatureQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.TimeSignatureQuarterList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter
     def numerator(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TimeSignatureQuarter:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -3736,29 +2588,18 @@ class TimeSignatureQuarter:
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TimeSignatureQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TimeSignatureQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TimeSignatureQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3767,105 +2608,76 @@ class TimeSignatureQuarterList:
         is_sorted: bool = False,
     ) -> symusic.core.TimeSignatureQuarterList: ...
     def append(self, arg: symusic.core.TimeSignatureQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TimeSignatureQuarterList: ...
     def count(self, arg: symusic.core.TimeSignatureQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TimeSignatureQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TimeSignatureQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TimeSignatureQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TimeSignatureQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TimeSignatureSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TimeSignatureSecond) -> None:
-        """
-        __init__(self, arg0: float, arg1: int, arg2: int, /) -> None
+        """__init__(self, arg0: float, arg1: int, arg2: int, /) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TimeSignatureSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.TimeSignatureSecondList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter
     def numerator(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: float, inplace: bool = False
+        self,
+        offset: float,
+        inplace: bool = False,
     ) -> symusic.core.TimeSignatureSecond:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> float: ...
@@ -3875,29 +2687,18 @@ class TimeSignatureSecond:
     def ttype(self) -> symusic.core.Second: ...
 
 class TimeSignatureSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TimeSignatureSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TimeSignatureSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -3906,105 +2707,76 @@ class TimeSignatureSecondList:
         is_sorted: bool = False,
     ) -> symusic.core.TimeSignatureSecondList: ...
     def append(self, arg: symusic.core.TimeSignatureSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TimeSignatureSecondList: ...
     def count(self, arg: symusic.core.TimeSignatureSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> float:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TimeSignatureSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TimeSignatureSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TimeSignatureSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TimeSignatureSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class TimeSignatureTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, other: symusic.core.TimeSignatureTick) -> None:
-        """
-        __init__(self, arg0: int, arg1: int, arg2: int, /) -> None
+        """__init__(self, arg0: int, arg1: int, arg2: int, /) -> None
 
         Copy constructor
         """
-        ...
 
     def copy(self) -> symusic.core.TimeSignatureTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     @property
     def denominator(self) -> int: ...
     @denominator.setter
     def denominator(self, arg: int, /) -> None: ...
     def from_numpy(
-        self, arg0: numpy.typing.NDArray, arg1: numpy.typing.NDArray, /
+        self,
+        arg0: np.typing.NDArray,
+        arg1: np.typing.NDArray,
+        /,
     ) -> symusic.core.TimeSignatureTickList: ...
     @property
     def numerator(self) -> int: ...
     @numerator.setter
     def numerator(self, arg: int, /) -> None: ...
     def shift_time(
-        self, offset: int, inplace: bool = False
+        self,
+        offset: int,
+        inplace: bool = False,
     ) -> symusic.core.TimeSignatureTick:
-        """
-        Shift the event time by offset
-        """
-        ...
+        """Shift the event time by offset"""
 
     @property
     def time(self) -> int: ...
@@ -4014,29 +2786,18 @@ class TimeSignatureTick:
     def ttype(self) -> symusic.core.Tick: ...
 
 class TimeSignatureTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TimeSignatureTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TimeSignatureTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def adjust_time(
         self,
@@ -4045,80 +2806,52 @@ class TimeSignatureTickList:
         is_sorted: bool = False,
     ) -> symusic.core.TimeSignatureTickList: ...
     def append(self, arg: symusic.core.TimeSignatureTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TimeSignatureTickList: ...
     def count(self, arg: symusic.core.TimeSignatureTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def end(self) -> int:
-        """
-        Return the end time of the all the events
-        """
-        ...
+        """Return the end time of the all the events"""
 
     def extend(self, arg: symusic.core.TimeSignatureTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TimeSignatureTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def numpy(self) -> dict: ...
     def pop(self, index: int = -1) -> symusic.core.TimeSignatureTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TimeSignatureTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int:
-        """
-        Return the start time of the all the events
-        """
-        ...
+        """Return the start time of the all the events"""
 
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class TrackQuarter:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None:
-        """
-        __init__(self, other: symusic.core.TrackQuarter) -> None
+        """__init__(self, other: symusic.core.TrackQuarter) -> None
 
         Copy constructor
         """
-        ...
 
     def adjust_time(
         self,
@@ -4127,22 +2860,19 @@ class TrackQuarter:
         is_sorted: bool = False,
     ) -> symusic.core.TrackQuarter: ...
     def clip(
-        self, start: float, end: float, clip_end: bool = False
+        self,
+        start: float,
+        end: float,
+        clip_end: bool = False,
     ) -> symusic.core.TrackQuarter:
-        """
-        Clip notes and controls to a given time range
-        """
-        ...
+        """Clip notes and controls to a given time range"""
 
     @property
     def controls(self) -> symusic.core.ControlChangeQuarterList: ...
     @controls.setter
     def controls(self, arg: symusic.core.ControlChangeQuarterList, /) -> None: ...
     def copy(self) -> symusic.core.TrackQuarter:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
@@ -4168,7 +2898,7 @@ class TrackQuarter:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 128),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
+    ) -> np.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendQuarterList: ...
     @pitch_bends.setter
@@ -4181,99 +2911,69 @@ class TrackQuarter:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TrackQuarterList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TrackQuarter], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TrackQuarterList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def append(self, arg: symusic.core.TrackQuarter, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TrackQuarterList: ...
     def count(self, arg: symusic.core.TrackQuarter, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def extend(self, arg: symusic.core.TrackQuarterList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TrackQuarter, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def pop(self, index: int = -1) -> symusic.core.TrackQuarter:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TrackQuarter, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Quarter: ...
 
 class TrackSecond:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None:
-        """
-        __init__(self, other: symusic.core.TrackSecond) -> None
+        """__init__(self, other: symusic.core.TrackSecond) -> None
 
         Copy constructor
         """
-        ...
 
     def adjust_time(
         self,
@@ -4282,22 +2982,19 @@ class TrackSecond:
         is_sorted: bool = False,
     ) -> symusic.core.TrackSecond: ...
     def clip(
-        self, start: float, end: float, clip_end: bool = False
+        self,
+        start: float,
+        end: float,
+        clip_end: bool = False,
     ) -> symusic.core.TrackSecond:
-        """
-        Clip notes and controls to a given time range
-        """
-        ...
+        """Clip notes and controls to a given time range"""
 
     @property
     def controls(self) -> symusic.core.ControlChangeSecondList: ...
     @controls.setter
     def controls(self, arg: symusic.core.ControlChangeSecondList, /) -> None: ...
     def copy(self) -> symusic.core.TrackSecond:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def empty(self) -> bool: ...
     def end(self) -> float: ...
@@ -4323,7 +3020,7 @@ class TrackSecond:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 128),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
+    ) -> np.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendSecondList: ...
     @pitch_bends.setter
@@ -4336,99 +3033,69 @@ class TrackSecond:
     def shift_time(self, offset: float, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> float: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class TrackSecondList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TrackSecond], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TrackSecondList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def append(self, arg: symusic.core.TrackSecond, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TrackSecondList: ...
     def count(self, arg: symusic.core.TrackSecond, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def extend(self, arg: symusic.core.TrackSecondList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TrackSecond, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def pop(self, index: int = -1) -> symusic.core.TrackSecond:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TrackSecond, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Second: ...
 
 class TrackTick:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self) -> None:
-        """
-        __init__(self, other: symusic.core.TrackTick) -> None
+        """__init__(self, other: symusic.core.TrackTick) -> None
 
         Copy constructor
         """
-        ...
 
     def adjust_time(
         self,
@@ -4437,22 +3104,19 @@ class TrackTick:
         is_sorted: bool = False,
     ) -> symusic.core.TrackTick: ...
     def clip(
-        self, start: int, end: int, clip_end: bool = False
+        self,
+        start: int,
+        end: int,
+        clip_end: bool = False,
     ) -> symusic.core.TrackTick:
-        """
-        Clip notes and controls to a given time range
-        """
-        ...
+        """Clip notes and controls to a given time range"""
 
     @property
     def controls(self) -> symusic.core.ControlChangeTickList: ...
     @controls.setter
     def controls(self, arg: symusic.core.ControlChangeTickList, /) -> None: ...
     def copy(self) -> symusic.core.TrackTick:
-        """
-        Deep copy
-        """
-        ...
+        """Deep copy"""
 
     def empty(self) -> bool: ...
     def end(self) -> int: ...
@@ -4478,7 +3142,7 @@ class TrackTick:
         modes: list[str],
         pitch_range: tuple[int, int] = (0, 128),
         encode_velocity: bool = False,
-    ) -> numpy.typing.NDArray: ...
+    ) -> np.typing.NDArray: ...
     @property
     def pitch_bends(self) -> symusic.core.PitchBendTickList: ...
     @pitch_bends.setter
@@ -4491,221 +3155,134 @@ class TrackTick:
     def shift_time(self, offset: int, inplace: bool = False) -> object: ...
     def shift_velocity(self, offset: int, inplace: bool = False) -> object: ...
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     def start(self) -> int: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 class TrackTickList:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[symusic.core.TrackTick], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.TrackTickList) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def append(self, arg: symusic.core.TrackTick, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def copy(self) -> symusic.core.TrackTickList: ...
     def count(self, arg: symusic.core.TrackTick, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def extend(self, arg: symusic.core.TrackTickList, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def filter(self, func: Callable[..., object], inplace: bool = False) -> object: ...
     def insert(self, arg0: int, arg1: symusic.core.TrackTick, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def pop(self, index: int = -1) -> symusic.core.TrackTick:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: symusic.core.TrackTick, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
     def sort(
-        self, key: Optional[object] = None, reverse: bool = False, inplace: bool = True
+        self,
+        key: object | None = None,
+        reverse: bool = False,
+        inplace: bool = True,
     ) -> object: ...
     @property
     def ttype(self) -> symusic.core.Tick: ...
 
 def dump_wav(
-    path: str, data: numpy.typing.NDArray, sample_rate: int, use_int16: bool = True
+    path: str,
+    data: np.typing.NDArray,
+    sample_rate: int,
+    use_int16: bool = True,
 ) -> None: ...
 
 class f32List:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[float], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.f32List) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def append(self, arg: float, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def count(self, arg: float, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def extend(self, arg: symusic.core.f32List, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def insert(self, arg0: int, arg1: float, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def pop(self, index: int = -1) -> float:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: float, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
 
 class i32List:
-    """
-    None
-    """
+    """None"""
 
     def __init__(self, arg: Iterable[int], /) -> None:
-        """
-        Construct from an iterable object
-        """
-        ...
+        """Construct from an iterable object"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Default constructor
-        """
-        ...
+        """Default constructor"""
 
     @overload
     def __init__(self, arg: symusic.core.i32List) -> None:
-        """
-        Copy constructor
-        """
-        ...
+        """Copy constructor"""
 
     def append(self, arg: int, /) -> None:
-        """
-        Append `arg` to the end of the list.
-        """
-        ...
+        """Append `arg` to the end of the list."""
 
     def clear(self) -> None:
-        """
-        Remove all items from list.
-        """
-        ...
+        """Remove all items from list."""
 
     def count(self, arg: int, /) -> int:
-        """
-        Return number of occurrences of `arg`.
-        """
-        ...
+        """Return number of occurrences of `arg`."""
 
     def extend(self, arg: symusic.core.i32List, /) -> None:
-        """
-        Extend `self` by appending elements from `arg`.
-        """
-        ...
+        """Extend `self` by appending elements from `arg`."""
 
     def insert(self, arg0: int, arg1: int, /) -> None:
-        """
-        Insert object `arg1` before index `arg0`.
-        """
-        ...
+        """Insert object `arg1` before index `arg0`."""
 
     def pop(self, index: int = -1) -> int:
-        """
-        Remove and return item at `index` (default last).
-        """
-        ...
+        """Remove and return item at `index` (default last)."""
 
     def remove(self, arg: int, /) -> None:
-        """
-        Remove first occurrence of `arg`.
-        """
-        ...
+        """Remove first occurrence of `arg`."""
