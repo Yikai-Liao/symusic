@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 try:
-    from typing import Protocol  # type: ignore
+    from typing import Protocol
 except ImportError:
-    from typing import Protocol  # type: ignore
+    from typing_extensions import Protocol
 
-from typing import Union
+from typing import List, Union
 
-from . import core  # type: ignore
+from . import core
 
 __all__ = [
     "TimeUnit",
@@ -98,15 +96,15 @@ TextMetaList = Union[
 ]
 TrackList = Union[core.TrackTickList, core.TrackQuarterList, core.TrackSecondList]
 
-GeneralNoteList = Union[NoteList, list[Note]]
-GeneralKeySignatureList = Union[KeySignatureList, list[KeySignature]]
-GeneralTimeSignatureList = Union[TimeSignatureList, list[TimeSignature]]
-GeneralControlChangeList = Union[ControlChangeList, list[ControlChange]]
-GeneralTempoList = Union[TempoList, list[Tempo]]
-GeneralPedalList = Union[PedalList, list[Pedal]]
-GeneralPitchBendList = Union[PitchBendList, list[PitchBend]]
-GeneralTextMetaList = Union[TextMetaList, list[TextMeta]]
-GeneralTrackList = Union[TrackList, list[Track]]
+GeneralNoteList = Union[NoteList, List[Note]]
+GeneralKeySignatureList = Union[KeySignatureList, List[KeySignature]]
+GeneralTimeSignatureList = Union[TimeSignatureList, List[TimeSignature]]
+GeneralControlChangeList = Union[ControlChangeList, List[ControlChange]]
+GeneralTempoList = Union[TempoList, List[Tempo]]
+GeneralPedalList = Union[PedalList, List[Pedal]]
+GeneralPitchBendList = Union[PitchBendList, List[PitchBend]]
+GeneralTextMetaList = Union[TextMetaList, List[TextMeta]]
+GeneralTrackList = Union[TrackList, List[Track]]
 
 
 # TimeDtype = Union[int, float]
