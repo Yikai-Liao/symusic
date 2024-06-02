@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 try:
     from typing import Protocol  # type: ignore
 except ImportError:
