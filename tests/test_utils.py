@@ -149,8 +149,8 @@ def test_split_concat_score(file_path: Path):
     if score.end() == 0:
         pytest.skip("empty file")
     tick_split = score.tpq * 4
-    score_1 = score.clip(0, tick_split, clip_end=False)
-    score_2 = score.clip(tick_split, score.end(), clip_end=True).shift_time(-tick_split)
+    score_1 = score.clip(0, tick_split)
+    score_2 = score.clip(tick_split, score.end() + 1).shift_time(-tick_split)
 
     # Concatenate split MIDIs and assert its equal to original one
     score_concat = concat_scores((score_1, score_2), [tick_split])
