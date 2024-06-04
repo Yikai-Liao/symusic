@@ -2,6 +2,7 @@
 
 ## Installation
 
+### Pre-Built Version
 ```bash
 pip install symusic
 ```
@@ -12,6 +13,24 @@ The wheels are built with `3.8`, `3.9`, `3.10`, `3.11` and `3.12` versions of `C
 
 Note that there are some memory leaks in `CPython 3.12`, and they would be reported by the `nanobind` framework when you import `symusic` in python 3.12.
 I hope that the `CPython` team would fix them soon.
+
+### From Source
+
+For building from source, you could directly install from the source distribution on `PyPI`:
+```bash
+pip install --no-binary symusic symusic
+```
+Or you could clone the repository and install it:
+```bash
+git clone --recursive git@github.com:Yikai-Liao/symusic.git
+pip install ./symusic
+```
+
+Note that `symusic` is built with `C++20`, and it does need some modern features, so we need to check the compatibility of the compiler.
+
+* gcc: `>=11`
+* clang: : `>=15`
+* msvc: Not tested, but it's recommended to use `Visual Studio 2022`
 
 ## Load
 
