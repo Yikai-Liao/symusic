@@ -32,6 +32,15 @@ Note that `symusic` is built with `C++20`, and it does need some modern features
 * clang: : `>=15`
 * msvc: Not tested, but it's recommended to use `Visual Studio 2022`
 
+On Linux, if you don't have the `sudo` permission, you could install a `gcc` compiler from `conda`:
+```bash
+conda install conda-forge::gcc conda-forge::gxx
+```
+And then set the `CC` and `CXX` environment variables to the path of the `gcc` and `g++`:
+```bash
+CC=/path_to_conda_root/envs/env_name/bin/gcc CXX=/path_to_conda_root/envs/env_name/bin/g++ pip install --no-binary symusic symusic
+```
+
 ## Load
 
 If you pass a file path (str or pathlib.Path) to the `Score` constructor,
