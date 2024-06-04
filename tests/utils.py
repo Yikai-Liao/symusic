@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from symusic import Score, Track
-from symusic.core import TrackTickList
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from symusic.core import TrackTickList
 
 HERE = Path(__file__).parent
 
@@ -21,11 +22,12 @@ MIDI_PATHS_ALL = MIDI_PATHS_ONE_TRACK + MIDI_PATHS_MULTITRACK
 print(TESTCASES_PATH)
 print(MIDI_PATHS_ONE_TRACK)
 
+
 def merge_tracks(
-        tracks: list[Track] | TrackTickList | Score, effects: bool = True
+    tracks: list[Track] | TrackTickList | Score,
+    effects: bool = True,
 ) -> Track:
-    r"""
-    Merge several ``symusic.Track``\s.
+    r"""Merge several ``symusic.Track``\s.
 
     The notes (and optionally effects) will be concatenated and sorted by time.
     All the tracks will be merged into the first ``Track`` of the list.
@@ -74,8 +76,7 @@ def merge_tracks(
 
 
 def merge_scores(scores: Sequence[Score]) -> Score:
-    r"""
-    Merge a list of ``symusic.Score``\s into a single one.
+    r"""Merge a list of ``symusic.Score``\s into a single one.
 
     This method will combine all their tracks and global events such as tempo changes
     or time signature changes.
@@ -104,8 +105,7 @@ def merge_scores(scores: Sequence[Score]) -> Score:
 
 
 def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
-    r"""
-    Concatenate a sequence of ``symusic.Score``\s.
+    r"""Concatenate a sequence of ``symusic.Score``\s.
 
     **Note:** the tracks are concatenated in the same order as they are given.
     **The scores must all have the same time division.** (``score.tpq``)
@@ -118,7 +118,7 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
     :return: the concatenated ``symusic.Score``.
     """
     if not all(
-            score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
+        score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
     ):
         err_msg = "The provided scores do not have all the same time division."
         raise ValueError(err_msg)

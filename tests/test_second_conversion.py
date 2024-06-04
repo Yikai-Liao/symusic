@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from operator import attrgetter
-from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-
 from symusic import Score
+
 from tests.utils import MIDI_PATHS_ALL
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ScoreTimeMapper:
@@ -30,15 +34,14 @@ class ScoreTimeMapper:
             tempo_data.append([tempo.qpm, tempo.time, tempo_time, seconds_per_tick])
             prev_tempo_tick, prev_tempo_time = tempo.time, tempo_time
 
-        tempo_data = np.stack(tempo_data, axis=1)
-        return tempo_data
+        return np.stack(tempo_data, axis=1)
 
     def t2s(self, ticks):
         ids = np.searchsorted(self.tempos[1], ticks, side="right") - 1
         tempo_ticks, tempo_times, seconds_per_tick = self.tempos[1:4, ids]
         return tempo_times + seconds_per_tick * (ticks - tempo_ticks)
 
-    def s2t(self, seconds: Union[float, np.ndarray]) -> Union[int, np.ndarray]:
+    def s2t(self, seconds: float | np.ndarray) -> int | np.ndarray:
         ids = np.searchsorted(self.tempos[2], seconds, side="right") - 1
         tempo_ticks, tempo_times, seconds_per_tick = self.tempos[1:4, ids]
         return (tempo_ticks + (seconds - tempo_times) / seconds_per_tick).astype(int)

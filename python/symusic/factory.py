@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import os.path
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, Optional, TypeVar, Union
-
-from numpy import ndarray
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from . import core  # type: ignore
 from . import types as smt
 from .soundfont import BuiltInSF3
+
+if TYPE_CHECKING:
+    from numpy import ndarray
 
 __all__ = [
     "TimeUnit",
@@ -36,9 +39,11 @@ else:
     _ABC2MIDI = _BIN / "abc2midi"
 
 if not _MIDI2ABC.exists():
-    raise FileNotFoundError(f"{_MIDI2ABC} does not exist")
+    msg_ = f"{_MIDI2ABC} does not exist"
+    raise FileNotFoundError(msg_)
 if not _ABC2MIDI.exists():
-    raise FileNotFoundError(f"{_ABC2MIDI} does not exist")
+    msg_ = f"{_ABC2MIDI} does not exist"
+    raise FileNotFoundError(msg_)
 # set env var SYMUSIC_MIDI2ABC
 os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
 os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
@@ -71,9 +76,8 @@ class TimeUnitFactory:
     def second(self) -> core.Second:
         return self._second
 
-    def __call__(self, ttype: Union[smt.TimeUnit, str]) -> smt.TimeUnit:
-        """
-        Create a TimeUnit object from a str, e.g. 'tick', 'quarter', 'second'
+    def __call__(self, ttype: smt.TimeUnit | str) -> smt.TimeUnit:
+        """Create a TimeUnit object from a str, e.g. 'tick', 'quarter', 'second'
         It is used to dispatch the correct TimeUnit object.
         However, it is recommended to use the `TimeUnit.tick`, `TimeUnit.quarter`, `TimeUnit.second`
         for better performance.
@@ -84,18 +88,19 @@ class TimeUnitFactory:
             ttype.is_time_unit()
             return ttype
         except AttributeError as e:
-            raise TypeError(f"{ttype} is not a TimeUnit object") from e
+            msg = f"{ttype} is not a TimeUnit object"
+            raise TypeError(msg) from e
 
     def from_str(self, ttype: str) -> smt.TimeUnit:
         ttype = ttype.lower()
         if ttype == "tick":
             return self.tick
-        elif ttype == "quarter":
+        if ttype == "quarter":
             return self.quarter
-        elif ttype == "second":
+        if ttype == "second":
             return self.second
-        else:
-            raise ValueError(f"Invalid time unit: {ttype}")
+        msg = f"Invalid time unit: {ttype}"
+        raise ValueError(msg)
 
 
 TimeUnit = TimeUnitFactory()
@@ -111,28 +116,28 @@ class CoreClasses(Generic[T, Q, S]):
     second: S
 
     def dispatch(
-        self: "CoreClasses[T, Q, S]", ttype: smt.GeneralTimeUnit
-    ) -> Union[T, Q, S]:
-        """
-        Dispatch the correct Core class according to the ttype.
-        """
+        self: CoreClasses[T, Q, S],
+        ttype: smt.GeneralTimeUnit,
+    ) -> T | Q | S:
+        """Dispatch the correct Core class according to the ttype."""
         if isinstance(ttype, core.Tick):
             return self.tick
         if isinstance(ttype, core.Quarter):
             return self.quarter
         if isinstance(ttype, core.Second):
             return self.second
-        assert isinstance(ttype, str), f"Invalid time unit: {ttype}"
+        if not isinstance(ttype, str):
+            raise ValueError(_ := f"Invalid time unit: {ttype}")
         # ttype can only be str now, while the type checker does not know it.
         ttype: str = ttype.lower()  # type: ignore
         if ttype == "tick":
             return self.tick
-        elif ttype == "quarter":
+        if ttype == "quarter":
             return self.quarter
-        elif ttype == "second":
+        if ttype == "second":
             return self.second
-        else:
-            raise ValueError(f"Invalid time unit: {ttype}")
+        msg = f"Invalid time unit: {ttype}"
+        raise ValueError(msg)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, (self.tick, self.quarter, self.second))  # type: ignore
@@ -141,7 +146,11 @@ class CoreClasses(Generic[T, Q, S]):
 @dataclass(frozen=True)
 class NoteFactory:
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
-    __core_lists = CoreClasses(core.NoteTickList, core.NoteQuarterList, core.NoteSecondList)
+    __core_lists = CoreClasses(
+        core.NoteTickList,
+        core.NoteQuarterList,
+        core.NoteSecondList,
+    )
 
     def __call__(
         self,
@@ -151,8 +160,7 @@ class NoteFactory:
         velocity: int,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Note:
-        """
-        Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
+        """Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
         `int` or `float` as time. So Type Checker like MyPy will complain about the
         type of `time` argument. However, float and int can be converted to each other
         implicitly. So I just add a `# type: ignore` to ignore the type checking.
@@ -171,17 +179,24 @@ class NoteFactory:
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralNoteList:
         return self.__core_lists.dispatch(ttype).from_numpy(
-            time, duration, pitch, velocity
+            time,
+            duration,
+            pitch,
+            velocity,
         )
 
 
 @dataclass(frozen=True)
 class KeySignatureFactory:
     __core_classes = CoreClasses(
-        core.KeySignatureTick, core.KeySignatureQuarter, core.KeySignatureSecond
+        core.KeySignatureTick,
+        core.KeySignatureQuarter,
+        core.KeySignatureSecond,
     )
     __core_lists = CoreClasses(
-        core.KeySignatureTickList, core.KeySignatureQuarterList, core.KeySignatureSecondList
+        core.KeySignatureTickList,
+        core.KeySignatureQuarterList,
+        core.KeySignatureSecondList,
     )
 
     def __call__(
@@ -209,10 +224,14 @@ class KeySignatureFactory:
 @dataclass(frozen=True)
 class TimeSignatureFactory:
     __core_classes = CoreClasses(
-        core.TimeSignatureTick, core.TimeSignatureQuarter, core.TimeSignatureSecond
+        core.TimeSignatureTick,
+        core.TimeSignatureQuarter,
+        core.TimeSignatureSecond,
     )
     __core_lists = CoreClasses(
-        core.TimeSignatureTickList, core.TimeSignatureQuarterList, core.TimeSignatureSecondList
+        core.TimeSignatureTickList,
+        core.TimeSignatureQuarterList,
+        core.TimeSignatureSecondList,
     )
 
     def __call__(
@@ -235,17 +254,23 @@ class TimeSignatureFactory:
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralTimeSignatureList:
         return self.__core_lists.dispatch(ttype).from_numpy(
-            time, numerator, denominator
+            time,
+            numerator,
+            denominator,
         )
 
 
 @dataclass(frozen=True)
 class ControlChangeFactory:
     __core_classes = CoreClasses(
-        core.ControlChangeTick, core.ControlChangeQuarter, core.ControlChangeSecond
+        core.ControlChangeTick,
+        core.ControlChangeQuarter,
+        core.ControlChangeSecond,
     )
     __core_lists = CoreClasses(
-        core.ControlChangeTickList, core.ControlChangeQuarterList, core.ControlChangeSecondList
+        core.ControlChangeTickList,
+        core.ControlChangeQuarterList,
+        core.ControlChangeSecondList,
     )
 
     def __call__(
@@ -273,17 +298,20 @@ class ControlChangeFactory:
 @dataclass(frozen=True)
 class TempoFactory:
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
-    __core_lists = CoreClasses(core.TempoTickList, core.TempoQuarterList, core.TempoSecondList)
+    __core_lists = CoreClasses(
+        core.TempoTickList,
+        core.TempoQuarterList,
+        core.TempoSecondList,
+    )
 
     def __call__(
         self,
         time: smt.TimeDtype,
-        qpm: Optional[float] = None,
-        mspq: Optional[int] = None,
+        qpm: float | None = None,
+        mspq: int | None = None,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Tempo:
-        """
-        :param time: the time of the tempo change, in the unit of `ttype`
+        """:param time: the time of the tempo change, in the unit of `ttype`
         :param qpm: quarter per minute. The `bpm` in miditoolkit is actually quarter per minute, not beat per minute.
         :param mspq: microsecond per quarter. We store mspq instead of qpm to avoid float precision problem.
         :param ttype: the time unit of `time`
@@ -295,7 +323,10 @@ class TempoFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
     def from_numpy(
-        self, time: ndarray, mspq: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        time: ndarray,
+        mspq: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralTempoList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, mspq)
 
@@ -303,7 +334,11 @@ class TempoFactory:
 @dataclass(frozen=True)
 class PedalFactory:
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
-    __core_lists = CoreClasses(core.PedalTickList, core.PedalQuarterList, core.PedalSecondList)
+    __core_lists = CoreClasses(
+        core.PedalTickList,
+        core.PedalQuarterList,
+        core.PedalSecondList,
+    )
 
     def __call__(
         self,
@@ -328,10 +363,14 @@ class PedalFactory:
 @dataclass(frozen=True)
 class PitchBendFactory:
     __core_classes = CoreClasses(
-        core.PitchBendTick, core.PitchBendQuarter, core.PitchBendSecond
+        core.PitchBendTick,
+        core.PitchBendQuarter,
+        core.PitchBendSecond,
     )
     __core_lists = CoreClasses(
-        core.PitchBendTickList, core.PitchBendQuarterList, core.PitchBendSecondList
+        core.PitchBendTickList,
+        core.PitchBendQuarterList,
+        core.PitchBendSecondList,
     )
 
     def __call__(
@@ -346,7 +385,10 @@ class PitchBendFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
     def from_numpy(
-        self, time: ndarray, value: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        time: ndarray,
+        value: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralPitchBendList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, value)
 
@@ -354,10 +396,14 @@ class PitchBendFactory:
 @dataclass(frozen=True)
 class TextMetaFactory:
     __core_classes = CoreClasses(
-        core.TextMetaTick, core.TextMetaQuarter, core.TextMetaSecond
+        core.TextMetaTick,
+        core.TextMetaQuarter,
+        core.TextMetaSecond,
     )
     __core_lists = CoreClasses(
-        core.TextMetaTickList, core.TextMetaQuarterList, core.TextMetaSecondList
+        core.TextMetaTickList,
+        core.TextMetaQuarterList,
+        core.TextMetaSecondList,
     )
 
     def __call__(
@@ -372,7 +418,10 @@ class TextMetaFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
     def from_numpy(
-        self, time: ndarray, text: ndarray, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        time: ndarray,
+        text: ndarray,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.GeneralTextMetaList:
         raise NotImplementedError
         # return self.__core_classes.dispatch(ttype).from_numpy(time, text)
@@ -393,8 +442,7 @@ class TrackFactory:
         pedals: smt.GeneralPedalList = None,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Track:
-        r"""
-        Create a Track object with the given parameters.
+        r"""Create a Track object with the given parameters.
         Note that all of these parameters are optional,
         and they will be copied to the new Track object.
         So it is safe to use `[]` in the default value.
@@ -426,26 +474,29 @@ class ScoreFactory:
 
     def __call__(
         self,
-        x: Union[int, str, Path, smt.Score] = 0,
+        x: int | str | Path | smt.Score = 0,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
-        fmt: Optional[str] = None,
+        fmt: str | None = None,
     ) -> smt.Score:
-        if isinstance(x, str) or isinstance(x, Path):
+        if isinstance(x, (str, Path)):
             return self.from_file(x, ttype, fmt)
-        elif isinstance(x, int):
+        if isinstance(x, int):
             return self.from_tpq(x, ttype)
-        elif isinstance(x, self):  # type: ignore
+        if isinstance(x, self):  # type: ignore
             return self.from_other(x, ttype)
-        else:
-            raise TypeError(f"Invalid type: {type(x)}")
+        msg = f"Invalid type: {type(x)}"
+        raise TypeError(msg)
 
     def from_file(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
-        fmt: Optional[str] = None,
+        fmt: str | None = None,
     ) -> smt.Score:
-        assert os.path.isfile(path), f"{path} is not a file"
+        if isinstance(path, str):
+            path = Path(path)
+        if not path.is_file():
+            raise ValueError(_ := f"{path} is not a file")
         return self.__core_classes.dispatch(ttype).from_file(path, fmt)
 
     def from_midi(
@@ -463,7 +514,9 @@ class ScoreFactory:
         return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
-        self, tpq: int = 960, ttype: smt.GeneralTimeUnit = TimeUnit.tick
+        self,
+        tpq: int = 960,
+        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
 
@@ -471,11 +524,14 @@ class ScoreFactory:
         self,
         other: smt.Score,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
-        min_dur: Optional[int] = None,
+        min_dur: int | None = None,
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
-            raise ValueError(
+            msg = (
                 f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
+            )
+            raise ValueError(
+                msg,
             )
         return self.__core_classes.dispatch(ttype)(other, min_dur)
 
@@ -486,7 +542,7 @@ class ScoreFactory:
 class SynthesizerFactory:
     def __call__(
         self,
-        sf_path: Union[str, Path, None] = None,
+        sf_path: str | Path | None = None,
         sample_rate: int = 44100,
         quality: int = 0,
     ):
