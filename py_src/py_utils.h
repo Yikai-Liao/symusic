@@ -199,8 +199,9 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def("__init__", [](self_t *self, const self_t& other) {
             new (self) shared<T>(std::move(std::make_shared<T>(*other)));
         }, nb::arg("other"))
-        .def("copy", copy_func)
-        .def("deepcopy", copy_func)
+        .def("copy", [](const shared<T>& self, const bool deep) {
+            return std::make_shared<T>(*self);
+        }, nb::arg("deep") = true)
         .def("__copy__", copy_func)
         .def("__deepcopy__", deepcopy_func, nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none())
         .def("__repr__", [](const shared<T>& self) { return self->to_string(); })

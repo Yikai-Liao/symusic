@@ -95,9 +95,11 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("__init__", [](self_t *self, const self_t& other) {
             new (self) std::shared_ptr<track_t>(std::move(std::make_shared<track_t>(std::move(other->deepcopy()))));
         }, "Copy constructor", nb::arg("other"))
-        .def("copy", copy_func, nb::rv_policy::copy)
+        .def("copy", [&](const self_t &self, const bool deep) {
+            if (deep) return deepcopy_func(self);
+            return copy_func(self);
+        }, nb::arg("deep") = true, nb::rv_policy::copy)
         .def("__copy__", copy_func, nb::rv_policy::copy)
-        .def("deepcopy", deepcopy_func, nb::rv_policy::copy)
         .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
             return deepcopy_func(self);
         }, nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::copy)
@@ -225,9 +227,10 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);
             return ans;
         }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false)
-        .def("copy",          [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
+        .def("copy",          [&](const vec_t& self, const bool deep) {
+            return deep?deepcopy(self):std::make_shared<vec<self_t>>(self->begin(), self->end());
+        }, nb::arg("deep") = true, nb::rv_policy::copy)
         .def("__copy__",      [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); })
-        .def("deepcopy",      &deepcopy<Track<T>>)
         .def("__deepcopy__",  [](const vec_t& self, const nb::handle, const nb::handle) { return deepcopy(self); },
             nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move)
         .def("__getstate__",  [](const vec_t& self) {
@@ -404,9 +407,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::move(std::make_shared<Score<T>>(std::move(other->deepcopy()))));
         }, "Copy constructor", nb::arg("other"))
-        .def("copy", copy_func, "Shallow copy", nb::rv_policy::copy)
+        .def("copy", [&](const self_t &self, const bool deep) {
+            if (deep) return deepcopy_func(self);
+            return copy_func(self);
+        }, nb::arg("deep") = true, nb::rv_policy::copy)
         .def("__copy__", copy_func, "Shallow copy", nb::rv_policy::copy)
-        .def("deepcopy", deepcopy_func, "Deep copy", nb::rv_policy::move)
         .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
             return deepcopy_func(self);
         }, "Deep copy", nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move)
