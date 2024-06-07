@@ -45,7 +45,7 @@ if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
     # set symusic target to O3 and release mode because nanobind use minisize
-#    execute_process(
+#   execute_process(
 #        COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
 #        OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
 #        list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")

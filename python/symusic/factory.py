@@ -474,7 +474,7 @@ class ScoreFactory:
 
     def __call__(
         self,
-        x: int | str | Path | smt.Score = 0,
+        x: int | str | Path | smt.Score = 960,
         ttype: smt.GeneralTimeUnit = TimeUnit.tick,
         fmt: str | None = None,
     ) -> smt.Score:

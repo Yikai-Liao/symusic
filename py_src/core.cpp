@@ -541,7 +541,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 };
             },
             nb::arg("modes"),
-            nb::arg("pitch_range")     = std::pair<i8, i8>(0, 127),
+            nb::arg("pitch_range")     = std::pair<i8, i8>(0, 128),
             nb::arg("encode_velocity") = false
         );
     }
