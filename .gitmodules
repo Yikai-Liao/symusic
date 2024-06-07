@@ -22,3 +22,7 @@
 [submodule "3rdparty/pyvec"]
 	path = 3rdparty/pyvec
 	url = https://github.com/Yikai-Liao/pyvec.git
+[submodule "3rdparty/nanobind"]
+	path = 3rdparty/nanobind
+	url = https://github.com/wjakob/nanobind.git
+	tag = v2.0.0
