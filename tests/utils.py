@@ -128,11 +128,11 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
 
     # Create the concatenated Score with empty tracks
     score_concat = Score(scores[0].ticks_per_quarter)
-    score_concat.tracks = scores[0].tracks.deepcopy()
+    score_concat.tracks = scores[0].tracks.copy()
 
     for mi in range(len(scores)):
         # Shift the Score
-        score = scores[mi].deepcopy()
+        score = scores[mi].copy()
         if mi > 0:
             score = score.shift_time(end_ticks[mi - 1])
 
