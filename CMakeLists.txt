@@ -53,9 +53,14 @@ if(BUILD_SYMUSIC_PY)
     # show python executable path
     message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
 
-    find_package(nanobind CONFIG REQUIRED)
+#    find_package(nanobind CONFIG REQUIRED)
+    add_subdirectory(3rdparty/nanobind EXCLUDE_FROM_ALL)
 
-    nanobind_add_module(core NOMINSIZE py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h)
+    nanobind_add_module(
+        core
+        NB_STATIC STABLE_ABI LTO NOMINSIZE PROTECT_STACK NOSTRIP
+        py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h
+    )
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
