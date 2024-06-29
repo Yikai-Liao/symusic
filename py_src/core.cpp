@@ -560,17 +560,17 @@ NB_MODULE(core, m) {
     // clang-format off
     auto tick = nb::class_<Tick>(m, "Tick")
         .def(nb::init<>())
-        .def("__repr__", [](const Tick&) { return "symsuic.core.Tick"; })
+        .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
         .def("is_time_unit", [](const Tick&) { return true; });
 
     auto quarter = nb::class_<Quarter>(m, "Quarter")
        .def(nb::init<>())
-       .def("__repr__", [](const Quarter&) { return "symsuic.core.Quarter"; })
+       .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
        .def("is_time_unit", [](const Quarter&) { return true; });
 
     auto second = nb::class_<Second>(m, "Second")
       .def(nb::init<>())
-      .def("__repr__", [](const Second&) { return "symsuic.core.Second"; })
+      .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
       .def("is_time_unit", [](const Second&) { return true; });
     // clang-format on
 
