@@ -134,10 +134,10 @@ s.ticks_per_quarter # or s.tpq
 
 # Global Events
 s.tempos            # list of tempo changes
-s.time_signature    # list of time signature changes
-s.key_signature     # list of key signature changes
+s.time_signatures   # list of time signature changes
+s.key_signatures    # list of key signature changes
 s.lyrics            # list of lyrics
-s.marker            # list of markers
+s.markers           # list of markers
 
 s.start()           # return the start time of the score
 s.end()             # return the end time of the score
@@ -153,7 +153,7 @@ t.name              # track name
 t.program           # program number
 t.is_drum           # whether it's a drum track
 t.notes             # list of notes
-t.control_changes   # list of control changes
+t.controls          # list of control changes
 t.pitch_bends       # list of pitch bends
 t.pedals            # list of pedals
 
