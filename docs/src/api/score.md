@@ -59,4 +59,3 @@ Note that `pickle` is supported for serialization and deserialization.
 | `shift_time`(self, offset: unit, inplace=False)                                       | Shift the time of all the events in the score by the given offset                                         |
 | `shift_pitch`(self, offset: int, inplace=False)                                       | Shift the pitch of all the notes in the score by the given offset                                         |
 | `shift_velocity`(self, offset: int, inplace=False)                                    | Shift the velocity of all the notes in the score by the given offset                                      |
-
