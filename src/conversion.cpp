@@ -16,7 +16,21 @@ Score<To> convertInner(
     const Score<From>& score, const Converter& converter, const typename To::unit min_dur
 ) {
     Score<To> new_s(score.ticks_per_quarter);
-
+    new_s.lyrics   = std::make_shared<pyvec<TextMeta<To>>>(
+        std::move(converter.time_vec(*score.lyrics))
+    );
+    new_s.markers  = std::make_shared<pyvec<TextMeta<To>>>(
+        std::move(converter.time_vec(*score.markers))
+    );
+    new_s.tempos   = std::make_shared<pyvec<Tempo<To>>>(
+        std::move(converter.time_vec(*score.tempos))
+    );
+    new_s.time_signatures = std::make_shared<pyvec<TimeSignature<To>>>(
+        std::move(converter.time_vec(*score.time_signatures))
+    );
+    new_s.key_signatures = std::make_shared<pyvec<KeySignature<To>>>(
+        std::move(converter.time_vec(*score.key_signatures))
+    );
 
     new_s.tracks->reserve(score.tracks->size());
     for (const shared<Track<From>>& track : *score.tracks) {
@@ -120,10 +134,10 @@ struct SecondConverter {
     f64                      tpq;
     vec<typename To::unit>   to_times;
     vec<typename From::unit> from_times;
-    vec<f64>                 factors;
+    vec<f64>                 factors{};
 
     explicit SecondConverter(const Score<From>& score) :
-        tpq(static_cast<f64>(score.ticks_per_quarter)), to_times(), from_times(), factors() {
+        tpq(static_cast<f64>(score.ticks_per_quarter)), to_times(), from_times(){
         vec<Tempo<From>> tempos;
         if (score.tempos->empty()) {
             // 120 qpm
