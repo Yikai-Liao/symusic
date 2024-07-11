@@ -30,9 +30,9 @@ jobs:
           cd ./docs
           mdbook build
       - name: Setup Pages
-        uses: actions/configure-pages@v2
+        uses: actions/configure-pages@v4
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v4
         with:
           # Upload entire repository
           path: 'docs/book'

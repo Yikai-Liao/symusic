@@ -121,19 +121,3 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
-
-  test_download:
-    needs: [build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/symusic
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          # unpacks default artifact into dist/
-          # if `name: artifact` is omitted, the action will create extra parent dir
-          name: artifact
-          path: dist
