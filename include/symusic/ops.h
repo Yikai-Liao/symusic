@@ -286,6 +286,7 @@ void adjust_time_inplace(
     adjust_time_inplace<false>(*(track.controls), original_times, new_times);
     adjust_time_inplace<false>(*(track.pitch_bends), original_times, new_times);
     adjust_time_inplace<false>(*(track.pedals), original_times, new_times);
+    adjust_time_inplace<false>(*(track.lyrics), original_times, new_times);
 }
 
 template<bool check_times = true, TType T>
@@ -301,7 +302,7 @@ void adjust_time_inplace(
     adjust_time_inplace<false>(*(score.time_signatures), original_times, new_times);
     adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
     adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
-    adjust_time_inplace<false>(*(score.lyrics), original_times, new_times);
+    // adjust_time_inplace<false>(*(score.lyrics), original_times, new_times);
     adjust_time_inplace<false>(*(score.markers), original_times, new_times);
 }
 

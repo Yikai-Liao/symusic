@@ -43,12 +43,25 @@ REPEAT_ON(
 SERIALIZE_COMMON(TextMeta, d, d.time, d.text)
 
 SERIALIZE_COMMON(
-    TrackNative, d, d.name, d.program, d.is_drum, d.notes, d.controls, d.pitch_bends, d.pedals
+    TrackNative, d,
+    d.name,
+    d.program,
+    d.is_drum, d.notes,
+    d.controls,
+    d.pitch_bends,
+    d.pedals,
+    d.lyrics
 )
 
 SERIALIZE_COMMON(
-    ScoreNative, d, d.ticks_per_quarter, d.tracks, d.time_signatures, d.key_signatures, d.tempos,
-    d.lyrics, d.markers
+    ScoreNative,d,
+    d.ticks_per_quarter,
+    d.tracks,
+    d.time_signatures,
+    d.key_signatures,
+    d.tempos,
+    // d.lyrics,
+    d.markers
 )
 
 #undef SERIALIZE_COMMON

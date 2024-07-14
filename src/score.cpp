@@ -24,7 +24,7 @@ typename T::unit Score<T>::start() const {
     ans = std::min(ans, ops::start(*time_signatures));
     ans = std::min(ans, ops::start(*key_signatures));
     ans = std::min(ans, ops::start(*tempos));
-    ans = std::min(ans, ops::start(*lyrics));
+    // ans = std::min(ans, ops::start(*lyrics));
     ans = std::min(ans, ops::start(*markers));
     return ans;
 }
@@ -38,7 +38,7 @@ typename T::unit Score<T>::end() const {
     ans = std::max(ans, ops::end(*time_signatures));
     ans = std::max(ans, ops::end(*key_signatures));
     ans = std::max(ans, ops::end(*tempos));
-    ans = std::max(ans, ops::end(*lyrics));
+    // ans = std::max(ans, ops::end(*lyrics));
     ans = std::max(ans, ops::end(*markers));
     return ans;
 }
@@ -52,8 +52,12 @@ size_t Score<T>::note_num() const {
 
 template<TType T>
 bool Score<T>::empty() const {
-    return tracks->empty() && time_signatures->empty() && key_signatures->empty() && tempos->empty()
-           && lyrics->empty() && markers->empty();
+    return tracks->empty()
+        && time_signatures->empty()
+        && key_signatures->empty()
+        && tempos->empty()
+        // && lyrics->empty()
+        && markers->empty();
 }
 
 template<TType T>
@@ -69,7 +73,7 @@ void Score<T>::sort_inplace(const bool reverse) {
     time_signatures->sort(key, reverse);
     key_signatures->sort(key, reverse);
     tempos->sort(key, reverse);
-    lyrics->sort(key, reverse);
+    // lyrics->sort(key, reverse);
     markers->sort(key, reverse);
 }
 
@@ -86,7 +90,7 @@ void Score<T>::clip_inplace(unit start, unit end, bool clip_end) {
     ops::clip_inplace(*time_signatures, start, end);
     ops::clip_inplace(*key_signatures, start, end);
     ops::clip_inplace(*tempos, start, end);
-    ops::clip_inplace(*lyrics, start, end);
+    // ops::clip_inplace(*lyrics, start, end);
     ops::clip_inplace(*markers, start, end);
 }
 
@@ -105,7 +109,7 @@ void Score<T>::shift_time_inplace(const unit offset) {
     for (auto& time_signature : *time_signatures) time_signature->shift_time_inplace(offset);
     for (auto& key_signature : *key_signatures) key_signature->shift_time_inplace(offset);
     for (auto& tempo : *tempos) tempo->shift_time_inplace(offset);
-    for (auto& lyric : *lyrics) lyric->shift_time_inplace(offset);
+    // for (auto& lyric : *lyrics) lyric->shift_time_inplace(offset);
     for (auto& marker : *markers) marker->shift_time_inplace(offset);
 }
 

@@ -23,6 +23,7 @@ typename T::unit Track<T>::start() const {
     ans = std::min(ans, ops::start(*controls));
     ans = std::min(ans, ops::start(*pitch_bends));
     ans = std::min(ans, ops::start(*pedals));
+    ans = std::min(ans, ops::start(*lyrics));
     return ans;
 }
 
@@ -34,6 +35,7 @@ typename T::unit Track<T>::end() const {
     ans = std::max(ans, ops::end(*controls));
     ans = std::max(ans, ops::end(*pitch_bends));
     ans = std::max(ans, ops::end(*pedals));
+    ans = std::max(ans, ops::end(*lyrics));
     return ans;
 }
 
@@ -44,7 +46,7 @@ size_t Track<T>::note_num() const {
 
 template<TType T>
 bool Track<T>::empty() const {
-    return notes->empty() && controls->empty() && pitch_bends->empty() && pedals->empty();
+    return notes->empty() && controls->empty() && pitch_bends->empty() && pedals->empty() && lyrics->empty();
 }
 
 template<TType T>
@@ -54,6 +56,7 @@ void Track<T>::sort_inplace(const bool reverse) {
     controls->sort(key, reverse);
     pitch_bends->sort(key, reverse);
     pedals->sort(key, reverse);
+    lyrics->sort(key, reverse);
 }
 
 template<TType T>
@@ -69,6 +72,7 @@ void Track<T>::clip_inplace(const unit start, const unit end, const bool clip_en
     ops::clip_inplace(*controls, start, end);
     ops::clip_inplace(*pitch_bends, start, end);
     ops::clip_inplace(*pedals, start, end, clip_end);
+    ops::clip_inplace(*lyrics, start, end, clip_end);
 }
 
 
@@ -85,6 +89,7 @@ void Track<T>::shift_time_inplace(const unit offset) {
     for(auto& control: *controls) control->shift_time_inplace(offset);
     for(auto& pitch_bend: *pitch_bends) pitch_bend->shift_time_inplace(offset);
     for(auto& pedal: *pedals) pedal->shift_time_inplace(offset);
+    for(auto& lyric: *lyrics) lyric->shift_time_inplace(offset);
 }
 
 template<TType T>

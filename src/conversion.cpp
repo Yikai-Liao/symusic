@@ -16,9 +16,9 @@ Score<To> convertInner(
     const Score<From>& score, const Converter& converter, const typename To::unit min_dur
 ) {
     Score<To> new_s(score.ticks_per_quarter);
-    new_s.lyrics   = std::make_shared<pyvec<TextMeta<To>>>(
-        std::move(converter.time_vec(*score.lyrics))
-    );
+    // new_s.lyrics   = std::make_shared<pyvec<TextMeta<To>>>(
+    //     std::move(converter.time_vec(*score.lyrics))
+    // );
     new_s.markers  = std::make_shared<pyvec<TextMeta<To>>>(
         std::move(converter.time_vec(*score.markers))
     );
@@ -46,6 +46,9 @@ Score<To> convertInner(
         );
         new_t->controls = std::make_shared<pyvec<ControlChange<To>>>(
             std::move(converter.time_vec(*track->controls))
+        );
+        new_t->lyrics = std::make_shared<pyvec<TextMeta<To>>>(
+            std::move(converter.time_vec(*track->lyrics))
         );
         new_s.tracks->push_back(std::move(new_t));
     }
@@ -397,7 +400,7 @@ Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 mi
     ans.time_signatures = resample_time(*score.time_signatures, convert);
     ans.key_signatures  = resample_time(*score.key_signatures, convert);
     ans.tempos          = resample_time(*score.tempos, convert);
-    ans.lyrics          = resample_time(*score.lyrics, convert);
+    // ans.lyrics          = resample_time(*score.lyrics, convert);
     ans.markers         = resample_time(*score.markers, convert);
 
     const size_t track_num = score.tracks->size();
@@ -411,6 +414,7 @@ Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 mi
         new_track->pedals      = resample_dur(*old_track->pedals, convert, min_dur);
         new_track->pitch_bends = resample_time(*old_track->pitch_bends, convert);
         new_track->controls    = resample_time(*old_track->controls, convert);
+        new_track->lyrics      = resample_time(*old_track->lyrics, convert);
         ans.tracks->push_back(std::move(new_track));
     }
     return ans;

@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 project(symusic)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
@@ -57,7 +56,7 @@ if(BUILD_SYMUSIC_PY)
 
     nanobind_add_module(
         core
-        NB_STATIC STABLE_ABI LTO NOMINSIZE PROTECT_STACK NOSTRIP
+        NB_STATIC STABLE_ABI LTO PROTECT_STACK NOSTRIP
         py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h
     )
     target_link_libraries(core PRIVATE symusic)
@@ -142,3 +141,6 @@ if(VTUNE)
         add_compile_options(-g)
     endif ()
 endif ()
+
+set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
+set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
