@@ -25,6 +25,7 @@ struct Track {
     shared<pyvec<ControlChange<T>>> controls;
     shared<pyvec<PitchBend<T>>>     pitch_bends;
     shared<pyvec<Pedal<T>>>         pedals;
+    shared<pyvec<TextMeta<T>>>      lyrics;
 
     POINTER_METHODS(Track)
 
@@ -33,6 +34,7 @@ struct Track {
         controls    = std::make_shared<pyvec<ControlChange<T>>>();
         pitch_bends = std::make_shared<pyvec<PitchBend<T>>>();
         pedals      = std::make_shared<pyvec<Pedal<T>>>();
+        lyrics      = std::make_shared<pyvec<TextMeta<T>>>();
     }
 
     Track(const Track&) = default;
@@ -43,6 +45,7 @@ struct Track {
         controls    = std::make_shared<pyvec<ControlChange<T>>>();
         pitch_bends = std::make_shared<pyvec<PitchBend<T>>>();
         pedals      = std::make_shared<pyvec<Pedal<T>>>();
+        lyrics      = std::make_shared<pyvec<TextMeta<T>>>();
     }
 
     void move_other(Track&& other) {
@@ -53,6 +56,7 @@ struct Track {
         controls    = std::move(other.controls);
         pitch_bends = std::move(other.pitch_bends);
         pedals      = std::move(other.pedals);
+        lyrics      = std::move(other.lyrics);
     }
 
     Track(Track&& other) noexcept { move_other(std::move(other)); }
@@ -64,7 +68,8 @@ struct Track {
         pyvec<Note<T>>&&          notes,
         pyvec<ControlChange<T>>&& controls,
         pyvec<PitchBend<T>>&&     pitch_bends,
-        pyvec<Pedal<T>>&&         pedals
+        pyvec<Pedal<T>>&&         pedals,
+        pyvec<TextMeta<T>>&&      lyrics
     ) {
         this->name        = std::move(name);
         this->program     = program;
@@ -73,6 +78,7 @@ struct Track {
         this->controls    = std::make_shared<pyvec<ControlChange<T>>>(std::move(controls));
         this->pitch_bends = std::make_shared<pyvec<PitchBend<T>>>(std::move(pitch_bends));
         this->pedals      = std::make_shared<pyvec<Pedal<T>>>(std::move(pedals));
+        this->lyrics      = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
     }
 
 
@@ -83,11 +89,18 @@ struct Track {
         shared<pyvec<Note<T>>>          notes,
         shared<pyvec<ControlChange<T>>> controls,
         shared<pyvec<PitchBend<T>>>     pitch_bends,
-        shared<pyvec<Pedal<T>>>         pedals
-    ) :
-        name{std::move(name)}, program{program}, is_drum{is_drum}, notes{std::move(notes)},
-        controls{std::move(controls)}, pitch_bends{std::move(pitch_bends)},
-        pedals{std::move(pedals)} {}
+        shared<pyvec<Pedal<T>>>         pedals,
+        shared<pyvec<TextMeta<T>>>      lyrics
+    ) : // clang-format off
+        name{std::move(name)},
+        program{program},
+        is_drum{is_drum},
+        notes{std::move(notes)},
+        controls{std::move(controls)},
+        pitch_bends{std::move(pitch_bends)},
+        pedals{std::move(pedals)},
+        lyrics{std::move(lyrics)} {}
+        // clang-format on
 
     auto default_key() const { return std::make_tuple(is_drum, program, name, notes->size()); }
 
@@ -102,7 +115,8 @@ struct Track {
             std::move(notes->deepcopy()),
             std::move(controls->deepcopy()),
             std::move(pitch_bends->deepcopy()),
-            std::move(pedals->deepcopy())
+            std::move(pedals->deepcopy()),
+            std::move(lyrics->deepcopy())
         };
     }
 
@@ -113,9 +127,16 @@ struct Track {
     }
 
     bool operator==(const Track& other) const {
-        return name == other.name && program == other.program && is_drum == other.is_drum
-               && *notes == *other.notes && *controls == *other.controls
-               && *pitch_bends == *other.pitch_bends && *pedals == *other.pedals;
+        // clang-format off
+        return name == other.name
+            && program == other.program
+            && is_drum == other.is_drum
+            && *notes == *other.notes
+            && *controls == *other.controls
+            && *pitch_bends == *other.pitch_bends
+            && *pedals == *other.pedals
+            && *lyrics == *other.lyrics;
+        // clang-format on
     };
 
     bool operator!=(const Track& other) const { return !(*this == other); }
@@ -189,6 +210,7 @@ struct TrackNative {
     vec<ControlChange<T>> controls;
     vec<PitchBend<T>>     pitch_bends;
     vec<Pedal<T>>         pedals;
+    vec<TextMeta<T>>      lyrics;
 
     TrackNative() = default;
 
@@ -196,7 +218,13 @@ struct TrackNative {
         name{std::move(name)}, program{program}, is_drum{is_drum} {}
 
     [[nodiscard]] bool empty() const {
-        return notes.empty() && controls.empty() && pitch_bends.empty() && pedals.empty();
+        // clang-format off
+        return notes.empty()
+            && controls.empty()
+            && pitch_bends.empty()
+            && pedals.empty()
+            && lyrics.empty();
+        // clang-format on
     }
 
     template<DataFormat F>

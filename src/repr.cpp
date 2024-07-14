@@ -31,17 +31,17 @@ REPEAT_ON(
 template<TType T>
 std::string Track<T>::summary() const {
     return fmt::format(
-        "Track(ttype={}, program={}, is_drum={}, name={}, notes={})",
-        T(), program, is_drum, name, notes->size()
+        "Track(ttype={}, program={}, is_drum={}, name={}, notes={}, lyrics={})",
+        T(), program, is_drum, name, notes->size(), lyrics->size()
     );
 }
 
 template<TType T>
 std::string Score<T>::summary() const {
     return fmt::format(
-        "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={}, lyrics={})",
+        "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={})",
         T(), ticks_per_quarter, start(), end(), tracks->size(), note_num(),
-        time_signatures->size(), key_signatures->size(), markers->size(), lyrics->size()
+        time_signatures->size(), key_signatures->size(), markers->size()// , lyrics->size()
     );
 }
 

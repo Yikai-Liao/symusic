@@ -286,11 +286,15 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                     break;
                 }
                 case (message::MetaType::Lyric): {
+                    // lyrics should be placed in Track, not Score
                     auto data = msg.get_meta_value();
-                    auto tmp  = std::string(data.begin(), data.end());
-                    auto text = strip_non_utf_8(tmp);
+                    uint8_t channel = msg.get_channel();
+                    uint8_t program = cur_instr[channel];
+                    auto&   track   // all lyrics should be preserved, so we set create_new=true
+                        = get_track(track_map, stragglers, channel, program, message_num, true);
+                    auto text = strip_non_utf_8(std::string(data.begin(), data.end()));
                     if (text.empty()) break;
-                    score.lyrics.emplace_back(cur_time, text);
+                    track.lyrics.emplace_back(cur_time, text);
                     break;
                 }
                 case (message::MetaType::Marker): {
@@ -338,7 +342,7 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
     sort_by_time(score.time_signatures);
     sort_by_time(score.key_signatures);
     sort_by_time(score.tempos);
-    sort_by_time(score.lyrics);
+    // sort_by_time(score.lyrics);
     sort_by_time(score.markers);
     return to_shared(std::move(score));
 }
@@ -353,8 +357,10 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
     {   // add meta messages
         message::Messages msgs{};
         msgs.reserve(
-            score.time_signatures->size() + score.key_signatures->size() + score.tempos->size()
-            + score.lyrics->size() + score.markers->size() + 10
+            score.time_signatures->size()
+                + score.key_signatures->size()
+                + score.tempos->size()
+                + score.markers->size() + 10
         );
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
@@ -373,9 +379,9 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
             msgs.emplace_back(message::Message::SetTempo(tempo->time, tempo->mspq));
         }
         // add lyrics
-        for (const auto& lyric : *score.lyrics) {
-            msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
-        }
+        // for (const auto& lyric : *score.lyrics) {
+        //     msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
+        // }
         // add markers
         for (const auto& marker : *score.markers) {
             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
@@ -389,7 +395,11 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
     for (size_t idx = 0; const auto& track : *score.tracks) {
         message::Messages msgs{};
         msgs.reserve(
-            track->note_num() * 2 + track->controls->size() + track->pitch_bends->size() + 10
+            track->note_num() * 2
+                + track->controls->size()
+                + track->pitch_bends->size()
+                + track->lyrics->size()
+                + 10
         );
         const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
         // add track name
@@ -422,6 +432,10 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
             msgs.emplace_back(
                 message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity)
             );
+        }
+        // add lyrics
+        for (const auto& lyric : *track->lyrics) {
+            msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
         }
         // messages will be sorted by time in minimidi
         if (!msgs.empty()) {

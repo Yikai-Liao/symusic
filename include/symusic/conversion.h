@@ -42,6 +42,7 @@ Track<T> to_shared(TrackNative<T>&& track) {
     new_track.controls    = std::make_shared<pyvec<ControlChange<T>>>(std::move(track.controls));
     new_track.pedals      = std::make_shared<pyvec<Pedal<T>>>(std::move(track.pedals));
     new_track.pitch_bends = std::make_shared<pyvec<PitchBend<T>>>(std::move(track.pitch_bends));
+    new_track.lyrics      = std::make_shared<pyvec<TextMeta<T>>>(std::move(track.lyrics));
     return new_track;
 }
 
@@ -49,7 +50,7 @@ template<TType T>
 Score<T> to_shared(ScoreNative<T>&& score) {
     Score<T> new_score{score.ticks_per_quarter};
     new_score.tempos  = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
-    new_score.lyrics  = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.lyrics));
+    // new_score.lyrics  = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.lyrics));
     new_score.markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
     new_score.time_signatures
         = std::make_shared<pyvec<TimeSignature<T>>>(std::move(score.time_signatures));
@@ -73,6 +74,7 @@ TrackNative<T> to_native(const Track<T>& track) {
     new_track.controls    = std::move(track.controls->collect());
     new_track.pedals      = std::move(track.pedals->collect());
     new_track.pitch_bends = std::move(track.pitch_bends->collect());
+    new_track.lyrics      = std::move(track.lyrics->collect());
     return new_track;
 }
 
@@ -82,7 +84,7 @@ ScoreNative<T> to_native(const Score<T>& score) {
     new_score.time_signatures = std::move(score.time_signatures->collect());
     new_score.key_signatures  = std::move(score.key_signatures->collect());
     new_score.tempos          = std::move(score.tempos->collect());
-    new_score.lyrics          = std::move(score.lyrics->collect());
+    // new_score.lyrics          = std::move(score.lyrics->collect());
     new_score.markers         = std::move(score.markers->collect());
 
     new_score.tracks.reserve(score.tracks->size());

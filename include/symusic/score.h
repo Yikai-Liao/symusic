@@ -21,14 +21,13 @@ struct Score {
     shared<pyvec<TimeSignature<T>>> time_signatures;
     shared<pyvec<KeySignature<T>>>  key_signatures;
     shared<pyvec<Tempo<T>>>         tempos;
-    shared<pyvec<TextMeta<T>>>      lyrics, markers;
+    shared<pyvec<TextMeta<T>>>      markers;
 
     Score() : ticks_per_quarter{0} {
         tracks          = std::make_shared<vec<shared<Track<T>>>>();
         time_signatures = std::make_shared<pyvec<TimeSignature<T>>>();
         key_signatures  = std::make_shared<pyvec<KeySignature<T>>>();
         tempos          = std::make_shared<pyvec<Tempo<T>>>();
-        lyrics          = std::make_shared<pyvec<TextMeta<T>>>();
         markers         = std::make_shared<pyvec<TextMeta<T>>>();
     }
 
@@ -41,8 +40,8 @@ struct Score {
         time_signatures   = std::move(other.time_signatures);
         key_signatures    = std::move(other.key_signatures);
         tempos            = std::move(other.tempos);
-        lyrics            = std::move(other.lyrics);
-        markers           = std::move(other.markers);
+        // lyrics            = std::move(other.lyrics);
+        markers = std::move(other.markers);
     }
 
     Score(
@@ -51,15 +50,15 @@ struct Score {
         pyvec<TimeSignature<T>>&&     time_signatures,
         pyvec<KeySignature<T>>&&      key_signatures,
         pyvec<Tempo<T>>&&             tempos,
-        pyvec<TextMeta<T>>&&          lyrics,
-        pyvec<TextMeta<T>>&&          markers
+        // pyvec<TextMeta<T>>&&          lyrics,
+        pyvec<TextMeta<T>>&& markers
     ) : ticks_per_quarter{tpq}, tracks{std::move(tracks)} {
         this->time_signatures
             = std::make_shared<pyvec<TimeSignature<T>>>(std::move(time_signatures));
         this->key_signatures = std::make_shared<pyvec<KeySignature<T>>>(std::move(key_signatures));
         this->tempos         = std::make_shared<pyvec<Tempo<T>>>(std::move(tempos));
-        this->lyrics         = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
-        this->markers        = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
+        // this->lyrics         = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
+        this->markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
     }
 
 
@@ -69,12 +68,14 @@ struct Score {
         shared<pyvec<TimeSignature<T>>> time_signatures,
         shared<pyvec<KeySignature<T>>>  key_signatures,
         shared<pyvec<Tempo<T>>>         tempos,
-        shared<pyvec<TextMeta<T>>>      lyrics,
-        shared<pyvec<TextMeta<T>>>      markers
+        // shared<pyvec<TextMeta<T>>>      lyrics,
+        shared<pyvec<TextMeta<T>>> markers
     ) :
         ticks_per_quarter{tpq}, tracks{std::move(tracks)},
         time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
-        tempos{std::move(tempos)}, lyrics{std::move(lyrics)}, markers{std::move(markers)} {}
+        tempos{std::move(tempos)},
+        // lyrics{std::move(lyrics)},
+        markers{std::move(markers)} {}
 
     Score& operator=(const Score&) = default;
 
@@ -91,11 +92,15 @@ struct Score {
                   }
                   return true;
               };
-
-        return ticks_per_quarter == other.ticks_per_quarter && tracks_equal(tracks, other.tracks)
+        // clang-format off
+        return ticks_per_quarter == other.ticks_per_quarter
+               && tracks_equal(tracks, other.tracks)
                && *time_signatures == *other.time_signatures
-               && *key_signatures == *other.key_signatures && *tempos == *other.tempos
-               && *lyrics == *other.lyrics && *markers == *other.markers;
+               && *key_signatures == *other.key_signatures
+               && *tempos == *other.tempos
+               // && *lyrics == *other.lyrics
+               && *markers == *other.markers;
+        // clang-format on
     }
 
     bool operator!=(const Score& other) const { return !(*this == other); }
@@ -114,7 +119,7 @@ struct Score {
             std::move(time_signatures->deepcopy()),
             std::move(key_signatures->deepcopy()),
             std::move(tempos->deepcopy()),
-            std::move(lyrics->deepcopy()),
+            // std::move(lyrics->deepcopy()),
             std::move(markers->deepcopy())
         };
     }
@@ -188,7 +193,7 @@ struct ScoreNative {
     vec<TimeSignature<T>> time_signatures;
     vec<KeySignature<T>>  key_signatures;
     vec<Tempo<T>>         tempos;
-    vec<TextMeta<T>>      lyrics;
+    // vec<TextMeta<T>>      lyrics;
     vec<TextMeta<T>>      markers;
     vec<TrackNative<T>>   tracks;
 
@@ -197,8 +202,12 @@ struct ScoreNative {
     explicit ScoreNative(const i32 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
 
     [[nodiscard]] bool empty() const {
-        return time_signatures.empty() && key_signatures.empty() && tempos.empty() && lyrics.empty()
-               && markers.empty() && tracks.empty();
+        return time_signatures.empty()
+            && key_signatures.empty()
+            && tempos.empty()
+            // && lyrics.empty()
+            && markers.empty()
+            && tracks.empty();
     }
 
     template<DataFormat F>
