@@ -62,7 +62,7 @@ jobs:
 
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
-        uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5
+        uses: pypa/cibuildwheel@7e5a838a63ac8128d71ab2dfd99e4634dd1bca09  # v2.19.2
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build wheels for manylinux aarch64
         if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' }}
-        uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5
+        uses: pypa/cibuildwheel@7e5a838a63ac8128d71ab2dfd99e4634dd1bca09  # v2.19.2
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -80,7 +80,7 @@ jobs:
 
       - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
-        uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5
+        uses: pypa/cibuildwheel@7e5a838a63ac8128d71ab2dfd99e4634dd1bca09  # v2.19.2
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Build wheels for musllinux aarch64
         if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
-        uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5
+        uses: pypa/cibuildwheel@7e5a838a63ac8128d71ab2dfd99e4634dd1bca09  # v2.19.2
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -98,14 +98,15 @@ jobs:
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
-        uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5
+        uses: pypa/cibuildwheel@7e5a838a63ac8128d71ab2dfd99e4634dd1bca09  # v2.19.2
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_ARCHS: 'all'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
+          name: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
