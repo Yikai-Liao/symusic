@@ -140,7 +140,6 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
         score_concat.tempos.extend(score.tempos)
         score_concat.time_signatures.extend(score.time_signatures)
         score_concat.key_signatures.extend(score.key_signatures)
-        score_concat.lyrics.extend(score.lyrics)
         score_concat.markers.extend(score.markers)
 
         # Concatenate track messages (except for the first Score)
@@ -151,5 +150,6 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
             score_concat.tracks[ti].controls.extend(track.controls)
             score_concat.tracks[ti].pitch_bends.extend(track.pitch_bends)
             score_concat.tracks[ti].pedals.extend(track.pedals)
+            score_concat.tracks[ti].lyrics.extend(track.lyrics)
 
     return score_concat

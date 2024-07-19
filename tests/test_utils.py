@@ -159,5 +159,4 @@ def test_split_concat_score(file_path: Path):
     # We do not test tempos, time signatures and key signature as they are duplicated
     # in score_concat (same consecutive ones for each chunk).
     assert score.tracks == score_concat.tracks
-    assert score.lyrics == score_concat.lyrics
     assert score.markers == score_concat.markers
