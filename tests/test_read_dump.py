@@ -20,8 +20,6 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     midi2.tempos.sort(key=lambda x: (x.time, x.tempo))
     midi1.markers.sort(key=lambda x: (x.time, x.text))
     midi2.markers.sort(key=lambda x: (x.time, x.text))
-    midi1.lyrics.sort(key=lambda x: (x.time, x.text))
-    midi2.lyrics.sort(key=lambda x: (x.time, x.text))
     for track1, track2 in zip(midi1.tracks, midi2.tracks):
         track1.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track2.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
@@ -29,13 +27,15 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
         track2.controls.sort(key=lambda x: (x.time, x.number, x.value))
         track1.pitch_bends.sort(key=lambda x: (x.time, x.value))
         track2.pitch_bends.sort(key=lambda x: (x.time, x.value))
+        track1.lyrics.sort(key=lambda x: (x.time, x.text))
+        track2.lyrics.sort(key=lambda x: (x.time, x.text))
 
     # Check the objects are equal
     midi_equals = midi1 == midi2
 
     # If not, look for what's different and prints it
     if not midi_equals:
-        track_attrs = ["notes", "controls", "pitch_bends", "pedals"]
+        track_attrs = ["notes", "controls", "pitch_bends", "pedals", "lyrics"]
         for track1, track2 in zip(midi1.tracks, midi2.tracks):
             for track_attr in track_attrs:
                 if getattr(track1, track_attr) != getattr(track2, track_attr):
@@ -53,7 +53,6 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
             "time_signatures",
             "key_signatures",
             "markers",
-            "lyrics",
             "ticks_per_quarter",
         ]
         for midi_attr in midi_attrs:

@@ -55,6 +55,8 @@ def test_second_conversion(midi_path: Path):
     max_delta = 0
     max_delta_rel = 0
     for track_tick, track_sec in zip(s_tick.tracks, s_sec.tracks):
+        if len(track_tick.notes) == 0:
+            continue
         track_tick.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track_sec.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         notes_tick = track_tick.notes.numpy()
