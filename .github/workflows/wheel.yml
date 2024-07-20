@@ -126,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Merge Artifacts
-        uses: actions/download-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v4
         with:
           name: artifact
           pattern: tmp-*
