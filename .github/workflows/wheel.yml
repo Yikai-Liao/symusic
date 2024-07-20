@@ -121,12 +121,23 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+#      - uses: actions/upload-artifact@v4
+#        with:
+#          name: sdist
+#          path: dist/*.tar.gz
+
+  merge_artifacts:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge Artifacts
+        uses: actions/download-artifact/merge@v4
         with:
-          path: dist/*.tar.gz
+          name: artifact
+          pattern: *
 
   upload_pypi:
-    needs: [build_wheels, build_sdist]
+    needs: merge_artifacts
     runs-on: ubuntu-latest
     environment:
       name: pypi
