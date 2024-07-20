@@ -121,11 +121,6 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-#      - uses: actions/upload-artifact@v4
-#        with:
-#          name: tmp-sdist
-#          path: dist/*.tar.gz
-
   merge_artifacts:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
