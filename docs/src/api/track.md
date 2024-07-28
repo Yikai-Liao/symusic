@@ -26,13 +26,13 @@
 ```python
 Track(
     self, name: str = "",
-program: int = 0,
-is_drum: bool = False,
-notes: smt.GeneralNoteList = None,
-controls: smt.GeneralControlChangeList = None,
-pitch_bends: smt.GeneralPitchBendList = None,
-pedals: smt.GeneralPedalList = None,
-ttype: smt.GeneralTimeUnit = TimeUnit.tick
+    program: int = 0,
+    is_drum: bool = False,
+    notes: smt.GeneralNoteList = None,
+    controls: smt.GeneralControlChangeList = None,
+    pitch_bends: smt.GeneralPitchBendList = None,
+    pedals: smt.GeneralPedalList = None,
+    ttype: smt.GeneralTimeUnit = TimeUnit.tick
 )
 ```
 
