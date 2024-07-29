@@ -556,23 +556,46 @@ auto bind_score(nb::module_& m, const std::string& name_) {
 
 using namespace pyutils;
 NB_MODULE(core, m) {
+
+#ifndef MEM_LEAK_WARNING
+    nb::set_leak_warnings(false);
+    m.attr("_nanobind_mem_leak_warning") = false;
+#else
+    m.attr("_nanobind_mem_leak_warning") = true;
+#endif
+
     m.attr("_MIDI2ABC") = std::string("");
 
     // clang-format off
     auto tick = nb::class_<Tick>(m, "Tick")
         .def(nb::init<>())
         .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
-        .def("is_time_unit", [](const Tick&) { return true; });
+        .def("is_time_unit", [](const Tick&) { return true; })
+        .def("__getstate__", [](const Tick&) { return nb::bytes(""); })
+        .def("__setstate__", [](Tick&self, const nb::bytes&) {
+            new (&self) Tick();
+        })
+    ;
 
     auto quarter = nb::class_<Quarter>(m, "Quarter")
        .def(nb::init<>())
        .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
-       .def("is_time_unit", [](const Quarter&) { return true; });
+       .def("is_time_unit", [](const Quarter&) { return true; })
+       .def("__getstate__", [](const Quarter&) { return nb::bytes(""); })
+       .def("__setstate__", [](Quarter&self, const nb::bytes&) {
+           new (&self) Quarter();
+       })
+    ;
 
     auto second = nb::class_<Second>(m, "Second")
       .def(nb::init<>())
       .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
-      .def("is_time_unit", [](const Second&) { return true; });
+      .def("is_time_unit", [](const Second&) { return true; })
+      .def("__getstate__", [](const Second&) { return nb::bytes(""); })
+      .def("__setstate__", [](Second&self, const nb::bytes&) {
+          new (&self) Second();
+      })
+    ;
     // clang-format on
 
     // // def __eq__ for all time units

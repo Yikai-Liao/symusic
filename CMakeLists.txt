@@ -9,7 +9,7 @@ option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
 option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
-
+option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
 
 # set /utf-8 for MSVC
 if(MSVC)
@@ -17,6 +17,12 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
+if(MEM_LEAK_WARNING)
+    message(STATUS "Nanobind memory leak warning ENABLED")
+    add_definitions(-DMEM_LEAK_WARNING)
+else ()
+    message(STATUS "Nanobind memory leak warning DISABLED")
+endif()
 
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
@@ -57,6 +63,7 @@ if(BUILD_SYMUSIC_PY)
     nanobind_add_module(
         core
         NB_STATIC STABLE_ABI LTO PROTECT_STACK NOSTRIP
+        NB_DOMAIN symusic
         py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h
     )
     target_link_libraries(core PRIVATE symusic)

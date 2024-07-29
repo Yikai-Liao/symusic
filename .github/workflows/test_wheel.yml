@@ -50,13 +50,6 @@ jobs:
         with:
           architecture: 'x86'
 
-      - name: Force ClangCL on Windows
-        if: ${{ matrix.buildplat[0] == 'windows-2022' }}
-        # remove the default CMakeLists.txt and replace it with CMakeLists-VS.txt
-        run: |
-            rm CMakeLists.txt
-            mv CMakeLists-VS.txt CMakeLists.txt
-
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
         uses: pypa/cibuildwheel@ce3fb7832089eb3e723a0a99cab7f3eaccf074fd  # v2.16.5

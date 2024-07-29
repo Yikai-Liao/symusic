@@ -55,10 +55,21 @@ pip install symusic
 
 ### Build from source
 > Make sure that your system has cmake and c++ compilers
-
+> 
+You could clone from github and install it by pip
 ```bash
 git clone --recursive https://github.com/Yikai-Liao/symusic
 pip install ./symusic
+```
+
+Or you could install the source distribution from pypi
+```bash
+pip install symusic --no-binary symusic
+```
+
+For debugging purpose, you could pass `-Ccmake.define.MEM_LEAK_WARNING=True` to `pip install` to enable the memory leak warning from `nanobind`.
+```bash
+pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 ```
 
 ## Benchmark
