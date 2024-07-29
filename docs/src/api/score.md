@@ -10,7 +10,6 @@
 | `time_signatures`   | TimeSignatureList | List of time signatures in the score |
 | `key_signatures`    | KeySignatureList  | List of key signatures in the score  |
 | `tempos`            | TempoList         | List of tempos in the score          |
-| `lyrics`            | TextMetaList      | List of lyrics in the score          |
 | `markers`           | TextMetaList      | List of markers in the score         |
 
 | Property-Like | Type                      | Description                            |
