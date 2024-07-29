@@ -158,7 +158,7 @@ class NoteFactory:
         duration: smt.TimeDtype,
         pitch: int,
         velocity: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Note:
         """Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
         `int` or `float` as time. So Type Checker like MyPy will complain about the
@@ -176,7 +176,7 @@ class NoteFactory:
         duration: ndarray,
         pitch: ndarray,
         velocity: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralNoteList:
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
@@ -204,7 +204,7 @@ class KeySignatureFactory:
         time: smt.TimeDtype,
         key: int,
         tonality: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.KeySignature:
         return self.__core_classes.dispatch(ttype)(time, key, tonality)  # type: ignore
 
@@ -216,7 +216,7 @@ class KeySignatureFactory:
         time: ndarray,
         key: ndarray,
         tonality: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralKeySignatureList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, key, tonality)
 
@@ -239,7 +239,7 @@ class TimeSignatureFactory:
         time: smt.TimeDtype,
         numerator: int,
         denominator: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.TimeSignature:
         return self.__core_classes.dispatch(ttype)(time, numerator, denominator)  # type: ignore
 
@@ -251,7 +251,7 @@ class TimeSignatureFactory:
         time: ndarray,
         numerator: ndarray,
         denominator: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTimeSignatureList:
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
@@ -278,7 +278,7 @@ class ControlChangeFactory:
         time: smt.TimeDtype,
         number: int,
         value: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.ControlChange:
         return self.__core_classes.dispatch(ttype)(time, number, value)  # type: ignore
 
@@ -290,7 +290,7 @@ class ControlChangeFactory:
         time: ndarray,
         number: ndarray,
         value: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralControlChangeList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, number, value)
 
@@ -309,7 +309,7 @@ class TempoFactory:
         time: smt.TimeDtype,
         qpm: float | None = None,
         mspq: int | None = None,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Tempo:
         """:param time: the time of the tempo change, in the unit of `ttype`
         :param qpm: quarter per minute. The `bpm` in miditoolkit is actually quarter per minute, not beat per minute.
@@ -326,7 +326,7 @@ class TempoFactory:
         self,
         time: ndarray,
         mspq: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTempoList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, mspq)
 
@@ -344,7 +344,7 @@ class PedalFactory:
         self,
         time: smt.TimeDtype,
         duration: smt.TimeDtype,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Pedal:
         return self.__core_classes.dispatch(ttype)(time, duration)  # type: ignore
 
@@ -355,7 +355,7 @@ class PedalFactory:
         self,
         time: ndarray,
         duration: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPedalList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, duration)
 
@@ -377,7 +377,7 @@ class PitchBendFactory:
         self,
         time: smt.TimeDtype,
         value: int,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.PitchBend:
         return self.__core_classes.dispatch(ttype)(time, value)  # type: ignore
 
@@ -388,7 +388,7 @@ class PitchBendFactory:
         self,
         time: ndarray,
         value: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPitchBendList:
         return self.__core_lists.dispatch(ttype).from_numpy(time, value)
 
@@ -410,7 +410,7 @@ class TextMetaFactory:
         self,
         time: smt.TimeDtype,
         text: str,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.TextMeta:
         return self.__core_classes.dispatch(ttype)(time, text)  # type: ignore
 
@@ -421,7 +421,7 @@ class TextMetaFactory:
         self,
         time: ndarray,
         text: ndarray,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTextMetaList:
         raise NotImplementedError
         # return self.__core_classes.dispatch(ttype).from_numpy(time, text)
@@ -440,7 +440,7 @@ class TrackFactory:
         controls: smt.GeneralControlChangeList = None,
         pitch_bends: smt.GeneralPitchBendList = None,
         pedals: smt.GeneralPedalList = None,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Track:
         r"""Create a Track object with the given parameters.
         Note that all of these parameters are optional,
@@ -463,7 +463,7 @@ class TrackFactory:
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
-    def empty(self, ttype: smt.GeneralTimeUnit = TimeUnit.tick) -> smt.Track:
+    def empty(self, ttype: smt.GeneralTimeUnit = "tick") -> smt.Track:
         # create an empty track
         return self.__core_classes.dispatch(ttype)()
 
@@ -475,7 +475,7 @@ class ScoreFactory:
     def __call__(
         self,
         x: int | str | Path | smt.Score = 960,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
     ) -> smt.Score:
         if isinstance(x, (str, Path)):
@@ -490,7 +490,7 @@ class ScoreFactory:
     def from_file(
         self,
         path: str | Path,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
     ) -> smt.Score:
         if isinstance(path, str):
@@ -502,28 +502,28 @@ class ScoreFactory:
     def from_midi(
         self,
         data: bytes,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype).from_midi(data)
 
     def from_abc(
         self,
         abc: str,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
         self,
         tpq: int = 960,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype)(tpq)
 
     def from_other(
         self,
         other: smt.Score,
-        ttype: smt.GeneralTimeUnit = TimeUnit.tick,
+        ttype: smt.GeneralTimeUnit = "tick",
         min_dur: int | None = None,
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
