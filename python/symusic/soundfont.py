@@ -51,7 +51,7 @@ class BuiltInSF3:
         return Soundfont(
             name="MuseScore_General.sf3",
             url="https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3",
-            hash_="7b354559c7ef4e859a2bfad8738d477d",
+            hash_="2c7cefb39fb95f8e9258da215736ea1dc325adad6860a2d7a090a33b47235797086c35e8c962ca4c0654bfa6fde6f28c",
         )
 
 
@@ -61,5 +61,5 @@ class BuiltInSF2:
         return Soundfont(
             name="MuseScore_General.sf2",
             url="https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",
-            hash_="4395439e3e5f9149aae7ea5094442813",
+            hash_="bcffbd48c829a094b14ade8102ea412cc48018a21081920ea0f3a0b8003c0c1a61cbee988094e094ef7a64236af67504",
         )
