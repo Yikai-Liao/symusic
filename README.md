@@ -55,7 +55,7 @@ pip install symusic
 
 ### Build from source
 > Make sure that your system has cmake and c++ compilers
-> 
+>
 You could clone from github and install it by pip
 ```bash
 git clone --recursive https://github.com/Yikai-Liao/symusic
