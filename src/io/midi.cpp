@@ -54,7 +54,8 @@ private:
     NoteOn<T>                _front;
 
 public:
-                         NoteOnQueue() = default;
+    NoteOnQueue() = default;
+
     [[nodiscard]] size_t size() const { return _front.empty() ? 0 : queue.size() + 1; }
 
     [[nodiscard]] bool empty() const { return _front.empty(); }
