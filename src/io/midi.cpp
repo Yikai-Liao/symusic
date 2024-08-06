@@ -54,7 +54,8 @@ private:
     NoteOn<T>                _front;
 
 public:
-                         NoteOnQueue() = default;
+    NoteOnQueue() = default;
+
     [[nodiscard]] size_t size() const { return _front.empty() ? 0 : queue.size() + 1; }
 
     [[nodiscard]] bool empty() const { return _front.empty(); }
@@ -348,105 +349,7 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
     sort_by_time(score.markers);
     return to_shared(std::move(score));
 }
-//
-// minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
-//     minimidi::file::MidiFile midi{
-//         minimidi::file::MidiFormat::MultiTrack, 0, static_cast<u16>(score.ticks_per_quarter)
-//     };
-//     namespace message = minimidi::message;
-//     midi.tracks.reserve(score.tracks->size() + 1);
-//
-//     {   // add meta messages
-//         message::Messages msgs{};
-//         msgs.reserve(
-//             score.time_signatures->size()
-//                 + score.key_signatures->size()
-//                 + score.tempos->size()
-//                 + score.markers->size() + 10
-//         );
-//         // add time signatures
-//         for (const auto& time_signature : *score.time_signatures) {
-//             msgs.emplace_back(message::Message::TimeSignature(
-//                 time_signature->time, time_signature->numerator, time_signature->denominator
-//             ));
-//         }
-//         // add key signatures
-//         for (const auto& key_signature : *score.key_signatures) {
-//             msgs.emplace_back(message::Message::KeySignature(
-//                 key_signature->time, key_signature->key, key_signature->tonality
-//             ));
-//         }
-//         // add tempos
-//         for (const auto& tempo : *score.tempos) {
-//             msgs.emplace_back(message::Message::SetTempo(tempo->time, tempo->mspq));
-//         }
-//         // add lyrics
-//         // for (const auto& lyric : *score.lyrics) {
-//         //     msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
-//         // }
-//         // add markers
-//         for (const auto& marker : *score.markers) {
-//             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
-//         }
-//         // messages will be sorted by time in minimidi
-//         if (!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
-//     }
-//
-//     const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
-//
-//     for (size_t idx = 0; const auto& track : *score.tracks) {
-//         message::Messages msgs{};
-//         msgs.reserve(
-//             track->note_num() * 2
-//                 + track->controls->size()
-//                 + track->pitch_bends->size()
-//                 + track->lyrics->size()
-//                 + 10
-//         );
-//         const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
-//         // add track name
-//         if (!track->name.empty()) msgs.emplace_back(message::Message::TrackName(0, track->name));
-//         // add program change
-//         msgs.emplace_back(message::Message::ProgramChange(0, channel, track->program));
-//         // Todo add check for Pedal
-//         // add control change
-//         for (const auto& control : *track->controls) {
-//             msgs.emplace_back(message::Message::ControlChange(
-//                 control->time, channel, control->number, control->value
-//             ));
-//         }
-//         // add pitch bend
-//         for (const auto& pitch_bend : *track->pitch_bends) {
-//             msgs.emplace_back(message::Message::PitchBend(
-//                 pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
-//             ));
-//         }
-//         // add notes
-//         vec<Note<Tick>> notes{track->notes->cbegin(), track->notes->cend()};
-//         pdqsort_branchless(notes.begin(), notes.end(), [](const auto& a, const auto& b) {
-//             return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
-//         });
-//
-//         for (const auto& note : notes) {
-//             msgs.emplace_back(
-//                 message::Message::NoteOn(note.time, channel, note.pitch, note.velocity)
-//             );
-//             msgs.emplace_back(
-//                 message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity)
-//             );
-//         }
-//         // add lyrics
-//         for (const auto& lyric : *track->lyrics) {
-//             msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
-//         }
-//         // messages will be sorted by time in minimidi
-//         if (!msgs.empty()) {
-//             midi.tracks.emplace_back(std::move(msgs));
-//             idx += 1;
-//         }
-//     }
-//     return midi;
-// }
+
 
 
 minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
@@ -487,9 +390,9 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         for (const auto& marker : *score.markers) {
             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
         }
-        pdqsort_branchless(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
-            return a.get_time() < b.get_time();
-        });
+        // pdqsort_branchless(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
+        //     return a.get_time() < b.get_time();
+        // });
     }
 
     const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
@@ -522,11 +425,6 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
                 control->time, channel, control->number, control->value
             ));
         }
-        pdqsort_branchless(
-            msgs.begin() + control_begin,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
-        );
         if (have_init) {
             // merge init_msgs and track_name,program -> controls
             gfx::timmerge(
@@ -543,33 +441,14 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
                 pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
             ));
         }
-        pdqsort_branchless(msgs.begin() + bend_begin, msgs.end(), [](const auto& a, const auto& b) {
-            return a.get_time() < b.get_time();
-        });
         // add lyrics
         const auto lyric_begin = static_cast<ptrdiff_t>(msgs.size());
         for (const auto& lyric : *track->lyrics) {
             msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
         }
-        pdqsort_branchless(
-            msgs.begin() + lyric_begin,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
-        );
-        // merge pitch_bends and lyrics
-        gfx::timmerge(
-            msgs.begin() + bend_begin,
-            msgs.begin() + lyric_begin,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
-        );
-        // merge prev to (pitch_bends and lyrics)
-        gfx::timmerge(
-            msgs.begin(),
-            msgs.begin() + bend_begin,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
-        );
+        pdqsort_branchless(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
+            return a.get_time() < b.get_time();
+        });
         // add notes
         const size_t note_size  = track->notes->size();
         const auto   note_begin = static_cast<ptrdiff_t>(msgs.size());
@@ -600,7 +479,8 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         }
         // insertion sort note_off
         pdqsort_detail::insertion_sort(
-            msgs.begin() + note_begin, msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
+            msgs.begin() + note_begin,
+            msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
             [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
         );
         // merge note on and note off
