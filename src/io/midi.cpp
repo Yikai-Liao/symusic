@@ -18,6 +18,8 @@
 #include "symusic/utils.h"
 #include "symusic/conversion.h"
 
+#include <assert.h>
+
 namespace symusic {
 
 namespace details {
@@ -287,7 +289,7 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                 }
                 case (message::MetaType::Lyric): {
                     // lyrics should be placed in Track, not Score
-                    auto data = msg.get_meta_value();
+                    auto    data    = msg.get_meta_value();
                     uint8_t channel = msg.get_channel();
                     uint8_t program = cur_instr[channel];
                     auto&   track   // all lyrics should be preserved, so we set create_new=true
@@ -455,13 +457,16 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
     midi.tracks.reserve(score.tracks->size() + 1);
     message::Messages init_msgs{};
     {   // add meta messages
-        auto& msgs = init_msgs;
-        msgs.reserve(
-            score.time_signatures->size()
-                + score.key_signatures->size()
-                + score.tempos->size()
-                + score.markers->size() + 10
-        );
+        auto&  msgs        = init_msgs;
+        size_t message_num = score.time_signatures->size() + score.key_signatures->size()
+                             + score.tempos->size() + score.markers->size();
+        if (!score.tracks->empty()) {
+            message_num += score.tracks->front()->note_num() * 2
+                           + score.tracks->front()->controls->size()
+                           + score.tracks->front()->pitch_bends->size()
+                           + score.tracks->front()->lyrics->size();
+        }
+        msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
             msgs.emplace_back(message::Message::TimeSignature(
@@ -482,84 +487,144 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         for (const auto& marker : *score.markers) {
             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
         }
-        // messages will be sorted by time in minimidi
-        // if (!msgs.empty()) midi.tracks.emplace_back(std::move(msgs));
+        pdqsort_branchless(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
+            return a.get_time() < b.get_time();
+        });
     }
 
     const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& track : *score.tracks) {
         message::Messages msgs;
-        if(!init_msgs.empty()) {
-            msgs = std::move(init_msgs);
+        bool              have_init = false;
+        if (!init_msgs.empty()) {
+            msgs      = std::move(init_msgs);
             init_msgs = {};
+            have_init = true;
         } else {
             msgs = {};
+            msgs.reserve(
+                msgs.size() + track->note_num() * 2 + track->controls->size()
+                + track->pitch_bends->size() + track->lyrics->size() + 10
+            );
         }
-        msgs.reserve(
-            msgs.size() +
-            track->note_num() * 2
-                + track->controls->size()
-                + track->pitch_bends->size()
-                + track->lyrics->size()
-                + 10
-        );
-        const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
+        const u8   channel     = track->is_drum ? 9 : valid_channel[idx % 15];
+        const auto track_begin = static_cast<ptrdiff_t>(msgs.size());
         // add track name
         if (!track->name.empty()) msgs.emplace_back(message::Message::TrackName(0, track->name));
         // add program change
         msgs.emplace_back(message::Message::ProgramChange(0, channel, track->program));
         // Todo add check for Pedal
         // add control change
+        const auto control_begin = static_cast<ptrdiff_t>(msgs.size());
         for (const auto& control : *track->controls) {
             msgs.emplace_back(message::Message::ControlChange(
                 control->time, channel, control->number, control->value
             ));
         }
+        pdqsort_branchless(
+            msgs.begin() + control_begin,
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        if (have_init) {
+            // merge init_msgs and track_name,program -> controls
+            gfx::timmerge(
+                msgs.begin(),
+                msgs.begin() + track_begin,
+                msgs.end(),
+                [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+            );
+        }
         // add pitch bend
+        const auto bend_begin = static_cast<ptrdiff_t>(msgs.size());
         for (const auto& pitch_bend : *track->pitch_bends) {
             msgs.emplace_back(message::Message::PitchBend(
                 pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
             ));
         }
-        // add notes
-        const size_t note_size = track->notes->size();
-        const size_t note_begin = msgs.size();
-        msgs.resize(msgs.size() + note_size * 2);
-        for (size_t i = note_begin; const auto& note : *track->notes) {
-            // msgs.emplace_back(
-            //     message::Message::NoteOn(note.time, channel, note.pitch, note.velocity)
-            // );
-            // msgs.emplace_back(
-            //     message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity)
-            // );
-            if(note.duration > 0) {
-                msgs[i] = message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity);
-                msgs[i + note_size] = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
-            } else { // empty note
-                msgs[i + note_size] = message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity);
-                msgs[i] = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
-            }
-
-            i += 1;
-        }
+        pdqsort_branchless(msgs.begin() + bend_begin, msgs.end(), [](const auto& a, const auto& b) {
+            return a.get_time() < b.get_time();
+        });
         // add lyrics
+        const auto lyric_begin = static_cast<ptrdiff_t>(msgs.size());
         for (const auto& lyric : *track->lyrics) {
             msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
         }
+        pdqsort_branchless(
+            msgs.begin() + lyric_begin,
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        // merge pitch_bends and lyrics
+        gfx::timmerge(
+            msgs.begin() + bend_begin,
+            msgs.begin() + lyric_begin,
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        // merge prev to (pitch_bends and lyrics)
+        gfx::timmerge(
+            msgs.begin(),
+            msgs.begin() + bend_begin,
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        // add notes
+        const size_t note_size  = track->notes->size();
+        const auto   note_begin = static_cast<ptrdiff_t>(msgs.size());
+
+        // collect notes and make sure they are sorted
+        vec<Note<Tick>> notes(track->notes->size());
+        bool            sorted    = true;
+        Tick::unit      prev_time = 0;
+        for (size_t j = 0; const auto& note : *track->notes) {
+            notes[j++] = note;
+            sorted &= note.time >= prev_time;
+            prev_time = note.time;
+        }
+        if (!sorted) { sort_by_time(notes); }
+        // add notes to messages
+        msgs.resize(msgs.size() + note_size * 2);
+        for (size_t i = note_begin; const auto& note : notes) {
+            if (note.duration > 0) {
+                msgs[i] = message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity);
+                msgs[i + note_size]
+                    = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
+            } else {   // empty note
+                msgs[i + note_size]
+                    = message::Message::NoteOff(note.time, channel, note.pitch, note.velocity);
+                msgs[i] = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
+            }
+            i += 1;
+        }
+        // insertion sort note_off
+        pdqsort_detail::insertion_sort(
+            msgs.begin() + note_begin, msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        // merge note on and note off
+        gfx::timmerge(
+            msgs.begin() + note_begin,
+            msgs.begin() + note_begin + static_cast<ptrdiff_t>(note_size),
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
+        // merge prev to (note on and note off)
+        gfx::timmerge(
+            msgs.begin(),
+            msgs.begin() + note_begin,
+            msgs.end(),
+            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+        );
         // messages will be sorted by time in minimidi
         if (!msgs.empty()) {
             // sort msgs by time using timsort
-            gfx::timsort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
-                return a.get_time() < b.get_time();
-            });
             midi.tracks.emplace_back(std::move(msgs));
             idx += 1;
         }
     }
-    if(!init_msgs.empty()) {
-        midi.tracks.emplace_back(std::move(init_msgs));
-    }
+    if (!init_msgs.empty()) { midi.tracks.emplace_back(std::move(init_msgs)); }
     return midi;
 }
 
