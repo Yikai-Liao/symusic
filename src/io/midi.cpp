@@ -428,7 +428,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
             msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
         }
 
-        pdqsort_branchless(
+        gfx::timsort(
             msgs.begin(),
             msgs.end(),
             [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
