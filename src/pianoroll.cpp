@@ -25,14 +25,16 @@ TrackPianoroll TrackPianoroll::from_track(
     TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, track.end() + 1);
 
     for (const auto& note : *track.notes) {
-        for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-            pianoroll.set(
-                modeIdx,
-                note->pitch - pitchRange.first,
-                modes[modeIdx] != PianorollMode::offset ? note->start() : note->end(),
-                modes[modeIdx] == PianorollMode::frame ? note->duration : 1,
-                encodeVelocity ? note->velocity : 1
-            );
+        if(note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
+            for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
+                pianoroll.set(
+                    modeIdx,
+                    note->pitch - pitchRange.first,
+                    modes[modeIdx] != PianorollMode::offset ? note->start() : note->end(),
+                    modes[modeIdx] == PianorollMode::frame ? note->duration : 1,
+                    encodeVelocity ? note->velocity : 1
+                );
+            }
         }
     }
 
@@ -110,15 +112,17 @@ ScorePianoroll ScorePianoroll::from_score(
 
     for (int trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
         for (const Track<Tick>& track = *tracks[trackIdx]; const auto& note : *track.notes) {
-            for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                pianoroll.set(
-                    modeIdx,
-                    trackIdx,
-                    note->pitch - pitchRange.first,
-                    modes[modeIdx] != PianorollMode::offset ? note->start() : note->end(),
-                    modes[modeIdx] == PianorollMode::frame ? note->duration : 1,
-                    encodeVelocity ? note->velocity : 1
-                );
+            if(note.pitch >= pitchRange.first && note.pitch < pitchRange.second){
+                for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
+                    pianoroll.set(
+                        modeIdx,
+                        trackIdx,
+                        note->pitch - pitchRange.first,
+                        modes[modeIdx] != PianorollMode::offset ? note->start() : note->end(),
+                        modes[modeIdx] == PianorollMode::frame ? note->duration : 1,
+                        encodeVelocity ? note->velocity : 1
+                    );
+                }
             }
         }
     }
