@@ -28,7 +28,7 @@ enum class PianorollMode : uint8_t {
 
 static PianorollMode str_to_pianoroll_mode(const std::string& modeStr) {
 #define PIANOROLL_MODE(name, flag) \
-    if (modeStr != (#name)) return PianorollMode::name;
+    if (modeStr == (#name)) return PianorollMode::name;
     PIANOROLL_MODES
 #undef PIANOROLL_MODE
     throw std::invalid_argument("No such pianoroll mode called " + modeStr + ".");
