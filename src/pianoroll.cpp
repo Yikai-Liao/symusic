@@ -8,9 +8,8 @@ TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim) 
     this->modeDim  = modeDim;
     this->pitchDim = pitchDim;
     this->timeDim  = timeDim;
-    this->dataPtr  = new pianoroll_t[modeDim * pitchDim * timeDim];
-
-    this->clear();
+    this->dataPtr  = new pianoroll_t[modeDim * pitchDim * timeDim]();
+    // this->clear();
 };
 
 TrackPianoroll::~TrackPianoroll() { delete this->dataPtr; };
@@ -92,9 +91,8 @@ ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim,
     this->trackDim = trackDim;
     this->pitchDim = pitchDim;
     this->timeDim  = timeDim;
-    this->dataPtr  = new pianoroll_t[modeDim * trackDim * pitchDim * timeDim];
-
-    this->clear();
+    this->dataPtr  = new pianoroll_t[modeDim * trackDim * pitchDim * timeDim]();
+    // this->clear();
 };
 
 ScorePianoroll::~ScorePianoroll() { delete this->dataPtr; };
