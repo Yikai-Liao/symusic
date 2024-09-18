@@ -231,12 +231,14 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
             },  nb::rv_policy::copy,
             nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true
         )
-        .def("filter", [](vec_t& v, nb::object & func, const bool inplace) -> vec_t {
+        .def("filter", [](vec_t &v, nb::object &func, const bool inplace) -> vec_t {
                 vec_t ans = inplace? v : std::make_shared<pyvec<T>>(std::move(v->copy()));
                 if(func.is_none()) {
                     throw std::invalid_argument("symusic::filter: You need to provide a function, not None!");
                 }
-                ans->filter_shared(nb::cast<nb::callable>(func));
+                ans->filter_shared([func](const shared<T>& e) -> bool {
+                    return nb::cast<bool>(func(e));
+                });
                 return ans;
             }, nb::rv_policy::copy,
             nb::arg("func") = nb::none(), nb::arg("inplace") = true
