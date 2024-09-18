@@ -209,7 +209,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             });
             ans->erase(it, ans->end());
             return ans;
-        })
+        }, nb::arg("function"), nb::arg("inplace") = true)
         .def("sort", [](vec_t& self, const nb::object& key, const bool reverse,  const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             if(key.is_none()) {
