@@ -66,26 +66,6 @@ if(BUILD_SYMUSIC_PY)
         NB_DOMAIN symusic
         py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h
     )
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        find_library(MUSL_LIB musl)
-        # Static Link to MUSL for Linux if MUSL is detected
-        if (MUSL_LIB)
-            message(STATUS "MUSL detected, static link to musl")
-
-            set_target_properties(core PROPERTIES LINK_SEARCH_START_STATIC 1)
-            set_target_properties(core PROPERTIES LINK_SEARCH_END_STATIC 1)
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
-            target_link_libraries(core PRIVATE ${MUSL_LIB})
-
-            set_target_properties(abc2midi PROPERTIES LINK_SEARCH_START_STATIC 1)
-            set_target_properties(abc2midi PROPERTIES LINK_SEARCH_END_STATIC 1)
-            target_link_libraries(abc2midi PRIVATE ${MUSL_LIB})
-
-            set_target_properties(midi2abc PROPERTIES LINK_SEARCH_START_STATIC 1)
-            set_target_properties(midi2abc PROPERTIES LINK_SEARCH_END_STATIC 1)
-            target_link_libraries(midi2abc PRIVATE ${MUSL_LIB})
-        endif()
-    endif()
     target_link_libraries(core PRIVATE symusic)
 
     install(TARGETS core LIBRARY DESTINATION symusic)
