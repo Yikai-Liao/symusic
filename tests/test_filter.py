@@ -1,4 +1,4 @@
-from symusic import Score, Track, Note
+from symusic import Note, Score, Track
 
 
 def test_filter_notes():
@@ -6,7 +6,11 @@ def test_filter_notes():
 
     notes1 = track.notes.filter(lambda n: n.start < 6, inplace=False)
     assert list(notes1) == [Note(0, 4, 72, 72), Note(4, 6, 72, 72)]
-    assert list(track.notes) == [Note(0, 4, 72, 72), Note(4, 6, 72, 72), Note(8, 4, 72, 72)]
+    assert list(track.notes) == [
+        Note(0, 4, 72, 72),
+        Note(4, 6, 72, 72),
+        Note(8, 4, 72, 72),
+    ]
 
     notes2 = track.notes.filter(lambda n: n.start > 6, inplace=True)
     assert list(notes2) == [Note(8, 4, 72, 72)]
