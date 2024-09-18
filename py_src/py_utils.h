@@ -241,7 +241,7 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
                 });
                 return ans;
             }, nb::rv_policy::copy,
-            nb::arg("func") = nb::none(), nb::arg("inplace") = true
+            nb::arg("function") = nb::none(), nb::arg("inplace") = true
         )
         .def("is_sorted", [](const vec_t& v, nb::object & key, bool reverse) -> bool {
                 if(key.is_none()) {
