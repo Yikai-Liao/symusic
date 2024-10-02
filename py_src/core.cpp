@@ -36,19 +36,25 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             "render",
             [](Synthesizer& self, const shared<Score<Tick>>& score, const bool stereo) {
                 return self.render(*score, stereo);
-            }
+            },
+            nb::arg("score"),
+            nb::arg("stereo") = true
         )
         .def(
             "render",
             [](Synthesizer& self, const shared<Score<Quarter>>& score, const bool stereo) {
                 return self.render(*score, stereo);
-            }
+            },
+            nb::arg("score"),
+            nb::arg("stereo") = true
         )
         .def(
             "render",
             [](Synthesizer& self, const shared<Score<Second>>& score, const bool stereo) {
                 return self.render(*score, stereo);
-            }
+            },
+            nb::arg("score"),
+            nb::arg("stereo") = true
         );
 
 
