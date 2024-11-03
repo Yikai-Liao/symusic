@@ -164,10 +164,10 @@ auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
     return details::to_shared_vec(std::move(ans));
 }
 
-template<TType T, typename unit = typename T::unit>
-auto textmeta_from_numpy(NDARR(unit, 1) time, NDARR(std::string, 1) text) {
-    throw std::runtime_error("TextMeta does not support numpy");
-}
+// template<TType T, typename unit = typename T::unit>
+// auto textmeta_from_numpy(NDARR(unit, 1) time, NDARR(std::string, 1) text) {
+//     throw std::runtime_error("TextMeta does not support numpy");
+// }
 
 template<typename T>
 auto bind_time_stamp(nb::module_& m, const std::string& name) {
