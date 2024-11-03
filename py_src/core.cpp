@@ -10,6 +10,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/eigen/dense.h>
 #include <nanobind/stl/filesystem.h>
+#include "prestosynth/wav.h"
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
@@ -58,9 +59,34 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         );
 
 
+    // m.def(
+    //     "dump_wav",
+    //     &psynth::write_audio,
+    //     nb::arg("path"),
+    //     nb::arg("data"),
+    //     nb::arg("sample_rate"),
+    //     nb::arg("use_int16") = true
+    // );
+
+
     m.def(
-        "dump_wav",
-        &psynth::write_audio,
+        "dump_wav",[](
+            const std::string& path,
+            const nb::ndarray<f32, nb::shape<-1, -1>, nb::device::cpu>& data,
+            const i32 sample_rate,
+            const bool use_int16
+            ){
+            // show the shape of the data
+            std::cout << "data shape: " << data.shape(0) << " " << data.shape(1) << std::endl;
+            psynth::WAVE_write(
+                path,
+                data.shape(0),
+                data.shape(1),
+                sample_rate,
+                data.data(),
+                use_int16
+            );
+        },
         nb::arg("path"),
         nb::arg("data"),
         nb::arg("sample_rate"),
