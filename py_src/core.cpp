@@ -58,33 +58,31 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             nb::arg("stereo") = true
         );
 
-
-    // m.def(
-    //     "dump_wav",
-    //     &psynth::write_audio,
-    //     nb::arg("path"),
-    //     nb::arg("data"),
-    //     nb::arg("sample_rate"),
-    //     nb::arg("use_int16") = true
-    // );
-
+    m.def(
+        "dump_wav",
+        [](const std::string&                                                        path,
+           const nb::ndarray<f32, nb::shape<-1, -1>, nb::device::cpu, nb::c_contig>& data,
+           const i32                                                                 sample_rate,
+           const bool                                                                use_int16) {
+            psynth::WAVE_write(
+                path, data.shape(0), data.shape(1), sample_rate, data.data(), use_int16
+            );
+        },
+        nb::arg("path"),
+        nb::arg("data"),
+        nb::arg("sample_rate"),
+        nb::arg("use_int16") = true
+    );
 
     m.def(
-        "dump_wav",[](
-            const std::string& path,
-            const nb::ndarray<f32, nb::shape<-1, -1>, nb::device::cpu>& data,
-            const i32 sample_rate,
-            const bool use_int16
-            ){
-            // show the shape of the data
-            std::cout << "data shape: " << data.shape(0) << " " << data.shape(1) << std::endl;
+        "dump_wav",
+        [](const std::filesystem::path&                                              path,
+           const nb::ndarray<f32, nb::shape<-1, -1>, nb::device::cpu, nb::c_contig>& data,
+           const i32                                                                 sample_rate,
+           const bool                                                                use_int16) {
+            const std::string path_str = path.string();
             psynth::WAVE_write(
-                path,
-                data.shape(0),
-                data.shape(1),
-                sample_rate,
-                data.data(),
-                use_int16
+                path_str, data.shape(0), data.shape(1), sample_rate, data.data(), use_int16
             );
         },
         nb::arg("path"),
@@ -109,8 +107,12 @@ shared<vec<shared<T>>> deepcopy(const shared<vec<shared<T>>>& self) {
 using namespace pyutils;
 
 std::pair<u8, u8> get_pitch_range(const std::pair<i64, i64>& range) {
-    if (range.first < 0 | range.first > 128 | range.second < 0 | range.second > 128 | range.first >= range.second) {
-        throw std::invalid_argument("Pitch range [" + std::to_string(range.first) + ", " + std::to_string(range.second) + ") is invalid");
+    if (range.first < 0 | range.first > 128 | range.second < 0 | range.second > 128
+        | range.first >= range.second) {
+        throw std::invalid_argument(
+            "Pitch range [" + std::to_string(range.first) + ", " + std::to_string(range.second)
+            + ") is invalid"
+        );
     }
     return {static_cast<u8>(range.first), static_cast<u8>(range.second)};
 }
@@ -566,23 +568,24 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             "pianoroll",
             [](const shared<Score<Tick>>& self,
                const vec<std::string>&    modes,
-               const std::pair<i64, i64>    pitch_range,
+               const std::pair<i64, i64>  pitch_range,
                const bool                 encode_velocity) {
                 vec<PianorollMode> mode_enums(modes.size());
                 for (int i = 0; i < modes.size(); ++i) {
                     mode_enums[i] = str_to_pianoroll_mode(modes[i]);
                 }
-                auto pianoroll
-                    = ScorePianoroll::from_score(*self, mode_enums, get_pitch_range(pitch_range), encode_velocity);
-                auto* data = const_cast<u8*>(pianoroll.release());
-                nb::capsule owner(data, [](void* d) noexcept { delete[] (u8*) d; });
+                auto pianoroll = ScorePianoroll::from_score(
+                    *self, mode_enums, get_pitch_range(pitch_range), encode_velocity
+                );
+                auto*       data = const_cast<u8*>(pianoroll.release());
+                nb::capsule owner(data, [](void* d) noexcept { delete[] (u8*)d; });
                 return nb::ndarray<nb::numpy, pianoroll_t>{
-                    data, {
-                        std::get<0>(pianoroll.dims()),
-                        std::get<1>(pianoroll.dims()),
-                        std::get<2>(pianoroll.dims()),
-                        std::get<3>(pianoroll.dims())
-                    },  owner
+                    data,
+                    {std::get<0>(pianoroll.dims()),
+                     std::get<1>(pianoroll.dims()),
+                     std::get<2>(pianoroll.dims()),
+                     std::get<3>(pianoroll.dims())},
+                    owner
                 };
             },
             nb::arg("modes")           = vec<std::string>{"frame", "onset"},
