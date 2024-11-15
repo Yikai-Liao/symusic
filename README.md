@@ -99,7 +99,7 @@ pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 | [pretty_midi](https://github.com/craffel/pretty-midi)         | note  | 3.16 s ± 9.56 ms  | 1104.9x       |
 | [music21](https://github.com/cuthbertLab/music21)             | note  | 4.23 s ± 34.5 ms  | 1479.0x       |
 
-## Citing
+## Citation
 
 ```bibtex
 @inproceedings{symusic2024,
