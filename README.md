@@ -67,14 +67,25 @@ pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 ```
 
 ## Benchmark
-### Parsing MIDI
 
-* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10875H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
-* Note that mahler.mid is quite a large midi file. So this benchmark mainly reelects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
 * `midifile` is writen in cpp, and could parse midi files to both `event level` and `note level`. It is slow mostly because of `iostream`.
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 * For libraries written in python or with python bindings, we use `timeit` to measure the time cost of parsing the midi file. `nanobench` for cpp libraries and `BenchmarkTools` for julia libraries.
+* The following `Common MIDI File` benchmarks could be found in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark). And they are tested on (AMD Ryzen 7 8845H, 32GB 7500 MT/s, Linux 6.11.7)
+
+
+### Common MIDI File Parsing
+
+![read-bench](./figure/read_bench.jpg)
+
+### Common MIDI File Dumping
+
+![write-bench](./figure/write_bench.jpg)
+
+### Large MIDI File Parsing
+* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10875H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
+* Note that mahler.mid is quite a large midi file. So this benchmark mainly reelects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
 
 | library                                                       | level | absolute time     | relative time |
 |---------------------------------------------------------------|-------|-------------------|---------------|
@@ -87,6 +98,18 @@ pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 | [miditoolkit](https://github.com/YatingMusic/miditoolkit)     | note  | 3.15 s ± 38.2 ms  | 1101.4x       |
 | [pretty_midi](https://github.com/craffel/pretty-midi)         | note  | 3.16 s ± 9.56 ms  | 1104.9x       |
 | [music21](https://github.com/cuthbertLab/music21)             | note  | 4.23 s ± 34.5 ms  | 1479.0x       |
+
+## Citing
+
+```bibtex
+@inproceedings{symusic2024,
+    title={symusic: A swift and unified toolkit for symbolic music processing},
+    author={Yikai Liao, Zhongqi Luo, et al.},
+    booktitle={Extended Abstracts for the Late-Breaking Demo Session of the 25th International Society for Music Information Retrieval Conference},
+    year={2024},
+    url={https://ismir2024program.ismir.net/lbd_426.html#lbd},
+}
+```
 
 ## Acknowledgement
 
