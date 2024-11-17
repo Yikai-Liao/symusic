@@ -113,4 +113,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
+          name: tmp-sdist
           path: dist/*.tar.gz
