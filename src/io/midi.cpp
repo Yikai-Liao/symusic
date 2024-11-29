@@ -361,12 +361,6 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         auto&  msgs        = init_msgs;
         size_t message_num = score.time_signatures->size() + score.key_signatures->size()
                              + score.tempos->size() + score.markers->size();
-        if (!score.tracks->empty()) {
-            message_num += score.tracks->front()->note_num() * 2
-                           + score.tracks->front()->controls->size()
-                           + score.tracks->front()->pitch_bends->size()
-                           + score.tracks->front()->lyrics->size();
-        }
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
@@ -391,7 +385,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
     }
     // add meta track (channel 0) if not empty
     if (!init_msgs.empty()) {
-        pdqsort_branchless(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
+        gfx::timsort(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
             return a.get_time() < b.get_time();
         });
         midi.tracks.emplace_back(std::move(init_msgs));
