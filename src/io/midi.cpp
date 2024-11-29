@@ -389,23 +389,24 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
         }
     }
+    // add meta track (channel 0) if not empty
+    if (!init_msgs.empty()) {
+        pdqsort_branchless(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
+            return a.get_time() < b.get_time();
+        });
+        midi.tracks.emplace_back(std::move(init_msgs));
+    }
 
-    const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
+    const u8 valid_channel[14] = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& track : *score.tracks) {
-        message::Messages msgs;
-        if (!init_msgs.empty()) {
-            msgs      = std::move(init_msgs);
-            init_msgs = {};
-        } else {
-            msgs = {};
-            msgs.reserve(
-                msgs.size() + track->note_num() * 2 + track->controls->size()
-                + track->pitch_bends->size() + track->lyrics->size() + 10
-            );
-        }
-        const u8   channel     = track->is_drum ? 9 : valid_channel[idx % 15];
-        const auto track_begin = static_cast<ptrdiff_t>(msgs.size());
+        message::Messages msgs{};
+        msgs.reserve(
+            msgs.size() + track->note_num() * 2 + track->controls->size()
+            + track->pitch_bends->size() + track->lyrics->size() + 10
+        );
+
+        const u8   channel     = track->is_drum ? 9 : valid_channel[idx % 14];
         // add track name
         if (!track->name.empty()) msgs.emplace_back(message::Message::TrackName(0, track->name));
         // add program change
