@@ -33,16 +33,6 @@ And a [document](https://yikai-liao.github.io/symusic/) is also available. Not c
 * A new synthesizer is now available! It comes from our another project [prestosynth](https://github.com/lzqlzzq/prestosynth).
   Find usages in our document. Note that we will support more features of soundfont for synthesizing in the future.
 
-## Known Bugs
-
-### Strange Noise at the End of Synthesized Audio
-
-Currently, synthesizing audio with symusic on linux gives a probability of hearing strange noise at the end of the audio. This phenomenon cannot be reproduced consistently and does not occur on windows.
-
-You can temporarily fix this by adding a few seconds of notes at the end and removing those seconds of audio at the end.
-
-It is important to note that the audio synthesis functionality was implemented by us rather than using an off-the-shelf project, and it is still experimental at this time. Feel free to give us feedback on any bugs you find.
-
 ## Installation
 ### Use pre-compiled version
 ```bash
