@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(symusic)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
 
 option(BUILD_SYMUSIC_PY "Build the python binding of symusic" OFF)
 option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
