@@ -18,8 +18,6 @@
 #include "symusic/utils.h"
 #include "symusic/conversion.h"
 
-#include <assert.h>
-
 namespace symusic {
 
 namespace details {
