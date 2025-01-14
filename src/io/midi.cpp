@@ -37,8 +37,8 @@ template<typename T>
 struct NoteOn : TimeStamp<T> {
     typedef typename T::unit unit;
     i8                       velocity;
-                             NoteOn() : TimeStamp<T>(0), velocity(0) {}
-    NoteOn(const unit time, i8 const velocity) : TimeStamp<T>(time), velocity(velocity){};
+    NoteOn() : TimeStamp<T>(0), velocity(0) {}
+    NoteOn(const unit time, i8 const velocity) : TimeStamp<T>(time), velocity(velocity) {};
     [[nodiscard]] bool empty() const { return velocity == 0; }
     void               reset() {
         this->time = 0;
@@ -105,11 +105,11 @@ struct TrackIdx {
 template<typename T>
 TrackNative<T>& get_track(
     std::map<TrackIdx, TrackNative<T>>& track_map,
-    TrackNative<T>                      (&stragglers)[16],
-    const uint8_t                       channel,
-    const uint8_t                       program,
-    const size_t                        message_num,
-    const bool                          create_new
+    TrackNative<T> (&stragglers)[16],
+    const uint8_t channel,
+    const uint8_t program,
+    const size_t  message_num,
+    const bool    create_new
 ) {
     TrackIdx    track_idx{channel, program};
     const auto& entry = track_map.find(track_idx);
@@ -358,21 +358,25 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
     midi.tracks.reserve(score.tracks->size() + 1);
     message::Messages init_msgs{};
     {   // add meta messages
-        auto&  msgs        = init_msgs;
-        size_t message_num = score.time_signatures->size() + score.key_signatures->size()
-                             + score.tempos->size() + score.markers->size();
+        auto&        msgs        = init_msgs;
+        const size_t message_num = score.time_signatures->size() + score.key_signatures->size()
+                                   + score.tempos->size() + score.markers->size();
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
-            msgs.emplace_back(message::Message::TimeSignature(
-                time_signature->time, time_signature->numerator, time_signature->denominator
-            ));
+            msgs.emplace_back(
+                message::Message::TimeSignature(
+                    time_signature->time, time_signature->numerator, time_signature->denominator
+                )
+            );
         }
         // add key signatures
         for (const auto& key_signature : *score.key_signatures) {
-            msgs.emplace_back(message::Message::KeySignature(
-                key_signature->time, key_signature->key, key_signature->tonality
-            ));
+            msgs.emplace_back(
+                message::Message::KeySignature(
+                    key_signature->time, key_signature->key, key_signature->tonality
+                )
+            );
         }
         // add tempos
         for (const auto& tempo : *score.tempos) {
@@ -383,24 +387,21 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
             msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
         }
     }
-    // add meta track (channel 0) if not empty
-    if (!init_msgs.empty()) {
-        gfx::timsort(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
-            return a.get_time() < b.get_time();
-        });
-        midi.tracks.emplace_back(std::move(init_msgs));
-    }
-
-    const u8 valid_channel[14] = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
+    const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& track : *score.tracks) {
-        message::Messages msgs{};
-        msgs.reserve(
-            msgs.size() + track->note_num() * 2 + track->controls->size()
-            + track->pitch_bends->size() + track->lyrics->size() + 10
-        );
-
-        const u8   channel     = track->is_drum ? 9 : valid_channel[idx % 14];
+        message::Messages msgs;
+        if (!init_msgs.empty()) {
+            msgs      = std::move(init_msgs);
+            init_msgs = {};
+        } else {
+            msgs = {};
+            msgs.reserve(
+                msgs.size() + track->note_num() * 2 + track->controls->size()
+                + track->pitch_bends->size() + track->lyrics->size() + 10
+            );
+        }
+        const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
         // add track name
         if (!track->name.empty()) msgs.emplace_back(message::Message::TrackName(0, track->name));
         // add program change
@@ -408,26 +409,28 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         // Todo add check for Pedal
         // add control change
         for (const auto& control : *track->controls) {
-            msgs.emplace_back(message::Message::ControlChange(
-                control->time, channel, control->number, control->value
-            ));
+            msgs.emplace_back(
+                message::Message::ControlChange(
+                    control->time, channel, control->number, control->value
+                )
+            );
         }
         // add pitch bend
         for (const auto& pitch_bend : *track->pitch_bends) {
-            msgs.emplace_back(message::Message::PitchBend(
-                pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
-            ));
+            msgs.emplace_back(
+                message::Message::PitchBend(
+                    pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
+                )
+            );
         }
         // add lyrics
         for (const auto& lyric : *track->lyrics) {
             msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
         }
 
-        gfx::timsort(
-            msgs.begin(),
-            msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
-        );
+        gfx::timsort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
+            return a.get_time() < b.get_time();
+        });
         // add notes
         const size_t note_size  = track->notes->size();
         const auto   note_begin = static_cast<ptrdiff_t>(msgs.size());
@@ -458,7 +461,8 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         }
         // insertion sort note_off
         pdqsort_detail::insertion_sort(
-            msgs.begin() + note_begin, msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
+            msgs.begin() + note_begin,
+            msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
             [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
         );
         // merge note on and note off
