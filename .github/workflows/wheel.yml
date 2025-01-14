@@ -96,6 +96,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_ARCHS: 'all'
+          CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
 
       - uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
