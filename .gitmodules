@@ -26,3 +26,6 @@
 	path = 3rdparty/nanobind
 	url = https://github.com/wjakob/nanobind.git
 	tag = v2.2.0
+[submodule "3rdparty/minimx"]
+	path = 3rdparty/minimx
+	url = git@github.com:Yikai-Liao/minimx.git
