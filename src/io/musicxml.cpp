@@ -37,6 +37,9 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
     notes.reserve(expected_note_num(part));
 
     double cur_time = 0;
+
+    std::array<Note<Quarter>*, 128> tied_notes = {nullptr};
+
     for (const auto& measure : part.measures) {
         const double begin     = cur_time;
         const double division  = measure.attributes.divisions;
@@ -47,31 +50,55 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
             switch (element.type) {
             case minimx::Note: {
                 if (element.actualNotes < 1) {
-                    throw std::runtime_error(fmt::format(
-                        "symusic: Invalid actual-notes value ({}) in note.",
-                        element.actualNotes
-                    ));
+                    throw std::runtime_error(
+                        fmt::format(
+                            "symusic: Invalid actual-notes value ({}) in note.", element.actualNotes
+                        )
+                    );
                 }
                 const int pitch = element.pitch.midi_pitch(transpose);
                 if (pitch < 0 || pitch > 127) {
-                    throw std::runtime_error(fmt::format(
-                        "symusic: Invalid pitch value ({}) in note.",
-                        pitch
-                    ));
+                    throw std::runtime_error(
+                        fmt::format("symusic: Invalid pitch value ({}) in note.", pitch)
+                    );
                 }
 
-                if (element.actualNotes == 1) [[likely]] {
-                    notes.emplace_back(cur_time, duration, pitch, 100);
-                } else {
-                    // Deal with triplets or other time modifications
-                    f64 duration_per_note = duration / element.actualNotes;
-                    f64 tmp_time = cur_time;
-                    for (int i = 0; i < element.actualNotes; ++i, tmp_time += duration_per_note) {
-                        notes.emplace_back(tmp_time, duration_per_note, pitch, 100);
+                // Check if the note is Tie Stop
+                if (element.tie == minimx::Stop) {
+                    if (tied_notes[pitch] == nullptr) {
+                        throw std::runtime_error(
+                            fmt::format(
+                                "symusic: Tied note does not exist at pitch {} when parsing musicxml.", pitch
+                            )
+                        );
+                    }
+                    tied_notes[pitch]->duration = static_cast<f32>(cur_time - tied_notes[pitch]->time + duration);
+                    tied_notes[pitch]            = nullptr;
+                } else if (tied_notes[pitch] == nullptr) {
+                    // if tied_notes[pitch] is not nullptr, then this note is not in the middle of a tie
+                    if (element.actualNotes == 1) [[likely]] {
+                        notes.emplace_back(cur_time, duration, pitch, 100);
+                    } else {
+                        // Deal with triplets or other time modifications
+                        f64 duration_per_note = duration / element.actualNotes;
+                        f64 tmp_time          = cur_time;
+                        for (int i = 0; i < element.actualNotes; ++i, tmp_time += duration_per_note) {
+                            notes.emplace_back(tmp_time, duration_per_note, pitch, 100);
+                        }
                     }
                 }
-                if (!element.isChordTone) {
-                    cur_time += duration;
+
+                if (!element.isChordTone) { cur_time += duration; }
+
+                // Tie Start
+                if (element.tie == minimx::Start) {
+                    if (tied_notes[pitch] != nullptr) {
+                        throw std::runtime_error(
+                            fmt::format(
+                                "symusic: Tied note already exists at pitch {} when parsing musicxml.", pitch
+                            )
+                        );
+                    }   tied_notes[pitch] = &notes.back();
                 }
                 break;
             }
@@ -101,7 +128,7 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
         TrackNative<Quarter> track{};
         track.name = part.name;
         // Reserve space for notes
-        track.notes.reserve(expected_note_num(part));
+        track.notes = std::move(parse_notes(part));
     }
     return {};
 }
