@@ -81,9 +81,10 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
                     tied_notes[pitch]->duration
                         = static_cast<f32>(cur_time - tied_notes[pitch]->time + duration);
                     tied_notes[pitch] = nullptr;
-                } else if (tied_notes[pitch] == nullptr) {
-                    // if tied_notes[pitch] is not nullptr, then this note is not in the middle of a
-                    // tie
+                } else if (tied_notes[pitch] == nullptr && !element.isRest) {
+                    // if tied_notes[pitch] is not nullptr,
+                    // then this note is not in the middle of a long note
+                    // And the rest note should also be ignored
                     if (element.actualNotes == 1) [[likely]] {
                         notes.emplace_back(cur_time, duration, pitch, 100);
                     } else {
@@ -163,7 +164,9 @@ vec<TimeSignature<Quarter>> build_time_signature(const minimx::MXScore& mx_score
                 }
             }
         }
-
+        if (first) {
+            throw std::runtime_error("symusic: Time signature not found in one part of the MusicXML Score.");
+        }
         if (cur_beats != pre_beats || cur_beat_type != pre_beat_type) {
             time_signatures.emplace_back(cur_time, cur_beats, cur_beat_type);
             pre_beats     = cur_beats;
@@ -191,7 +194,7 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
         // Reserve space for notes
         track.notes = std::move(parse_notes(part));
     }
-    return {};
+    return score;
 }
 
 }   // namespace details
