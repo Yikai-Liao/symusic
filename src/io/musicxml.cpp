@@ -41,13 +41,28 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
     notes.reserve(expected_note_num(part));
 
     double cur_time = 0;
+    double pre_divisions = 0;
+    int pre_beats = 0;
+    int pre_beat_type = 0;
 
     std::array<Note<Quarter>*, 128> tied_notes = {nullptr};
+    auto velocity = static_cast<int8_t>(127. * 0.9);
 
     for (const auto& measure : part.measures) {
+
         const double begin     = cur_time;
-        const double division  = measure.attributes.divisions;
+        const double division  = measure.attributes.divisions > 0 ? measure.attributes.divisions : pre_divisions;
+        if (division == 0) {
+            throw std::runtime_error("symusic: Division is zero in musicxml.");
+        } else {
+            pre_divisions = division;
+        }
         const auto&  transpose = measure.attributes.transpose;
+
+        if (measure.sound.dynamics > 0) {
+            velocity = static_cast<int8_t>(1.27 * measure.sound.dynamics);
+        }
+
         for (const auto& element : measure.elements) {
             // Calculate the duration of the element
             const double duration = static_cast<double>(element.duration) / division;
@@ -62,8 +77,20 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
                 }
                 const int pitch = element.pitch.midi_pitch(transpose);
                 if (pitch < 0 || pitch > 127) {
+                    const int raw_pitch = element.pitch.midi_pitch();
+
                     throw std::runtime_error(
-                        fmt::format("symusic: Invalid pitch value ({}) in note.", pitch)
+                        fmt::format(
+                            "symusic: Parsing invalid pitch {} in musicxml. It should be {} with "
+                            "out transpose (diatonic={}, chromatic={}, octave_change={}, "
+                            "double={}).",
+                            raw_pitch,
+                            pitch,
+                            transpose.diatonic,
+                            transpose.chromatic,
+                            transpose.octave_change,
+                            transpose.double_
+                        )
                     );
                 }
 
@@ -86,14 +113,14 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
                     // then this note is not in the middle of a long note
                     // And the rest note should also be ignored
                     if (element.actualNotes == 1) [[likely]] {
-                        notes.emplace_back(cur_time, duration, pitch, 100);
+                        notes.emplace_back(cur_time, duration, pitch, velocity);
                     } else {
                         // Deal with triplets or other time modifications
                         f64 duration_per_note = duration / element.actualNotes;
                         f64 tmp_time          = cur_time;
                         for (int i = 0; i < element.actualNotes;
                              ++i, tmp_time += duration_per_note) {
-                            notes.emplace_back(tmp_time, duration_per_note, pitch, 100);
+                            notes.emplace_back(tmp_time, duration_per_note, pitch, velocity);
                         }
                     }
                 }
@@ -125,7 +152,18 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
             }
             }
         }
-        cur_time = begin + quarter_note_num(measure.attributes.time);
+        const int cur_beats
+            = measure.attributes.time.beats > 0 ? measure.attributes.time.beats : pre_beats;
+        const int cur_beat_type
+            = measure.attributes.time.beatType > 0? measure.attributes.time.beatType : pre_beat_type;
+
+        if (cur_beats == 0 || cur_beat_type == 0) {
+            throw std::runtime_error("symusic: Invalid time signature in musicxml.");
+        } else {
+            pre_beats = cur_beats;
+            pre_beat_type = cur_beat_type;
+        }
+        cur_time = begin + quarter_note_num(cur_beats, cur_beat_type);
     }
     return notes;
 }
@@ -139,9 +177,9 @@ vec<TimeSignature<Quarter>> build_time_signature(const minimx::MXScore& mx_score
         measure_num = std::max(measure_num, part.measures.size());
     }
 
-    int pre_beats     = 0;
-    int pre_beat_type = 0;
-    double cur_time = 0;
+    int                         pre_beats     = 0;
+    int                         pre_beat_type = 0;
+    double                      cur_time      = 0;
     vec<TimeSignature<Quarter>> time_signatures{};
 
     for (auto i = 0; i < measure_num; ++i) {
@@ -165,7 +203,11 @@ vec<TimeSignature<Quarter>> build_time_signature(const minimx::MXScore& mx_score
             }
         }
         if (first) {
-            throw std::runtime_error("symusic: Time signature not found in one part of the MusicXML Score.");
+            throw std::runtime_error(
+                "symusic: Time signature not found in one part of the MusicXML Score."
+            );
+        } else if (cur_beats == 0 || cur_beat_type == 0) {
+            continue;
         }
         if (cur_beats != pre_beats || cur_beat_type != pre_beat_type) {
             time_signatures.emplace_back(cur_time, cur_beats, cur_beat_type);
@@ -175,6 +217,12 @@ vec<TimeSignature<Quarter>> build_time_signature(const minimx::MXScore& mx_score
         cur_time += quarter_note_num(cur_beats, cur_beat_type);
     }
     return time_signatures;
+}
+
+void add_volume_control(TrackNative<Quarter>& track, const minimx::Part& part) {
+    if (part.midiInstrument.volume > 0) {
+        track.controls.emplace_back(0, 7, static_cast<u8>(1.27 * part.midiInstrument.volume));
+    }
 }
 
 ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
@@ -191,8 +239,13 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
     for (const auto& part : mx_score.parts) {
         TrackNative<Quarter> track{};
         track.name = part.name;
+        // TODO: Add support for instrument changes
+        // Program in MusicXML is 1-based
+        track.program = std::max(0, part.midiInstrument.program - 1);
+        add_volume_control(track, part);
         // Reserve space for notes
         track.notes = std::move(parse_notes(part));
+        score.tracks.emplace_back(std::move(track));
     }
     return score;
 }
@@ -201,7 +254,8 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
 
 #define INSTANTIATE_XML_DUMP(__COUNT, T)                                   \
     template<>                                                             \
-    vec<u8> dumps<DataFormat::MusicXML>(const Score<T>& data) {            \
+    template<>                                                             \
+    vec<u8> Score<T>::dumps<DataFormat::MusicXML>() const {                \
         throw std::runtime_error("Dumping MusicXML is not supported yet"); \
         return {};                                                         \
     }
@@ -209,5 +263,47 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
 REPEAT_ON(INSTANTIATE_XML_DUMP, Tick, Quarter, Second)
 #undef INSTANTIATE_XML_DUMP
 
+template<>
+template<>
+Score<Quarter> Score<Quarter>::parse<DataFormat::MusicXML>(const std::span<const u8> bytes) {
+    pugi::xml_document doc;
+    doc.load_buffer(bytes.data(), bytes.size());
+    auto score_native = details::parse_musicxml_native(doc);
+    score_native.ticks_per_quarter = 960;
+    return to_shared<Quarter>(std::move(score_native));
+}
+
+template<>
+template<>
+Score<Tick> Score<Tick>::parse<DataFormat::MusicXML>(const std::span<const u8> bytes) {
+    // return convert<Tick>(parse<DataFormat::MusicXML, Score<Quarter>>(bytes));
+    pugi::xml_document doc;
+    doc.load_buffer(bytes.data(), bytes.size());
+    auto score_native = details::parse_musicxml_native(doc);
+    return convert<Tick>(to_shared<Quarter>(std::move(score_native)));
+}
+
+template<>
+template<>
+Score<Second> Score<Second>::parse<DataFormat::MusicXML>(const std::span<const u8> bytes) {
+    // return convert<Second>(parse<DataFormat::MusicXML, Score<Quarter>>(bytes));
+    pugi::xml_document doc;
+    doc.load_buffer(bytes.data(), bytes.size());
+    auto score_native = details::parse_musicxml_native(doc);
+    return convert<Second>(to_shared<Quarter>(std::move(score_native)));
+}
+
+#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                     \
+    template<>                                                                  \
+    Score<T> parse<DataFormat::MusicXML, Score<T>>(std::span<const u8> bytes) { \
+        return Score<T>::parse<DataFormat::MusicXML>(bytes);                    \
+    }                                                                           \
+    template<>                                                                  \
+    vec<u8> dumps<DataFormat::MusicXML, Score<T>>(const Score<T>& data) {       \
+        return data.dumps<DataFormat::MusicXML>();                              \
+    }
+
+REPEAT_ON(INSTANTIATE_GLOBAL_FUNC, Tick, Quarter, Second)
+#undef INSTANTIATE_GLOBAL_FUNC
 
 }   // namespace symusic

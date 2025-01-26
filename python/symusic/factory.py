@@ -508,10 +508,16 @@ class ScoreFactory:
 
     def from_abc(
         self,
-        abc: str,
+        data: str,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
-        return self.__core_classes.dispatch(ttype).from_abc(abc)
+        return self.__core_classes.dispatch(ttype).from_abc(data)
+
+    def from_xml(
+        self, data: str,
+        ttype: smt.GeneralTimeUnit = "tick"
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_xml(data)
 
     def from_tpq(
         self,

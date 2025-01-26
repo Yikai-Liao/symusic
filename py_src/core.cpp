@@ -14,6 +14,7 @@
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
+#include "fmt/printf.h"
 
 #pragma warning(disable : 4996)
 
@@ -375,8 +376,10 @@ inline std::string get_format(const std::string& path) {
         return "midi";
     } else if (ext == ".abc") {
         return "abc";
+    } else if (ext == ".xml" || ext == ".musicxml" || ext == ".mxl") {
+        return "xml";
     } else {
-        throw std::invalid_argument("Unknown file format");
+        throw std::invalid_argument("Unknown file format (" + ext + ")");
     }
 }
 template<TType T>
@@ -406,6 +409,12 @@ shared<Score<T>> from_abc(const std::string& abc) {
     return from_abc_file<T>(abc_path);
 }
 
+template<TType T, typename PATH>
+shared<Score<T>> from_musicxml(const PATH& path) {
+    return std::make_shared<Score<T>>(
+        std::move(Score<T>::template parse<DataFormat::MusicXML>(read_file(path))));
+}
+
 template<TType T>
 shared<Score<T>> from_file(const std::string& path, const std::optional<std::string>& format) {
     std::string format_ = format.has_value() ? *format : get_format(path);
@@ -415,8 +424,10 @@ shared<Score<T>> from_file(const std::string& path, const std::optional<std::str
         return midi2score<T, std::string>(path);
     } else if (format_ == "abc") {
         return from_abc_file<T>(path);
+    } else if (format_ == "xml") {
+        return from_musicxml<T, std::string>(path);
     } else {
-        throw std::invalid_argument("Unknown file format");
+        throw std::invalid_argument("Unknown file format (" + format_ + ")");
     }
 }
 
@@ -477,7 +488,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
             return std::make_shared<Score<T>>(std::move(parse<DataFormat::MIDI, Score<T>>(span)));
         }, nb::arg("data"), "Load from midi in memory(bytes)")
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
+        .def_static("from_abc", &from_abc<T>, nb::arg("data"), "Load from abc string")
+        .def_static("from_xml", [](const std::string &xml) {
+            const std::span<const u8> span(reinterpret_cast<const u8*>(xml.data()), xml.size());
+            return std::make_shared<Score<T>>(std::move(parse<DataFormat::MusicXML, Score<T>>(span)));
+        }, nb::arg("data"), "Load from musicxml string")
         .def("dump_midi", &dump_midi<T, std::string>, nb::arg("path"), "Dump to midi file")
         .def("dump_midi", &dump_midi<T, std::filesystem::path>, nb::arg("path"), "Dump to midi file")
         .def("dumps_midi", [](const self_t& self) {
