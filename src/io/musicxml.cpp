@@ -12,158 +12,265 @@
 #include "minimx.h"
 #include "symusic/score.h"
 #include "symusic/ops.h"
-#include "symusic/utils.h"
+#include "symusic/repr.h"
 #include "symusic/conversion.h"
 #include "fmt/format.h"
+#include "fmt/ranges.h"
+#include "unordered_dense.h"
 
 namespace symusic {
 
 namespace details {
 
+struct TieHook {
+    ankerl::unordered_dense::map<std::pair<i8, i32>, size_t> tie_starts{};
+    // std::unordered_map<std::pair<i8, i32>, size_t> tie_starts;
+    vec<Note<Quarter>>& notes;
+
+    explicit TieHook(vec<Note<Quarter>>& notes) : tie_starts(notes.capacity() / 2), notes(notes) {}
+
+    template<typename T>
+    static i32 quantize_time(const T time) {
+        return static_cast<i32>(std::round(time * 1000));
+    }
+
+    void add_tie_start(const size_t index, const i8 pitch, const f64 time) {
+        // check not exist
+        const auto& note = notes.at(index);
+        if (const auto [_, success]
+            = tie_starts.try_emplace({note.pitch, quantize_time(note.end())}, index);
+            !success) {
+            throw std::runtime_error(
+                fmt::format(
+                    "symusic: Tied note already exists at pitch {} and time {:.4f} when parsing "
+                    "musicxml.",
+                    note.pitch,
+                    note.time
+                )
+            );
+        }
+    }
+
+    size_t add_tie_stop(const i8 pitch, const f64 time, const f64 duration) {
+        // try to find the tied note
+        const auto iter = tie_starts.find({pitch, quantize_time(time)});
+        if (iter == tie_starts.end()) {
+            throw std::runtime_error(
+                fmt::format(
+                    "symusic: Tied note does not exist at pitch {} and time {:.4f} when parsing "
+                    "musicxml.",
+                    pitch,
+                    time
+                )
+            );
+        }
+
+        const auto index = iter->second;
+        notes[index].duration += static_cast<f32>(duration);
+        tie_starts.erase(iter);
+        return index;
+    }
+
+    void add_tie_stop_start(const i8 pitch, const f64 time, const f64 duration) {
+        const auto index = add_tie_stop(pitch, time, duration);
+        add_tie_start(index, pitch, notes[index].time);
+    }
+
+    [[nodiscard]] bool empty() const { return tie_starts.empty(); }
+};
+
 inline size_t expected_note_num(const minimx::Part& part) {
     size_t num = 0;
     for (const auto& measure : part.measures) { num += measure.elements.size(); }
-    return static_cast<size_t>(static_cast<float>(num) * 1.1);
+    return static_cast<size_t>(static_cast<f32>(num) * 1.1);
 }
 
-inline double quarter_note_num(const minimx::Time& time) {
-    return static_cast<double>(time.beats * 4) / time.beatType;
+inline f64 quarter_note_num(const minimx::Time& time) {
+    return static_cast<f64>(time.beats * 4) / time.beatType;
 }
 
-inline double quarter_note_num(const int beats, const int beatType) {
-    return static_cast<double>(beats * 4) / beatType;
+inline f64 quarter_note_num(const i32 beats, const i32 beatType) {
+    return static_cast<f64>(beats * 4) / beatType;
 }
+
+inline i8 parse_pitch(const minimx::Pitch& pitch, const minimx::Transpose& transpose) {
+    const i32 pitch_value = transpose.empty() ? pitch.midi_pitch() : pitch.midi_pitch(transpose);
+    if (pitch_value < 0 | pitch_value > 127) {
+        throw std::runtime_error(
+            fmt::format(
+                "symusic: Parsing invalid pitch {} in musicxml. It should be {} with "
+                "out transpose (diatonic={}, chromatic={}, octave_change={}, "
+                "double={}).",
+                pitch_value,
+                pitch.midi_pitch(),
+                transpose.diatonic,
+                transpose.chromatic,
+                transpose.octave_change,
+                transpose.double_
+            )
+        );
+    }
+    return static_cast<i8>(pitch_value);
+}
+
+inline void add_note(
+    const minimx::MeasureElement& element,
+    vec<Note<Quarter>>&           notes,
+    const f64                     cur_time,
+    const i8                      pitch,
+    const i8                      velocity,
+    const f64                     duration
+) {
+    // check rest note
+    if (element.isRest) { return; }
+    // check time modification
+    if (element.actualNotes == 1) [[likely]] {
+        notes.emplace_back(cur_time, duration, pitch, velocity);
+    } else {
+        // Deal with triplets or other time modifications
+        f64 duration_per_note = duration / element.actualNotes;
+        f64 tmp_time          = cur_time;
+        for (i32 i = 0; i < element.actualNotes; ++i, tmp_time += duration_per_note) {
+            notes.emplace_back(tmp_time, duration_per_note, pitch, velocity);
+        }
+    }
+}
+
+void check_tied_note_existence(const std::array<Note<Quarter>*, 128>& tied_notes, const i8 pitch) {
+    if (tied_notes[pitch] == nullptr) {
+        throw std::runtime_error(
+            fmt::format(
+                "symusic: Tied note does not exist at pitch {} when parsing "
+                "musicxml.",
+                pitch
+            )
+        );
+    }
+}
+
+std::string tie2str(const minimx::Tie tie) {
+    switch (tie) {
+    case minimx::Tie::NotTied: return "NotTied";
+    case minimx::Tie::Start: return "Start";
+    case minimx::Tie::Stop: return "Stop";
+    case minimx::Tie::StopStart: return "StopStart";
+    case minimx::Tie::NotDefined: return "NotDefined";
+    }
+    return "Unknown";
+}
+
+inline void parse_note(
+    const minimx::MeasureElement& element,
+    vec<Note<Quarter>>&           notes,
+    TieHook&                      tie_hook,
+    f64&                          cur_time,
+    const i8                      velocity,
+    const f64                     duration,
+    const minimx::Transpose&      transpose
+) {
+    if (element.actualNotes < 1) {
+        throw std::runtime_error(
+            fmt::format("symusic: Invalid actual-notes value ({}) in note.", element.actualNotes)
+        );
+    }
+    // Check if it is a rest note
+    if (element.isRest) {
+        cur_time += element.isChordTone ? 0 : duration;
+        return;
+    }
+
+    const i8 pitch = parse_pitch(element.pitch, transpose);
+
+    switch (element.tie) {
+    case minimx::Tie::NotTied: {
+        add_note(element, notes, cur_time, pitch, velocity, duration);
+        break;
+    }
+    case minimx::Tie::Start: {
+        add_note(element, notes, cur_time, pitch, velocity, duration);
+        tie_hook.add_tie_start(notes.size() - 1, pitch, cur_time);
+        break;
+    }
+    case minimx::Tie::Stop: {
+        tie_hook.add_tie_stop(pitch, cur_time, duration);
+        break;
+    }
+    case minimx::Tie::StopStart: {
+        tie_hook.add_tie_stop_start(pitch, cur_time, duration);
+        break;
+    }
+    case minimx::Tie::NotDefined: {
+        throw std::runtime_error("symusic: Tie::NotDefined is not expected in a note.");
+    }
+    }
+
+    if (!element.isChordTone) { cur_time += duration; }
+}
+
+template<typename T>
+void update_positive(T& old_value, const T& new_value) {
+    old_value = new_value > 0 ? new_value : old_value;
+}
+
+
 
 vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
-    using unit = Quarter::unit;
-
     vec<Note<Quarter>> notes{};
     notes.reserve(expected_note_num(part));
 
-    double cur_time = 0;
-    double pre_divisions = 0;
-    int pre_beats = 0;
-    int pre_beat_type = 0;
+    f64 cur_time  = 0;
+    f64 divisions = 0;
+    u8  beats     = 0;
+    u8  beat_type = 0;
 
-    std::array<Note<Quarter>*, 128> tied_notes = {nullptr};
-    auto velocity = static_cast<int8_t>(127. * 0.9);
+    TieHook tie_hook{notes};
+    auto    velocity = static_cast<i8>(127. * 0.9);
 
     for (const auto& measure : part.measures) {
+        update_positive(divisions, static_cast<f64>(measure.attributes.divisions));
+        if (divisions == 0) { throw std::runtime_error("symusic: Division is zero in musicxml."); }
 
-        const double begin     = cur_time;
-        const double division  = measure.attributes.divisions > 0 ? measure.attributes.divisions : pre_divisions;
-        if (division == 0) {
-            throw std::runtime_error("symusic: Division is zero in musicxml.");
-        } else {
-            pre_divisions = division;
-        }
-        const auto&  transpose = measure.attributes.transpose;
+        const f64   begin     = cur_time;
+        const auto& transpose = measure.attributes.transpose;
 
         if (measure.sound.dynamics > 0) {
-            velocity = static_cast<int8_t>(1.27 * measure.sound.dynamics);
+            velocity = static_cast<i8>(1.27 * measure.sound.dynamics);
         }
 
         for (const auto& element : measure.elements) {
             // Calculate the duration of the element
-            const double duration = static_cast<double>(element.duration) / division;
+            const f64 duration = static_cast<f64>(element.duration) / divisions;
             switch (element.type) {
-            case minimx::Note: {
-                if (element.actualNotes < 1) {
-                    throw std::runtime_error(
-                        fmt::format(
-                            "symusic: Invalid actual-notes value ({}) in note.", element.actualNotes
-                        )
-                    );
-                }
-                const int pitch = element.pitch.midi_pitch(transpose);
-                if (pitch < 0 || pitch > 127) {
-                    const int raw_pitch = element.pitch.midi_pitch();
-
-                    throw std::runtime_error(
-                        fmt::format(
-                            "symusic: Parsing invalid pitch {} in musicxml. It should be {} with "
-                            "out transpose (diatonic={}, chromatic={}, octave_change={}, "
-                            "double={}).",
-                            raw_pitch,
-                            pitch,
-                            transpose.diatonic,
-                            transpose.chromatic,
-                            transpose.octave_change,
-                            transpose.double_
-                        )
-                    );
-                }
-
-                // Check if the note is Tie Stop
-                if (element.tie == minimx::Stop) {
-                    if (tied_notes[pitch] == nullptr) {
-                        throw std::runtime_error(
-                            fmt::format(
-                                "symusic: Tied note does not exist at pitch {} when parsing "
-                                "musicxml.",
-                                pitch
-                            )
-                        );
-                    }
-                    tied_notes[pitch]->duration
-                        = static_cast<f32>(cur_time - tied_notes[pitch]->time + duration);
-                    tied_notes[pitch] = nullptr;
-                } else if (tied_notes[pitch] == nullptr && !element.isRest) {
-                    // if tied_notes[pitch] is not nullptr,
-                    // then this note is not in the middle of a long note
-                    // And the rest note should also be ignored
-                    if (element.actualNotes == 1) [[likely]] {
-                        notes.emplace_back(cur_time, duration, pitch, velocity);
-                    } else {
-                        // Deal with triplets or other time modifications
-                        f64 duration_per_note = duration / element.actualNotes;
-                        f64 tmp_time          = cur_time;
-                        for (int i = 0; i < element.actualNotes;
-                             ++i, tmp_time += duration_per_note) {
-                            notes.emplace_back(tmp_time, duration_per_note, pitch, velocity);
-                        }
-                    }
-                }
-
-                if (!element.isChordTone) { cur_time += duration; }
-
-                // Tie Start
-                if (element.tie == minimx::Start) {
-                    if (tied_notes[pitch] != nullptr) {
-                        throw std::runtime_error(
-                            fmt::format(
-                                "symusic: Tied note already exists at pitch {} when parsing "
-                                "musicxml.",
-                                pitch
-                            )
-                        );
-                    }
-                    tied_notes[pitch] = &notes.back();
-                }
+            case minimx::MeasureElementType::Note: {
+                parse_note(element, notes, tie_hook, cur_time, velocity, duration, transpose);
                 break;
             }
-            case minimx::Backup: {
+            case minimx::MeasureElementType::Backup: {
                 cur_time -= duration;
                 break;
             }
-            case minimx::Forward: {
+            case minimx::MeasureElementType::Forward: {
                 cur_time += duration;
                 break;
             }
             }
         }
-        const int cur_beats
-            = measure.attributes.time.beats > 0 ? measure.attributes.time.beats : pre_beats;
-        const int cur_beat_type
-            = measure.attributes.time.beatType > 0? measure.attributes.time.beatType : pre_beat_type;
+        update_positive(beats, measure.attributes.time.beats);
+        update_positive(beat_type, measure.attributes.time.beatType);
+        cur_time = begin + quarter_note_num(beats, beat_type);
+    }
 
-        if (cur_beats == 0 || cur_beat_type == 0) {
-            throw std::runtime_error("symusic: Invalid time signature in musicxml.");
-        } else {
-            pre_beats = cur_beats;
-            pre_beat_type = cur_beat_type;
+    // Check if all tied notes are closed
+    if (!tie_hook.empty()) {
+        vec<Note<Quarter>> unclosed_notes{};
+        for (const auto& [key, index] : tie_hook.tie_starts) {
+            unclosed_notes.emplace_back(notes[index]);
         }
-        cur_time = begin + quarter_note_num(cur_beats, cur_beat_type);
+        throw std::runtime_error(
+            fmt::format(
+                "symusic: Tied notes are not closed in musicxml. Unclosed notes: {}", unclosed_notes
+            )
+        );
     }
     return notes;
 }
@@ -177,14 +284,14 @@ vec<TimeSignature<Quarter>> build_time_signature(const minimx::MXScore& mx_score
         measure_num = std::max(measure_num, part.measures.size());
     }
 
-    int                         pre_beats     = 0;
-    int                         pre_beat_type = 0;
-    double                      cur_time      = 0;
+    i32                         pre_beats     = 0;
+    i32                         pre_beat_type = 0;
+    f64                         cur_time      = 0;
     vec<TimeSignature<Quarter>> time_signatures{};
 
     for (auto i = 0; i < measure_num; ++i) {
-        int  cur_beats     = 0;
-        int  cur_beat_type = 0;
+        i32  cur_beats     = 0;
+        i32  cur_beat_type = 0;
         bool first         = true;
         for (const auto& part : mx_score.parts) {
             if (part.measures.size() <= i) { continue; }
@@ -229,7 +336,7 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
     // Parsing the MusicXML file
     const minimx::MXScore mx_score{doc};
     // Create an empty score
-    ScoreNative<Quarter> score{};
+    ScoreNative<Quarter> score{960};
 
     if (mx_score.parts.empty()) { return score; }
 
@@ -245,6 +352,11 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
         add_volume_control(track, part);
         // Reserve space for notes
         track.notes = std::move(parse_notes(part));
+        pdqsort_detail::insertion_sort(
+            track.notes.begin(),
+            track.notes.end(),
+            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
+        );
         score.tracks.emplace_back(std::move(track));
     }
     return score;
@@ -269,7 +381,6 @@ Score<Quarter> Score<Quarter>::parse<DataFormat::MusicXML>(const std::span<const
     pugi::xml_document doc;
     doc.load_buffer(bytes.data(), bytes.size());
     auto score_native = details::parse_musicxml_native(doc);
-    score_native.ticks_per_quarter = 960;
     return to_shared<Quarter>(std::move(score_native));
 }
 
