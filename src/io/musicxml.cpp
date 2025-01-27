@@ -34,6 +34,12 @@ struct TieHook {
         return static_cast<i32>(std::round(time * 1000));
     }
 
+    [[nodiscard]] std::string to_string() const {
+        vec<std::pair<i8, i32>> keys;
+        for (const auto& [key, _] : tie_starts) { keys.push_back(key); }
+        return fmt::format("TieHook: {}", keys);
+    }
+
     void add_tie_start(const size_t index, const i8 pitch, const f64 time) {
         // check not exist
         const auto& note = notes.at(index);
@@ -51,16 +57,22 @@ struct TieHook {
         }
     }
 
-    size_t add_tie_stop(const i8 pitch, const f64 time, const f64 duration) {
+    size_t add_tie_stop(
+        const i8 pitch, const f64 time, const f64 duration, const minimx::MeasureElement& element
+    ) {
         // try to find the tied note
         const auto iter = tie_starts.find({pitch, quantize_time(time)});
         if (iter == tie_starts.end()) {
             throw std::runtime_error(
                 fmt::format(
-                    "symusic: Tied note does not exist at pitch {} and time {:.4f} when parsing "
-                    "musicxml.",
+                    "symusic: Tied note does not exist at pitch ( {}/{}/{} -- {} ) at time {:.4f} "
+                    "when parsing musicxml. {}",
+                    element.pitch.octave,
+                    element.pitch.alter,
+                    element.pitch.step,
                     pitch,
-                    time
+                    time,
+                    this->to_string()
                 )
             );
         }
@@ -71,8 +83,10 @@ struct TieHook {
         return index;
     }
 
-    void add_tie_stop_start(const i8 pitch, const f64 time, const f64 duration) {
-        const auto index = add_tie_stop(pitch, time, duration);
+    void add_tie_stop_start(
+        const i8 pitch, const f64 time, const f64 duration, const minimx::MeasureElement& element
+    ) {
+        const auto index = add_tie_stop(pitch, time, duration, element);
         add_tie_start(index, pitch, notes[index].time);
     }
 
@@ -159,11 +173,51 @@ std::string tie2str(const minimx::Tie tie) {
     return "Unknown";
 }
 
+inline void proc_chord_duration(
+    const minimx::MeasureElement& element,
+    f64&                          cur_time,
+    f64&                          chord_duration,
+    bool&                         is_prev_chord,
+    const f64                     duration
+) {
+    // Check if Previous note is a chord note and the current note is not a chord note
+    if (element.isChordTone) {
+        if (chord_duration <= 0) {
+            throw std::runtime_error(
+                fmt::format("symusic: Invalid chord duration ({}) in musicxml.", chord_duration)
+            );
+        }
+        if (!is_prev_chord) {
+            // move the time to the beginning of previous note (without chord label)
+            cur_time -= chord_duration;
+        }
+        is_prev_chord = true;
+    } else {
+        // Current note is not a chord note
+        if (is_prev_chord) {
+            // Previous note is a chord note
+            // Move the time to the end of the chord note
+            cur_time += chord_duration;
+            if (chord_duration <= 0) {
+                throw std::runtime_error(
+                    fmt::format("symusic: Invalid chord duration ({}) in musicxml.", chord_duration)
+                );
+            }
+        }
+        // Store duration if it is not a chord note
+        // This is preserved for the next note
+        chord_duration = duration;
+        is_prev_chord  = false;
+    }
+}
+
 inline void parse_note(
     const minimx::MeasureElement& element,
     vec<Note<Quarter>>&           notes,
     TieHook&                      tie_hook,
     f64&                          cur_time,
+    f64&                          chord_duration,
+    bool&                         is_prev_chord,
     const i8                      velocity,
     const f64                     duration,
     const minimx::Transpose&      transpose
@@ -173,6 +227,9 @@ inline void parse_note(
             fmt::format("symusic: Invalid actual-notes value ({}) in note.", element.actualNotes)
         );
     }
+
+    proc_chord_duration(element, cur_time, chord_duration, is_prev_chord, duration);
+
     // Check if it is a rest note
     if (element.isRest) {
         cur_time += element.isChordTone ? 0 : duration;
@@ -192,19 +249,19 @@ inline void parse_note(
         break;
     }
     case minimx::Tie::Stop: {
-        tie_hook.add_tie_stop(pitch, cur_time, duration);
+        tie_hook.add_tie_stop(pitch, cur_time, duration, element);
         break;
     }
     case minimx::Tie::StopStart: {
-        tie_hook.add_tie_stop_start(pitch, cur_time, duration);
+        tie_hook.add_tie_stop_start(pitch, cur_time, duration, element);
         break;
     }
     case minimx::Tie::NotDefined: {
         throw std::runtime_error("symusic: Tie::NotDefined is not expected in a note.");
     }
     }
-
-    if (!element.isChordTone) { cur_time += duration; }
+    // Move the time to the end of the note if it is not a chord note
+    cur_time += element.isChordTone ? 0 : duration;
 }
 
 template<typename T>
@@ -227,6 +284,9 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
     auto    velocity = static_cast<i8>(127. * 0.9);
 
     for (const auto& measure : part.measures) {
+        f64  chord_duration = 0;
+        bool is_prev_chord  = false;
+
         update_positive(divisions, static_cast<f64>(measure.attributes.divisions));
         if (divisions == 0) { throw std::runtime_error("symusic: Division is zero in musicxml."); }
 
@@ -242,7 +302,17 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
             const f64 duration = static_cast<f64>(element.duration) / divisions;
             switch (element.type) {
             case minimx::MeasureElementType::Note: {
-                parse_note(element, notes, tie_hook, cur_time, velocity, duration, transpose);
+                parse_note(
+                    element,
+                    notes,
+                    tie_hook,
+                    cur_time,
+                    chord_duration,
+                    is_prev_chord,
+                    velocity,
+                    duration,
+                    transpose
+                );
                 break;
             }
             case minimx::MeasureElementType::Backup: {
@@ -268,7 +338,9 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
         }
         throw std::runtime_error(
             fmt::format(
-                "symusic: Tied notes are not closed in musicxml. Unclosed notes: {}", unclosed_notes
+                "symusic: Tied notes are not closed in musicxml. {} unclosed notes: {}",
+                unclosed_notes.size(),
+                unclosed_notes
             )
         );
     }
