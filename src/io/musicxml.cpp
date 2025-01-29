@@ -24,6 +24,7 @@ namespace details {
 
 struct TieStopCache {
     i8                            pitch;
+    i8                            velocity;
     bool                          thenStart;
     f64                           time;
     f64                           duration;
@@ -53,47 +54,27 @@ struct TieHook {
     void add_tie_start(const size_t index, const i8 pitch, const f64 time) {
         // check not exist
         const auto& note = notes.at(index);
-        if (const auto [_, success]
+        if (auto [iter, success]
             = tie_starts.try_emplace({note.pitch, quantize_time(note.end())}, index);
             !success) {
-            fmt::println(
-                "symusic: Tied note already exists at pitch {} and time {:.4f} when parsing "
-                "musicxml.",
-                note.pitch,
-                note.time
-            );
+            // If two notes with same pitch tie to the same time, keep the later one
+            // This is an undefined behavior in musicxml
+            if (const auto& raw_note = notes.at(iter->second); note.time > raw_note.time) {
+                iter->second = index;
+            }
         }
     }
 
     size_t add_tie_stop(
-        const i8 pitch, const f64 time, const f64 duration, const minimx::MeasureElement& element
+        const i8 pitch, const i8 velocity, const f64 time, const f64 duration, const minimx::MeasureElement& element
     ) {
         // try to find the tied note
         const auto iter = tie_starts.find({pitch, quantize_time(time)});
         if (iter == tie_starts.end()) {
             if (!in_post_proc) {
-                buffer.emplace_back(pitch, false, time, duration, &element);
-            } else {
-                // fmt::println(
-                //     "symusic: Tied note does not exist at pitch ( {}/{}/{} -- {} ) at time {:.4f}
-                //     " "when parsing musicxml. {}", element.pitch.octave, element.pitch.alter,
-                //     element.pitch.step,
-                //     pitch,
-                //     time,
-                //     this->to_string()
-                // );
+                buffer.emplace_back(pitch, velocity, false, time, duration, &element);
             }
             return SIZE_MAX;
-            // throw std::runtime_error(
-            //     fmt::format(
-            //         "symusic: Tied note does not exist at pitch ( {}/{}/{} -- {} ) at time {:.4f}
-            //         " "when parsing musicxml. {}", element.pitch.octave, element.pitch.alter,
-            //         element.pitch.step,
-            //         pitch,
-            //         time,
-            //         this->to_string()
-            //     )
-            // );
         }
 
         const auto index = iter->second;
@@ -103,9 +84,9 @@ struct TieHook {
     }
 
     void add_tie_stop_start(
-        const i8 pitch, const f64 time, const f64 duration, const minimx::MeasureElement& element
+        const i8 pitch, const i8 velocity, const f64 time, const f64 duration, const minimx::MeasureElement& element
     ) {
-        const auto index = add_tie_stop(pitch, time, duration, element);
+        const auto index = add_tie_stop(pitch, velocity, time, duration, element);
         if (index == SIZE_MAX) {
             if (!in_post_proc) { buffer.back().thenStart = true; }
             return;
@@ -122,11 +103,14 @@ struct TieHook {
             buffer.end(),
             [](const auto& a, const auto& b) { return (a.time) < (b.time); }
         );
-        for (const auto& [pitch, thenStart, time, duration, element] : buffer) {
+        for (const auto& [pitch, velocity, thenStart, time, duration, element] : buffer) {
+            auto index = add_tie_stop(pitch, velocity, time, duration, *element);
+            if (index == SIZE_MAX) {
+                notes.emplace_back(time, duration, pitch, velocity);
+                index = notes.size() - 1;
+            }
             if (thenStart) {
-                add_tie_stop_start(pitch, time, duration, *element);
-            } else {
-                add_tie_stop(pitch, time, duration, *element);
+                add_tie_start(index, pitch, time + duration);
             }
         }
     }
@@ -309,11 +293,11 @@ inline void parse_note(
         break;
     }
     case minimx::Tie::Stop: {
-        tie_hook.add_tie_stop(pitch, cur_time, duration, element);
+        tie_hook.add_tie_stop(pitch, velocity, cur_time, duration, element);
         break;
     }
     case minimx::Tie::StopStart: {
-        tie_hook.add_tie_stop_start(pitch, cur_time, duration, element);
+        tie_hook.add_tie_stop_start(pitch, velocity, cur_time, duration, element);
         break;
     }
     case minimx::Tie::NotDefined: {
@@ -391,21 +375,12 @@ vec<Note<Quarter>> parse_notes(const minimx::Part& part) {
         update_positive(beat_type, measure.attributes.time.beatType);
         cur_time = begin + quarter_note_num(beats, beat_type);
     }
-    const size_t original_unclosed_notes = tie_hook.tie_starts.size();
+
     tie_hook.post_proc();
-    // Check if all tied notes are closed
-    // if (!tie_hook.empty()) {
-    //     vec<Note<Quarter>> unclosed_notes{};
-    //     for (const auto& [key, index] : tie_hook.tie_starts) {
-    //         unclosed_notes.emplace_back(notes[index]);
-    //     }
-    //     fmt::println(
-    //         "symusic: Tied notes are not closed in musicxml. {} -> {} unclosed notes: {}",
-    //         original_unclosed_notes,
-    //         unclosed_notes.size(),
-    //         unclosed_notes
-    //     );
-    // }
+
+    gfx::timsort(notes.begin(), notes.end(), [](auto &a, auto &b) {
+        return (a.time) < (b.time);
+    });
     return notes;
 }
 
