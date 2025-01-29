@@ -68,11 +68,10 @@ public:
     /**
      * @brief Register a new tie start point
      * @param index Note index in the collection
-     * @param pitch MIDI pitch value of the note
      */
-    void registerTieStart(const size_t index, const i8 pitch) {
+    void registerTieStart(const size_t index) {
         const auto& note = m_notes[index];
-        const auto  key  = std::make_pair(pitch, quantizeTime(note.end()));
+        const auto  key  = std::make_pair(note.pitch, quantizeTime(note.end()));
 
         if (auto [iter, inserted] = m_tie_start_indices.try_emplace(key, index); !inserted) {
             if (note.time > m_notes[iter->second].time) {
@@ -125,7 +124,7 @@ public:
                 return;
             }
         }
-        registerTieStart(index, pitch);
+        registerTieStart(index);
     }
 
     /**
@@ -149,7 +148,7 @@ public:
                 m_notes.emplace_back(time, duration, pitch, velocity);
                 index = m_notes.size() - 1;
             }
-            if (then_start) registerTieStart(index, pitch);
+            if (then_start) registerTieStart(index);
         }
     }
 };
@@ -262,7 +261,7 @@ void processNoteElement(
     switch (element.tie) {
     case minimx::Tie::Start:
         notes.emplace_back(current_time, duration, pitch, velocity);
-        tie_manager.registerTieStart(notes.size() - 1, pitch);
+        tie_manager.registerTieStart(notes.size() - 1);
         break;
 
     case minimx::Tie::Stop:
