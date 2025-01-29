@@ -304,8 +304,16 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
 
         if (measure.attributes.divisions > 0) { divisions = measure.attributes.divisions; }
 
-        const f64   measure_start = current_time;
-        const auto& transpose     = measure.attributes.transpose;
+        // Update time signature tracking
+        if (measure.attributes.time.beats > 0) { current_beats = measure.attributes.time.beats; }
+        if (measure.attributes.time.beatType > 0) {
+            current_beat_type = measure.attributes.time.beatType;
+        }
+
+        const f64 measure_start = current_time;
+        const f64 measure_end
+            = measure_start + measureDurationQuarters(current_beats, current_beat_type);
+        const auto& transpose = measure.attributes.transpose;
 
         // Update dynamic from measure
         if (measure.sound.dynamics > 0) {
@@ -313,7 +321,12 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
         }
 
         for (const auto& element : measure.elements) {
-            const f64 duration = element.duration / divisions;
+            const f64 duration = static_cast<f64>(element.duration) / divisions;
+            if (duration < 0.0) {
+                throw std::runtime_error(
+                    "symusic: Negative duration in measure while parsing MusicXML"
+                );
+            }
 
             switch (element.type) {
             case minimx::MeasureElementType::Note:
@@ -340,16 +353,32 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
                 previous_note_type = PreviousNoteType::None;
                 break;
             }
-        }
-
-        // Update time signature tracking
-        if (measure.attributes.time.beats > 0) { current_beats = measure.attributes.time.beats; }
-        if (measure.attributes.time.beatType > 0) {
-            current_beat_type = measure.attributes.time.beatType;
+            if (current_time < measure_start) {
+                throw std::runtime_error(
+                    fmt::format(
+                        "symusic: Negative time in measure while parsing MusicXML."
+                        " Current time: {}, measure start: {}, duration: {}, isBackup: {}",
+                        current_time,
+                        measure_start,
+                        duration,
+                        element.type == minimx::MeasureElementType::Backup
+                    )
+                );
+            }
+            if (current_time > measure_end) {
+                throw std::runtime_error(
+                    fmt::format(
+                        "symusic: Time overflow in measure while parsing MusicXML."
+                        " Current time: {}, measure end: {}",
+                        current_time,
+                        measure_end
+                    )
+                );
+            }
         }
 
         // Advance to next measure
-        current_time = measure_start + measureDurationQuarters(current_beats, current_beat_type);
+        current_time = measure_end;
     }
 
     tie_manager.processPendingTies();
@@ -359,52 +388,176 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
     return notes;
 }
 
+namespace {
+
+i8 parseTonality(const std::string& mode) {
+    // 127 for an empty string (not exist in MusicXML)
+    if (mode.empty()) return 127;
+
+    // Check most common modes first
+    if (mode == "major") return 0;
+    if (mode == "minor") return 1;
+
+    // Check other modes
+    if (mode == "ionian" || mode == "lydian" || mode == "mixolydian" || mode == "none") {
+        return 0;
+    }
+    if (mode == "aeolian" || mode == "dorian" || mode == "phyrgian" || mode == "locrian") {
+        return 1;
+    }
+
+    throw std::runtime_error("symusic: Invalid mode (" + mode + ") in key signature from MusicXML");
+}
+
+struct TimeSigManager {
+    vec<TimeSignature<Quarter>> time_signatures;
+    i32                         prev_beats = 0, prev_beat_type = 0;
+    i32                         cur_beats = 0, cur_beat_type = 0;
+    bool                        first = true;
+
+    TimeSigManager() = default;
+
+    void reset() {
+        first     = true;
+        cur_beats = cur_beat_type = 0;
+    }
+
+    void end(const f64 cur_time) {
+        if (cur_beats > 0 && cur_beat_type > 0
+            && (cur_beats != prev_beats || cur_beat_type != prev_beat_type)) {
+            time_signatures.emplace_back(cur_time, cur_beats, cur_beat_type);
+            prev_beats     = cur_beats;
+            prev_beat_type = cur_beat_type;
+        }
+        reset();
+    }
+
+    void process(const minimx::MeasureAttributes& attributes) {
+        if (first) {
+            cur_beats     = attributes.time.beats;
+            cur_beat_type = attributes.time.beatType;
+            first         = false;
+        } else if (cur_beats != attributes.time.beats
+                   || cur_beat_type != attributes.time.beatType) {
+            throw std::runtime_error(
+                "symusic: Time signature mismatch in different parts when parsing musicxml"
+            );
+        }
+    }
+};
+
+struct KeySigManager {
+    vec<KeySignature<Quarter>> key_signatures;
+    i8                         prev_key = 127, prev_tonality = 127;
+    i8                         cur_key = 127, cur_tonality = 127;
+    bool                       first = true;
+
+    void reset() {
+        first   = true;
+        cur_key = cur_tonality = 127;
+    }
+
+    void end(const f64 cur_time) {
+        if (cur_key != 127 && cur_tonality != 127
+            && (cur_key != prev_key || cur_tonality != prev_tonality)) {
+            key_signatures.emplace_back(cur_time, cur_key, cur_tonality);
+            prev_key      = cur_key;
+            prev_tonality = cur_tonality;
+        }
+        reset();
+    }
+
+    void process(const minimx::MeasureAttributes& attributes) {
+        const auto tonality = parseTonality(attributes.key.mode);
+        if (first) {
+            cur_key      = static_cast<i8>(attributes.key.fifths);
+            cur_tonality = tonality;
+            first        = false;
+        } else if (cur_key != attributes.key.fifths || cur_tonality != tonality) {
+            throw std::runtime_error(
+                "symusic: Key signature mismatch in different parts when parsing musicxml"
+            );
+        }
+    }
+};
+
+struct TempoManager {
+    vec<Tempo<Quarter>> tempos;
+    f64                 prev_tempo = -1.0;
+    f64                 cur_tempo  = -1.0;
+    bool                first      = true;
+
+    void reset() {
+        first     = true;
+        cur_tempo = -1.0;
+    }
+
+    void end(const f64 cur_time) {
+        if (cur_tempo > 0.0 && cur_tempo != prev_tempo) {
+            tempos.emplace_back(cur_time, cur_tempo);
+            prev_tempo = cur_tempo;
+        }
+        reset();
+    }
+
+    void process(const minimx::Sound& sound) {
+        if (first) {
+            cur_tempo = sound.tempo;
+            first     = false;
+        } else if (cur_tempo != sound.tempo) {
+            throw std::runtime_error(
+                "symusic: Tempo mismatch in different parts when parsing musicxml"
+            );
+        }
+    }
+};
+
+
 /**
  * @brief Build time signature sequence from MusicXML data
  * @param score Source score data
  * @return Validated time signature sequence
  */
-std::vector<TimeSignature<Quarter>> extractTimeSignatures(const minimx::MXScore& score) {
+void constructGlobalEvents(const minimx::MXScore& score, ScoreNative<Quarter>& result) {
     if (score.parts.empty()) throw std::runtime_error("Empty score");
 
-    std::vector<TimeSignature<Quarter>> signatures;
-    i32                                 prev_beats = 0, prev_beat_type = 0;
-    f64                                 current_time = 0.0;
+    TimeSigManager time_sig_manager;
+    KeySigManager  key_sig_manager;
+    TempoManager   tempo_manager;
 
+    f64    current_time = 0.0;
     size_t max_measures = 0;
     for (const auto& part : score.parts) {
         max_measures = std::max(max_measures, part.measures.size());
     }
 
     for (size_t i = 0; i < max_measures; ++i) {
-        i32  beats = 0, beat_type = 0;
-        bool first = true;
-
         for (const auto& part : score.parts) {
             if (i >= part.measures.size()) continue;
 
             const auto& measure = part.measures[i];
-            if (first) {
-                beats     = measure.attributes.time.beats;
-                beat_type = measure.attributes.time.beatType;
-                first     = false;
-            } else if (beats != measure.attributes.time.beats
-                       || beat_type != measure.attributes.time.beatType) {
-                throw std::runtime_error("Time signature mismatch");
-            }
+            const auto& attr    = measure.attributes;
+
+            time_sig_manager.process(attr);
+            key_sig_manager.process(attr);
+            tempo_manager.process(measure.sound);
         }
 
-        if (beats > 0 && beat_type > 0 && (beats != prev_beats || beat_type != prev_beat_type)) {
-            signatures.emplace_back(current_time, beats, beat_type);
-            prev_beats     = beats;
-            prev_beat_type = beat_type;
-        }
+        time_sig_manager.end(current_time);
+        key_sig_manager.end(current_time);
+        tempo_manager.end(current_time);
 
-        current_time += measureDurationQuarters(beats, beat_type);
+        current_time += measureDurationQuarters(
+            time_sig_manager.prev_beats, time_sig_manager.prev_beat_type
+        );
     }
 
-    return signatures;
+    result.time_signatures = std::move(time_sig_manager.time_signatures);
+    result.key_signatures  = std::move(key_sig_manager.key_signatures);
+    result.tempos          = std::move(tempo_manager.tempos);
 }
+
+}   // namespace
 
 // ====================== Entry Point ======================
 /**
@@ -418,7 +571,8 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
 
     if (score.parts.empty()) return result;
 
-    result.time_signatures = extractTimeSignatures(score);
+    // Time signature, key signature, tempo
+    constructGlobalEvents(score, result);
 
     for (const auto& part : score.parts) {
         TrackNative<Quarter> track;
@@ -437,7 +591,7 @@ ScoreNative<Quarter> parse_musicxml_native(const pugi::xml_document& doc) {
     return result;
 }
 
-}   // namespace symusic::details
+}   // namespace details
 
 #define INSTANTIATE_XML_DUMP(__COUNT, T)                                   \
     template<>                                                             \
