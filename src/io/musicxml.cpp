@@ -249,7 +249,7 @@ void processNoteElement(
         throw std::runtime_error(fmt::format("Invalid actual-notes value {}", element.actualNotes));
     }
 
-    updateChordTiming(element, current_time, chord_duration, previous_note_type, duration);
+    // updateChordTiming(element, current_time, chord_duration, previous_note_type, duration);
 
     if (element.isRest) {
         current_time += element.isChordTone ? 0 : duration;
@@ -280,6 +280,12 @@ void processNoteElement(
     current_time += element.isChordTone ? 0 : duration;
 }
 
+f64 quantTime(const f64 time, const f64 divisions) {
+    return std::round(time * divisions) / divisions;
+}
+
+
+
 // ====================== Main Parsing Logic ======================
 /**
  * @brief Parse notes from a MusicXML part
@@ -300,7 +306,9 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
 
     for (const auto& measure : part.measures) {
         f64              chord_duration     = 0.0;
+        f64              measure_end        = current_time;
         PreviousNoteType previous_note_type = PreviousNoteType::None;
+
 
         if (measure.attributes.divisions > 0) { divisions = measure.attributes.divisions; }
 
@@ -311,7 +319,7 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
         }
 
         const f64 measure_start = current_time;
-        const f64 measure_end
+        const f64 exp_measure_end
             = measure_start + measureDurationQuarters(current_beats, current_beat_type);
         const auto& transpose = measure.attributes.transpose;
 
@@ -327,6 +335,10 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
                     "symusic: Negative duration in measure while parsing MusicXML"
                 );
             }
+
+            // Update current time and chord duration
+            updateChordTiming(element, current_time, chord_duration, previous_note_type, duration);
+            measure_end = std::max(measure_end, current_time);
 
             switch (element.type) {
             case minimx::MeasureElementType::Note:
@@ -353,6 +365,10 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
                 previous_note_type = PreviousNoteType::None;
                 break;
             }
+
+            current_time = quantTime(current_time, divisions);
+            measure_end  = std::max(measure_end, current_time);
+
             if (current_time < measure_start) {
                 throw std::runtime_error(
                     fmt::format(
@@ -365,24 +381,21 @@ std::vector<Note<Quarter>> parsePartNotes(const minimx::Part& part) {
                     )
                 );
             }
-            if (current_time > measure_end) {
-                throw std::runtime_error(
-                    fmt::format(
-                        "symusic: Time overflow in measure while parsing MusicXML."
-                        " Current time: {}, measure end: {}",
-                        current_time,
-                        measure_end
-                    )
-                );
-            }
         }
 
         // Advance to next measure
         current_time = measure_end;
+        if (std::abs(measure_end - exp_measure_end) > 0.1) {
+            fmt::println(
+                "symusic: Measure duration mismatch in MusicXML (expected: {}, actual: {})",
+                exp_measure_end,
+                measure_end
+            );
+        }
     }
 
     tie_manager.processPendingTies();
-    gfx::timsort(notes.begin(), notes.end(), [](auto&& a, auto&& b) {
+    gfx::timsort(notes.begin(), notes.end(), [](const auto& a, const auto& b) {
         return (a.time) < (b.time);
     });
     return notes;
