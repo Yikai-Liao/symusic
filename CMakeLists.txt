@@ -24,15 +24,10 @@ else ()
     message(STATUS "Nanobind memory leak warning DISABLED")
 endif()
 
-# add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
-# add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
-# add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
-# add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
-
-add_subdirectory(3rdparty/fmt)
-add_subdirectory(3rdparty/minimidi)
-add_subdirectory(3rdparty/prestosynth)
-add_subdirectory(3rdparty/pyvec)
+add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
@@ -50,6 +45,12 @@ target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
 target_link_libraries(symusic prestosynth)
 target_link_libraries(symusic pyvec)
+
+target_include_directories(symusic PUBLIC include)
+target_include_directories(symusic PUBLIC 3rdparty/pdqsort)
+target_include_directories(symusic PUBLIC 3rdparty/zpp_bits)
+target_include_directories(symusic PUBLIC 3rdparty)
+
 
 if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
