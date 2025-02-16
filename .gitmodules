@@ -1,6 +1,7 @@
 [submodule "3rdparty/minimidi"]
 	path = 3rdparty/minimidi
 	url = https://github.com/lzqlzzq/minimidi.git
+	branch = "template-container"
 [submodule "3rdparty/pdqsort"]
 	path = 3rdparty/pdqsort
 	url = https://github.com/orlp/pdqsort.git
