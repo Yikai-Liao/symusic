@@ -30,110 +30,162 @@ void sort_by_time(vec<T>& data) {
     });
 }
 
-
+// 修改TrackHandler，移除NoteManager相关部分
 template<typename T>
-struct NoteOn : TimeStamp<T> {
-    typedef typename T::unit unit;
-    i8                       velocity;
-    NoteOn() : TimeStamp<T>(0), velocity(0) {}
-    NoteOn(const unit time, i8 const velocity) : TimeStamp<T>(time), velocity(velocity) {};
-    [[nodiscard]] bool empty() const { return velocity == 0; }
-    void               reset() {
-        this->time = 0;
-        velocity   = 0;
-    }
+struct TrackHandler {
+    TrackNative<T> track;
+
+    // 移除NoteManager相关成员函数
+    TrackHandler() = default;
+    TrackHandler(const std::string& name, uint8_t program, bool is_drum) :
+        track(name, program, is_drum) {}
 };
 
+// 修改NoteManager结构
 template<typename T>
-struct NoteOnQueue {
-private:
-    typedef typename T::unit unit;
-    std::queue<NoteOn<T>>    queue;
-    NoteOn<T>                _front;
+struct NoteManager {
+    struct Slot {
+        uint32_t              count = 0;
+        uint32_t              index = 0;
+        std::vector<Note<T>>* notes = nullptr;
+    };
 
-public:
-    NoteOnQueue() = default;
+    // 16 channels * 128 pitches
+    std::array<Slot, 16 * 128>                                                           slots{};
+    std::unordered_map<uint16_t, std::queue<std::pair<uint32_t, std::vector<Note<T>>*>>> overflow;
 
-    [[nodiscard]] size_t size() const { return _front.empty() ? 0 : queue.size() + 1; }
+    void add(
+        const uint8_t         channel,
+        uint8_t               pitch,
+        typename T::unit      time,
+        int8_t                velocity,
+        std::vector<Note<T>>& notes
+    ) {
+        const uint16_t key = channel * 128 + pitch;
+        notes.emplace_back(time, -1, pitch, velocity);
+        const auto idx = notes.size() - 1;
 
-    [[nodiscard]] bool empty() const { return _front.empty(); }
-
-    [[nodiscard]] const NoteOn<T>& front() const { return _front; }
-
-    void emplace(unit time, i8 velocity) {
-        if (_front.empty()) {
-            // significantly faster than _front = NoteOn<T>{time, velocity};
-            // what is the compiler doing?
-            _front.time     = time;
-            _front.velocity = velocity;
-        } else
-            queue.emplace(time, velocity);
-    }
-
-    void pop() {
-        if (queue.empty())
-            _front.reset();
-        else {
-            _front = queue.front();
-            queue.pop();
+        if (Slot& slot = slots[key]; slot.count++ == 0) {
+            slot.index = idx;
+            slot.notes = &notes;
+        } else {
+            overflow.try_emplace(key).first->second.emplace(idx, &notes);
         }
     }
 
-    void reset() {
-        if (empty()) return;
-        while (!queue.empty()) queue.pop();
-        _front.reset();
+    bool end(const uint8_t channel, const uint8_t pitch, typename T::unit end_time) {
+        const uint16_t key  = channel * 128 + pitch;
+        Slot&          slot = slots[key];
+        if (slot.count == 0 || !slot.notes) return false;
+
+        auto& note    = (*slot.notes)[slot.index];
+        note.duration = end_time - note.time;
+
+        if (--slot.count > 0) {
+            auto& [new_idx, new_notes] = overflow[key].front();
+            slot.index                 = new_idx;
+            slot.notes                 = new_notes;
+            overflow[key].pop();
+        }
+        return true;
     }
 };
 
-struct TrackIdx {
+struct TrackKey {
+    uint8_t channel;
+    uint8_t program;
 
-    u8 channel, program;
-
-    TrackIdx(const u8 channel, const u8 program) : channel(channel), program(program) {}
-
-    bool operator<(const TrackIdx& other) const {
-        return std::tie(channel, program) < std::tie(other.channel, other.program);
-    }
-
-    bool operator==(const TrackIdx&) const = default;
+    bool operator==(const TrackKey& other) const { return channel == other.channel && program == other.program; }
+    auto operator<=>(const TrackKey& other) const { return std::tie(channel, program) <=> std::tie(other.channel, other.program); }
 };
 
 
+
+// 修改TrackManager
 template<typename T>
-TrackNative<T>& get_track(
-    std::map<TrackIdx, TrackNative<T>>& track_map,
-    TrackNative<T> (&stragglers)[16],
-    const uint8_t channel,
-    const uint8_t program,
-    const size_t  message_num,
-    const bool    create_new
-) {
-    TrackIdx    track_idx{channel, program};
-    const auto& entry = track_map.find(track_idx);
-    if (entry == track_map.end()) {
-        auto& track = stragglers[channel];
-        if (!create_new) return track;
-        auto res = track_map.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(track_idx),
-            std::forward_as_tuple("", program, channel == 9)
-        );
-        auto& iter = res.first;
-        if (!res.second) throw std::runtime_error("Failed to insert track");
-        // copy controls if not empty, don't move, don't clear original
-        if (!track.controls.empty()) iter->second.controls = track.controls;
-        // copy pitch_bends if not empty, don't move, don't clear original
-        if (!track.pitch_bends.empty()) iter->second.pitch_bends = track.pitch_bends;
-        // copy pedals if not empty, don't move, don't clear original
-        if (!track.pedals.empty()) iter->second.pedals = track.pedals;
-        // reserve space for notes
-        iter->second.notes.reserve(message_num / 2 + 1);
-        return iter->second;
-    }
-    return entry->second;
-}
+class TrackManager {
+    NoteManager<T>                      noteManager;
+    std::map<TrackKey, TrackHandler<T>> formalTracks;
+    std::array<TrackHandler<T>, 16>     stragglers;   // 使用 std::array 替代 C 风格数组
+    TrackHandler<T>*                    lastTrack = nullptr;
+    TrackKey                            lastKey{255, 255};
+    size_t                              msg_num = 0;
+    std::array<uint8_t, 16>             cur_instr{};   // 新增当前乐器状态数组
 
+    // 新增内部方法获取notes引用
+    std::vector<Note<T>>& get_notes(uint8_t channel) { return get<false>(channel).track.notes; }
+
+public:
+    explicit TrackManager(const size_t msg_num) : msg_num(msg_num) {}
+
+    // 新增设置program的方法
+    void set_program(uint8_t channel, uint8_t program) { cur_instr[channel] = program; }
+
+    template<bool create_new>
+    TrackHandler<T>& get(uint8_t channel) {
+        const uint8_t  program = cur_instr[channel];
+        const TrackKey key{channel, program};
+
+        // 使用结构化绑定简化代码
+        if (lastTrack && lastKey == key) { return *lastTrack; }
+
+
+        // 使用 if-init 语句简化查找
+        if (auto it = formalTracks.find(key); it != formalTracks.end()) {
+            lastKey = key;
+            lastTrack = &it->second;
+            return *lastTrack;
+        }
+
+        // 统一 straggler 访问方式
+        auto& straggler = stragglers[channel];
+        if constexpr (!create_new) return straggler;
+
+        // 准备新轨道属性
+        straggler.track.program = program;
+        straggler.track.is_drum = channel == 9;
+
+        // 使用 try_emplace 优化插入逻辑
+        auto [iter, inserted] = formalTracks.try_emplace(key, std::move(straggler));
+
+        // 重置 straggler 状态
+        stragglers[channel] = TrackHandler<T>();
+
+        auto& newTrack = iter->second;
+        newTrack.track.notes.reserve(msg_num / 2 + 1);
+        lastKey = key;
+        lastTrack = &newTrack;
+        return *lastTrack;
+    }
+
+    // 修改音符处理方法
+    void add_note(uint8_t channel, uint8_t pitch, typename T::unit time, int8_t velocity) {
+        auto& track = get<true>(channel).track;
+        noteManager.add(channel, pitch, time, velocity, track.notes);
+    }
+
+    bool end_note(uint8_t channel, uint8_t pitch, typename T::unit end_time) {
+        return noteManager.end(channel, pitch, end_time);
+    }
+
+    void finalize(ScoreNative<T>& score, const std::string& name) {
+        // 转移轨道
+        for (auto& [_, handler] : formalTracks) {
+            if (!handler.track.empty()) {
+                auto& notes = handler.track.notes;
+                notes.erase(
+                    std::remove_if(
+                        notes.begin(), notes.end(), [](const Note<T>& n) { return n.duration < 0; }
+                    ),
+                    notes.end()
+                );
+
+                handler.track.name = name;
+                score.tracks.push_back(std::move(handler.track));
+            }
+        }
+    }
+};
 
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
@@ -142,91 +194,55 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
     // remove this redundant copy in the future
     const u16      tpq = midi.ticks_per_quarter();
     ScoreNative<T> score(tpq);   // create a score with the given ticks per quarter
-    // (channel, pitch) -> (start, velocity)
-    NoteOnQueue<Tick> last_note_on[16][128] = {};
-
+    int            count = -1;
     for (const minimidi::TrackView<Container>& midi_track : midi) {
-        // (channel, program) -> Track
-        std::map<TrackIdx, TrackNative<T>> track_map;
-        // channel -> Track
-        TrackNative<T>  stragglers[16];
-        TrackNative<T>* last_track   = nullptr;
-        u8              last_channel = 255, last_program = 255;
-        // channel -> program
-        uint8_t     cur_instr[16] = {0};
-        std::string cur_name;
-        // iter NoteOnQueue and reset
-        for (auto& channel : last_note_on) {
-            for (auto& note_on : channel) { note_on.reset(); }
-        }
+
+        const size_t    message_num = midi_track.size / 3 + 100;
+        TrackManager<T> trackManager(message_num);
+        std::string     cur_name;
+        count += 1;
         // channel -> pedal_on
-        unit last_pedal_on[16] = {-1};
+        std::array<unit, 16> last_pedal_on{-1};
         // iter midi messages in the track
-        size_t message_num = midi_track.size / 3 + 100;
+
         for (const auto& msg : midi_track) {
+
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
             switch (msg.type()) {
-            case (minimidi::MessageType::NoteOn): {
+            case minimidi::MessageType::NoteOn: {
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
-                if (const uint8_t velocity = note_on.velocity(); velocity != 0) {
-                    auto pitch = note_on.pitch();
-                    if (pitch >= 128)
-                        throw std::range_error(
-                            "Get pitch=" + std::to_string(static_cast<int>(pitch))
-                        );
-                    if (velocity >= 128)
-                        throw std::range_error(
-                            "Get velocity=" + std::to_string(static_cast<int>(velocity))
-                        );
-                    last_note_on[note_on.channel()][pitch].emplace(
-                        cur_tick, static_cast<i8>(velocity)
+                if (note_on.velocity() != 0) {
+                    trackManager.add_note(
+                        note_on.channel(),
+                        note_on.pitch(),
+                        cur_tick,
+                        note_on.velocity()
                     );
                     break;
-                }   // if velocity is zero, turn to note off case
+                }
+                // 处理 velocity=0 的情况作为 NoteOff
             }
-            case (minimidi::MessageType::NoteOff): {
+            case minimidi::MessageType::NoteOff: {
                 const auto& note_off = msg.template cast<minimidi::NoteOff>();
-                const u8    channel  = note_off.channel();
-                const u8    pitch    = note_off.pitch();
-                if (pitch >= 128) throw std::range_error("Get pitch=" + std::to_string(pitch));
-                auto&           note_on_queue = last_note_on[channel][pitch];
-                u8              program       = cur_instr[channel];
-                TrackNative<T>* track;
-                if (last_channel == channel && last_program == program) {
-                    track = last_track;
-                } else {
-                    track = &get_track(track_map, stragglers, channel, program, message_num, true);
-                    last_track   = track;
-                    last_channel = channel;
-                    last_program = program;
-                }
-                if ((!note_on_queue.empty()) && (cur_tick >= note_on_queue.front().time)) {
-                    auto const&      note_on  = note_on_queue.front();
-                    typename T::unit duration = tick2unit(cur_tick - note_on.time);
-                    track->notes.emplace_back(
-                        tick2unit(note_on.time), duration, static_cast<i8>(pitch), note_on.velocity
-                    );
-                    note_on_queue.pop();
-                }
+                trackManager.end_note(note_off.channel(), note_off.pitch(), cur_tick);
                 break;
             }
-            case (minimidi::MessageType::ProgramChange): {
+            case minimidi::MessageType::ProgramChange: {
                 const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
                 const uint8_t channel        = program_change.channel();
                 const uint8_t program        = program_change.program();
                 if (program >= 128)
                     throw std::range_error("Get program=" + std::to_string(program));
-                cur_instr[channel] = program;
+                trackManager.set_program(channel, program);   // 改为调用TrackManager的方法
                 break;
             }
-            case (minimidi::MessageType::ControlChange): {
+            case minimidi::MessageType::ControlChange: {
                 const auto&   control_change = msg.template cast<minimidi::ControlChange>();
                 const uint8_t channel        = control_change.channel();
-                const uint8_t program        = cur_instr[channel];
 
-                auto& track
-                    = get_track(track_map, stragglers, channel, program, message_num, false);
+                auto& handler = trackManager.template get<false>(channel);
+                auto& track   = handler.track;
                 if (track.controls.capacity() < message_num / 2) [[unlikely]] {
                     track.controls.reserve(message_num / 2);
                 }
@@ -238,9 +254,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     throw std::range_error("Get control_number=" + std::to_string(control_number));
                 if (control_value >= 128)
                     throw std::range_error("Get control_value=" + std::to_string(control_value));
-                track.controls.emplace_back(
-                    cur_time, control_number, control_value
-                );
+                track.controls.emplace_back(cur_time, control_number, control_value);
                 // Pedal Part
                 if (control_number == 64) {
                     if (control_value >= 64) {
@@ -256,13 +270,10 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 }
                 break;
             }
-            case (minimidi::MessageType::PitchBend): {
-                const auto&   pitch_bend = msg.template cast<minimidi::PitchBend>();
-                const uint8_t channel    = pitch_bend.channel();
-                const uint8_t program    = cur_instr[channel];
-                auto&         track
-                    = get_track(track_map, stragglers, channel, program, message_num, false);
-                auto value = pitch_bend.pitch_bend();
+            case minimidi::MessageType::PitchBend: {
+                const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
+                auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
+                auto        value = pitch_bend.pitch_bend();
                 if (value < minimidi::PitchBend<>::MAX_PITCH_BEND
                     || value > minimidi::PitchBend<>::MIN_PITCH_BEND)
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
@@ -270,7 +281,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 break;
             }
                 // Meta Message
-            case (minimidi::MessageType::Meta): {
+            case minimidi::MessageType::Meta: {
                 switch (const auto& meta = msg.template cast<minimidi::Meta>(); meta.meta_type()) {
                 case (minimidi::MetaType::TrackName): {
                     auto data = meta.meta_value();
@@ -288,7 +299,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 case (minimidi::MetaType::SetTempo): {
                     // store the raw tempo value(mspq) directly
                     // qpm is calculated when needed
-                    score.tempos.emplace_back(cur_time, meta.template cast<minimidi::SetTempo>().tempo());
+                    score.tempos.emplace_back(
+                        cur_time, meta.template cast<minimidi::SetTempo>().tempo()
+                    );
                     break;
                 }
                 case (minimidi::MetaType::KeySignature): {
@@ -297,13 +310,10 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     break;
                 }
                 case (minimidi::MetaType::Lyric): {
-                    // lyrics should be placed in Track, not Score
-                    auto    data    = meta.meta_value();
-                    uint8_t channel = meta.channel();
-                    uint8_t program = cur_instr[channel];
-                    auto&   track   // all lyrics should be preserved, so we set create_new=true
-                        = get_track(track_map, stragglers, channel, program, message_num, true);
-                    auto text = strip_non_utf_8(std::string(data.begin(), data.end()));
+                    auto  data  = meta.meta_value();
+                    auto& track = trackManager.template get<true>(meta.channel()).track;
+                    auto  text  = strip_non_utf_8(std::string(data.begin(), data.end()));
+
                     if (text.empty()) break;
                     track.lyrics.emplace_back(cur_time, text);
                     break;
@@ -323,37 +333,11 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             default: break;
             }
         }
-        for (auto& [_, track] : track_map) {
-            if (track.empty()) continue;
-            track.name = cur_name;
-            if (static_cast<double>(track.notes.size()) * 1.5
-                < static_cast<double>(track.notes.capacity()))
-                track.notes.shrink_to_fit();
-            if (static_cast<double>(track.controls.size()) * 1.5
-                < static_cast<double>(track.controls.capacity()))
-                track.controls.shrink_to_fit();
-            pdqsort_detail::insertion_sort(
-                track.notes.begin(),
-                track.notes.end(),
-                [](const auto& a, const auto& b) {
-                    return std::tie(a.time, a.pitch, a.duration)
-                           < std::tie(b.time, b.pitch, b.duration);
-                }
-            );
-            pdqsort_detail::insertion_sort(
-                track.pedals.begin(),
-                track.pedals.end(),
-                [](const auto& a, const auto& b) {
-                    return std::tie(a.time, a.duration) < std::tie(b.time, b.duration);
-                }
-            );
-            score.tracks.emplace_back(std::move(track));
-        }
+        trackManager.finalize(score, cur_name);
     }
     sort_by_time(score.time_signatures);
     sort_by_time(score.key_signatures);
     sort_by_time(score.tempos);
-    // sort_by_time(score.lyrics);
     sort_by_time(score.markers);
     return to_shared(std::move(score));
 }
@@ -364,7 +348,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
     };
 
     midi.tracks.reserve(score.tracks->size() + 1);
-    minimidi::Messages init_msgs{};
+    minimidi::Messages<> init_msgs{};
     {   // add meta messages
         auto&        msgs        = init_msgs;
         const size_t message_num = score.time_signatures->size() + score.key_signatures->size()
@@ -395,10 +379,10 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
             msgs.emplace_back(minimidi::Marker(marker->time, marker->text));
         }
     }
-    const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
+    const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& track : *score.tracks) {
-        minimidi::Messages msgs;
+        minimidi::Messages<> msgs;
         if (!init_msgs.empty()) {
             msgs      = std::move(init_msgs);
             init_msgs = {};
@@ -418,17 +402,13 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
         // add control change
         for (const auto& control : *track->controls) {
             msgs.emplace_back(
-                minimidi::ControlChange(
-                    control->time, channel, control->number, control->value
-                )
+                minimidi::ControlChange(control->time, channel, control->number, control->value)
             );
         }
         // add pitch bend
         for (const auto& pitch_bend : *track->pitch_bends) {
             msgs.emplace_back(
-                minimidi::PitchBend(
-                    pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
-                )
+                minimidi::PitchBend(pitch_bend->time, channel, static_cast<i16>(pitch_bend->value))
             );
         }
         // add lyrics
