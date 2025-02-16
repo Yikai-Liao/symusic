@@ -135,18 +135,17 @@ TrackNative<T>& get_track(
 }
 
 
-template<TType T, typename Conv>   // only works for Tick and Quarter
+template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
-[[nodiscard]] Score<T> parse_midi(const minimidi::file::MidiFile& midi, Conv tick2unit) {
+[[nodiscard]] Score<T> parse_midi(const minimidi::MidiFileView<Container>& midi, Conv tick2unit) {
     typedef typename T::unit unit;
     // remove this redundant copy in the future
-    const u16      tpq = midi.get_tick_per_quarter();
-    ScoreNative<T> score(tpq);               // create a score with the given ticks per quarter
-    namespace message = minimidi::message;   // alias
+    const u16      tpq = midi.ticks_per_quarter();
+    ScoreNative<T> score(tpq);   // create a score with the given ticks per quarter
     // (channel, pitch) -> (start, velocity)
     NoteOnQueue<Tick> last_note_on[16][128] = {};
 
-    for (const auto& midi_track : midi.tracks) {
+    for (const minimidi::TrackView<Container>& midi_track : midi) {
         // (channel, program) -> Track
         std::map<TrackIdx, TrackNative<T>> track_map;
         // channel -> Track
@@ -163,14 +162,15 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
         // channel -> pedal_on
         unit last_pedal_on[16] = {-1};
         // iter midi messages in the track
-        size_t message_num = midi_track.message_num();
-        for (const auto& msg : midi_track.messages) {
-            const auto cur_tick = static_cast<Tick::unit>(msg.get_time());
+        size_t message_num = midi_track.size / 3 + 100;
+        for (const auto& msg : midi_track) {
+            const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
-            switch (msg.get_type()) {
-            case (message::MessageType::NoteOn): {
-                if (uint8_t velocity = msg.get_velocity(); velocity != 0) {
-                    auto pitch = msg.get_pitch();
+            switch (msg.type()) {
+            case (minimidi::MessageType::NoteOn): {
+                const auto& note_on = msg.template cast<minimidi::NoteOn>();
+                if (const uint8_t velocity = note_on.velocity(); velocity != 0) {
+                    auto pitch = note_on.pitch();
                     if (pitch >= 128)
                         throw std::range_error(
                             "Get pitch=" + std::to_string(static_cast<int>(pitch))
@@ -179,15 +179,16 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                         throw std::range_error(
                             "Get velocity=" + std::to_string(static_cast<int>(velocity))
                         );
-                    last_note_on[msg.get_channel()][pitch].emplace(
+                    last_note_on[note_on.channel()][pitch].emplace(
                         cur_tick, static_cast<i8>(velocity)
                     );
                     break;
                 }   // if velocity is zero, turn to note off case
             }
-            case (message::MessageType::NoteOff): {
-                u8 channel = msg.get_channel();
-                u8 pitch   = msg.get_pitch();
+            case (minimidi::MessageType::NoteOff): {
+                const auto& note_off = msg.template cast<minimidi::NoteOff>();
+                const u8    channel  = note_off.channel();
+                const u8    pitch    = note_off.pitch();
                 if (pitch >= 128) throw std::range_error("Get pitch=" + std::to_string(pitch));
                 auto&           note_on_queue = last_note_on[channel][pitch];
                 u8              program       = cur_instr[channel];
@@ -210,30 +211,35 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                 }
                 break;
             }
-            case (message::MessageType::ProgramChange): {
-                uint8_t channel = msg.get_channel();
-                uint8_t program = msg.get_program();
+            case (minimidi::MessageType::ProgramChange): {
+                const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
+                const uint8_t channel        = program_change.channel();
+                const uint8_t program        = program_change.program();
                 if (program >= 128)
                     throw std::range_error("Get program=" + std::to_string(program));
                 cur_instr[channel] = program;
                 break;
             }
-            case (message::MessageType::ControlChange): {
-                uint8_t channel = msg.get_channel();
-                uint8_t program = cur_instr[channel];
-                auto&   track
+            case (minimidi::MessageType::ControlChange): {
+                const auto&   control_change = msg.template cast<minimidi::ControlChange>();
+                const uint8_t channel        = control_change.channel();
+                const uint8_t program        = cur_instr[channel];
+
+                auto& track
                     = get_track(track_map, stragglers, channel, program, message_num, false);
                 if (track.controls.capacity() < message_num / 2) [[unlikely]] {
                     track.controls.reserve(message_num / 2);
                 }
-                uint8_t control_number = msg.get_control_number();
-                uint8_t control_value  = msg.get_control_value();
+
+                const uint8_t control_number = control_change.control_number();
+                const uint8_t control_value  = control_change.control_value();
+
                 if (control_number >= 128)
                     throw std::range_error("Get control_number=" + std::to_string(control_number));
                 if (control_value >= 128)
                     throw std::range_error("Get control_value=" + std::to_string(control_value));
                 track.controls.emplace_back(
-                    cur_time, msg.get_control_number(), msg.get_control_value()
+                    cur_time, control_number, control_value
                 );
                 // Pedal Part
                 if (control_number == 64) {
@@ -250,46 +256,50 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                 }
                 break;
             }
-            case (message::MessageType::PitchBend): {
-                uint8_t channel = msg.get_channel();
-                uint8_t program = cur_instr[channel];
-                auto&   track
+            case (minimidi::MessageType::PitchBend): {
+                const auto&   pitch_bend = msg.template cast<minimidi::PitchBend>();
+                const uint8_t channel    = pitch_bend.channel();
+                const uint8_t program    = cur_instr[channel];
+                auto&         track
                     = get_track(track_map, stragglers, channel, program, message_num, false);
-                auto value = msg.get_pitch_bend();
-                if (value < message::MIN_PITCHBEND || value > message::MAX_PITCHBEND)
+                auto value = pitch_bend.pitch_bend();
+                if (value < minimidi::PitchBend<>::MAX_PITCH_BEND
+                    || value > minimidi::PitchBend<>::MIN_PITCH_BEND)
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;
             }
                 // Meta Message
-            case (message::MessageType::Meta): {
-                switch (msg.get_meta_type()) {
-                case (message::MetaType::TrackName): {
-                    auto data = msg.get_meta_value();
+            case (minimidi::MessageType::Meta): {
+                switch (const auto& meta = msg.template cast<minimidi::Meta>(); meta.meta_type()) {
+                case (minimidi::MetaType::TrackName): {
+                    auto data = meta.meta_value();
                     auto tmp  = std::string(data.begin(), data.end());
                     cur_name  = strip_non_utf_8(tmp);
                     break;
                 }
-                case (message::MetaType::TimeSignature): {
-                    const auto [numerator, denominator] = msg.get_time_signature();
-                    score.time_signatures.emplace_back(cur_time, numerator, denominator);
+                case (minimidi::MetaType::TimeSignature): {
+                    const auto& time_sig = meta.template cast<minimidi::TimeSignature>();
+                    score.time_signatures.emplace_back(
+                        tick2unit(cur_tick), time_sig.numerator(), time_sig.denominator()
+                    );
                     break;
                 }
-                case (message::MetaType::SetTempo): {
+                case (minimidi::MetaType::SetTempo): {
                     // store the raw tempo value(mspq) directly
                     // qpm is calculated when needed
-                    score.tempos.emplace_back(cur_time, msg.get_tempo());
+                    score.tempos.emplace_back(cur_time, meta.template cast<minimidi::SetTempo>().tempo());
                     break;
                 }
-                case (message::MetaType::KeySignature): {
-                    const auto k_msg = msg.get_key_signature();
-                    score.key_signatures.emplace_back(cur_time, k_msg.key, k_msg.tonality);
+                case (minimidi::MetaType::KeySignature): {
+                    const auto& k_msg = meta.template cast<minimidi::KeySignature>();
+                    score.key_signatures.emplace_back(cur_time, k_msg.key(), k_msg.tonality());
                     break;
                 }
-                case (message::MetaType::Lyric): {
+                case (minimidi::MetaType::Lyric): {
                     // lyrics should be placed in Track, not Score
-                    auto    data    = msg.get_meta_value();
-                    uint8_t channel = msg.get_channel();
+                    auto    data    = meta.meta_value();
+                    uint8_t channel = meta.channel();
                     uint8_t program = cur_instr[channel];
                     auto&   track   // all lyrics should be preserved, so we set create_new=true
                         = get_track(track_map, stragglers, channel, program, message_num, true);
@@ -298,8 +308,8 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
                     track.lyrics.emplace_back(cur_time, text);
                     break;
                 }
-                case (message::MetaType::Marker): {
-                    auto data = msg.get_meta_value();
+                case (minimidi::MetaType::Marker): {
+                    auto data = meta.meta_value();
                     auto tmp  = std::string(data.begin(), data.end());
                     auto text = strip_non_utf_8(tmp);
                     if (text.empty()) break;
@@ -348,13 +358,13 @@ template<TType T, typename Conv>   // only works for Tick and Quarter
     return to_shared(std::move(score));
 }
 
-minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
-    minimidi::file::MidiFile midi{
-        minimidi::file::MidiFormat::MultiTrack, 0, static_cast<u16>(score.ticks_per_quarter)
+minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
+    minimidi::MidiFile<> midi{
+        minimidi::MidiFormat::MultiTrack, 0, static_cast<u16>(score.ticks_per_quarter)
     };
-    namespace message = minimidi::message;
+
     midi.tracks.reserve(score.tracks->size() + 1);
-    message::Messages init_msgs{};
+    minimidi::Messages init_msgs{};
     {   // add meta messages
         auto&        msgs        = init_msgs;
         const size_t message_num = score.time_signatures->size() + score.key_signatures->size()
@@ -363,7 +373,7 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
             msgs.emplace_back(
-                message::Message::TimeSignature(
+                minimidi::TimeSignature(
                     time_signature->time, time_signature->numerator, time_signature->denominator
                 )
             );
@@ -371,24 +381,24 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         // add key signatures
         for (const auto& key_signature : *score.key_signatures) {
             msgs.emplace_back(
-                message::Message::KeySignature(
+                minimidi::KeySignature(
                     key_signature->time, key_signature->key, key_signature->tonality
                 )
             );
         }
         // add tempos
         for (const auto& tempo : *score.tempos) {
-            msgs.emplace_back(message::Message::SetTempo(tempo->time, tempo->mspq));
+            msgs.emplace_back(minimidi::SetTempo(tempo->time, tempo->mspq));
         }
         // add markers
         for (const auto& marker : *score.markers) {
-            msgs.emplace_back(message::Message::Marker(marker->time, marker->text));
+            msgs.emplace_back(minimidi::Marker(marker->time, marker->text));
         }
     }
     const u8 valid_channel[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& track : *score.tracks) {
-        message::Messages msgs;
+        minimidi::Messages msgs;
         if (!init_msgs.empty()) {
             msgs      = std::move(init_msgs);
             init_msgs = {};
@@ -401,14 +411,14 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         }
         const u8 channel = track->is_drum ? 9 : valid_channel[idx % 15];
         // add track name
-        if (!track->name.empty()) msgs.emplace_back(message::Message::TrackName(0, track->name));
+        if (!track->name.empty()) msgs.emplace_back(minimidi::TrackName(0, track->name));
         // add program change
-        msgs.emplace_back(message::Message::ProgramChange(0, channel, track->program));
+        msgs.emplace_back(minimidi::ProgramChange(0, channel, track->program));
         // Todo add check for Pedal
         // add control change
         for (const auto& control : *track->controls) {
             msgs.emplace_back(
-                message::Message::ControlChange(
+                minimidi::ControlChange(
                     control->time, channel, control->number, control->value
                 )
             );
@@ -416,18 +426,18 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         // add pitch bend
         for (const auto& pitch_bend : *track->pitch_bends) {
             msgs.emplace_back(
-                message::Message::PitchBend(
+                minimidi::PitchBend(
                     pitch_bend->time, channel, static_cast<i16>(pitch_bend->value)
                 )
             );
         }
         // add lyrics
         for (const auto& lyric : *track->lyrics) {
-            msgs.emplace_back(message::Message::Lyric(lyric->time, lyric->text));
+            msgs.emplace_back(minimidi::Lyric(lyric->time, lyric->text));
         }
 
         gfx::timsort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
-            return a.get_time() < b.get_time();
+            return (a.time) < (b.time);
         });
         // add notes
         const size_t note_size  = track->notes->size();
@@ -447,13 +457,13 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         msgs.resize(msgs.size() + note_size * 2);
         for (size_t i = note_begin; const auto& note : notes) {
             if (note.duration > 0) {
-                msgs[i] = message::Message::NoteOff(note.end(), channel, note.pitch, note.velocity);
+                msgs[i] = minimidi::NoteOff(note.end(), channel, note.pitch, note.velocity);
                 msgs[i + note_size]
-                    = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
+                    = minimidi::NoteOn(note.time, channel, note.pitch, note.velocity);
             } else {   // empty note
                 msgs[i + note_size]
-                    = message::Message::NoteOff(note.time, channel, note.pitch, note.velocity);
-                msgs[i] = message::Message::NoteOn(note.time, channel, note.pitch, note.velocity);
+                    = minimidi::NoteOff(note.time, channel, note.pitch, note.velocity);
+                msgs[i] = minimidi::NoteOn(note.time, channel, note.pitch, note.velocity);
             }
             i += 1;
         }
@@ -461,21 +471,21 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         pdqsort_detail::insertion_sort(
             msgs.begin() + note_begin,
             msgs.begin() + (note_begin + static_cast<ptrdiff_t>(note_size)),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
         );
         // merge note on and note off
         gfx::timmerge(
             msgs.begin() + note_begin,
             msgs.begin() + note_begin + static_cast<ptrdiff_t>(note_size),
             msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
         );
         // merge prev to (note on and note off)
         gfx::timmerge(
             msgs.begin(),
             msgs.begin() + note_begin,
             msgs.end(),
-            [](const auto& a, const auto& b) { return a.get_time() < b.get_time(); }
+            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
         );
         // messages will be sorted by time in minimidi
         if (!msgs.empty()) {
@@ -485,24 +495,23 @@ minimidi::file::MidiFile to_midi(const Score<Tick>& score) {
         }
     }
     if (!init_msgs.empty()) { midi.tracks.emplace_back(std::move(init_msgs)); }
-    return midi;
+    return std::move(midi);
 }
 
 template<TType T>
 Score<T> parse_midi(const std::span<const u8> bytes) {
-    const minimidi::file::MidiFile midi{bytes.data(), bytes.size()};
+    const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
+
     if constexpr (std::is_same_v<T, Tick>) {
         return parse_midi<Tick>(midi, [](const Tick::unit x) { return x; });
     } else if constexpr (std::is_same_v<T, Quarter>) {
-        const auto tpq = static_cast<float>(midi.get_tick_per_quarter());
+        const auto tpq = static_cast<float>(midi.ticks_per_quarter());
         return parse_midi<Quarter>(midi, [tpq](const Tick::unit x) {
             return static_cast<float>(x) / tpq;
         });
     } else {
-        // return parse_midi_sec(midi);
         return convert<Second>(parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }));
     }
-    return {};
 }
 }   // namespace details
 
