@@ -274,8 +274,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (value < minimidi::PitchBend<>::MAX_PITCH_BEND
-                    || value > minimidi::PitchBend<>::MIN_PITCH_BEND)
+                if (value < minimidi::PitchBend<>::MIN_PITCH_BEND
+                    || value > minimidi::PitchBend<>::MAX_PITCH_BEND)
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;
