@@ -22,7 +22,7 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     midi2.markers.sort(key=lambda x: (x.time, x.text))
     for track1, track2 in zip(midi1.tracks, midi2.tracks):
         times = track1.notes.numpy()['time']
-        assert(bool(np.all(np.diff(times) >=0)), "Notes should be sorted by time after parsing")
+        assert(bool(np.all(np.diff(times) >=0)))
         track1.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track2.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track1.controls.sort(key=lambda x: (x.time, x.number, x.value))
