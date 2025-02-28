@@ -87,9 +87,9 @@ Score<T> Score<T>::sort(const bool reverse) const {
 template<TType T>
 void Score<T>::clip_inplace(unit start, unit end, bool clip_end) {
     for (auto& track : *tracks) track->clip_inplace(start, end, clip_end);
-    ops::clip_inplace(*time_signatures, start, end);
-    ops::clip_inplace(*key_signatures, start, end);
-    ops::clip_inplace(*tempos, start, end);
+    ops::clip_with_sentinel_inplace(*time_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*key_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*tempos, start, end);
     // ops::clip_inplace(*lyrics, start, end);
     ops::clip_inplace(*markers, start, end);
 }
