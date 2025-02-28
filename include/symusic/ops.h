@@ -130,7 +130,7 @@ void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typena
 
     T sentinel{};
     sentinel.time = std::numeric_limits<typename T::unit>::min();
-    events.filter([start, end, &sentinel](const shared<T>& event) {
+    events.filter([start, end, &sentinel](const T& event) {
         if (event.time <= start) {
             if ((sentinel.time) < event.time) { sentinel = *event; }
         } else if ((event.time) < end) {
