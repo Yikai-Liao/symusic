@@ -30,18 +30,15 @@ void sort_by_time(vec<T>& data) {
     });
 }
 
-// 修改TrackHandler，移除NoteManager相关部分
 template<typename T>
 struct TrackHandler {
     TrackNative<T> track;
 
-    // 移除NoteManager相关成员函数
     TrackHandler() = default;
     TrackHandler(const std::string& name, uint8_t program, bool is_drum) :
         track(name, program, is_drum) {}
 };
 
-// 修改NoteManager结构
 template<typename T>
 struct NoteManager {
     struct Slot {
@@ -52,6 +49,7 @@ struct NoteManager {
 
     // 16 channels * 128 pitches
     std::array<Slot, 16 * 128>                                                           slots{};
+    // useed if multiple note is activated at the same channel and pitch
     std::unordered_map<uint16_t, std::queue<std::pair<uint32_t, std::vector<Note<T>>*>>> overflow;
 
     void add(
@@ -62,6 +60,7 @@ struct NoteManager {
         std::vector<Note<T>>& notes
     ) {
         const uint16_t key = channel * 128 + pitch;
+        // Create a note placeholder with duration -1
         notes.emplace_back(time, -1, pitch, velocity);
         const auto idx = notes.size() - 1;
 
@@ -69,6 +68,7 @@ struct NoteManager {
             slot.index = idx;
             slot.notes = &notes;
         } else {
+            // Put the extra note into the queue
             overflow.try_emplace(key).first->second.emplace(idx, &notes);
         }
     }
@@ -78,10 +78,12 @@ struct NoteManager {
         Slot&          slot = slots[key];
         if (slot.count == 0 || !slot.notes) return false;
 
+        // Modify the duration of the placeholder
         auto& note    = (*slot.notes)[slot.index];
         note.duration = end_time - note.time;
 
         if (--slot.count > 0) {
+            // Pop the queue if needed
             auto& [new_idx, new_notes] = overflow[key].front();
             slot.index                 = new_idx;
             slot.notes                 = new_notes;
@@ -101,24 +103,26 @@ struct TrackKey {
 
 
 
-// 修改TrackManager
 template<typename T>
 class TrackManager {
+    // Used to manager multiple symusic Track corresponding to a single MIDI Track
     NoteManager<T>                      noteManager;
     std::map<TrackKey, TrackHandler<T>> formalTracks;
-    std::array<TrackHandler<T>, 16>     stragglers;   // 使用 std::array 替代 C 风格数组
+    // used to store events if a real track haven't been created
+    std::array<TrackHandler<T>, 16>     stragglers;
+    // last track cache to accelerate track searching
     TrackHandler<T>*                    lastTrack = nullptr;
     TrackKey                            lastKey{255, 255};
+    // used to reserve enough space when create a track
     size_t                              msg_num = 0;
-    std::array<uint8_t, 16>             cur_instr{};   // 新增当前乐器状态数组
+    // the current program number for each channel
+    std::array<uint8_t, 16>             cur_instr{};
 
-    // 新增内部方法获取notes引用
     std::vector<Note<T>>& get_notes(uint8_t channel) { return get<false>(channel).track.notes; }
 
 public:
     explicit TrackManager(const size_t msg_num) : msg_num(msg_num) {}
 
-    // 新增设置program的方法
     void set_program(uint8_t channel, uint8_t program) { cur_instr[channel] = program; }
 
     template<bool create_new>
@@ -126,29 +130,22 @@ public:
         const uint8_t  program = cur_instr[channel];
         const TrackKey key{channel, program};
 
-        // 使用结构化绑定简化代码
         if (lastTrack && lastKey == key) { return *lastTrack; }
 
-
-        // 使用 if-init 语句简化查找
         if (auto it = formalTracks.find(key); it != formalTracks.end()) {
             lastKey = key;
             lastTrack = &it->second;
             return *lastTrack;
         }
-
-        // 统一 straggler 访问方式
+        // Only create real track if handling notes or lyrics
         auto& straggler = stragglers[channel];
         if constexpr (!create_new) return straggler;
 
-        // 准备新轨道属性
         straggler.track.program = program;
         straggler.track.is_drum = channel == 9;
 
-        // 使用 try_emplace 优化插入逻辑
         auto [iter, inserted] = formalTracks.try_emplace(key, std::move(straggler));
 
-        // 重置 straggler 状态
         stragglers[channel] = TrackHandler<T>();
 
         auto& newTrack = iter->second;
@@ -158,18 +155,20 @@ public:
         return *lastTrack;
     }
 
-    // 修改音符处理方法
     void add_note(uint8_t channel, uint8_t pitch, typename T::unit time, int8_t velocity) {
+        // Add a note placeholder with duration == -1
+        // This strategy removes the need for sorting the notes
         auto& track = get<true>(channel).track;
         noteManager.add(channel, pitch, time, velocity, track.notes);
     }
 
     bool end_note(uint8_t channel, uint8_t pitch, typename T::unit end_time) {
+        // Close a note on event (modify the note placeholder)
         return noteManager.end(channel, pitch, end_time);
     }
 
     void finalize(ScoreNative<T>& score, const std::string& name) {
-        // 转移轨道
+        // Remove invalid placeholder (duration == -1)
         for (auto& [_, handler] : formalTracks) {
             if (!handler.track.empty()) {
                 auto& notes = handler.track.notes;
@@ -221,7 +220,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     );
                     break;
                 }
-                // 处理 velocity=0 的情况作为 NoteOff
+                // The msg is treated as a NoteOff Message if velocity == 0
             }
             case minimidi::MessageType::NoteOff: {
                 const auto& note_off = msg.template cast<minimidi::NoteOff>();
