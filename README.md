@@ -5,7 +5,7 @@
 
 **🎉ISMIR 2024 LBD Demo Vedio**: [Youtube](https://www.youtube.com/watch?v=ZGcyyUJ3P6Q) [Bilibili](https://www.bilibili.com/video/BV1mJUaYcEj1)
 
-**Sy**music("**Sy**bolic **Music**") is a cross-platform `note level` midi decoding library with lightening speed, which is hundreds of times faster (100x to 1000x depending on your file size) than [mido](https://github.com/mido/mido), the main midi parsing library in python.
+**Sy**music("**Sy**bolic **Music**") is a cross-platform `note level` midi decoding library with lightening speed, which is hundreds of times faster (200x to 500x depending on your file size) than [mido](https://github.com/mido/mido), the main midi parsing library in python.
 
 The library is written in cpp and based on [minimidi](https://github.com/lzqlzzq/minimidi/tree/main). It offers a python binding using pybind11.
 
@@ -64,32 +64,10 @@ pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 * `mido` is writen in pure python, and only parses midi files to `event level`
 * `pretty_midi` and `miditoolkit` is based on `mido`, and parse midi files to `note level`
 * For libraries written in python or with python bindings, we use `timeit` to measure the time cost of parsing the midi file. `nanobench` for cpp libraries and `BenchmarkTools` for julia libraries.
-* The following `Common MIDI File` benchmarks could be found in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark). And they are tested on (AMD Ryzen 7 8845H, 32GB 7500 MT/s, Linux 6.11.7)
+* The following benchmarks could be found in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark).
+* Tested using github action M1 runner
 
-
-### Common MIDI File Parsing
-
-![read-bench](./figure/read_bench.jpg)
-
-### Common MIDI File Dumping
-
-![write-bench](./figure/write_bench.jpg)
-
-### Large MIDI File Parsing
-* test using [mahler.mid](https://github.com/lzqlzzq/minimidi/blob/main/example/mahler.mid) from minimidi/example on my laptop (i7-10875H, 32GB 2666MHz DDR4 RAM, Linux 6.1.69-1-lts)
-* Note that mahler.mid is quite a large midi file. So this benchmark mainly reelects the `parsing time` (the percentage of time of loading file gets more significant when file is smaller)
-
-| library                                                       | level | absolute time     | relative time |
-|---------------------------------------------------------------|-------|-------------------|---------------|
-| [**minimidi**](https://github.com/lzqlzzq/minimidi)           | event | 2.86 ms           | 1.0x          |
-| [**symusic**](https://github.com/Yikai-Liao/symusic)          | note  | 3.47 ms ± 113 µs  | 1.2x          |
-| [midifile](https://github.com/craigsapp/midifile)             | event | 44.0 ms           | 15.4x         |
-| [midifile](https://github.com/craigsapp/midifile)             | note  | 45.6 ms           | 15.9x         |
-| [MIDI.jl](https://github.com/JuliaMusic/MIDI.jl)              | note  | 109.707 ms        | 38.4x         |
-| [mido](https://github.com/mido/mido)                          | event | 2.92 s ± 42.7 ms  | 1021.0x       |
-| [miditoolkit](https://github.com/YatingMusic/miditoolkit)     | note  | 3.15 s ± 38.2 ms  | 1101.4x       |
-| [pretty_midi](https://github.com/craffel/pretty-midi)         | note  | 3.16 s ± 9.56 ms  | 1104.9x       |
-| [music21](https://github.com/cuthbertLab/music21)             | note  | 4.23 s ± 34.5 ms  | 1479.0x       |
+![Image](https://github.com/user-attachments/assets/cebd56b2-dd41-420c-89bc-3d63593c3466)
 
 ## Citation
 
