@@ -124,6 +124,65 @@ pyvec<T> clip(
     return ans;
 }
 
+constexpr std::string DEFAULT_TRIM_MODE = std::string('remove');
+
+template<TimeEvent T>
+void trim_inplace(
+    pyvec<T>&  events,
+    typename T::unit start,
+    typename T::unit end,
+    typename T::unit min_overlap = 0,
+    const std::string &start_mode = DEFAULT_TRIM_MODE,
+    const std::string &end_mode = DEFAULT_TRIM_MODE
+) {
+    if constexpr (HashDuration<T>) {
+        if(start_mode == std::string('remove') && end_mode == std::string('remove')) {
+            events.filter([start, end](const T& event) {
+                return (event.start >= start) && (event.end() <= end);
+            });
+        } else if(start_mode == std::string('remove')) {
+            events.filter([start, end](const T& event) {
+                return (event.start >= start) && (end - event.start >= min_overlap);
+            });
+        } else if(end_mode == std::string('remove')) {
+            events.filter([start, end](const T& event) {
+                return (event.end() - start >= min_overlap) && (event.end() <= end);
+            });
+        } else {
+            events.filter([start, end](const T& event) {
+                return (event.end() - start >= min_overlap) && (end - event.start >= min_overlap);
+            });
+        }
+
+        for (auto &event : events) {
+            if(start_mode == "truncate" && event.start < start) {
+                event.duration = event.end() - start;
+                event.start = start;
+            }
+            if(end_mode == "truncate" && event.end() > end) {
+                event.duration = event.end() - end;
+            }
+        }
+    }
+    events.filter([start, end](const T& event) {
+        return ((event.time) >= start) && ((event.time) <= end);
+    });
+}
+
+template<TimeEvent T>
+void trim(
+    const pyvec<T>&  events,
+    typename T::unit start,
+    typename T::unit end,
+    typename T::unit min_overlap = 0,
+    const std::string &start_mode = DEFAULT_TRIM_MODE,
+    const std::string &end_mode = DEFAULT_TRIM_MODE
+) {
+    auto ans = events.copy();
+    trim_inplace(ans, start, end, min_overlap, start_mode, end_mode);
+    return ans;
+}
+
 template<TimeEvent T>
 void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typename T::unit end) {
     if (events.empty()) return;
