@@ -102,6 +102,23 @@ Score<T> Score<T>::clip(unit start, unit end, bool clip_end) const {
     return ans;
 }
 
+template<TType T>
+void Score<T>::trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") {
+    for (auto& track : *tracks) track->trim_inplace(start, end, min_overlap, start_mode, end_mode);;
+    ops::clip_with_sentinel_inplace(*time_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*key_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*tempos, start, end);
+    // ops::clip_inplace(*lyrics, start, end);
+    ops::clip_inplace(*markers, start, end);
+}
+
+template<TType T>
+Score<T> Score<T>::trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const {
+    auto ans = deepcopy();
+    ans.trim_inplace(start, end, min_overlap, start_mode, end_mode);
+    return ans;
+}
+
 // time shift
 template<TType T>
 void Score<T>::shift_time_inplace(const unit offset) {

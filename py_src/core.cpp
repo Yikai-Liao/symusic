@@ -164,6 +164,11 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             ans->clip_inplace(start, end, clip_end);
             return ans;
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false)
+        .def("trim", [](self_t& self, const unit start, const unit end, const unit min_overlap, const std::string &start_mode, const std::string &end_mode, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
+            ans->trim_inplace(start, end, min_overlap, start_mode, end_mode);
+            return ans;
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = 0, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false)
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->sort_inplace(reverse);
@@ -516,6 +521,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(std::move(self->clip(start, end, clip_end)));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false)
+        .def("trim", [](self_t& self, const unit start, const unit end, const unit min_overlap, const std::string &start_mode, const std::string &end_mode, const bool inplace) {
+            self_t ans = inplace ? self : std::make_shared<Score<T>>(std::move(self->deepcopy()));
+            ans->trim_inplace(start, end, min_overlap, start_mode, end_mode);
+            return ans;
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = 0, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false)
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);

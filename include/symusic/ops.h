@@ -124,27 +124,25 @@ pyvec<T> clip(
     return ans;
 }
 
-constexpr std::string DEFAULT_TRIM_MODE = std::string('remove');
-
 template<TimeEvent T>
 void trim_inplace(
     pyvec<T>&  events,
     typename T::unit start,
     typename T::unit end,
     typename T::unit min_overlap = 0,
-    const std::string &start_mode = DEFAULT_TRIM_MODE,
-    const std::string &end_mode = DEFAULT_TRIM_MODE
+    const std::string &start_mode = "remove",
+    const std::string &end_mode = "remove"
 ) {
     if constexpr (HashDuration<T>) {
-        if(start_mode == std::string('remove') && end_mode == std::string('remove')) {
+        if(start_mode == std::string("remove") && end_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
                 return (event.start >= start) && (event.end() <= end);
             });
-        } else if(start_mode == std::string('remove')) {
+        } else if(start_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
                 return (event.start >= start) && (end - event.start >= min_overlap);
             });
-        } else if(end_mode == std::string('remove')) {
+        } else if(end_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
                 return (event.end() - start >= min_overlap) && (event.end() <= end);
             });
@@ -164,9 +162,9 @@ void trim_inplace(
             }
         }
     }
-    events.filter([start, end](const T& event) {
-        return ((event.time) >= start) && ((event.time) <= end);
-    });
+    else {
+        clip_inplace(events, start, end);
+    }
 }
 
 template<TimeEvent T>
@@ -175,8 +173,8 @@ void trim(
     typename T::unit start,
     typename T::unit end,
     typename T::unit min_overlap = 0,
-    const std::string &start_mode = DEFAULT_TRIM_MODE,
-    const std::string &end_mode = DEFAULT_TRIM_MODE
+    const std::string &start_mode = "remove",
+    const std::string &end_mode = "remove"
 ) {
     auto ans = events.copy();
     trim_inplace(ans, start, end, min_overlap, start_mode, end_mode);
