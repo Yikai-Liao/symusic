@@ -83,7 +83,7 @@ Track<T> Track<T>::clip(const unit start, const unit end, const bool clip_end) c
 }
 
 template<TType T>
-void Track<T>::trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") {
+void Track<T>::trim_inplace(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) {
     ops::trim_inplace(*notes, start, end, min_overlap, start_mode, end_mode);
     ops::clip_inplace(*controls, start, end);
     ops::clip_inplace(*pitch_bends, start, end);
@@ -92,7 +92,7 @@ void Track<T>::trim_inplace(unit start, unit end, unit min_overlap = 0, const st
 }
 
 template<TType T>
-Track<T> Track<T>::trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const {
+Track<T> Track<T>::trim(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) const {
     auto ans = deepcopy();
     ans.trim_inplace(start, end, min_overlap, start_mode, end_mode);
     return ans;

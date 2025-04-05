@@ -136,29 +136,29 @@ void trim_inplace(
     if constexpr (HashDuration<T>) {
         if(start_mode == std::string("remove") && end_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
-                return (event.start >= start) && (event.end() <= end);
+                return (event.time >= start) && (event.end() <= end);
             });
         } else if(start_mode == std::string("remove")) {
-            events.filter([start, end](const T& event) {
-                return (event.start >= start) && (end - event.start >= min_overlap);
+            events.filter([start, end, min_overlap](const T& event) {
+                return (event.time >= start) && (end - event.time >= min_overlap);
             });
         } else if(end_mode == std::string("remove")) {
-            events.filter([start, end](const T& event) {
+            events.filter([start, end, min_overlap](const T& event) {
                 return (event.end() - start >= min_overlap) && (event.end() <= end);
             });
         } else {
-            events.filter([start, end](const T& event) {
-                return (event.end() - start >= min_overlap) && (end - event.start >= min_overlap);
+            events.filter([start, end, min_overlap](const T& event) {
+                return (event.end() - start >= min_overlap) && (end - event.time >= min_overlap);
             });
         }
 
         for (auto &event : events) {
-            if(start_mode == "truncate" && event.start < start) {
+            if(start_mode == "truncate" && event.time < start) {
                 event.duration = event.end() - start;
-                event.start = start;
+                event.time = start;
             }
             if(end_mode == "truncate" && event.end() > end) {
-                event.duration = event.end() - end;
+                event.duration -= event.end() - end;
             }
         }
     }
