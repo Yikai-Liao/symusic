@@ -6,11 +6,12 @@ These tests verify that the pianoroll creation, manipulation, and conversion wor
 
 from __future__ import annotations
 
-import pytest
 import numpy as np
-from symusic import Score, Track, Note, PianoRoll
+import pytest
+from symusic import Note, Score, Track
 
-@pytest.fixture
+
+@pytest.fixture()
 def simple_track():
     """Create a simple track with a few notes for testing."""
     track = Track("Piano", 0, False)
@@ -24,7 +25,8 @@ def simple_track():
     track.notes.append(Note(1440, 960, 72, 100))
     return track
 
-@pytest.fixture
+
+@pytest.fixture()
 def simple_score(simple_track):
     """Create a simple score with one track."""
     score = Score(480)  # 480 ticks per quarter note
@@ -32,188 +34,139 @@ def simple_score(simple_track):
     return score
 
 
-def test_pianoroll_creation():
-    """Test creating a pianoroll from scratch."""
-    # Create an empty pianoroll
-    pianoroll = PianoRoll(480)  # 480 ticks per quarter note
-    
-    # Verify initial properties
-    assert pianoroll.ticks_per_quarter == 480
-    assert pianoroll.get_shape() == (0, 128)  # Empty pianoroll, 128 MIDI notes
-    
-    # Add a note
-    pianoroll.add_note(0, 480, 60, 100)
-    assert pianoroll.get_shape() == (480, 128)  # Now has 480 time steps
-    
-    # Add a second note
-    pianoroll.add_note(480, 480, 64, 80)
-    assert pianoroll.get_shape() == (960, 128)  # Now has 960 time steps
+def test_pianoroll_creation(simple_track):
+    """Test creating a pianoroll from a track."""
+    # Create a pianoroll using the pianoroll method
+    pianoroll = simple_track.pianoroll(
+        modes=["frame"],
+        pitch_range=(0, 128),
+        encode_velocity=True,
+    )
+
+    # Verify the shape
+    assert pianoroll.shape[0] == 1  # One mode (frame)
+    assert pianoroll.shape[1] == 128  # 128 MIDI notes
+    assert pianoroll.shape[2] >= 2400  # At least 2400 time steps
+
+    # Check a few values in the pianoroll
+    assert pianoroll[0, 60, 240] == 100  # Middle of first note (C4)
+    assert pianoroll[0, 64, 720] == 80  # Middle of second note (E4)
+    assert pianoroll[0, 67, 1200] == 60  # Middle of third note (G4)
+    assert pianoroll[0, 72, 1920] == 100  # Middle of fourth note (C5)
 
 
 def test_track_to_pianoroll(simple_track):
-    """Test converting a track to a pianoroll."""
-    # Convert the track to a pianoroll
-    pianoroll = PianoRoll.from_track(simple_track, 480)
-    
+    """Test converting a track to a pianoroll with multiple modes."""
+    # Convert the track to a pianoroll with multiple modes
+    pianoroll = simple_track.pianoroll(
+        modes=["onset", "frame", "offset"],
+        pitch_range=(0, 128),
+        encode_velocity=True,
+    )
+
     # Verify the pianoroll shape
-    assert pianoroll.ticks_per_quarter == 480
-    assert pianoroll.get_shape() == (2400, 128)  # Last note ends at 2400 (1440+960)
-    
-    # Verify note placement
-    assert pianoroll.get_value(240, 60) == 100  # Middle of first note
-    assert pianoroll.get_value(720, 64) == 80   # Middle of second note
-    assert pianoroll.get_value(1200, 67) == 60  # Middle of third note
-    assert pianoroll.get_value(1920, 72) == 100 # Middle of fourth note
-    
-    # Check that the pianoroll is empty where no notes exist
-    assert pianoroll.get_value(240, 61) == 0    # No note at pitch 61 at time 240
+    assert pianoroll.shape[0] == 3  # Three modes
+    assert pianoroll.shape[1] == 128  # 128 MIDI notes
+    assert pianoroll.shape[2] >= 2400  # At least 2400 time steps
+
+    # Verify onset mode (only start of notes has values)
+    assert pianoroll[0, 60, 0] == 100  # Start of first note
+    assert pianoroll[0, 60, 1] == 0  # Not the start
+    assert pianoroll[0, 64, 480] == 80  # Start of second note
+
+    # Verify frame mode (entire duration has values)
+    assert pianoroll[1, 60, 0] == 100  # Start of first note
+    assert pianoroll[1, 60, 240] == 100  # Middle of first note
+    assert pianoroll[1, 60, 479] == 100  # End of first note
+
+    # Verify offset mode (only end of notes has values)
+    assert pianoroll[2, 60, 0] == 0  # Not the end
+    assert pianoroll[2, 60, 479] == 0  # Not the exact end
+    assert pianoroll[2, 60, 480] == 100  # End of first note
 
 
 def test_score_to_pianoroll(simple_score):
     """Test converting a score to a pianoroll."""
     # Convert the score to a pianoroll
-    pianoroll = PianoRoll.from_score(simple_score)
-    
+    pianoroll = simple_score.pianoroll(
+        modes=["frame"],
+        pitch_range=(0, 128),
+        encode_velocity=True,
+    )
+
     # Verify the pianoroll shape
-    assert pianoroll.ticks_per_quarter == 480
-    assert pianoroll.get_shape() == (2400, 128)  # Last note ends at 2400 (1440+960)
-    
+    assert pianoroll.shape[0] == 1  # One mode
+    assert pianoroll.shape[1] == 1  # One track
+    assert pianoroll.shape[2] == 128  # 128 MIDI notes
+    assert pianoroll.shape[3] >= 2400  # At least 2400 time steps
+
     # Verify note placement
-    assert pianoroll.get_value(240, 60) == 100  # Middle of first note
-    assert pianoroll.get_value(720, 64) == 80   # Middle of second note
-    assert pianoroll.get_value(1200, 67) == 60  # Middle of third note
-    assert pianoroll.get_value(1920, 72) == 100 # Middle of fourth note
+    assert pianoroll[0, 0, 60, 240] == 100  # Middle of first note
+    assert pianoroll[0, 0, 64, 720] == 80  # Middle of second note
+    assert pianoroll[0, 0, 67, 1200] == 60  # Middle of third note
+    assert pianoroll[0, 0, 72, 1920] == 100  # Middle of fourth note
 
 
-def test_pianoroll_to_numpy(simple_track):
-    """Test converting a pianoroll to a NumPy array."""
-    # Convert the track to a pianoroll
-    pianoroll = PianoRoll.from_track(simple_track, 480)
-    
-    # Get the NumPy array representation
-    array = pianoroll.to_array()
-    
-    # Verify the array shape
-    assert array.shape == (2400, 128)
-    
+def test_pianoroll_array_properties(simple_track):
+    """Test that the pianoroll is properly a numpy array with correct properties."""
+    # Get the pianoroll as a numpy array
+    pianoroll = simple_track.pianoroll(
+        modes=["frame"],
+        encode_velocity=True,
+    )
+
+    # Verify it's a numpy array
+    assert isinstance(pianoroll, np.ndarray)
+
+    # Check properties of the array
+    assert pianoroll.dtype == np.uint8
+
+    # Verify array shape
+    assert len(pianoroll.shape) == 3  # [modes, pitch, time]
+
     # Verify note placement in the array
-    assert array[240, 60] == 100  # Middle of first note
-    assert array[720, 64] == 80   # Middle of second note
-    assert array[1200, 67] == 60  # Middle of third note
-    assert array[1920, 72] == 100 # Middle of fourth note
-    
+    assert pianoroll[0, 60, 240] == 100  # Middle of first note
+    assert pianoroll[0, 64, 720] == 80  # Middle of second note
+    assert pianoroll[0, 67, 1200] == 60  # Middle of third note
+    assert pianoroll[0, 72, 1920] == 100  # Middle of fourth note
+
     # Check that the array is zeros where no notes exist
-    assert array[240, 61] == 0    # No note at pitch 61 at time 240
+    assert pianoroll[0, 61, 240] == 0  # No note at pitch 61 at time 240
 
 
-def test_pianoroll_to_track():
-    """Test converting a pianoroll back to a track."""
-    # Create a pianoroll
-    pianoroll = PianoRoll(480)
-    
-    # Add some notes
-    pianoroll.add_note(0, 480, 60, 100)
-    pianoroll.add_note(480, 480, 64, 80)
-    pianoroll.add_note(960, 480, 67, 60)
-    
-    # Convert the pianoroll to a track
-    track = pianoroll.to_track("Piano", 0, False)
-    
-    # Verify the track properties
-    assert track.name == "Piano"
-    assert track.program == 0
-    assert track.is_drum == False
-    
-    # Verify the notes
-    assert len(track.notes) == 3
-    
-    # Sort the notes by time to ensure consistent testing
-    sorted_notes = sorted(track.notes, key=lambda n: n.time)
-    
-    assert sorted_notes[0].time == 0
-    assert sorted_notes[0].duration == 480
-    assert sorted_notes[0].pitch == 60
-    assert sorted_notes[0].velocity == 100
-    
-    assert sorted_notes[1].time == 480
-    assert sorted_notes[1].duration == 480
-    assert sorted_notes[1].pitch == 64
-    assert sorted_notes[1].velocity == 80
-    
-    assert sorted_notes[2].time == 960
-    assert sorted_notes[2].duration == 480
-    assert sorted_notes[2].pitch == 67
-    assert sorted_notes[2].velocity == 60
+def test_pianoroll_with_custom_pitch_range(simple_track):
+    """Test creating a pianoroll with a custom pitch range."""
+    # Create a pianoroll with limited pitch range
+    pianoroll = simple_track.pianoroll(
+        modes=["frame"],
+        pitch_range=(60, 73),  # Only include C4 to C5
+        encode_velocity=True,
+    )
+
+    # Verify the shape
+    assert pianoroll.shape[0] == 1  # One mode
+    assert pianoroll.shape[1] == 13  # 13 notes in the range
+
+    # Check values in the limited range
+    assert pianoroll[0, 0, 240] == 100  # C4 (60) is now at index 0
+    assert pianoroll[0, 4, 720] == 80  # E4 (64) is now at index 4
+    assert pianoroll[0, 7, 1200] == 60  # G4 (67) is now at index 7
+    assert pianoroll[0, 12, 1920] == 100  # C5 (72) is now at index 12
 
 
-def test_pianoroll_save_load():
-    """Test saving and loading a pianoroll."""
-    import tempfile
-    import os
-    
-    # Create a pianoroll
-    pianoroll = PianoRoll(480)
-    pianoroll.add_note(0, 480, 60, 100)
-    pianoroll.add_note(480, 480, 64, 80)
-    
-    # Save to a temporary file
-    with tempfile.TemporaryDirectory() as temp_dir:
-        file_path = os.path.join(temp_dir, "test_pianoroll.npy")
-        pianoroll.save(file_path)
-        
-        # Load the saved pianoroll
-        loaded_pianoroll = PianoRoll.load(file_path)
-        
-        # Verify the loaded pianoroll matches the original
-        assert loaded_pianoroll.ticks_per_quarter == 480
-        assert loaded_pianoroll.get_shape() == pianoroll.get_shape()
-        
-        # Compare the underlying arrays
-        original_array = pianoroll.to_array()
-        loaded_array = loaded_pianoroll.to_array()
-        assert np.array_equal(original_array, loaded_array)
+def test_pianoroll_binary_encoding(simple_track):
+    """Test creating a pianoroll with binary encoding (no velocity)."""
+    # Create a pianoroll with binary encoding
+    pianoroll = simple_track.pianoroll(
+        modes=["frame"],
+        encode_velocity=False,
+    )
 
-
-def test_pianoroll_visualization():
-    """Test visualization functionality of pianoroll if available."""
-    pianoroll = PianoRoll(480)
-    pianoroll.add_note(0, 480, 60, 100)
-    pianoroll.add_note(480, 480, 64, 80)
-    pianoroll.add_note(960, 480, 67, 60)
-    
-    # Just test that the method exists and runs without error
-    # The actual visualization can be tested manually
-    try:
-        pianoroll.show()
-        # If we got here without an error, the method exists and ran
-        # We can't verify the visualization itself in an automated test
-        pass
-    except (AttributeError, NotImplementedError):
-        # Method might not exist or be implemented
-        pytest.skip("Visualization method not available or not implemented")
-
-
-def test_pianoroll_operations():
-    """Test operations on pianorolls (e.g., transpose, time-shift)."""
-    # Create a pianoroll
-    pianoroll = PianoRoll(480)
-    pianoroll.add_note(0, 480, 60, 100)
-    
-    # Test transpose operation if available
-    try:
-        transposed = pianoroll.transpose(12)  # Up one octave
-        assert transposed.get_value(240, 72) == 100  # Note should be at pitch 72 now
-    except (AttributeError, NotImplementedError):
-        # Method might not exist or be implemented
-        pytest.skip("Transpose method not available or not implemented")
-    
-    # Test time-shift operation if available
-    try:
-        shifted = pianoroll.shift_time(480)  # Shift forward by 480 ticks
-        assert shifted.get_value(720, 60) == 100  # Note should be at time 720 now
-    except (AttributeError, NotImplementedError):
-        # Method might not exist or be implemented
-        pytest.skip("Time-shift method not available or not implemented")
+    # Verify note values are binary (1 instead of velocity)
+    assert pianoroll[0, 60, 240] == 1  # Middle of first note
+    assert pianoroll[0, 64, 720] == 1  # Middle of second note
+    assert pianoroll[0, 67, 1200] == 1  # Middle of third note
+    assert pianoroll[0, 72, 1920] == 1  # Middle of fourth note
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ Most event classes share these characteristics and methods:
 -   **`to(ttype, ...)`**: Returns a *new* event converted to the target `ttype`. Event types with duration (`Note`, `Pedal`) accept an optional `min_dur` argument for the `to("tick", min_dur=...)` conversion.
 -   **NumPy Conversion (for lists)**: Event lists like `NoteList` often have `.numpy()` and `EventFactory.from_numpy()` methods (See [Track API](./track.md#event-list-methods)).
 
---- 
+---
 
 ## Note
 
@@ -42,7 +42,7 @@ Represents a musical note.
 
 **Factory:** `symusic.Note(time, duration, pitch, velocity, ttype="tick")`
 
---- 
+---
 
 ## ControlChange
 
@@ -56,7 +56,7 @@ Represents a MIDI Control Change (CC) message.
 
 **Factory:** `symusic.ControlChange(time, number, value, ttype="tick")`
 
---- 
+---
 
 ## PitchBend
 
@@ -69,7 +69,7 @@ Represents a MIDI Pitch Bend message.
 
 **Factory:** `symusic.PitchBend(time, value, ttype="tick")`
 
---- 
+---
 
 ## Pedal
 
@@ -86,7 +86,7 @@ Represents a sustain pedal event with duration.
 
 **Factory:** `symusic.Pedal(time, duration, ttype="tick")`
 
---- 
+---
 
 ## TimeSignature
 
@@ -100,7 +100,7 @@ Represents a time signature (meter) change. Global event stored in `Score.time_s
 
 **Factory:** `symusic.TimeSignature(time, numerator, denominator, ttype="tick")`
 
---- 
+---
 
 ## KeySignature
 
@@ -117,7 +117,7 @@ Represents a key signature change. Global event stored in `Score.key_signatures`
 
 **Factory:** `symusic.KeySignature(time, key, tonality, ttype="tick")`
 
---- 
+---
 
 ## Tempo
 
@@ -134,7 +134,7 @@ Represents a tempo change. Global event stored in `Score.tempos`.
 
 **Factory:** `symusic.Tempo(time, qpm, ttype="tick")`
 
---- 
+---
 
 ## TextMeta
 
@@ -152,8 +152,8 @@ Represents a text event associated with a specific time.
 
 **Factory:** `symusic.TextMeta(time, text, ttype="tick")`
 
---- 
+---
 
 ## Event Lists (e.g., `NoteList`, `TempoList`)
 
-Events are stored in specialized list-like containers within `Score` and `Track` objects. See the [Track API Reference](./track.md#event-list-methods) for methods common to these lists (`append`, `sort`, `filter`, `numpy`, `from_numpy`, etc.). 
+Events are stored in specialized list-like containers within `Score` and `Track` objects. See the [Track API Reference](./track.md#event-list-methods) for methods common to these lists (`append`, `sort`, `filter`, `numpy`, `from_numpy`, etc.).

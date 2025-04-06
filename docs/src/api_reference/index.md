@@ -34,4 +34,4 @@ Most classes in Symusic follow these common design patterns:
 
 If you're new to Symusic, we recommend starting with the [Score](./score.md) class documentation, as it's the main entry point for most tasks. For loading and saving files, check the I/O methods in the Score class.
 
-For examples of how to use the API effectively, see the [Tutorials](../tutorials/index.md) and [Examples](../examples/index.md) sections. 
+For examples of how to use the API effectively, see the [Tutorials](../tutorials/index.md) and [Examples](../examples/index.md) sections.

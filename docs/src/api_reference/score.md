@@ -110,8 +110,8 @@ score_new_ttype = score.to(ttype: str | TimeUnit, min_dur: int | float | None = 
 # pitch_range: tuple (min_pitch, max_pitch_exclusive), e.g. (0, 128)
 # encode_velocity: bool (True for velocity values, False for binary 0/1)
 piano_roll_array = score_tick.pianoroll(
-    modes: list[str] = ["onset", "frame"], 
-    pitch_range: tuple[int, int] = (0, 128), 
+    modes: list[str] = ["onset", "frame"],
+    pitch_range: tuple[int, int] = (0, 128),
     encode_velocity: bool = False
 ) -> np.ndarray # Shape: (modes, tracks, pitch_bins, time_steps)
 ```
@@ -128,8 +128,8 @@ score_resampled = score.resample(tpq: int, min_dur: int | None = None) -> ScoreT
 
 # Clip score events to a time range [start, end)
 score_clipped = score.clip(
-    start: int | float, 
-    end: int | float, 
+    start: int | float,
+    end: int | float,
     clip_end: bool = False, # If True, also clip notes ending after 'end'
     inplace: bool = False
 )
@@ -137,8 +137,8 @@ score_clipped = score.clip(
 # Adjust event timings based on mapping original times to new times
 # Performs linear interpolation for times between specified points.
 score_adjusted = score.adjust_time(
-    original_times: list[int | float], 
-    new_times: list[int | float], 
+    original_times: list[int | float],
+    new_times: list[int | float],
     inplace: bool = False
 )
 
@@ -162,7 +162,7 @@ score_dynamics_shifted = score.shift_velocity(offset: int, inplace: bool = False
 # See Synthesizer API for details on sf_path, sample_rate, quality
 audio_data = score.to_audio(
     sf_path: str | Path | None = None, # Defaults to MuseScoreGeneral
-    sample_rate: int = 44100, 
+    sample_rate: int = 44100,
     quality: int = 4 # Note: Default quality here might differ from Synthesizer constructor
 ) -> AudioData
 ```
@@ -206,4 +206,4 @@ repr_string: str = repr(score)
 # Or simply print the score (which calls repr())
 print(score)
 ```
-The string representation (obtained via `repr()` or `print()`) provides a concise summary of the score's properties (TPQ, time unit, number of tracks, event counts). There is no separate `.summary()` method. 
+The string representation (obtained via `repr()` or `print()`) provides a concise summary of the score's properties (TPQ, time unit, number of tracks, event counts). There is no separate `.summary()` method.

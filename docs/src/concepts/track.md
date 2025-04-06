@@ -46,4 +46,4 @@ A `Score` acts as the container for one or more `Track` objects. While tracks ho
 2.  **Inspect**: Examine the track's metadata (`name`, `program`, `is_drum`) and its event lists (`notes`, `controls`, etc.).
 3.  **Manipulate**: Modify the track directly (e.g., `track.shift_pitch(12)`) or modify its event lists (e.g., `track.notes.append(...)`, `track.controls.sort()`).
 4.  **Analyze**: Calculate track-specific features (e.g., note density within the track, pitch range used).
-5.  **Structure**: Add, remove, or reorder tracks within the `Score.tracks` list. 
+5.  **Structure**: Add, remove, or reorder tracks within the `Score.tracks` list.

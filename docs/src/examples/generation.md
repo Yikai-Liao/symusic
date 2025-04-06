@@ -24,9 +24,9 @@ quarter_note_duration = 480 # Since tpq=480
 
 for pitch in pitches:
     note = Note(
-        time=current_time, 
-        duration=quarter_note_duration, 
-        pitch=pitch, 
+        time=current_time,
+        duration=quarter_note_duration,
+        pitch=pitch,
         velocity=70
     )
     piano_track.notes.append(note)
@@ -77,7 +77,7 @@ def create_score_from_events(generated_events, tpq=480):
     score = Score(tpq=tpq)
     # Assume single track for simplicity
     track = score.tracks.append_track(name="Generated Music")
-    
+
     for event_data in generated_events:
         event_type = event_data[0]
         if event_type == "note":
@@ -87,7 +87,7 @@ def create_score_from_events(generated_events, tpq=480):
             _, time, qpm = event_data
             score.tempos.append(Tempo(time, qpm))
         # ... handle other event types ...
-        
+
     # It's good practice to sort events after adding them
     score.sort()
     return score
@@ -107,4 +107,4 @@ generated_score = create_score_from_events(generation_output)
 generated_score.dump_midi("output_from_algorithm.mid")
 ```
 
-*(More generation-related examples will be added here.)* 
+*(More generation-related examples will be added here.)*

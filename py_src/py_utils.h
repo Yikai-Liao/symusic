@@ -316,9 +316,9 @@ auto bind_note(nb::module_& m, const std::string& name_) {
         )
         .def(
             "shift_velocity",
-            [](Note<T>& self, const int8_t offset, const bool inplace) {
-                Note<T> ans = inplace? self : Note<T>(self);
-                ans.shift_velocity_inplace(offset);
+            [](self_t& self, const int8_t offset, const bool inplace) {
+                self_t ans = inplace? self : std::make_shared<Note<T>>(*self);
+                ans->shift_velocity_inplace(offset);
                 return ans;
             }, nb::rv_policy::copy,
             nb::arg("offset"),

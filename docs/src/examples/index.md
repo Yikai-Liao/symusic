@@ -8,4 +8,4 @@ This section provides focused code examples for specific tasks using Symusic. Un
 -   **[Music Generation](./generation.md)**: Examples related to creating or manipulating musical structures programmatically (Note: Symusic focuses on processing existing data, but can be used to structure generated data).
 -   **[Data Preprocessing](./preprocessing.md)**: Quick examples for cleaning, filtering, and preparing MIDI data for other applications.
 
-*(More examples will be added over time. Contributions are welcome!)* 
+*(More examples will be added over time. Contributions are welcome!)*

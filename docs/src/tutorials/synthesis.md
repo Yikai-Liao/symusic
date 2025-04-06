@@ -140,10 +140,10 @@ synthesizer = Synthesizer(
 for i in range(1, 4):
     # Load score
     score = Score(f"input{i}.mid")
-    
+
     # Render to audio
     audio = synthesizer.render(score, stereo=True)
-    
+
     # Save to WAV
     dump_wav(f"output{i}.wav", audio)
 ```
@@ -222,7 +222,7 @@ Synthesis can be CPU-intensive, especially with high-quality settings. Here are 
            chunk = score.clip(start, end)
            chunk_audio = synthesizer.render(chunk, stereo=True)
            result_chunks.append(np.array(chunk_audio))
-       
+
        # Combine chunks (simplified example)
        return np.concatenate(result_chunks, axis=0)
    ```

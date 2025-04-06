@@ -58,7 +58,7 @@ if score.tempos:
     # Simple average (might not be musically accurate if tempos change significantly)
     avg_tempo = sum(t.qpm for t in score.tempos) / len(score.tempos)
     print(f"Average Tempo (unweighted): {avg_tempo:.1f} BPM")
-    
+
     # Time-weighted average (more accurate)
     score_sec = score.to("second")
     total_duration = score_sec.end()
@@ -73,7 +73,7 @@ if score.tempos:
     # Add contribution of last tempo
     if score_sec.tempos:
         weighted_tempo_sum += score_sec.tempos[-1].qpm * (total_duration - last_time)
-        
+
     if total_duration > 0:
         weighted_avg_tempo = weighted_tempo_sum / total_duration
         print(f"Average Tempo (time-weighted): {weighted_avg_tempo:.1f} BPM")
@@ -81,4 +81,4 @@ else:
     print("No tempo information found.")
 ```
 
-*(More analysis examples will be added here.)* 
+*(More analysis examples will be added here.)*

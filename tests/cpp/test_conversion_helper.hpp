@@ -53,21 +53,21 @@ inline Second::unit quarter_to_second(Quarter::unit quarter_val, const std::vect
         i++;
     }
     i = (i == 0) ? 0 : i - 1;
-    
+
     // Calculate time difference in quarters
     Quarter::unit quarter_diff = quarter_val - tempos[i].time;
-    
+
     // Convert to seconds
     Second::unit base_time = 0;
     // If not the first tempo segment, calculate the base time
     if (i > 0) {
         for (size_t j = 0; j < i; j++) {
-            Quarter::unit segment_duration = 
+            Quarter::unit segment_duration =
                 (j+1 < tempos.size()) ? (tempos[j+1].time - tempos[j].time) : 0;
             base_time += quarter_to_second(segment_duration, tempos[j].mspq);
         }
     }
-    
+
     // Add the time from the current tempo segment
     return base_time + quarter_to_second(quarter_diff, tempos[i].mspq);
 }
@@ -78,24 +78,24 @@ inline Quarter::unit second_to_quarter(Second::unit second_val, const std::vecto
     // First, calculate all the tempo segment boundaries in seconds
     std::vector<Second::unit> tempo_boundaries_seconds;
     tempo_boundaries_seconds.push_back(0);
-    
+
     for (size_t i = 1; i < tempos.size(); i++) {
         Quarter::unit quarter_diff = tempos[i].time - tempos[i-1].time;
         Second::unit segment_duration = quarter_to_second(quarter_diff, tempos[i-1].mspq);
         tempo_boundaries_seconds.push_back(tempo_boundaries_seconds.back() + segment_duration);
     }
-    
+
     // Find the applicable tempo segment
     size_t i = 0;
     while (i < tempo_boundaries_seconds.size() && tempo_boundaries_seconds[i] <= second_val) {
         i++;
     }
     i = (i == 0) ? 0 : i - 1;
-    
+
     // Calculate time in quarters for this segment
     Second::unit second_diff = second_val - tempo_boundaries_seconds[i];
     Quarter::unit quarter_diff = second_to_quarter(second_diff, tempos[i].mspq);
-    
+
     return tempos[i].time + quarter_diff;
 }
 
@@ -107,14 +107,14 @@ inline Second::unit tick_to_second(Tick::unit tick_val, int tpq, const std::vect
         Quarter::unit quarter_time = tick_to_quarter(tempo.time, tpq);
         quarter_tempos.push_back(Tempo<Quarter>(quarter_time, tempo.mspq));
     }
-    
+
     // Convert tick to quarter
     Quarter::unit quarter_val = tick_to_quarter(tick_val, tpq);
-    
+
     // Convert quarter to second with variable tempo
     return quarter_to_second(quarter_val, quarter_tempos);
 }
 
 } // namespace symusic
 
-#endif // SYMUSIC_TEST_CONVERSION_HELPER_HPP 
+#endif // SYMUSIC_TEST_CONVERSION_HELPER_HPP

@@ -61,7 +61,7 @@ from symusic import dump_wav
 dump_wav(
     path: str | Path,    # Output file path
     data: AudioData,      # The AudioData object to save
-    use_int16: bool = True # If True, save as 16-bit integer WAV (smaller file), 
+    use_int16: bool = True # If True, save as 16-bit integer WAV (smaller file),
                           # otherwise save as 32-bit float WAV (higher precision).
 )
 ```
@@ -89,4 +89,4 @@ import numpy as np
 audio_array = np.array(audio_data)
 print(f"Audio shape: {audio_array.shape}")
 print(f"Sample rate: {audio_data.sample_rate}")
-``` 
+```

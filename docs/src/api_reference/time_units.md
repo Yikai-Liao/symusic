@@ -77,4 +77,4 @@ When converting *to* `TimeUnit.tick`, the optional `min_dur` parameter can preve
 - Use **quarter** for rhythm-based analysis and musically intuitive timing.
 - Use **second** for audio synchronization, synthesis, and real-world time calculations.
 
-Many operations in Symusic are optimized for specific time units (e.g., synthesis works best with seconds, piano roll requires ticks after resampling). The library handles necessary conversions internally where possible, but understanding the different units helps in choosing the most efficient workflow. 
+Many operations in Symusic are optimized for specific time units (e.g., synthesis works best with seconds, piano roll requires ticks after resampling). The library handles necessary conversions internally where possible, but understanding the different units helps in choosing the most efficient workflow.

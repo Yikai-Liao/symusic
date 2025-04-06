@@ -138,7 +138,7 @@ def process_midi(midi_path: Path, output_dir: Path):
         piano_tracks = [t for t in score.tracks if t.program == 0 and not t.is_drum]
         if not piano_tracks:
             return # Skip if no piano tracks
-        
+
         score.tracks = piano_tracks
         score.dump_midi(output_dir / midi_path.name)
         print(f"Processed: {midi_path.name}")
@@ -162,4 +162,4 @@ if __name__ == "__main__":
     print("Batch processing complete.")
 ```
 
-This tutorial provides a starting point for working with MIDI files in Symusic. Explore the `Score` and `Track` API documentation for more advanced methods and options. 
+This tutorial provides a starting point for working with MIDI files in Symusic. Explore the `Score` and `Track` API documentation for more advanced methods and options.
