@@ -10,6 +10,18 @@ option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
 option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
+option(ENABLE_COVERAGE "Enable code coverage" OFF)
+
+# Enable code coverage if requested
+if(ENABLE_COVERAGE)
+    message(STATUS "Code coverage enabled")
+    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fprofile-arcs -ftest-coverage")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    else()
+        message(WARNING "Code coverage is only supported with GCC and Clang")
+    endif()
+endif()
 
 # set /utf-8 for MSVC
 if(MSVC)
