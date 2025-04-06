@@ -42,6 +42,8 @@ jobs:
 
       - name: Codecov
         uses: codecov/codecov-action@v5.4.0
+        with:
+          flags: python
 
   cpp_test:
     runs-on: ${{ matrix.os }}
@@ -54,7 +56,20 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Configure CMake
+      - name: Install gcovr (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y gcovr
+
+      - name: Install gcovr (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gcovr
+
+      - name: Configure CMake with Coverage
+        if: runner.os != 'Windows'
+        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE:BOOL=ON
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
         run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build
@@ -64,3 +79,16 @@ jobs:
         run: |
           cd build
           ctest -C Debug --output-on-failure --verbose
+
+      - name: Generate Coverage Report
+        if: runner.os != 'Windows'
+        run: |
+          cd build
+          gcovr --xml --output=coverage.xml -r .. .
+
+      - name: Codecov
+        if: runner.os != 'Windows'
+        uses: codecov/codecov-action@v5.4.0
+        with:
+          file: ./build/coverage.xml
+          flags: cpp
