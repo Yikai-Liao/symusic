@@ -17,16 +17,16 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Score<T>::start() const {
-    if (this->empty()) return 0;
-
+    // if (this->empty()) return 0; // Old check is insufficient
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const shared<Track<T>>& track : *tracks) { ans = std::min(ans, track->start()); }
+    for (const auto& track : *tracks) { ans = std::min(ans, track->start()); }
     ans = std::min(ans, ops::start(*time_signatures));
     ans = std::min(ans, ops::start(*key_signatures));
     ans = std::min(ans, ops::start(*tempos));
-    // ans = std::min(ans, ops::start(*lyrics));
+    // ans = std::min(ans, ops::start(*lyrics)); // Lyrics are track-level
     ans = std::min(ans, ops::start(*markers));
-    return ans;
+    // If ans is still max(), it means all lists were empty or ops::start returned max()
+    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
 }
 
 template<TType T>

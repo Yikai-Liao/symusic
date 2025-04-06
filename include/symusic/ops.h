@@ -317,23 +317,31 @@ T adjust_time(
     return new_data;
 }
 
+// get the start time of the first event
 template<TimeEvent T>
-typename T::unit start(const pyvec<T>& events) {
-    if (events.empty()) return 0;
+inline typename T::unit start(const pyvec<T>& events) {
+    if (events.empty()) {
+        // return 0;
+        return std::numeric_limits<typename T::unit>::max();
+    }
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     for (const T& event : events) { ans = std::min(ans, event.time); }
     return ans;
 }
 
+// get the end time of the last event
 template<TimeEvent T>
-typename T::unit end(const pyvec<T>& events) {
-    if (events.empty()) return 0;
-    typename T::unit ans     = std::numeric_limits<typename T::unit>::min();
-    auto             get_end = [](const T& event) {
-        if constexpr (HashDuration<T>) { return event.end(); }
-        return event.time;
-    };
-    for (const T& event : events) { ans = std::max(ans, get_end(event)); }
+inline typename T::unit end(const pyvec<T>& events) {
+    if (events.empty()) {
+        // return 0;
+        return std::numeric_limits<typename T::unit>::min();
+    }
+    typename T::unit ans = std::numeric_limits<typename T::unit>::min();
+    if constexpr (HashDuration<T>) {
+        for (const T& event : events) { ans = std::max(ans, event.end()); }
+    } else {
+        for (const T& event : events) { ans = std::max(ans, event.time); }
+    }
     return ans;
 }
 
