@@ -43,6 +43,7 @@ jobs:
       - name: Codecov
         uses: codecov/codecov-action@v5.4.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
 
   cpp_test:
@@ -90,5 +91,6 @@ jobs:
         if: runner.os != 'Windows'
         uses: codecov/codecov-action@v5.4.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./build/coverage.xml
           flags: cpp
