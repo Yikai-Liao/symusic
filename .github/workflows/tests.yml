@@ -38,7 +38,7 @@ jobs:
           pip install ".[test]"
 
       - name: Test with pytest
-        run: pytest -s --cov=./ --cov-report=xml -n auto --durations=0 -v tests
+        run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
       - name: Codecov
         uses: codecov/codecov-action@v5.4.0

@@ -7,6 +7,9 @@ coverage:
   precision: 2
   round: down
   range: "70...100"
+  ignore:
+    - "3rdparty/"
+    - "tests/"
   status:
     project:
       default:
@@ -25,12 +28,11 @@ coverage:
 flags:
   python:
     paths:
-      - "**/*.py"
+      - "python/symusic/"
   cpp:
     paths:
-      - "**/*.cpp"
-      - "**/*.h"
-      - "**/*.hpp"
+      - "src/"
+      - "include/"
 
 comment:
   layout: "reach, diff, flags, files"
