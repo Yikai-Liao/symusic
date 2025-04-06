@@ -85,7 +85,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           cd build
-          gcovr --xml --output=coverage.xml -r .. .
+          gcovr --xml --output=coverage.xml -r .. --filter="../src/" --filter="../include/" --exclude="../3rdparty/" --exclude="_deps/" --gcov-ignore-errors=no_working_dir_found
 
       - name: Codecov
         if: runner.os != 'Windows'
