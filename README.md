@@ -67,7 +67,7 @@ pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic
 * The following benchmarks could be found in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark).
 * Tested using github action M1 runner
 
-![Image](https://github.com/user-attachments/assets/cebd56b2-dd41-420c-89bc-3d63593c3466)
+![Image](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
 
 ## Citation
 
