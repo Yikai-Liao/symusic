@@ -54,8 +54,8 @@ Modify the track's events. Use `inplace=True` to modify directly, otherwise a ne
 ```python
 # Clip track events to a time range [start, end)
 t_clipped = track.clip(
-    start: int | float, 
-    end: int | float, 
+    start: int | float,
+    end: int | float,
     clip_end: bool = False, # If True, also clip notes ending after 'end'
     inplace: bool = False
 )
@@ -65,8 +65,8 @@ t_sorted = track.sort(reverse: bool = False, inplace: bool = False)
 
 # Adjust event timings based on mapping original times to new times
 t_adjusted = track.adjust_time(
-    original_times: list[int | float], 
-    new_times: list[int | float], 
+    original_times: list[int | float],
+    new_times: list[int | float],
     inplace: bool = False
 )
 
@@ -93,8 +93,8 @@ track_new_ttype = track.to(ttype: str | TimeUnit, min_dur: int | float | None = 
 # Convert track to piano roll (numpy array)
 # Requires track to be in Tick time unit.
 pr_array = track_tick.pianoroll(
-    modes: list[str] = ["onset", "frame"], 
-    pitch_range: tuple[int, int] = (0, 128), 
+    modes: list[str] = ["onset", "frame"],
+    pitch_range: tuple[int, int] = (0, 128),
     encode_velocity: bool = False
 ) -> np.ndarray # Shape: (modes, pitch_bins, time_steps)
 ```
@@ -137,16 +137,16 @@ shifted_notes = notes_list.shift_time(960, inplace=False)
 
 # NumPy Conversion (for NoteList, ControlChangeList, etc.)
 # Returns a dictionary mapping attribute names to numpy arrays
-numpy_dict = notes_list.numpy() 
+numpy_dict = notes_list.numpy()
 # e.g., numpy_dict['time'], numpy_dict['duration'], ...
 
 # Create list from NumPy arrays (Class Method)
 from symusic import Note # Use the specific event factory
 new_notes_list = Note.from_numpy(
-    time=np_time_array, 
-    duration=np_duration_array, 
-    pitch=np_pitch_array, 
-    velocity=np_velocity_array, 
+    time=np_time_array,
+    duration=np_duration_array,
+    pitch=np_pitch_array,
+    velocity=np_velocity_array,
     ttype=track.ttype # Important: Specify the time unit!
 )
 ```
@@ -190,4 +190,4 @@ repr_string: str = repr(track)
 # Or simply print the track (which calls repr())
 print(track)
 ```
-The string representation (obtained via `repr()` or `print()`) provides a summary including name, program, drum status, and event counts. There is no separate `.summary()` method. 
+The string representation (obtained via `repr()` or `print()`) provides a summary including name, program, drum status, and event counts. There is no separate `.summary()` method.

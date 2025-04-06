@@ -38,7 +38,7 @@ pianoroll = score_resampled.pianoroll(
 
 # Visualize the piano roll (combined onset and frame for the first track)
 plt.figure(figsize=(12, 6))
-plt.imshow(pianoroll[0, 0] + pianoroll[1, 0], origin='lower', aspect='auto', 
+plt.imshow(pianoroll[0, 0] + pianoroll[1, 0], origin='lower', aspect='auto',
            extent=[0, pianoroll.shape[3], 0, 128])
 plt.title('Piano Roll (Track 0)')
 plt.xlabel('Time (in ticks)')
@@ -278,4 +278,4 @@ efficient_roll = score.resample(tpq=4, min_dur=1).pianoroll(
 
 Currently, Symusic doesn't provide built-in functionality to convert piano rolls back to Score or Track objects. This is because the conversion is complex and can be ambiguous, especially when dealing with overlapping notes.
 
-If you need to convert piano roll data back to MIDI, consider using external libraries like `pretty_midi` or implementing custom algorithms based on your specific use case. 
+If you need to convert piano roll data back to MIDI, consider using external libraries like `pretty_midi` or implementing custom algorithms based on your specific use case.

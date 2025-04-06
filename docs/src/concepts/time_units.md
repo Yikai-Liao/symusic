@@ -38,9 +38,9 @@ The `to()` method is the standard way to convert Symusic objects between time un
 ```python
 score_tick = Score("file.mid")
 # Convert Score and all contained events to Second time unit
-score_second = score_tick.to("second") 
+score_second = score_tick.to("second")
 # Convert back to Tick
-score_tick_again = score_second.to("tick") 
+score_tick_again = score_second.to("tick")
 ```
 
 **Conversion Logic Overview:**
@@ -62,4 +62,4 @@ score_tick_again = score_second.to("tick")
 -   **Synthesis**: Convert to `Second` for accurate audio rendering.
 -   **Saving MIDI**: Convert back to `Tick` before calling `dump_midi` for lossless saving (though `dump_midi` can often handle the conversion automatically).
 
-Understanding the active time unit is crucial for interpreting `time` and `duration` values and the effect of time-based operations like `shift_time`. 
+Understanding the active time unit is crucial for interpreting `time` and `duration` values and the effect of time-based operations like `shift_time`.

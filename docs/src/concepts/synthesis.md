@@ -40,4 +40,4 @@ The synthesis workflow involves several key parts:
 -   Interprets **`Note`** events to trigger sounds.
 -   Operates in the **`Second`** time unit domain.
 
-By integrating these components, the synthesis feature provides a direct path from symbolic representation to audible sound within the Symusic library. 
+By integrating these components, the synthesis feature provides a direct path from symbolic representation to audible sound within the Symusic library.

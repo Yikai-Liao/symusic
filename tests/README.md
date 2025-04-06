@@ -106,4 +106,4 @@ The test suite covers:
 
 ## Continuous Integration
 
-The tests are automatically run as part of the CI pipeline on GitHub. See the GitHub Actions workflow configuration for details. 
+The tests are automatically run as part of the CI pipeline on GitHub. See the GitHub Actions workflow configuration for details.

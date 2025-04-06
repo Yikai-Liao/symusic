@@ -71,4 +71,4 @@ The previously dominant MIDI parsing backends (like mido, used by pretty_midi an
 
 Our event-level MIDI parsing code has been separated into a lightweight and efficient header-only C++ library called [minimidi](https://github.com/lzqlzzq/minimidi) for those who only need to parse MIDI files at the event level in C++.
 
-Future plans include bindings for other languages such as Julia and Lua for even broader accessibility. 
+Future plans include bindings for other languages such as Julia and Lua for even broader accessibility.

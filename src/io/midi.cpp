@@ -233,7 +233,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const uint8_t program        = program_change.program();
                 if (program >= 128)
                     throw std::range_error("Get program=" + std::to_string(program));
-                trackManager.set_program(channel, program);   // 改为调用TrackManager的方法
+                trackManager.set_program(channel, program);   // Changed to call TrackManager's method
                 break;
             }
             case minimidi::MessageType::ControlChange: {

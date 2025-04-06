@@ -45,4 +45,4 @@ Understanding the scope of an event is crucial:
 4.  **Add/Remove**: Append new events or remove existing ones from their lists (e.g., `track.notes.append(...)`, `score.tempos.pop(0)`).
 5.  **Sort**: Use the `sort()` method on event lists to maintain chronological order after modifications.
 
-Remember that an event's `time` and `duration` (if applicable) are always interpreted based on the `ttype` of the parent `Score`. 
+Remember that an event's `time` and `duration` (if applicable) are always interpreted based on the `ttype` of the parent `Score`.

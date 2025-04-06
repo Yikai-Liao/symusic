@@ -139,7 +139,7 @@ first_track = score.tracks[0]
 # Iterate through all tracks
 for track in score.tracks:
     print(f"Track: {track.name}, Notes: {track.note_num()}")
-    
+
 # Extract a specific instrument
 for track in score.tracks:
     if track.program == 0 and not track.is_drum:  # Piano
@@ -239,21 +239,21 @@ from symusic import Score
 def process_file(file_path):
     # Load MIDI file
     score = Score(file_path)
-    
+
     # Process the score (example: transpose up by 2 semitones)
     processed_score = score.shift_pitch(2)
-    
+
     # Return or save the result
     return processed_score
 
 if __name__ == "__main__":
     # List of MIDI files to process
     file_paths = ["file1.mid", "file2.mid", "file3.mid"]
-    
+
     # Process files in parallel
     with mp.Pool(processes=4) as pool:
         results = pool.map(process_file, file_paths)
-    
+
     # Save the results
     for i, processed_score in enumerate(results):
         processed_score.dump_midi(f"processed_{i}.mid")
@@ -281,7 +281,7 @@ velocities = []
 for track in score.tracks:
     for note in track.notes:
         velocities.append(note.velocity)
-        
+
 avg_velocity = np.mean(velocities)
 print(f"Average velocity: {avg_velocity:.1f}")
 ```

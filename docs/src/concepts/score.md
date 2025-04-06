@@ -68,4 +68,4 @@ Score (e.g., ScoreTick)
 4.  **Convert (Optional)**: Change time units using `to()` if needed for analysis or synthesis.
 5.  **Save/Use**: Save back to a file (`dump_midi`) or use for further processing (e.g., synthesis, feature extraction).
 
-This flow highlights the `Score` as the central object managing the musical data throughout its lifecycle. 
+This flow highlights the `Score` as the central object managing the musical data throughout its lifecycle.

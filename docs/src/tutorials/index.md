@@ -47,4 +47,4 @@ If you're looking for more concise examples, check out the [Examples](../example
 
 For detailed API documentation, refer to the [API Reference](../api_reference/index.md) section.
 
-If you have a specific use case that isn't covered in these tutorials, feel free to open an issue on our [GitHub repository](https://github.com/Yikai-Liao/symusic) for assistance. 
+If you have a specific use case that isn't covered in these tutorials, feel free to open an issue on our [GitHub repository](https://github.com/Yikai-Liao/symusic) for assistance.

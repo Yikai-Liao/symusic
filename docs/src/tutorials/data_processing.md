@@ -36,7 +36,7 @@ def worker_function(midi_path: Path) -> dict | None:
         # Skip empty scores
         if score.empty():
             return None
-            
+
         # Basic feature extraction
         num_notes = score.note_num()
         duration_seconds = score.to("second").end()
@@ -57,7 +57,7 @@ def worker_function(midi_path: Path) -> dict | None:
 
 if __name__ == "__main__":
     start_time = time.time()
-    
+
     input_dir = Path("path/to/your/midi/dataset")
     midi_files = list(input_dir.glob("**/*.mid")) # Recursively find MIDI files
     print(f"Found {len(midi_files)} MIDI files.")
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Filter out None results (errors or empty files)
     valid_results = [r for r in results if r is not None]
-    
+
     end_time = time.time()
     print(f"\nProcessed {len(valid_results)} files in {end_time - start_time:.2f} seconds.")
 
@@ -128,7 +128,7 @@ def filter_piano_tracks(midi_path: Path, output_dir: Path):
 
         if not piano_tracks:
             return f"Skipped (no piano): {midi_path.name}"
-        
+
         # Create a new score with only piano tracks
         # Important: Need to copy global events like tempos, time signatures
         new_score = Score(score.ticks_per_quarter)
@@ -142,7 +142,7 @@ def filter_piano_tracks(midi_path: Path, output_dir: Path):
         output_path = output_dir / midi_path.name
         new_score.dump_midi(output_path)
         return f"Processed: {midi_path.name}"
-        
+
     except Exception as e:
         return f"Error processing {midi_path.name}: {e}"
 
@@ -179,4 +179,4 @@ if __name__ == "__main__":
     #         print(r)
 ```
 
-This tutorial demonstrates how to leverage Symusic's performance for efficient batch processing of symbolic music data using Python's standard multiprocessing tools. 
+This tutorial demonstrates how to leverage Symusic's performance for efficient batch processing of symbolic music data using Python's standard multiprocessing tools.
