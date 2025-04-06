@@ -54,25 +54,17 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         Track<Tick> track("Piano", 0, false);
         
         // Empty track should have start/end time of 0
-        REQUIRE(track.start() == 0);
+        REQUIRE(track.start() == 0); // start() returns max() for empty, but min(max(), max()...) is max(), needs fix in track.cpp/score.cpp
         REQUIRE(track.end() == 0);
         
         // Add some notes and check start/end time
         track.notes->push_back(Note<Tick>{100, 200, 60, 80});  // ends at 300
-        REQUIRE(track.start() == 0);  // 注意：实际测试中返回0
-        REQUIRE(track.end() == 300);  // 修正预期值，根据实际运行结果
-        
-        // 只有当我们清空并重新添加音符时，start才会返回实际的音符时间
-        auto note = track.notes->at(0);
-        track.notes->clear();
-        track.notes->push_back(note);
-        
-        // 根据实际测试，第一个音符时间为0，而不是预期的100
-        REQUIRE(track.start() == 0);  // 与expected值匹配，但可能需要修复实际实现
+        REQUIRE(track.start() == 100); // Now expect 100 after adding the note
+        REQUIRE(track.end() == 300);   // End time should be correct
         
         track.notes->push_back(Note<Tick>{400, 100, 62, 80});  // ends at 500
-        REQUIRE(track.start() == 0);   // 根据实际测试结果
-        REQUIRE(track.end() == 500);   // 现在应该是最晚的结束时间
+        REQUIRE(track.start() == 100);  // Start time should still be the earliest
+        REQUIRE(track.end() == 500);    // End time should update
         
         // Add other event types and check if end time updates
         track.pedals->push_back(Pedal<Tick>{600, 200});  // ends at 800
@@ -208,7 +200,7 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         Score<Tick> score(480);
         
         // Empty score should have start/end time of 0
-        REQUIRE(score.start() == 0);
+        REQUIRE(score.start() == 0); // start() returns max() for empty, needs fix in score.cpp
         REQUIRE(score.end() == 0);
         
         // Add a track with notes
@@ -217,23 +209,12 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         score.tracks->push_back(track);
         
         // Test score start time after adding track
-        REQUIRE(score.start() == 0);   // 注意：根据测试结果，实际值是0
-        REQUIRE(score.end() == 300);   // 修正预期值，根据实际运行结果
-        
-        // 测试单个空节目后再添加音符的行为
-        score.tracks->clear();
-        
-        // 重新创建非空track，但通过实际测试，注意start返回0
-        track = std::make_shared<Track<Tick>>("Piano", 0, false);
-        track->notes->push_back(Note<Tick>{100, 200, 60, 80});  // ends at 300
-        score.tracks->push_back(track);
-        
-        REQUIRE(score.start() == 0);   // 根据实际测试，返回的是0而不是100
-        REQUIRE(score.end() == 300);
+        REQUIRE(score.start() == 100); // Now expect 100 after adding the track with the note
+        REQUIRE(score.end() == 300);   // End time should be correct
         
         track->notes->push_back(Note<Tick>{400, 100, 62, 80});  // ends at 500
-        REQUIRE(score.start() == 0);   // 仍然是0，根据实际测试
-        REQUIRE(score.end() == 500);
+        REQUIRE(score.start() == 100); // Start time should still be the earliest
+        REQUIRE(score.end() == 500);   // End time should update
         
         // Add a tempo event that ends later
         score.tempos->push_back(Tempo<Tick>{600, 500000});
@@ -263,10 +244,10 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         REQUIRE(clipped.tracks->at(0)->notes->at(1).time == 500);
         
         // Check that tempos are clipped
-        // 根据实际运行结果，clipped会保留两个tempo事件
+        // Keep the corrected expectation based on previous findings
         REQUIRE(clipped.tempos->size() == 2);
-        REQUIRE(clipped.tempos->at(0).time == 200);  // 修正预期值，根据实际运行结果
-        REQUIRE(clipped.tempos->at(1).time == 400);  // 这个tempo在剪切范围内
+        REQUIRE(clipped.tempos->at(0).time == 200);
+        REQUIRE(clipped.tempos->at(1).time == 400);
     }
 
     SECTION("Score Time Shifting") {

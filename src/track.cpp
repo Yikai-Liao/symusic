@@ -17,14 +17,13 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Track<T>::start() const {
-    if(this->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     ans = std::min(ans, ops::start(*notes));
     ans = std::min(ans, ops::start(*controls));
     ans = std::min(ans, ops::start(*pitch_bends));
     ans = std::min(ans, ops::start(*pedals));
     ans = std::min(ans, ops::start(*lyrics));
-    return ans;
+    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
 }
 
 template<TType T>
