@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(symusic)
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
 
@@ -28,6 +30,11 @@ if(MSVC)
     add_compile_options(-bigobj)
     add_compile_options(/utf-8)
 endif()
+
+# Add multilingual path test executable
+add_executable(test_multilang_path tests/cpp/test_multilang_path.cpp src/io/common.cpp)
+target_include_directories(test_multilang_path PRIVATE include)
+target_link_libraries(test_multilang_path symusic)
 
 if(MEM_LEAK_WARNING)
     message(STATUS "Nanobind memory leak warning ENABLED")
