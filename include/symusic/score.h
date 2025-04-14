@@ -164,6 +164,9 @@ struct Score {
     [[nodiscard]] Score clip(unit start, unit end, bool clip_end = false) const;
     void                clip_inplace(unit start, unit end, bool clip_end = false);
 
+    [[nodiscard]] Score trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const;
+    void                trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove");
+
     // shift the time of all the events in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_time(unit offset) const;
 
