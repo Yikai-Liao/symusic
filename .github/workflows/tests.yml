@@ -41,7 +41,7 @@ jobs:
         run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
       - name: Codecov
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.4.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
@@ -89,7 +89,7 @@ jobs:
 
       - name: Codecov
         if: runner.os != 'Windows'
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.4.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./build/coverage.xml
