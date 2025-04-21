@@ -188,7 +188,7 @@ public:
 
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
-[[nodiscard]] Score<T> parse_midi(const minimidi::MidiFileView<Container>& midi, Conv tick2unit) {
+[[nodiscard]] Score<T> parse_midi(const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool strict_mode = true) {
     typedef typename T::unit unit;
     // remove this redundant copy in the future
     const u16      tpq = midi.ticks_per_quarter();
@@ -231,7 +231,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
                 const uint8_t channel        = program_change.channel();
                 const uint8_t program        = program_change.program();
-                if (program >= 128)
+                if (strict_mode && (program >= 128))
                     throw std::range_error("Get program=" + std::to_string(program));
                 trackManager.set_program(channel, program);   // Changed to call TrackManager's method
                 break;
@@ -249,9 +249,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const uint8_t control_number = control_change.control_number();
                 const uint8_t control_value  = control_change.control_value();
 
-                if (control_number >= 128)
+                if (strict_mode && (control_number >= 128))
                     throw std::range_error("Get control_number=" + std::to_string(control_number));
-                if (control_value >= 128)
+                if (strict_mode && (control_value >= 128))
                     throw std::range_error("Get control_value=" + std::to_string(control_value));
                 track.controls.emplace_back(cur_time, control_number, control_value);
                 // Pedal Part
@@ -273,8 +273,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                    || value > minimidi::PitchBend<>::MAX_PITCH_BEND)
+                if (strict_mode && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
+                    || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;

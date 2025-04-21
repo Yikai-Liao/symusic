@@ -559,11 +559,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         // Keep only the binding that points to the fs::path version of from_file
         // nanobind will automatically convert Python str/Path to fs::path
         .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none())
-        .def_static("from_midi", [](const nb::bytes& data) {
+        .def_static("from_midi", [](const nb::bytes& data, nb::bool strict_mode) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
-            return std::make_shared<Score<T>>(std::move(parse<DataFormat::MIDI, Score<T>>(span)));
-        }, nb::arg("data"), "Load from midi in memory(bytes)")
+            return std::make_shared<Score<T>>(std::move(parse<DataFormat::MIDI, Score<T>>(span, strict_mode)));
+        }, nb::arg("data"), "Load from midi in memory(bytes)", nb::arg("strict_mode", "If to use strict mode to load midi."))
         .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
         // Keep only the filesystem::path version for dump_midi
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")
