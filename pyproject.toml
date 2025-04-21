@@ -139,6 +139,7 @@ extend-select = [
 "tests/**" = [
     "S101",  # allow assertions in tests
     "T201",  # print allowed
+    "BLE001",# allow general exception
 ]
 "python/symusic/core.pyi" = [
     "A003",  # allow using filter as method name
