@@ -1,6 +1,8 @@
-import os
+from pathlib import Path
+
 import pytest
 from symusic import Score
+
 
 @pytest.mark.parametrize(
     "filepath",
@@ -16,8 +18,8 @@ def test_multilang_file_read(filepath):
     """
     Test reading MIDI files with multilingual filenames to verify UTF-8 path support in Python bindings.
     """
-    abs_path = os.path.abspath(filepath)
-    print(f"[DEBUG] Current working directory: {os.getcwd()}")
+    abs_path = Path.resolve(filepath)
+    print(f"[DEBUG] Current working directory: {Path.cwd()}")
     print(f"[DEBUG] Absolute path: {abs_path}")
     try:
         score = Score(abs_path)
