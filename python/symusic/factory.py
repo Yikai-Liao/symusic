@@ -503,8 +503,9 @@ class ScoreFactory:
         self,
         data: bytes,
         ttype: smt.GeneralTimeUnit = "tick",
+        strict_mode: bool = True,
     ) -> smt.Score:
-        return self.__core_classes.dispatch(ttype).from_midi(data)
+        return self.__core_classes.dispatch(ttype).from_midi(data, strict_mode)
 
     def from_abc(
         self,
