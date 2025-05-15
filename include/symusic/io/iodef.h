@@ -23,6 +23,9 @@ template<DataFormat F, typename T>
 [[nodiscard]] T parse(std::span<const u8> bytes);
 
 template<DataFormat F, typename T>
+[[nodiscard]] T parse(std::span<const u8> bytes, bool strict_mode);
+
+template<DataFormat F, typename T>
 [[nodiscard]] vec<u8> dumps(const T& data);
 
 }   // namespace symusic

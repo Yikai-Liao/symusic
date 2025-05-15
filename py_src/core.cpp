@@ -414,44 +414,22 @@ inline std::string get_format(const std::string& path) {
     }
 }
 template<TType T>
-shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
+shared<Score<T>> from_abc_file(const std::filesystem::path& path_p) {
+    std::string path = path_p.string();
     const auto abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
-    if (!abc2midi_env) { throw std::runtime_error("SYMUSIC_ABC2MIDI environment variable not set"); }
-    const std::filesystem::path abc2midi = abc2midi_env;
-    if (abc2midi.empty()) { throw std::runtime_error("abc2midi path is empty"); }
-
-    // Create a temporary MIDI file path using std::filesystem
-    std::filesystem::path temp_midi_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
-
-    try {
-        // Execute abc2midi command. Using path.string() for command line arguments.
-        // WARNING: This might fail if 'path' contains non-ANSI characters on Windows due to std::system limitations.
-        std::string cmd = fmt::format(R"("{} "{}" -o "{}" -silent)", abc2midi.string(), path.string(), temp_midi_path.string());
-        int ret = std::system(cmd.c_str());
-
-        if (ret != 0 || !std::filesystem::exists(temp_midi_path)) {
-             throw std::runtime_error(fmt::format("abc2midi execution failed (return code: {}). Command: {}. Output file {} not created.", ret, cmd, temp_midi_path.string()));
-        }
-
-        // Read the temporary MIDI file
-        const auto data = read_file(temp_midi_path); // Calls read_file(fs::path)
-
-        // Clean up temporary MIDI file
-        if (std::filesystem::exists(temp_midi_path)) {
-            std::filesystem::remove(temp_midi_path);
-        }
-
-        // Parse the MIDI data
-        auto s = Score<T>::template parse<DataFormat::MIDI>(data);
-        return std::make_shared<Score<T>>(std::move(s));
-
-    } catch (...) {
-        // Ensure temp file is removed even if exceptions occur
-        if (std::filesystem::exists(temp_midi_path)) {
-            std::filesystem::remove(temp_midi_path);
-        }
-        throw; // Re-throw the exception
-    }
+    if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
+    // convert the abc file to midi file
+    const std::string midi_path = std::tmpnam(nullptr);
+    const auto        cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path);
+    const auto        ret = std::system(cmd.c_str());
+    if (ret != 0) { throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd)); }
+    // read the midi file
+    const auto data = read_file(midi_path);
+    // remove the tmp midi file
+    std::filesystem::remove(midi_path);
+    // parse the midi file
+    auto s = Score<T>::template parse<DataFormat::MIDI>(data);
+    return std::make_shared<Score<T>>(std::move(s));
 }
 
 // Modified to use fs temp path and call updated functions
@@ -559,11 +537,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         // Keep only the binding that points to the fs::path version of from_file
         // nanobind will automatically convert Python str/Path to fs::path
         .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none())
-        .def_static("from_midi", [](const nb::bytes& data, nb::bool strict_mode) {
+        .def_static("from_midi", [](const nb::bytes& data, bool strict_mode) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
             return std::make_shared<Score<T>>(std::move(parse<DataFormat::MIDI, Score<T>>(span, strict_mode)));
-        }, nb::arg("data"), "Load from midi in memory(bytes)", nb::arg("strict_mode", "If to use strict mode to load midi."))
+        }, nb::arg("data"), nb::arg("strict_mode"), "Load from midi in memory(bytes)")
         .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
         // Keep only the filesystem::path version for dump_midi
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")

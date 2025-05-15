@@ -48,7 +48,7 @@ struct NoteManager {
     };
 
     // 16 channels * 128 pitches
-    std::array<Slot, 16 * 128>                                                           slots{};
+    std::array<Slot, 16 * 128> slots{};
     // useed if multiple note is activated at the same channel and pitch
     std::unordered_map<uint16_t, std::queue<std::pair<uint32_t, std::vector<Note<T>>*>>> overflow;
 
@@ -97,8 +97,12 @@ struct TrackKey {
     uint8_t channel;
     uint8_t program;
 
-    bool operator==(const TrackKey& other) const { return channel == other.channel && program == other.program; }
-    auto operator<=>(const TrackKey& other) const { return std::tie(channel, program) <=> std::tie(other.channel, other.program); }
+    bool operator==(const TrackKey& other) const {
+        return channel == other.channel && program == other.program;
+    }
+    auto operator<=>(const TrackKey& other) const {
+        return std::tie(channel, program) <=> std::tie(other.channel, other.program);
+    }
 };
 
 
@@ -109,14 +113,14 @@ class TrackManager {
     NoteManager<T>                      noteManager;
     std::map<TrackKey, TrackHandler<T>> formalTracks;
     // used to store events if a real track haven't been created
-    std::array<TrackHandler<T>, 16>     stragglers;
+    std::array<TrackHandler<T>, 16> stragglers;
     // last track cache to accelerate track searching
-    TrackHandler<T>*                    lastTrack = nullptr;
-    TrackKey                            lastKey{255, 255};
+    TrackHandler<T>* lastTrack = nullptr;
+    TrackKey         lastKey{255, 255};
     // used to reserve enough space when create a track
-    size_t                              msg_num = 0;
+    size_t msg_num = 0;
     // the current program number for each channel
-    std::array<uint8_t, 16>             cur_instr{};
+    std::array<uint8_t, 16> cur_instr{};
 
     std::vector<Note<T>>& get_notes(uint8_t channel) { return get<false>(channel).track.notes; }
 
@@ -133,7 +137,7 @@ public:
         if (lastTrack && lastKey == key) { return *lastTrack; }
 
         if (auto it = formalTracks.find(key); it != formalTracks.end()) {
-            lastKey = key;
+            lastKey   = key;
             lastTrack = &it->second;
             return *lastTrack;
         }
@@ -150,7 +154,7 @@ public:
 
         auto& newTrack = iter->second;
         newTrack.track.notes.reserve(msg_num / 2 + 1);
-        lastKey = key;
+        lastKey   = key;
         lastTrack = &newTrack;
         return *lastTrack;
     }
@@ -188,7 +192,9 @@ public:
 
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
-[[nodiscard]] Score<T> parse_midi(const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool strict_mode = true) {
+[[nodiscard]] Score<T> parse_midi(
+    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool strict_mode = true
+) {
     typedef typename T::unit unit;
     // remove this redundant copy in the future
     const u16      tpq = midi.ticks_per_quarter();
@@ -213,10 +219,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
                 if (note_on.velocity() != 0) {
                     trackManager.add_note(
-                        note_on.channel(),
-                        note_on.pitch(),
-                        cur_tick,
-                        note_on.velocity()
+                        note_on.channel(), note_on.pitch(), cur_tick, note_on.velocity()
                     );
                     break;
                 }
@@ -233,7 +236,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const uint8_t program        = program_change.program();
                 if (strict_mode && (program >= 128))
                     throw std::range_error("Get program=" + std::to_string(program));
-                trackManager.set_program(channel, program);   // Changed to call TrackManager's method
+                trackManager.set_program(
+                    channel, program
+                );   // Changed to call TrackManager's method
                 break;
             }
             case minimidi::MessageType::ControlChange: {
@@ -273,8 +278,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (strict_mode && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                    || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
+                if (strict_mode
+                    && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
+                        || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;
@@ -478,18 +484,18 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
 }
 
 template<TType T>
-Score<T> parse_midi(const std::span<const u8> bytes) {
+Score<T> parse_midi(const std::span<const u8> bytes, bool strict_mode = true) {
     const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
 
     if constexpr (std::is_same_v<T, Tick>) {
-        return parse_midi<Tick>(midi, [](const Tick::unit x) { return x; });
+        return parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }, strict_mode);
     } else if constexpr (std::is_same_v<T, Quarter>) {
         const auto tpq = static_cast<float>(midi.ticks_per_quarter());
         return parse_midi<Quarter>(midi, [tpq](const Tick::unit x) {
             return static_cast<float>(x) / tpq;
-        });
+        }, strict_mode);
     } else {
-        return convert<Second>(parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }));
+        return convert<Second>(parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }), strict_mode);
     }
 }
 }   // namespace details
@@ -530,14 +536,18 @@ vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
     return details::to_midi(convert<Tick>(*this)).to_bytes_sorted();
 }
 
-#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                 \
-    template<>                                                              \
-    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) { \
-        return Score<T>::parse<DataFormat::MIDI>(bytes);                    \
-    }                                                                       \
-    template<>                                                              \
-    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {       \
-        return data.dumps<DataFormat::MIDI>();                              \
+#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                                   \
+    template<>                                                                                \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) {                   \
+        return Score<T>::parse<DataFormat::MIDI>(bytes);                                      \
+    }                                                                                         \
+    template<>                                                                                \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes, bool strict_mode) { \
+        return details::parse_midi<T>(bytes, strict_mode);                                    \
+    }                                                                                         \
+    template<>                                                                                \
+    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {                         \
+        return data.dumps<DataFormat::MIDI>();                                                \
     }
 
 REPEAT_ON(INSTANTIATE_GLOBAL_FUNC, Tick, Quarter, Second)
