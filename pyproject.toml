@@ -3,8 +3,6 @@ requires = [
     "setuptools>=42",
     "scikit-build>=0.13",
     "scikit-build-core>=0.3.3",
-    "cmake>=3.26.1",
-    "ninja",
 ]
 build-backend = "scikit_build_core.build"
 
