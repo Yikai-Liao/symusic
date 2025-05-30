@@ -3,8 +3,6 @@ requires = [
     "setuptools>=42",
     "scikit-build>=0.13",
     "scikit-build-core>=0.3.3",
-    "cmake>=3.20",
-    "ninja",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -63,11 +61,12 @@ Repository = "https://github.com/Yikai-Liao/symusic.git"
 Issues = "https://github.com/Yikai-Liao/symusic/issues"
 
 [tool.scikit-build]
-cmake.minimum-version = "3.26.1"
-ninja.minimum-version = "1.11"
+cmake.version = ">=3.26.1"
+ninja.version = ">=1.11"
 
 [tool.scikit-build.cmake.define]
 BUILD_SYMUSIC_PY = "ON"
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"
 
 [tool.scikit-build.metadata]
 version.provider = "scikit_build_core.metadata.regex"
@@ -138,6 +137,7 @@ extend-select = [
 "tests/**" = [
     "S101",  # allow assertions in tests
     "T201",  # print allowed
+    "BLE001",# allow general exception
 ]
 "python/symusic/core.pyi" = [
     "A003",  # allow using filter as method name

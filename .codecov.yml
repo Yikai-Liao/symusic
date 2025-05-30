@@ -1,0 +1,42 @@
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  ignore:
+    - "3rdparty/"
+    - "tests/"
+  status:
+    project:
+      default:
+        # basic settings
+        target: auto
+        threshold: 1%
+        # adjust accordingly based on how flaky your tests are
+        # this allows a 1% drop from the previous base commit coverage
+        base: auto
+        flags:
+          - python
+          - cpp
+    patch: yes
+    changes: no
+
+flags:
+  python:
+    paths:
+      - "python/symusic/"
+  cpp:
+    paths:
+      - "src/"
+      - "include/"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: no
+  require_base: no
+  require_head: yes

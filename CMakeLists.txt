@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(symusic)
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
 
@@ -10,12 +12,29 @@ option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
 option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
+option(ENABLE_COVERAGE "Enable code coverage" OFF)
+
+# Enable code coverage if requested
+if(ENABLE_COVERAGE)
+    message(STATUS "Code coverage enabled")
+    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fprofile-arcs -ftest-coverage")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    else()
+        message(WARNING "Code coverage is only supported with GCC and Clang")
+    endif()
+endif()
 
 # set /utf-8 for MSVC
 if(MSVC)
     add_compile_options(-bigobj)
     add_compile_options(/utf-8)
 endif()
+
+# Add multilingual path test executable
+add_executable(test_multilang_path tests/cpp/test_multilang_path.cpp src/io/common.cpp)
+target_include_directories(test_multilang_path PRIVATE include)
+target_link_libraries(test_multilang_path symusic)
 
 if(MEM_LEAK_WARNING)
     message(STATUS "Nanobind memory leak warning ENABLED")
@@ -88,12 +107,14 @@ if(BUILD_SYMUSIC_EXAMPLE)
     add_executable(io_bench examples/cpp/io_bench.cpp)
     add_executable(synth examples/cpp/synth.cpp)
     add_executable(adjust_time examples/cpp/adjust_time.cpp)
+    add_executable(process_midi_directory examples/cpp/process_midi_directory.cpp)
 
     target_link_libraries(note_count PRIVATE symusic)
     target_link_libraries(dump PRIVATE symusic)
     target_link_libraries(io_bench PRIVATE symusic nanobench)
     target_link_libraries(synth PUBLIC symusic)
     target_link_libraries(adjust_time PUBLIC symusic)
+    target_link_libraries(process_midi_directory PRIVATE symusic)
 endif()
 
 if(BUILD_SYMUSIC_TEST)

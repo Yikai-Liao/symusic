@@ -17,16 +17,16 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Score<T>::start() const {
-    if (this->empty()) return 0;
-
+    // if (this->empty()) return 0; // Old check is insufficient
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
-    for (const shared<Track<T>>& track : *tracks) { ans = std::min(ans, track->start()); }
+    for (const auto& track : *tracks) { ans = std::min(ans, track->start()); }
     ans = std::min(ans, ops::start(*time_signatures));
     ans = std::min(ans, ops::start(*key_signatures));
     ans = std::min(ans, ops::start(*tempos));
-    // ans = std::min(ans, ops::start(*lyrics));
+    // ans = std::min(ans, ops::start(*lyrics)); // Lyrics are track-level
     ans = std::min(ans, ops::start(*markers));
-    return ans;
+    // If ans is still max(), it means all lists were empty or ops::start returned max()
+    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
 }
 
 template<TType T>
@@ -87,9 +87,9 @@ Score<T> Score<T>::sort(const bool reverse) const {
 template<TType T>
 void Score<T>::clip_inplace(unit start, unit end, bool clip_end) {
     for (auto& track : *tracks) track->clip_inplace(start, end, clip_end);
-    ops::clip_inplace(*time_signatures, start, end);
-    ops::clip_inplace(*key_signatures, start, end);
-    ops::clip_inplace(*tempos, start, end);
+    ops::clip_with_sentinel_inplace(*time_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*key_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*tempos, start, end);
     // ops::clip_inplace(*lyrics, start, end);
     ops::clip_inplace(*markers, start, end);
 }
@@ -99,6 +99,23 @@ template<TType T>
 Score<T> Score<T>::clip(unit start, unit end, bool clip_end) const {
     auto ans = deepcopy();
     ans.clip_inplace(start, end, clip_end);
+    return ans;
+}
+
+template<TType T>
+void Score<T>::trim_inplace(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) {
+    for (auto& track : *tracks) track->trim_inplace(start, end, min_overlap, start_mode, end_mode);;
+    ops::clip_with_sentinel_inplace(*time_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*key_signatures, start, end);
+    ops::clip_with_sentinel_inplace(*tempos, start, end);
+    // ops::clip_inplace(*lyrics, start, end);
+    ops::clip_inplace(*markers, start, end);
+}
+
+template<TType T>
+Score<T> Score<T>::trim(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) const {
+    auto ans = deepcopy();
+    ans.trim_inplace(start, end, min_overlap, start_mode, end_mode);
     return ans;
 }
 

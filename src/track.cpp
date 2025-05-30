@@ -17,14 +17,13 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 template<TType T>
 typename T::unit Track<T>::start() const {
-    if(this->empty()) return 0;
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     ans = std::min(ans, ops::start(*notes));
     ans = std::min(ans, ops::start(*controls));
     ans = std::min(ans, ops::start(*pitch_bends));
     ans = std::min(ans, ops::start(*pedals));
     ans = std::min(ans, ops::start(*lyrics));
-    return ans;
+    return ans == std::numeric_limits<typename T::unit>::max() ? 0 : ans;
 }
 
 template<TType T>
@@ -75,11 +74,26 @@ void Track<T>::clip_inplace(const unit start, const unit end, const bool clip_en
     ops::clip_inplace(*lyrics, start, end, clip_end);
 }
 
-
 template<TType T>
 Track<T> Track<T>::clip(const unit start, const unit end, const bool clip_end) const {
     auto ans = deepcopy();
     ans.clip_inplace(start, end, clip_end);
+    return ans;
+}
+
+template<TType T>
+void Track<T>::trim_inplace(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) {
+    ops::trim_inplace(*notes, start, end, min_overlap, start_mode, end_mode);
+    ops::clip_inplace(*controls, start, end);
+    ops::clip_inplace(*pitch_bends, start, end);
+    ops::trim_inplace(*pedals, start, end, min_overlap, start_mode, end_mode);
+    ops::clip_inplace(*lyrics, start, end);
+}
+
+template<TType T>
+Track<T> Track<T>::trim(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) const {
+    auto ans = deepcopy();
+    ans.trim_inplace(start, end, min_overlap, start_mode, end_mode);
     return ans;
 }
 

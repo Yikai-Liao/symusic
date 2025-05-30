@@ -1,6 +1,7 @@
 from operator import attrgetter
 from pathlib import Path
 
+import numpy as np
 import pytest
 from symusic import Score
 
@@ -21,6 +22,8 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     midi1.markers.sort(key=lambda x: (x.time, x.text))
     midi2.markers.sort(key=lambda x: (x.time, x.text))
     for track1, track2 in zip(midi1.tracks, midi2.tracks):
+        times = track1.notes.numpy()["time"]
+        assert bool(np.all(np.diff(times) >= 0))
         track1.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track2.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
         track1.controls.sort(key=lambda x: (x.time, x.number, x.value))

@@ -38,10 +38,13 @@ jobs:
           pip install ".[test]"
 
       - name: Test with pytest
-        run: pytest -s --cov=./ --cov-report=xml -n auto --durations=0 -v tests
+        run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
       - name: Codecov
-        uses: codecov/codecov-action@v3.1.0
+        uses: codecov/codecov-action@v5.4.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: python
 
   cpp_test:
     runs-on: ${{ matrix.os }}
@@ -54,8 +57,21 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Configure CMake
-        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Install gcovr (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y gcovr
+
+      - name: Install gcovr (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gcovr
+
+      - name: Configure CMake with Coverage
+        if: runner.os != 'Windows'
+        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE:BOOL=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build --config Debug
@@ -64,3 +80,17 @@ jobs:
         run: |
           cd build
           ctest -C Debug --output-on-failure --verbose
+
+      - name: Generate Coverage Report
+        if: runner.os != 'Windows'
+        run: |
+          cd build
+          gcovr --xml --output=coverage.xml -r .. --filter="../src/" --filter="../include/" --exclude="../3rdparty/" --exclude="_deps/" --gcov-ignore-errors=no_working_dir_found
+
+      - name: Codecov
+        if: runner.os != 'Windows'
+        uses: codecov/codecov-action@v5.4.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./build/coverage.xml
+          flags: cpp

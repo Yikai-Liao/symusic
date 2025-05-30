@@ -81,7 +81,6 @@ struct Track {
         this->lyrics      = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
     }
 
-
     Track(
         std::string                     name,
         const u8                        program,
@@ -177,6 +176,10 @@ struct Track {
     void clip_inplace(unit start, unit end, bool clip_end = false);
 
     [[nodiscard]] Track clip(unit start, unit end, bool clip_end = false) const;
+
+    void trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove");
+
+    [[nodiscard]] Track trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const;
 
     // shift the time of all the events in the track, non-inplace, return a new Track
     [[nodiscard]] Track shift_time(unit offset) const;

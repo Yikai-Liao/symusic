@@ -125,12 +125,69 @@ pyvec<T> clip(
 }
 
 template<TimeEvent T>
+void trim_inplace(
+    pyvec<T>&  events,
+    typename T::unit start,
+    typename T::unit end,
+    typename T::unit min_overlap = 0,
+    const std::string &start_mode = "remove",
+    const std::string &end_mode = "remove"
+) {
+    if constexpr (HashDuration<T>) {
+        if(start_mode == std::string("remove") && end_mode == std::string("remove")) {
+            events.filter([start, end](const T& event) {
+                return (event.time >= start) && (event.end() <= end);
+            });
+        } else if(start_mode == std::string("remove")) {
+            events.filter([start, end, min_overlap](const T& event) {
+                return (event.time >= start) && (end - event.time >= min_overlap);
+            });
+        } else if(end_mode == std::string("remove")) {
+            events.filter([start, end, min_overlap](const T& event) {
+                return (event.end() - start >= min_overlap) && (event.end() <= end);
+            });
+        } else {
+            events.filter([start, end, min_overlap](const T& event) {
+                return (event.end() - start >= min_overlap) && (end - event.time >= min_overlap);
+            });
+        }
+
+        for (auto &event : events) {
+            if(start_mode == "truncate" && event.time < start) {
+                event.duration = event.end() - start;
+                event.time = start;
+            }
+            if(end_mode == "truncate" && event.end() > end) {
+                event.duration -= event.end() - end;
+            }
+        }
+    }
+    else {
+        clip_inplace(events, start, end);
+    }
+}
+
+template<TimeEvent T>
+void trim(
+    const pyvec<T>&  events,
+    typename T::unit start,
+    typename T::unit end,
+    typename T::unit min_overlap = 0,
+    const std::string &start_mode = "remove",
+    const std::string &end_mode = "remove"
+) {
+    auto ans = events.copy();
+    trim_inplace(ans, start, end, min_overlap, start_mode, end_mode);
+    return ans;
+}
+
+template<TimeEvent T>
 void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typename T::unit end) {
     if (events.empty()) return;
 
     T sentinel{};
     sentinel.time = std::numeric_limits<typename T::unit>::min();
-    events.filter([start, end, &sentinel](const shared<T>& event) {
+    events.filter([start, end, &sentinel](const T& event) {
         if (event.time <= start) {
             if ((sentinel.time) < event.time) { sentinel = *event; }
         } else if ((event.time) < end) {
@@ -317,23 +374,31 @@ T adjust_time(
     return new_data;
 }
 
+// get the start time of the first event
 template<TimeEvent T>
-typename T::unit start(const pyvec<T>& events) {
-    if (events.empty()) return 0;
+inline typename T::unit start(const pyvec<T>& events) {
+    if (events.empty()) {
+        // return 0;
+        return std::numeric_limits<typename T::unit>::max();
+    }
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     for (const T& event : events) { ans = std::min(ans, event.time); }
     return ans;
 }
 
+// get the end time of the last event
 template<TimeEvent T>
-typename T::unit end(const pyvec<T>& events) {
-    if (events.empty()) return 0;
-    typename T::unit ans     = std::numeric_limits<typename T::unit>::min();
-    auto             get_end = [](const T& event) {
-        if constexpr (HashDuration<T>) { return event.end(); }
-        return event.time;
-    };
-    for (const T& event : events) { ans = std::max(ans, get_end(event)); }
+inline typename T::unit end(const pyvec<T>& events) {
+    if (events.empty()) {
+        // return 0;
+        return std::numeric_limits<typename T::unit>::min();
+    }
+    typename T::unit ans = std::numeric_limits<typename T::unit>::min();
+    if constexpr (HashDuration<T>) {
+        for (const T& event : events) { ans = std::max(ans, event.end()); }
+    } else {
+        for (const T& event : events) { ans = std::max(ans, event.time); }
+    }
     return ans;
 }
 
