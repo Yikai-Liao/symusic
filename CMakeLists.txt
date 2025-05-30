@@ -7,7 +7,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
 
 option(BUILD_SYMUSIC_PY "Build the python binding of symusic" OFF)
-option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
+option(BUILD_SYMUSIC_EXAMPLE "Build the example target" OFF)
 option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
 option(VTUNE "Compile Options for Intel VTune" Off)
@@ -64,6 +64,12 @@ target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
 target_link_libraries(symusic prestosynth)
 target_link_libraries(symusic pyvec)
+
+target_include_directories(symusic PUBLIC include)
+target_include_directories(symusic PUBLIC 3rdparty/pdqsort)
+target_include_directories(symusic PUBLIC 3rdparty/zpp_bits)
+target_include_directories(symusic PUBLIC 3rdparty)
+
 
 if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
