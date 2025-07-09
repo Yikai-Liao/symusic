@@ -18,6 +18,11 @@ int main(int argc, char *argv[]) {
     try {
         auto s = Score<Tick>::parse<DataFormat::MIDI>(read_file(filename));
         std::cout << "Score1: " << s.to_string() << std::endl;
+		auto rogueCtrlMessage = (*s.tracks)[2]->controls;
+		int time = (*rogueCtrlMessage)[0]->time;
+		int number = (*rogueCtrlMessage)[0]->number;
+		int value = (*rogueCtrlMessage)[0]->value;
+		std::cout << "time: " << std::to_string(time) << ", number: " <<std::to_string(number) << ", value: " << std::to_string(value) << std::endl;
         // dump to midi bytes
         auto midi_bytes = s.dumps<DataFormat::MIDI>();
         // reload from midi bytes
