@@ -217,23 +217,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             switch (msg.type()) {
             case minimidi::MessageType::NoteOn: {
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
-                uint8_t pitch          = note_on.pitch();
-                uint8_t velocity       = note_on.velocity();
-
-                if (pitch >= 128)
-                    throw std::range_error("Get pitch=" + std::to_string(pitch));
-                if (velocity >= 128) {
-                    if (strict_mode)
-                        throw std::range_error("Get velocity=" + std::to_string(velocity));
-                    else
-                        velocity = std::clamp(velocity,
-                            decltype(velocity)(0),
-                            decltype(velocity)(127));
-                }
-
-                if (velocity != 0) {
+                if (note_on.velocity() != 0) {
                     trackManager.add_note(
-                        note_on.channel(), pitch, cur_tick, velocity
+                        note_on.channel(), note_on.pitch(), cur_tick, note_on.velocity()
                     );
                     break;
                 }
@@ -241,22 +227,15 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             }
             case minimidi::MessageType::NoteOff: {
                 const auto& note_off = msg.template cast<minimidi::NoteOff>();
-                uint8_t pitch          = note_off.pitch();
-                trackManager.end_note(note_off.channel(), pitch, cur_tick);
+                trackManager.end_note(note_off.channel(), note_off.pitch(), cur_tick);
                 break;
             }
             case minimidi::MessageType::ProgramChange: {
                 const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
                 const uint8_t channel        = program_change.channel();
-                uint8_t program        = program_change.program();
-                if (program >= 128) {
-                    if(strict_mode)
-                        throw std::range_error("Get program=" + std::to_string(program));
-                    else
-                        program = std::clamp(program,
-                            decltype(program)(0),
-                            decltype(program)(127));
-                }
+                const uint8_t program        = program_change.program();
+                if (strict_mode && (program >= 128))
+                    throw std::range_error("Get program=" + std::to_string(program));
                 trackManager.set_program(
                     channel, program
                 );   // Changed to call TrackManager's method
@@ -272,25 +251,13 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     track.controls.reserve(message_num / 2);
                 }
 
-                uint8_t control_number = control_change.control_number();
-                uint8_t control_value  = control_change.control_value();
+                const uint8_t control_number = control_change.control_number();
+                const uint8_t control_value  = control_change.control_value();
 
-                if (control_number >= 128) {
-                    if (strict_mode)
-                        throw std::range_error("Get control_number=" + std::to_string(control_number));
-                    else
-                        control_number = std::clamp(control_number,
-                            decltype(control_number)(0),
-                            decltype(control_number)(127));
-                }
-                if (control_value >= 128) {
-                    if (strict_mode)
-                        throw std::range_error("Get control_value=" + std::to_string(control_value));
-                    else
-                        control_value = std::clamp(control_value,
-                            decltype(control_number)(0),
-                            decltype(control_number)(127));
-                }
+                if (strict_mode && (control_number >= 128))
+                    throw std::range_error("Get control_number=" + std::to_string(control_number));
+                if (strict_mode && (control_value >= 128))
+                    throw std::range_error("Get control_value=" + std::to_string(control_value));
                 track.controls.emplace_back(cur_time, control_number, control_value);
                 // Pedal Part
                 if (control_number == 64) {
@@ -311,15 +278,10 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                        || value > minimidi::PitchBend<>::MAX_PITCH_BEND) {
-                    if (strict_mode)
-                        throw std::range_error("Get pitch_bend=" + std::to_string(value));
-                    else
-                        value = std::clamp(value,
-                            decltype(value)(minimidi::PitchBend<>::MIN_PITCH_BEND),
-                            decltype(value)(minimidi::PitchBend<>::MAX_PITCH_BEND));
-                }
+                if (strict_mode
+                    && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
+                        || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
+                    throw std::range_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;
             }
