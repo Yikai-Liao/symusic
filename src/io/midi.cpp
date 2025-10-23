@@ -211,6 +211,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
         // iter midi messages in the track
 
         for (const auto& msg : midi_track) {
+            if(!strict_mode) msg.santize_data_values();
 
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
