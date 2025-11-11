@@ -21,9 +21,14 @@ jobs:
           - [macos-15-intel, macosx_x86_64]
           - [macos-14, macosx_arm64]
           - [windows-latest, win_amd64]
+          - [windows-2022, win32]
           - [windows-11-arm, win_arm64]
         python: ["cp38", "cp39", "cp310", "cp311", "cp312", "cp313", "cp314", "pp39"]
         exclude:
+          - buildplat: [windows-latest, win_amd64]
+            python: "pp39"
+          - buildplat: [windows-2022, win32]
+            python: "pp39"
           - buildplat: [windows-11-arm, win_arm64]
             python: "pp39"
           - buildplat: [ ubuntu-latest, musllinux_x86_64 ]
@@ -51,7 +56,7 @@ jobs:
 
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
-        uses: pypa/cibuildwheel@42728e866bbc80d544a70825bd9990b9a26f1a50  # v2.16.5
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -60,7 +65,7 @@ jobs:
 
       - name: Build wheels for manylinux aarch64
         if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' }}
-        uses: pypa/cibuildwheel@42728e866bbc80d544a70825bd9990b9a26f1a50  # v2.16.5
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -69,7 +74,7 @@ jobs:
 
       - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
-        uses: pypa/cibuildwheel@42728e866bbc80d544a70825bd9990b9a26f1a50  # v2.16.5
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -78,7 +83,7 @@ jobs:
 
       - name: Build wheels for musllinux aarch64
         if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
-        uses: pypa/cibuildwheel@42728e866bbc80d544a70825bd9990b9a26f1a50  # v2.16.5
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -87,7 +92,7 @@ jobs:
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
-        uses: pypa/cibuildwheel@42728e866bbc80d544a70825bd9990b9a26f1a50  # v2.16.5
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
