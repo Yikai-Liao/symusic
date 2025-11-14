@@ -70,7 +70,7 @@ exclude_patterns: list[str] = [
 
 html_theme = "furo"
 html_static_path = ["_static"]
-html_title = "symusic documentation (1.0 planning)"
+html_title = "Symusic Documentation"
 
 # Tell Sphinx where the package is located without requiring an installed wheel.
 os.environ.setdefault("PYTHONPATH", str(PROJECT_ROOT / "python"))
