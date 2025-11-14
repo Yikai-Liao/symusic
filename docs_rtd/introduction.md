@@ -55,3 +55,20 @@ behavior.
 
 For doc migration history and local build instructions, see {doc}`project_notes`.
 ```
+
+## Benchmarks
+
+Symusic's decoding core is optimized for note-level MIDI workloads and outperforms the common MIDI
+libraries shared across MIR tooling:
+
+- `midifile` (C++) emits both event- and note-level data but spends significant time in `iostream`.
+- `mido` (Python) only parses event-level structures and serves as the foundation for many Python
+  stacks.
+- `pretty_midi` and `miditoolkit` build on top of `mido` to expose note-level abstractions.
+- Python-accessible libraries are timed with `timeit`, C++ projects use `nanobench`, and Julia
+  libraries use `BenchmarkTools`.
+
+The end-to-end scripts live in [`symusic-benchmark`](https://github.com/Yikai-Liao/symusic-benchmark)
+and currently run on GitHub Actions M1 runners.
+
+![Benchmark comparison](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)

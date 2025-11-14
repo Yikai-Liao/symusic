@@ -8,6 +8,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
+EXTENSIONS_ROOT = Path(__file__).resolve().parent / "_ext"
+sys.path.insert(0, str(EXTENSIONS_ROOT))
 
 
 class _SymusicCore(types.ModuleType):
@@ -46,6 +48,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
+    "remote_images",
 ]
 
 myst_enable_extensions = [
@@ -72,6 +75,7 @@ exclude_patterns: list[str] = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
+    "README.md",
 ]
 
 html_theme = "furo"

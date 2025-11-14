@@ -7,3 +7,4 @@ docutils<0.21
 numpy
 pySmartDL
 platformdirs
+requests>=2.32
