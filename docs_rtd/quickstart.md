@@ -165,12 +165,3 @@ Symusic ships a lightweight SoundFont manager (`BuiltInSF2/SF3`) that can downlo
 demand. Rendering internally converts the score to seconds, maps tracks to instruments via `program`
 and `is_drum`, and streams the samples through Prestosynth. Use the returned NumPy array directly in
 post-processing pipelines or dump a WAV with `dump_wav`.
-
-## Benchmark snapshot
-
-We track performance in the companion [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark)
-repository rather than in this documentation tree. Benchmarks run on a GitHub Actions M1 runner and
-compare Symusic against other Python/C++/Julia MIDI stacks on equal workloads. The chart below is the
-latest published result; check the benchmark repository for updates and methodology details.
-
-![Benchmark results showing Symusic speedups](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
