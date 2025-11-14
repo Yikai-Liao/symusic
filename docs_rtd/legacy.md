@@ -9,6 +9,6 @@ concepts, but several APIs mentioned there have been renamed or removed.
 We will progressively port the useful parts into this Sphinx site. In the meantime:
 
 - Treat mdBook snippets as historical context rather than the source of truth.
-- Prefer the Tutorials/Examples pages here once they appear—they will be tested against CI.
+- Prefer the tutorial pages here once they appear—they will be tested against CI.
 - If you discover inaccuracies in mdBook pages, open an issue referencing the page so we can fold the
   fix directly into the MyST version instead of patching the legacy copy.

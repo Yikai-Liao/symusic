@@ -37,6 +37,8 @@ copyright = f"{datetime.utcnow():%Y}, {author}"
 
 extensions = [
     "myst_nb",
+    # Add sphinx-copybutton to provide a "copy" button on code blocks
+    "sphinx_copybutton",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",

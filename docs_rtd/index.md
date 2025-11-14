@@ -18,13 +18,26 @@ the legacy mdBook.
 
 introduction
 quickstart
+faq
 project_notes
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Tutorials
+
+tutorials/index
+tutorials/midi_operations
+tutorials/pianoroll
+tutorials/synthesis
+tutorials/data_processing
 ```
 
 ```{toctree}
 :maxdepth: 1
 :caption: Core Concepts
 
+concepts/index
 concepts/score
 concepts/track
 concepts/events
