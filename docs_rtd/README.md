@@ -60,3 +60,33 @@ Then visit: http://localhost:1414/search.html
 - **Fast Indexing**: ~0.17 seconds for 37 pages
 - **Auto-fill**: Query parameters from sidebar search automatically populate the search box
 - **Theme Integration**: Styled to match the Furo theme with proper dark mode support
+
+## Docstring → Docs Pipeline
+
+Follow this loop whenever you update nanobind docstrings so `.pyi` files, local previews, and Read the Docs stay aligned.
+
+1. **Author docstrings at the binding site**  
+   Use `nb::doc(R"pbdoc(...)pbdoc")` alongside each definition in `py_src/core.cpp` (or the relevant `.cpp`) so the compiled `symusic.core` exposes real descriptions.
+
+2. **Install the extension into the docs virtualenv**  
+   ```bash
+   source .venv-docs/bin/activate
+   pip install -e .
+   ```
+   Read the Docs can’t build from source on every run, so `readthedocs.yml` instead executes `pip install symusic` to fetch the published wheel. Ship a new wheel whenever docstrings change.
+
+3. **Regenerate `.pyi` stubs (optional but recommended)**  
+   ```bash
+   nanobind-stubgen symusic.core --out .
+   mv symusic.core.pyi python/symusic/core.pyi
+   ```
+   Editors and type-checkers then surface the exact same narratives.
+
+4. **Rebuild Sphinx + Pagefind**  
+   ```bash
+   sphinx-build -b html docs_rtd docs_rtd/_build/html
+   npx pagefind --site docs_rtd/_build/html --output-subdir _pagefind
+   ```
+   Verify under `docs_rtd/_build/html/api/generated/core/` that “Core bindings” pages show the updated text.
+
+Repeat this cycle whenever bindings change to keep local previews and the hosted site consistent.

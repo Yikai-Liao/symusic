@@ -11,27 +11,31 @@ sys.path.insert(0, str(PROJECT_ROOT / "python"))
 EXTENSIONS_ROOT = Path(__file__).resolve().parent / "_ext"
 sys.path.insert(0, str(EXTENSIONS_ROOT))
 
+MOCK_SYMUSIC_CORE = False
+try:
+    import symusic.core  # noqa: F401  # type: ignore[attr-defined]
+except Exception:
+    MOCK_SYMUSIC_CORE = True
 
-class _SymusicCore(types.ModuleType):
-    """Lightweight mock of the nanobind extension for documentation builds."""
+    class _SymusicCore(types.ModuleType):
+        """Lightweight mock of the nanobind extension for documentation builds."""
 
-    def __init__(self) -> None:
-        super().__init__("symusic.core")
-        self._members: dict[str, object] = {}
+        def __init__(self) -> None:
+            super().__init__("symusic.core")
+            self._members: dict[str, object] = {}
 
-    def __getattr__(self, name: str) -> object:
-        if name == "dump_wav":  # behaves like a function
-            def _placeholder(*_args, **_kwargs):  # noqa: ANN001, ANN002 - placeholder
-                return None
+        def __getattr__(self, name: str) -> object:
+            if name == "dump_wav":  # behaves like a function
+                def _placeholder(*_args, **_kwargs):  # noqa: ANN001, ANN002 - placeholder
+                    return None
 
-            return _placeholder
-        if name not in self._members:
-            placeholder = type(name, (), {"__module__": "symusic.core"})
-            self._members[name] = placeholder
-        return self._members[name]
+                return _placeholder
+            if name not in self._members:
+                placeholder = type(name, (), {"__module__": "symusic.core"})
+                self._members[name] = placeholder
+            return self._members[name]
 
-
-sys.modules.setdefault("symusic.core", _SymusicCore())
+    sys.modules.setdefault("symusic.core", _SymusicCore())
 
 author = "symusic developers"
 project = "symusic"
@@ -61,7 +65,7 @@ myst_enable_extensions = [
 nb_execution_mode = "off"
 autosummary_generate = True
 autodoc_typehints = "description"
-autodoc_mock_imports = ["symusic.core"]
+autodoc_mock_imports = ["symusic.core"] if MOCK_SYMUSIC_CORE else []
 autosectionlabel_prefix_document = True
 todo_include_todos = True
 

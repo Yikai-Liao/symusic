@@ -24,6 +24,7 @@ These steps mirror the Read the Docs build process:
 python -m venv .venv-docs
 source .venv-docs/bin/activate
 pip install -r docs_rtd/requirements.txt
+pip install -e .
 sphinx-build -b html docs_rtd docs_rtd/_build/html
 ```
 
@@ -83,7 +84,8 @@ When updating downstream content:
 ### Continuous integration / Read the Docs
 
 The Read the Docs configuration lives in `readthedocs.yml` and installs dependencies from
-`docs_rtd/requirements.txt`. When you add a new dependency for docs only, update that requirements
-file rather than the project-wide dependencies.
+`docs_rtd/requirements.txt`, followed by `pip install symusic` so it can pull the prebuilt wheels
+from PyPI and expose the nanobind docstrings. When you add a new dependency for docs only, update
+that requirements file rather than the project-wide dependencies.
 
 Once the Sphinx build passes locally, CI should produce identical HTML on Read the Docs.

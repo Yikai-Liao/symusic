@@ -7,6 +7,7 @@ build:
   jobs:
     pre_build:
       - pip install -r docs_rtd/requirements.txt
+      - pip install symusic
     post_build:
       - SITE_DIR="${READTHEDOCS_OUTPUT:-docs_rtd/_build}/html" && npx pagefind --site "$SITE_DIR" --output-subdir _pagefind
 sphinx:

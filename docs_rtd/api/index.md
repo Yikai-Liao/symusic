@@ -21,12 +21,32 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
    KeySignature
    TimeSignature
    TimeUnit
-   Synthesizer
-   dump_wav
 ```
 
 ```{note}
 Most Python surfaces are thin factories built on top of nanobind classes defined in
 `symusic.core`. Although the binary extension is mocked for documentation builds,
 the signatures and docstrings come from `python/symusic/` and `python/symusic/core.pyi`.
+
+The section above lists the lightweight factories that live in the pure-Python package.
+The nanobind classes/functions that actually execute the work are documented below so
+their docstrings show up verbatim.
+```
+
+## Core bindings
+
+```{eval-rst}
+.. currentmodule:: symusic.core
+
+.. autosummary::
+   :toctree: generated/core
+   :caption: Binding Classes
+
+   Synthesizer
+```
+
+```{eval-rst}
+.. currentmodule:: symusic.core
+
+.. autofunction:: dump_wav
 ```

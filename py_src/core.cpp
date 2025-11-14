@@ -19,19 +19,81 @@
 
 namespace nb = nanobind;
 namespace symusic {
+namespace docstring {
+constexpr const char* kSynthDoc = R"pbdoc(
+High-level Prestosynth wrapper that renders Scores with SF2/SF3 SoundFonts.
+
+The synthesizer keeps the SoundFont in memory, so repeated calls to render()
+avoid disk I/O. Construct one instance per SoundFont and reuse it across
+multiple scores for best performance.
+)pbdoc";
+
+constexpr const char* kSynthInitPathDoc = R"pbdoc(
+Create a synthesizer from a filesystem path to a SF2/SF3 SoundFont.
+
+Parameters
+----------
+sf_path : pathlib.Path
+    Path to the SoundFont archive on disk.
+sample_rate : int
+    Output sample rate in Hz (e.g. 44100).
+quality : int
+    Prestosynth quality preset, 0 = fast, higher = better interpolation.
+)pbdoc";
+
+constexpr const char* kSynthInitStringDoc = R"pbdoc(
+Create a synthesizer from a string path to a SF2/SF3 SoundFont.
+
+Parameters mirror the pathlib constructor overload.
+)pbdoc";
+
+constexpr const char* kSynthRenderDoc = R"pbdoc(
+Render a Score into a float32 waveform.
+
+Parameters
+----------
+score : Score
+    Score in ticks, quarters, or seconds depending on the overload.
+stereo : bool, default True
+    When True, emit two channels; otherwise return a single channel.
+
+Returns
+-------
+numpy.ndarray[float32]
+    Array shaped (channels, samples) laid out in Fortran order so it can be
+    passed back into Prestosynth without copies.
+)pbdoc";
+
+constexpr const char* kDumpWavDoc = R"pbdoc(
+Write a NumPy buffer to a WAV file using Prestosynth's writer.
+
+Parameters
+----------
+path : str
+    Destination path on disk.
+data : numpy.ndarray[float32]
+    Fortran-contiguous array shaped (channels, samples).
+sample_rate : int
+    Sample rate stored in the WAV header.
+use_int16 : bool, default True
+    If True, quantize to int16 PCM; otherwise keep float32 samples.
+)pbdoc";
+}  // namespace docstring
 nb::module_& bind_synthesizer(nb::module_& m) {
-    nb::class_<Synthesizer>(m, "Synthesizer")
+    nb::class_<Synthesizer>(m, "Synthesizer", docstring::kSynthDoc)
         .def(
             nb::init<const std::string&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality")
+            nb::arg("quality"),
+            docstring::kSynthInitStringDoc
         )
         .def(
             nb::init<const std::filesystem::path&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality")
+            nb::arg("quality"),
+            docstring::kSynthInitPathDoc
         )
         .def(
             "render",
@@ -39,7 +101,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         )
         .def(
             "render",
@@ -47,7 +110,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         )
         .def(
             "render",
@@ -55,7 +119,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         );
 
     m.def(
@@ -71,7 +136,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         nb::arg("path"),
         nb::arg("data"),
         nb::arg("sample_rate"),
-        nb::arg("use_int16") = true
+        nb::arg("use_int16") = true,
+        docstring::kDumpWavDoc
     );
     return m;
 }

@@ -8,7 +8,6 @@ This checklist tracks pending work for the Sphinx migration.
 
 - [x] Port Tutorials section from mdBook (MIDI operations, piano roll, synthesis, data processing).
 - [x] Port Examples (analysis, generation, preprocessing) with updated code snippets.
-- [ ] Integrate `tutorial.ipynb` via myst-nb and ensure deterministic outputs (blocked: notebook requires API refresh).
 - [x] Add FAQ / troubleshooting entry for installation, compiler requirements, and common runtime errors.
 - [x] Draft migration guide highlighting differences between 0.x mdBook and 1.0 documentation.
 - [ ] Wire up Doxygen + Breathe for C++ internals (Score/Track/Event/IO/Synth).
