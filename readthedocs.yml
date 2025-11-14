@@ -8,6 +8,6 @@ build:
     pre_build:
       - pip install -r docs_rtd/requirements.txt
     post_build:
-      - npx pagefind --site docs_rtd/_build/html --output-subdir _pagefind
+      - SITE_DIR="${READTHEDOCS_OUTPUT:-docs_rtd/_build}/html" && npx pagefind --site "$SITE_DIR" --output-subdir _pagefind
 sphinx:
   configuration: docs_rtd/conf.py
