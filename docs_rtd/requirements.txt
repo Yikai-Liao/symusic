@@ -2,6 +2,7 @@ sphinx>=7.2
 myst-parser>=2.0
 myst-nb>=1.0
 furo>=2024.1
+sphinx-copybutton>=0.5.2
 docutils<0.21
 numpy
 pySmartDL
