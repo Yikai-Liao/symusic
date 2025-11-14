@@ -3,8 +3,11 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+    nodejs: "20"
   jobs:
     pre_build:
       - pip install -r docs_rtd/requirements.txt
+    post_build:
+      - npx pagefind --site docs_rtd/_build/html --output-subdir _pagefind
 sphinx:
   configuration: docs_rtd/conf.py
