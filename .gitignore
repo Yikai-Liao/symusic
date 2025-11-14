@@ -15,3 +15,6 @@
 **/.vs
 docs/book
 .venv
+docs_rtd/_build
+.venv-docs
+.serena

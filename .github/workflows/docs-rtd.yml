@@ -1,0 +1,22 @@
+name: Docs (Sphinx)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs_rtd/requirements.txt
+      - name: Build docs
+        run: sphinx-build -b html docs_rtd docs_rtd/_build/html

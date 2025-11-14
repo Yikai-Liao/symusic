@@ -15,6 +15,13 @@ Here, we have added a tutorial.ipynb for you to learn about how to use the libra
 
 And a [document](https://yikai-liao.github.io/symusic/) is also available. Not complete though.
 
+## Documentation Roadmap
+
+- The legacy mdBook (link above) stays online for historical reference but is no longer updated.
+- The next-generation documentation for the 1.0 release is being rebuilt with Sphinx + MyST under `docs_rtd/`.
+- Build the new docs locally via `pip install -r docs_rtd/requirements.txt` followed by `sphinx-build -b html docs_rtd docs_rtd/_build/html`.
+- Once the Read the Docs deployment is live, this README will point to the canonical URL.
+
 ## Features
 
 * You can just read a midi file like `score = symusic.Score("path to midi", ttype="tick")`
