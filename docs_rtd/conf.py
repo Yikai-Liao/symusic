@@ -39,6 +39,8 @@ extensions = [
     "myst_nb",
     # Add sphinx-copybutton to provide a "copy" button on code blocks
     "sphinx_copybutton",
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.todo",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -57,6 +59,8 @@ nb_execution_mode = "off"
 autosummary_generate = True
 autodoc_typehints = "description"
 autodoc_mock_imports = ["symusic.core"]
+autosectionlabel_prefix_document = True
+todo_include_todos = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
