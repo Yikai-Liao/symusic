@@ -58,7 +58,7 @@ def test_pyvec_typing(tmp_path: Path) -> None:
 
 
         note_tick_list: core.NoteTickList = core.NoteTickList()
-        pyvec_note_tick: core.PyVec[core.NoteTick]
+        pyvec_note_tick: core.PyVec[core.Note[core.Tick]]
         pyvec_note_tick = note_tick_list
     """
     _assert_success(_run_mypy(tmp_path, content))
@@ -85,10 +85,9 @@ def test_event_and_track_typing(tmp_path: Path) -> None:
 def test_nested_pyvec_typing(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
-        from typing import cast
 
 
-        nested_vec = cast(core.PyVec[core.Note[core.Tick]], core.NoteTickList())
+        nested_vec: core.PyVec[core.Note[core.Tick]] = core.NoteTickList()
 
         def consume(vec: core.PyVec[core.Note[core.Tick]]) -> None:
             pass
@@ -103,15 +102,29 @@ def test_types_module_aliases(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
         import symusic.types as smt
-        from typing import cast
 
 
         score_tick: smt.Score[core.Tick]
         score_tick = core.ScoreTick(480)
 
-        pyvec_note_tick = cast(smt.PyVec[smt.Note[core.Tick]], core.NoteTickList())
+        pyvec_note_tick: smt.PyVec[smt.Note[core.Tick]] = core.NoteTickList()
 
         track_tick: smt.Track[core.Tick]
         track_tick = core.TrackTick()
+    """
+    _assert_success(_run_mypy(tmp_path, content))
+
+
+@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+def test_time_signature_list_union(tmp_path: Path) -> None:
+    content = """
+        import symusic.core as core
+        import symusic.types as smt
+
+
+        lst: smt.TimeSignatureList
+        lst = core.TimeSignatureTickList()
+        lst = core.TimeSignatureQuarterList()
+        lst = core.TimeSignatureSecondList()
     """
     _assert_success(_run_mypy(tmp_path, content))
