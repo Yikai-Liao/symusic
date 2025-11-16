@@ -56,6 +56,58 @@ After touching the bindings, run `pre-commit run --all-files` to keep the stub
 and the rest of the sources formatted, and always review the resulting diff
 before sending a patch.
 
+## Type hints
+
+Symusic exposes a relatively rich typing surface so that downstream projects can
+benefit from IDE completion and static analysis:
+
+### Core generics
+
+- The nanobind bindings now “lie” in the generated stubs so that classes like
+  `ScoreTick`, `TrackQuarter`, `NoteTickList`, … derive from generic helpers.
+  This enables Python code to annotate values using `core.Score[core.Tick]` or
+  `core.PyVec[core.Note[core.Tick]]`.
+- The Python package mirrors these helpers. Importing
+  `import symusic.types as smt` gives you `smt.Score`, `smt.Note`, `smt.PyVec`,
+  etc., that map directly to the nanobind types. Prefer the generic form when
+  you need an explicit time unit, e.g.
+
+  ```python
+  import symusic.core as core
+  import symusic.types as smt
+
+  score: smt.Score[core.Tick] = core.ScoreTick(480)
+  notes: core.PyVec[core.Note[core.Tick]] = core.NoteTickList()
+  ```
+
+### List aliases
+
+- To keep runtime behavior simple, the convenience aliases exposed from
+  `symusic.types` (e.g. `NoteList`, `TimeSignatureList`) remain ordinary
+  `Union` types over their tick/quarter/second variants. Downstream code should
+  treat them as “either of the concrete `*List` classes” rather than full
+  generics.
+- `General*List` helpers now collapse to `Union[List[Event], <list alias>]`, so
+  existing factory signatures keep accepting plain Python lists without any
+  type juggling.
+
+### Testing the typing surface
+
+- The file `tests/typecheck/test_typing_mypy.py` contains narrow mypy-based
+  regression tests that exercise the combinations we care about
+  (`Score[T]`, `PyVec[Event[T]]`, `General*List`, etc.). Run it after touching
+  bindings or the `types` module:
+
+  ```bash
+  pip install .[test]
+  pytest tests/typecheck/test_typing_mypy.py
+  ```
+
+- These tests rely on the freshly built `symusic` package inside the active
+  virtualenv. Always reinstall (`pip install .` or `pip install .[test]`) or
+  copy the updated files into `.venv/lib/.../symusic/` before invoking pytest,
+  otherwise mypy will keep validating stale stubs.
+
 ## Format
 
 We use `pre-commit` to format the code. You could install it by:
