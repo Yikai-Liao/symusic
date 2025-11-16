@@ -218,7 +218,7 @@ auto bind_time_stamp(nb::module_& m,
     ;
 
     const auto list_name = name + "List";
-    const auto vec_sig   = fmt::format("class {}(PyVec[{}])", list_name, name);
+    const auto vec_sig   = fmt::format("class {}(PyVec[{}[{}]])", list_name, generic_base, unit_suffix);
 
     auto vec_class = bind_shared_pyvec<T>(m, list_name.c_str(), nb::sig(vec_sig.c_str()))
         .def_prop_ro("ttype", [](const vec_t& self) { return typename T::ttype(); })
