@@ -10,6 +10,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/eigen/dense.h>
 #include <nanobind/stl/filesystem.h>
+#include <nanobind/typing.h>
 #include "prestosynth/wav.h"
 #include "symusic.h"
 #include "py_utils.h"
@@ -19,6 +20,34 @@
 
 namespace nb = nanobind;
 namespace symusic {
+namespace typing_detail {
+struct ScoreTypingPlaceholder { };
+struct PyVecTypingPlaceholder { };
+struct TrackTypingPlaceholder { };
+struct NoteTypingPlaceholder { };
+struct KeySignatureTypingPlaceholder { };
+struct TimeSignatureTypingPlaceholder { };
+struct TempoTypingPlaceholder { };
+struct ControlChangeTypingPlaceholder { };
+struct PedalTypingPlaceholder { };
+struct PitchBendTypingPlaceholder { };
+struct TextMetaTypingPlaceholder { };
+}  // namespace typing_detail
+
+template <typename Placeholder>
+void define_time_generic(nb::module_& m, const char* name) {
+    const auto sig = fmt::format("class {}(typing.Generic[TimeUnitT])", name);
+    const auto msg = fmt::format(
+        "symusic.core.{0} is a typing helper. Instantiate {0}Tick, {0}Quarter, or {0}Second "
+        "instead.",
+        name
+    );
+
+    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()))
+        .def("__init__", [msg](Placeholder*) {
+            throw nb::type_error(msg.c_str());
+        });
+}
 nb::module_& bind_synthesizer(nb::module_& m) {
     nb::class_<Synthesizer>(m, "Synthesizer")
         .def(
@@ -113,8 +142,10 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     auto deepcopy_func
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
+    const auto track_sig = fmt::format("class {}(Track[{}])", name, name_);
+
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str())
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()))
         .def("__init__", &pyinit<Track<T>>)
         .def("__init__", &pyinit<Track<T>, std::string, u8, const bool>,
             nb::arg("name"), nb::arg("program")=0, nb::arg("is_drum")=false)
@@ -500,7 +531,9 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str())
+    const auto score_sig = fmt::format("class {}(Score[{}])", name, name_);
+
+    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()))
         .def("__init__", &pyinit<Score<T>, i32>, nb::arg("tpq"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::move(std::make_shared<Score<T>>(std::move(other->deepcopy()))));
@@ -666,6 +699,43 @@ NB_MODULE(core, m) {
 #endif
 
     m.attr("_MIDI2ABC") = std::string("");
+
+    auto time_unit_t = nb::type_var("TimeUnitT");
+    auto event_t     = nb::type_var("EventT");
+    m.attr("TimeUnitT") = time_unit_t;
+    m.attr("EventT")    = event_t;
+
+    nb::class_<typing_detail::ScoreTypingPlaceholder>(
+        m,
+        "Score",
+        nb::is_generic(),
+        nb::sig("class Score(typing.Generic[TimeUnitT])"))
+        .def("__init__", [](typing_detail::ScoreTypingPlaceholder*) {
+            throw nb::type_error(
+                "symusic.core.Score is a typing helper. Instantiate ScoreTick, "
+                "ScoreQuarter, or ScoreSecond instead.");
+        });
+
+    nb::class_<typing_detail::PyVecTypingPlaceholder>(
+        m,
+        "PyVec",
+        nb::is_generic(),
+        nb::sig("class PyVec(typing.Generic[EventT])"))
+        .def("__init__", [](typing_detail::PyVecTypingPlaceholder*) {
+            throw nb::type_error(
+                "symusic.core.PyVec is a typing helper. Instantiate concrete "
+                "event list types (e.g., NoteTickList).");
+        });
+
+    define_time_generic<typing_detail::TrackTypingPlaceholder>(m, "Track");
+    define_time_generic<typing_detail::NoteTypingPlaceholder>(m, "Note");
+    define_time_generic<typing_detail::KeySignatureTypingPlaceholder>(m, "KeySignature");
+    define_time_generic<typing_detail::TimeSignatureTypingPlaceholder>(m, "TimeSignature");
+    define_time_generic<typing_detail::TempoTypingPlaceholder>(m, "Tempo");
+    define_time_generic<typing_detail::ControlChangeTypingPlaceholder>(m, "ControlChange");
+    define_time_generic<typing_detail::PedalTypingPlaceholder>(m, "Pedal");
+    define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
+    define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
     // clang-format off
     auto tick = nb::class_<Tick>(m, "Tick")

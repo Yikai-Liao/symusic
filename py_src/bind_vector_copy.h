@@ -367,11 +367,15 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(nanobind::hand
                     return false;
             }   return true;
         };
-        cl.def("__eq__", equal)
-          .def("__eq__", [](const self_t &, const object &) { return false; })
+        cl.def("__eq__", equal,
+               nanobind::sig("def __eq__(self, arg: object, /) -> bool"))
+          .def("__eq__", [](const self_t &, const object &) { return false; },
+               nanobind::sig("def __eq__(self, arg: object, /) -> bool"))
           .def("__eq__", eq_list)
-          .def("__ne__", [&](const self_t &v, const self_t &other) { return !equal(v, other); })
-          .def("__ne__", [](const self_t &, const object &) { return true; })
+          .def("__ne__", [&](const self_t &v, const self_t &other) { return !equal(v, other); },
+               nanobind::sig("def __ne__(self, arg: object, /) -> bool"))
+          .def("__ne__", [](const self_t &, const object &) { return true; },
+               nanobind::sig("def __ne__(self, arg: object, /) -> bool"))
           .def("__ne__", [&](const self_t &v, const list &other) { return !eq_list(v, other); })
 
           .def("__contains__",
@@ -537,12 +541,16 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(nanob
             }   return true;
         };
 
-        cl.def("__eq__", [](const self_t &v, const self_t &other) { return *v == *other; })
+        cl.def("__eq__", [](const self_t &v, const self_t &other) { return *v == *other; },
+               nanobind::sig("def __eq__(self, arg: object, /) -> bool"))
           .def("__eq__", eq_list)
-          .def("__eq__", [](const self_t &, handle) { return false; })
-          .def("__ne__", [](const self_t &v, const self_t &other) { return *v != *other; })
+          .def("__eq__", [](const self_t &, handle) { return false; },
+               nanobind::sig("def __eq__(self, arg: object, /) -> bool"))
+          .def("__ne__", [](const self_t &v, const self_t &other) { return *v != *other; },
+               nanobind::sig("def __ne__(self, arg: object, /) -> bool"))
           .def("__ne__", [&](const self_t &v, const list &other) { return !eq_list(v, other); })
-          .def("__ne__", [](const self_t &, handle) { return true; })
+          .def("__ne__", [](const self_t &, handle) { return true; },
+               nanobind::sig("def __ne__(self, arg: object, /) -> bool"))
 
           .def("__contains__",
                [](const self_t &v, const ValueRef &x) {
