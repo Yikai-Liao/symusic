@@ -26,4 +26,4 @@
 [submodule "3rdparty/nanobind"]
 	path = 3rdparty/nanobind
 	url = https://github.com/wjakob/nanobind.git
-	tag = v2.2.0
+	tag = v2.9.2

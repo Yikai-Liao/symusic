@@ -190,10 +190,17 @@ public:
     }
 };
 
+/**
+ * Parse the given MIDI view while optionally sanitizing payload bytes prior to decoding.
+ *
+ * @param midi MIDI view produced by minimidi.
+ * @param tick2unit Converter that maps MIDI ticks to the desired time unit.
+ * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range before parsing.
+ */
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
 [[nodiscard]] Score<T> parse_midi(
-    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool strict_mode = true
+    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool sanitize_data = true
 ) {
     typedef typename T::unit unit;
     // remove this redundant copy in the future
@@ -233,7 +240,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
                 const uint8_t channel        = program_change.channel();
                 const uint8_t program        = program_change.program();
-                if (strict_mode && (program >= 128))
+                if (sanitize_data && (program >= 128))
                     throw std::range_error("Get program=" + std::to_string(program));
                 trackManager.set_program(
                     channel, program
@@ -253,9 +260,9 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const uint8_t control_number = control_change.control_number();
                 const uint8_t control_value  = control_change.control_value();
 
-                if (strict_mode && (control_number >= 128))
+                if (sanitize_data && (control_number >= 128))
                     throw std::range_error("Get control_number=" + std::to_string(control_number));
-                if (strict_mode && (control_value >= 128))
+                if (sanitize_data && (control_value >= 128))
                     throw std::range_error("Get control_value=" + std::to_string(control_value));
                 track.controls.emplace_back(cur_time, control_number, control_value);
                 // Pedal Part
@@ -277,7 +284,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (strict_mode
+                if (sanitize_data
                     && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
                         || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
                     throw std::range_error("Get pitch_bend=" + std::to_string(value));
@@ -481,26 +488,32 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
     return std::move(midi);
 }
 
+/**
+ * Parse raw MIDI bytes to a score, optionally sanitizing payloads before decoding.
+ *
+ * @param bytes Raw MIDI bytes to parse.
+ * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range.
+ */
 template<TType T>
-Score<T> parse_midi(const std::span<const u8> bytes, bool strict_mode = true) {
+Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = true) {
     const auto parse_view = [&](const auto& midi_view) -> Score<T> {
         if constexpr (std::is_same_v<T, Tick>) {
-            return parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, strict_mode);
+            return parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data);
         } else if constexpr (std::is_same_v<T, Quarter>) {
             const auto tpq = static_cast<float>(midi_view.ticks_per_quarter());
             return parse_midi<Quarter>(
                 midi_view,
                 [tpq](const Tick::unit x) { return static_cast<float>(x) / tpq; },
-                strict_mode
+                sanitize_data
             );
         } else {
             return convert<Second>(
-                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }), strict_mode
+                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }), sanitize_data
             );
         }
     };
 
-    if (strict_mode) {
+    if (sanitize_data) {
         const minimidi::MidiFileView<minimidi::container::SmallBytes> midi{
             bytes.data(),
             bytes.size(),
@@ -556,8 +569,8 @@ vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
         return Score<T>::parse<DataFormat::MIDI>(bytes);                                      \
     }                                                                                         \
     template<>                                                                                \
-    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes, bool strict_mode) { \
-        return details::parse_midi<T>(bytes, strict_mode);                                    \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes, bool sanitize_data) { \
+        return details::parse_midi<T>(bytes, sanitize_data);                                    \
     }                                                                                         \
     template<>                                                                                \
     vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {                         \

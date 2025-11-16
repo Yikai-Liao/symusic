@@ -63,13 +63,13 @@ void print_progress(size_t current, size_t total, const std::string& current_fil
     }
     std::cout << "] " << std::fixed << std::setprecision(1) << percentage << "% ("
               << current << "/" << total << ") ";
-    
-    int max_filename_len = 25; 
+
+    int max_filename_len = 25;
     std::string display_filename = current_file_name;
     if (current_file_name.length() > static_cast<size_t>(max_filename_len)) {
         display_filename = "..." + current_file_name.substr(current_file_name.length() - (max_filename_len - 3));
     }
-    std::cout << std::left << std::setw(max_filename_len + 5) << ("Processing: " + display_filename) << std::flush; 
+    std::cout << std::left << std::setw(max_filename_len + 5) << ("Processing: " + display_filename) << std::flush;
 }
 
 void print_usage(const char* prog_name) {
@@ -175,9 +175,9 @@ int main(int argc, char** argv) {
             // use filename as a fallback for relative, or just leave it based on absolute path logic.
             // For simplicity, let's use filename if relative computation fails.
             // std::cerr << "Warning: Could not compute relative path for " << absolute_path_str << ": " << e.what() << std::endl;
-            relative_path_str = filename_str; 
+            relative_path_str = filename_str;
         }
-        
+
         // Normalize paths for CSV (replace backslashes with forward slashes for consistency)
         std::replace(absolute_path_str.begin(), absolute_path_str.end(), '\\', '/');
         std::replace(relative_path_str.begin(), relative_path_str.end(), '\\', '/');
@@ -193,12 +193,12 @@ int main(int argc, char** argv) {
             // Use the generic parse function
             // Assuming DataFormat is symusic::DataFormat or symusic::io::DataFormat
             // Assuming parse is symusic::parse or symusic::io::parse
-            const symusic::Score<symusic::Tick> score = 
+            const symusic::Score<symusic::Tick> score =
                 symusic::parse<symusic::DataFormat::MIDI, symusic::Score<symusic::Tick>>(
-                    data_span, 
-                    true // strict_mode
+                    data_span,
+                    true // sanitize_data
                 );
-            
+
             size_t notes = count_notes(score);
             csv_file << "\"" << absolute_path_str << "\",\""
                      << relative_path_str << "\",\""
@@ -224,4 +224,4 @@ int main(int argc, char** argv) {
     csv_file.close();
 
     return 0;
-} 
+}

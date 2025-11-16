@@ -22,8 +22,15 @@ enum class DataFormat {
 template<DataFormat F, typename T>
 [[nodiscard]] T parse(std::span<const u8> bytes);
 
+/**
+ * Parse raw input bytes, optionally sanitizing payload values to stay within the
+ * MIDI value range enforced by minimidi.
+ *
+ * @param bytes Input MIDI bytes.
+ * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range before parsing.
+ */
 template<DataFormat F, typename T>
-[[nodiscard]] T parse(std::span<const u8> bytes, bool strict_mode);
+[[nodiscard]] T parse(std::span<const u8> bytes, bool sanitize_data);
 
 template<DataFormat F, typename T>
 [[nodiscard]] vec<u8> dumps(const T& data);
