@@ -508,7 +508,7 @@ Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = true) 
             );
         } else {
             return convert<Second>(
-                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }), sanitize_data
+                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data)
             );
         }
     };
