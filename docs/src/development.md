@@ -40,15 +40,21 @@ And everything is done.
 
 ## PYI File
 
-Here, we use `nanobind-stubgen` to generate the pyi file for symusic.core. And we wrote a `generate_stub.sh` to do this.
+nanobind 2.9 introduces an official `nanobind_add_stub` CMake command. The
+symusic build now relies on this integration, so no standalone script is needed.
+Whenever you configure CMake with `-DBUILD_SYMUSIC_PY=ON` (which is the case
+for `pip install .`), the build automatically runs the stub generator and
+produces both `core.pyi` and a `py.typed` marker inside the build directory.
+Those artifacts are then installed next to the compiled `symusic/core` module
+and are shipped with wheels and editable installs.
 
-> Note that the 0.1.4 version of nanobind-stubgen get some problem, so we use the 0.1.3 version here.
+If you need to regenerate the stubs manually, simply rebuild the `symusic_core_stub`
+target (e.g. `cmake --build build --target symusic_core_stub`). You will find
+the resulting file at `<build>/symusic/core.pyi`.
 
-After generating the pyi file, you need run `pre-commit run --all-files` to format the pyi file.
-
-And always check the git diff before committing.
-The import part of the auto generated pyi file is not correct, and you need to fix it manually.
-(Most of the time, you just need to keep the previous import part.)
+After touching the bindings, run `pre-commit run --all-files` to keep the stub
+and the rest of the sources formatted, and always review the resulting diff
+before sending a patch.
 
 ## Format
 

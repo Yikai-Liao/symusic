@@ -503,9 +503,14 @@ class ScoreFactory:
         self,
         data: bytes,
         ttype: smt.GeneralTimeUnit = "tick",
-        strict_mode: bool = True,
+        sanitize_data: bool = True,
     ) -> smt.Score:
-        return self.__core_classes.dispatch(ttype).from_midi(data, strict_mode)
+        """
+        Parse MIDI bytes into a score and optionally sanitize payload values.
+
+        :param sanitize_data: Clamp MIDI payload bytes to the 7-bit range before parsing.
+        """
+        return self.__core_classes.dispatch(ttype).from_midi(data, sanitize_data)
 
     def from_abc(
         self,
