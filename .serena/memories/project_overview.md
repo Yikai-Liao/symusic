@@ -1,0 +1,6 @@
+# symusic overview
+- Purpose: cross-platform symbolic MIDI toolkit focused on ultra-fast note-level decoding written in C++20 with nanobind-based Python bindings; wraps and extends the 3rd-party minimidi parser plus a Prestosynth synthesizer.
+- Tech stack: C++20 core built with CMake, fmt, minimidi, prestosynth, pyvec; Python package published via scikit-build/nanobind with numpy utilities. Docs via Sphinx/Read the Docs; tutorial notebook provided.
+- Repo structure highlights: `src` and `include` contain core C++ library; `py_src` hosts nanobind bindings; `python/symusic` exposes Python APIs; `3rdparty` vendored deps (fmt, minimidi, prestosynth, nanobind, etc.); `tests` mixes Python and C++ samples; `docs`/`docs_rtd` store documentation; `examples` supplies sample C++ tools.
+- Build/packaging: CMake minimum 3.20, C++ standard 20, optional BUILD_SYMUSIC_PY target for bindings. Python distribution configured in `pyproject.toml` (scikit-build-core) with wheels released to PyPI.
+- Runtime notes: Score API supports midi I/O, note/time transforms, numpy export, filtering, synthesizer integration. README documents installation via `pip install symusic` or local `pip install ./symusic` (with optional cmake MEM_LEAK_WARNING flag).

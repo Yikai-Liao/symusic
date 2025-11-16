@@ -211,8 +211,6 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
         // iter midi messages in the track
 
         for (const auto& msg : midi_track) {
-            if(!strict_mode) msg.santize_data_values();
-
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
             switch (msg.type()) {
@@ -468,10 +466,9 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
         );
         // merge prev to (note on and note off)
         gfx::timmerge(
-            msgs.begin(),
-            msgs.begin() + note_begin,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
+            msgs.begin(), msgs.begin() + note_begin, msgs.end(), [](const auto& a, const auto& b) {
+                return (a.time) < (b.time);
+            }
         );
         // messages will be sorted by time in minimidi
         if (!msgs.empty()) {
@@ -486,18 +483,34 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
 
 template<TType T>
 Score<T> parse_midi(const std::span<const u8> bytes, bool strict_mode = true) {
-    const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
+    const auto parse_view = [&](const auto& midi_view) -> Score<T> {
+        if constexpr (std::is_same_v<T, Tick>) {
+            return parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, strict_mode);
+        } else if constexpr (std::is_same_v<T, Quarter>) {
+            const auto tpq = static_cast<float>(midi_view.ticks_per_quarter());
+            return parse_midi<Quarter>(
+                midi_view,
+                [tpq](const Tick::unit x) { return static_cast<float>(x) / tpq; },
+                strict_mode
+            );
+        } else {
+            return convert<Second>(
+                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }), strict_mode
+            );
+        }
+    };
 
-    if constexpr (std::is_same_v<T, Tick>) {
-        return parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }, strict_mode);
-    } else if constexpr (std::is_same_v<T, Quarter>) {
-        const auto tpq = static_cast<float>(midi.ticks_per_quarter());
-        return parse_midi<Quarter>(midi, [tpq](const Tick::unit x) {
-            return static_cast<float>(x) / tpq;
-        }, strict_mode);
-    } else {
-        return convert<Second>(parse_midi<Tick>(midi, [](const Tick::unit x) { return x; }), strict_mode);
+    if (strict_mode) {
+        const minimidi::MidiFileView<minimidi::container::SmallBytes> midi{
+            bytes.data(),
+            bytes.size(),
+            true   // sanitize data payloads to enforce strict MIDI range
+        };
+        return parse_view(midi);
     }
+
+    const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
+    return parse_view(midi);
 }
 }   // namespace details
 
