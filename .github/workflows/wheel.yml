@@ -38,6 +38,8 @@ jobs:
             python: "pp39"
           - buildplat: [ ubuntu-24.04-arm, musllinux_aarch64 ]
             python: "pp39"
+          - buildplat: [windows-11-arm, win_arm64]
+            python: "cp38"
 
     steps:
       - name: Checkout
