@@ -200,7 +200,7 @@ public:
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
 [[nodiscard]] Score<T> parse_midi(
-    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool sanitize_data = true
+    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool sanitize_data = false
 ) {
     typedef typename T::unit unit;
     // remove this redundant copy in the future
@@ -495,7 +495,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
  * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range.
  */
 template<TType T>
-Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = true) {
+Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = false) {
     const auto parse_view = [&](const auto& midi_view) -> Score<T> {
         if constexpr (std::is_same_v<T, Tick>) {
             return parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data);

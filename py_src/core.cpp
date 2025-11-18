@@ -541,7 +541,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
             return std::make_shared<Score<T>>(std::move(parse<DataFormat::MIDI, Score<T>>(span, sanitize_data)));
-        }, nb::arg("data"), nb::arg("sanitize_data"), "Load from midi bytes with optional payload sanitization")
+        },
+            nb::arg("data"),
+            nb::arg("sanitize_data") = false,
+            "Load from midi bytes with optional payload sanitization"
+        )
         .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
         // Keep only the filesystem::path version for dump_midi
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")
