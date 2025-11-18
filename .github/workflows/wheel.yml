@@ -102,7 +102,7 @@ jobs:
           CIBW_ARCHS: 'all'
           CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v4
         with:
           name: tmp-${{ matrix.python }}-${{ matrix.buildplat[1] }}
           path: ./wheelhouse/*.whl
@@ -144,7 +144,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v4
         with:
           # unpacks default artifact into dist/
           # if `name: artifact` is omitted, the action will create extra parent dir
