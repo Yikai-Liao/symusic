@@ -27,12 +27,7 @@ jobs:
       CIBW_ENABLE: "pypy"
       CIBW_SKIP: >-
         pp*-win_amd64
-        pp*-win32
-        pp*-win_arm64
-        pp*-musllinux_x86_64
-        pp*-musllinux_aarch64
         pp*-manylinux_aarch64
-        cp38-win_arm64
 
     steps:
       - name: Checkout
@@ -52,6 +47,9 @@ jobs:
           set -euo pipefail
           plat="${{ matrix.buildplat[1] }}"
           builds="cp38-${plat} cp39-${plat} cp310-${plat} cp311-${plat} cp312-${plat} cp313-${plat} cp314-${plat}"
+          if [[ "${plat}" == "win_arm64" ]]; then
+            builds="cp39-${plat} cp310-${plat} cp311-${plat} cp312-${plat} cp313-${plat} cp314-${plat}"
+          fi
           if [[ "${plat}" == "manylinux_x86_64" || "${plat}" == "macosx_x86_64" || "${plat}" == "macosx_arm64" ]]; then
             builds+=" pp311-${plat}"
           fi
