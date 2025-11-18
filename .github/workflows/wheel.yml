@@ -40,6 +40,8 @@ jobs:
             python: "pp39"
           - buildplat: [windows-11-arm, win_arm64]
             python: "cp38"
+    env:
+      CIBW_ENABLE: "pypy"
 
     steps:
       - name: Checkout
