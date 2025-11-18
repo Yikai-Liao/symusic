@@ -503,7 +503,7 @@ class ScoreFactory:
         self,
         data: bytes,
         ttype: smt.GeneralTimeUnit = "tick",
-        sanitize_data: bool = True,
+        sanitize_data: bool = False,
     ) -> smt.Score:
         """
         Parse MIDI bytes into a score and optionally sanitize payload values.
