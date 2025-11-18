@@ -10,6 +10,7 @@
 #include "nanobind/nanobind.h"
 #include "nanobind/operators.h"
 #include <nanobind/ndarray.h>
+#include "doc.hpp"
 
 namespace pyutils {
 
@@ -166,7 +167,7 @@ auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
 // }
 
 template<typename T>
-auto bind_time_stamp(nb::module_& m, const std::string& name) {
+auto bind_time_stamp(nb::module_& m, const std::string& name, const char* doc = nullptr) {
     typedef typename T::unit unit;
     typedef shared<T>        self_t;
     typedef shared<pyvec<T>> vec_t;
@@ -177,7 +178,7 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
     };
 
     // clang-format off
-    auto event = nb::class_<shared<T>>(m, name.c_str())
+    auto event = nb::class_<shared<T>>(m, name.c_str(), doc)
         .def_prop_rw(RW_COPY(unit, "time", time))
         .def_prop_ro("ttype", [](const self_t& self) { return typename T::ttype(); })
         .def(
@@ -287,7 +288,7 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     using self_inner = Note<T>;
 
     const std::string name = "Note" + name_;
-    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name);
+    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name, docstring::kNoteDoc);
 
     auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
 
@@ -342,7 +343,7 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     using self_inner = KeySignature<T>;
 
     const std::string name    = "KeySignature" + name_;
-    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
+    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name, docstring::kKeySignatureDoc);
 
     auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
     // clang-format off
@@ -368,7 +369,7 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     using self_inner = TimeSignature<T>;
 
     const std::string name      = "TimeSignature" + name_;
-    auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name);
+    auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name, docstring::kTimeSignatureDoc);
 
     auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
 
@@ -395,7 +396,7 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
     using self_inner = ControlChange<T>;
 
     const std::string name                  = "ControlChange" + name_;
-    auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name);
+    auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name, docstring::kControlChangeDoc);
 
     auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
 
@@ -422,7 +423,7 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     using self_inner = Pedal<T>;
 
     const std::string name  = "Pedal" + name_;
-    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name);
+    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name, docstring::kPedalDoc);
 
     auto to_numpy = TO_NUMPY(PedalArr, time, duration);
 
@@ -451,7 +452,7 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     using self_inner = Tempo<T>;
 
     const std::string name  = "Tempo" + name_;
-    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name);
+    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name, docstring::kTempoDoc);
 
     auto to_numpy = TO_NUMPY(TempoArr, time, mspq);
 
@@ -493,7 +494,7 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     using self_inner = PitchBend<T>;
 
     const std::string name          = "PitchBend" + name_;
-    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name);
+    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name, docstring::kPitchBendDoc);
 
     auto to_numpy = TO_NUMPY(PitchBendArr, time, value);
 
@@ -519,7 +520,7 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     using self_inner = TextMeta<T>;
 
     const std::string name        = "TextMeta" + name_;
-    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name);
+    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name, docstring::kTextMetaDoc);
 
     // clang-format off
     textmeta

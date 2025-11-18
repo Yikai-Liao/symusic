@@ -14,71 +14,13 @@
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
+#include "doc.hpp"
 
 #pragma warning(disable : 4996)
 
 namespace nb = nanobind;
 namespace symusic {
-namespace docstring {
-constexpr const char* kSynthDoc = R"pbdoc(
-High-level Prestosynth wrapper that renders Scores with SF2/SF3 SoundFonts.
 
-The synthesizer keeps the SoundFont in memory, so repeated calls to render()
-avoid disk I/O. Construct one instance per SoundFont and reuse it across
-multiple scores for best performance.
-)pbdoc";
-
-constexpr const char* kSynthInitPathDoc = R"pbdoc(
-Create a synthesizer from a filesystem path to a SF2/SF3 SoundFont.
-
-Parameters
-----------
-sf_path : pathlib.Path
-    Path to the SoundFont archive on disk.
-sample_rate : int
-    Output sample rate in Hz (e.g. 44100).
-quality : int
-    Prestosynth quality preset, 0 = fast, higher = better interpolation.
-)pbdoc";
-
-constexpr const char* kSynthInitStringDoc = R"pbdoc(
-Create a synthesizer from a string path to a SF2/SF3 SoundFont.
-
-Parameters mirror the pathlib constructor overload.
-)pbdoc";
-
-constexpr const char* kSynthRenderDoc = R"pbdoc(
-Render a Score into a float32 waveform.
-
-Parameters
-----------
-score : Score
-    Score in ticks, quarters, or seconds depending on the overload.
-stereo : bool, default True
-    When True, emit two channels; otherwise return a single channel.
-
-Returns
--------
-numpy.ndarray[float32]
-    Array shaped (channels, samples) laid out in Fortran order so it can be
-    passed back into Prestosynth without copies.
-)pbdoc";
-
-constexpr const char* kDumpWavDoc = R"pbdoc(
-Write a NumPy buffer to a WAV file using Prestosynth's writer.
-
-Parameters
-----------
-path : str
-    Destination path on disk.
-data : numpy.ndarray[float32]
-    Fortran-contiguous array shaped (channels, samples).
-sample_rate : int
-    Sample rate stored in the WAV header.
-use_int16 : bool, default True
-    If True, quantize to int16 PCM; otherwise keep float32 samples.
-)pbdoc";
-}  // namespace docstring
 nb::module_& bind_synthesizer(nb::module_& m) {
     nb::class_<Synthesizer>(m, "Synthesizer", docstring::kSynthDoc)
         .def(
@@ -180,7 +122,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str())
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), docstring::kTrackDoc)
         .def("__init__", &pyinit<Track<T>>)
         .def("__init__", &pyinit<Track<T>, std::string, u8, const bool>,
             nb::arg("name"), nb::arg("program")=0, nb::arg("is_drum")=false)
@@ -566,7 +508,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str())
+    auto score = nb::class_<self_t>(m, name.c_str(), docstring::kScoreDoc)
         .def("__init__", &pyinit<Score<T>, i32>, nb::arg("tpq"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::move(std::make_shared<Score<T>>(std::move(other->deepcopy()))));
@@ -599,10 +541,10 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         // Remove the string-based constructor to force filesystem::path usage
         .def("__init__", [](self_t* self, const std::filesystem::path& path) {
             new (self) self_t(std::move(midi2score<T>(path)));
-        }, "Load from midi file", nb::arg("path"))
+        }, nb::arg("path"), docstring::kScoreMidiFileCtorDoc)
         // Keep only the binding that points to the fs::path version of from_file
         // nanobind will automatically convert Python str/Path to fs::path
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none())
+        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), docstring::kScoreFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -610,19 +552,19 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         },
             nb::arg("data"),
             nb::arg("sanitize_data") = false,
-            "Load from midi bytes with optional payload sanitization"
+            docstring::kScoreFromMidiDoc
         )
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
+        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), docstring::kScoreFromAbcDoc)
         // Keep only the filesystem::path version for dump_midi
-        .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")
+        .def("dump_midi", &dump_midi<T>, nb::arg("path"), docstring::kScoreDumpMidiDoc)
         .def("dumps_midi", [](const self_t& self) {
             auto data = self->template dumps<DataFormat::MIDI>();
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, "Dump to midi in memory(bytes)")
+        }, docstring::kScoreDumpsMidiDoc)
         // Keep only the filesystem::path version for dump_abc
         // Note: dump_abc_path internally calls dump_abc_fs (renamed from dump_abc_str)
-        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, "Dump to abc file")
-        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, "Dump to abc string")
+        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, docstring::kScoreDumpAbcDoc)
+        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, docstring::kScoreDumpsAbcDoc)
         // attributes
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter))
         .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter))
@@ -635,11 +577,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def_prop_ro("ttype", [](const self_t&) { return T(); })
         .def("__use_count", [](const self_t& self) { return self.use_count(); })
         // member functions
-        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), "Convert to another time unit")
+        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), docstring::kScoreToDoc)
         .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
             const unit min_dur_ = min_dur.has_value() ? *min_dur : 0;
             return std::make_shared<Score<Tick>>(std::move(resample(*self, tpq, min_dur_)));
-        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, "Resample to another ticks per quarter")
+        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, docstring::kScoreResampleDoc)
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             if (inplace) {
                 self->sort_inplace(reverse);
@@ -714,7 +656,8 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             },
             nb::arg("modes")           = vec<std::string>{"frame", "onset"},
             nb::arg("pitch_range")     = std::pair<i64, i64>(0, 128),
-            nb::arg("encode_velocity") = false
+            nb::arg("encode_velocity") = false,
+            docstring::kScorePianorollDoc
         );
     }
     return score;
