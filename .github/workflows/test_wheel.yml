@@ -46,18 +46,20 @@ jobs:
         with:
           architecture: 'x86'
 
+      - name: Configure build selectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          plat="${{ matrix.buildplat[1] }}"
+          builds="cp38-${plat} cp39-${plat} cp310-${plat} cp311-${plat} cp312-${plat} cp313-${plat} cp314-${plat}"
+          if [[ "${plat}" == "manylinux_x86_64" || "${plat}" == "macosx_x86_64" || "${plat}" == "macosx_arm64" ]]; then
+            builds+=" pp311-${plat}"
+          fi
+          echo "CIBW_BUILD=${builds}" >> "$GITHUB_ENV"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         env:
-          CIBW_BUILD: >-
-            cp38-${{ matrix.buildplat[1] }}
-            cp39-${{ matrix.buildplat[1] }}
-            cp310-${{ matrix.buildplat[1] }}
-            cp311-${{ matrix.buildplat[1] }}
-            cp312-${{ matrix.buildplat[1] }}
-            cp313-${{ matrix.buildplat[1] }}
-            cp314-${{ matrix.buildplat[1] }}
-            pp311-${{ matrix.buildplat[1] }}
           CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=11.0"
 
       - uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
