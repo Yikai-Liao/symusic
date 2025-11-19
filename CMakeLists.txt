@@ -83,7 +83,14 @@ if(BUILD_SYMUSIC_PY)
         core
         NB_STATIC STABLE_ABI LTO PROTECT_STACK NOSTRIP
         NB_DOMAIN symusic
-        py_src/core.cpp py_src/py_utils.h py_src/bind_vector_copy.h
+        py_src/bindings/module.cpp
+        py_src/bindings/synthesizer_bindings.cpp
+        py_src/bindings/track_bindings.h
+        py_src/bindings/score_bindings.h
+        py_src/bindings/event_bindings.h
+        py_src/bindings/binding_common.h
+        py_src/utils/python_helpers.h
+        py_src/utils/vector_bindings.h
     )
     target_link_libraries(core PRIVATE symusic)
 
