@@ -24,6 +24,7 @@ The top-level goal is to **implement a full Lexy-based abstract syntax tree**, c
 - Removed the legacy line-based `parse_lines()` / `collect_fields()` scaffolding and started routing `parse_document()` through the new AST.
 - Identified remaining semantic gaps: lyrics melisma alignment, inline field propagation (`K:/M:/L:/I:`), chord symbol persistence, grace-note timing, and abc2midi parity tests.
 - Next concrete step: finish the AST-to-IR mapper, then resurrect the regression tests (C++ Catch2 + Python + external abc2midi comparison).
+- Migrated the note-token production to the callback API so the Lexy build compiles on modern toolchains, and normalized the ABC tick resolution to `480` so `parse_document()`/`document_to_native()` agree with `abc2midi`.
 
 ## Feature Matrix (based on ABC standard 2.1)
 

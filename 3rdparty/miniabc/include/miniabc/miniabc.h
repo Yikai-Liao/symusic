@@ -45,14 +45,19 @@ struct Header {
 };
 
 struct NoteEvent {
-    Fraction length{};
-    int      midi_pitch   = 60;
-    int      velocity     = 96;
-    bool     tie_continue = false;
+    Fraction                 length{};
+    int                      midi_pitch   = 60;
+    int                      velocity     = 96;
+    bool                     tie_continue = false;
+    bool                     is_grace     = false;
+    std::vector<std::string> decorations;
+    std::vector<std::string> chord_symbols;
 };
 
 struct RestEvent {
     Fraction length{};
+    char     symbol      = 'z';
+    bool     invisible   = false;
 };
 
 struct BarEvent {
@@ -63,7 +68,9 @@ struct BarEvent {
 };
 
 struct ChordEvent {
-    std::vector<NoteEvent> notes;
+    std::vector<NoteEvent>  notes;
+    std::vector<std::string> chord_symbols;
+    bool                     is_grace = false;
 };
 
 using Element = std::variant<NoteEvent, RestEvent, BarEvent, ChordEvent>;
@@ -87,7 +94,7 @@ struct Diagnostic {
 };
 
 struct ParseOptions {
-    int  ticks_per_quarter = 960;
+    int  ticks_per_quarter = 480;
     int  default_velocity  = 96;
     bool strict            = true;
 };

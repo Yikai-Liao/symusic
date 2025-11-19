@@ -6,6 +6,7 @@
 #include "MetaMacro.h"
 
 #include <algorithm>
+#include <cctype>
 #include <numeric>
 #include <span>
 #include <string_view>
@@ -58,21 +59,75 @@ Fraction infer_unit_note_length(const Score<Tick>& score) {
     return normalize_fraction(Fraction{gcd_ticks, ticks_per_whole});
 }
 
-std::vector<std::string> tokenize_lyrics(const std::vector<std::string>& lines) {
-    std::vector<std::string> tokens;
+enum class LyricTokenKind { Syllable, Hold, Skip };
+
+struct LyricToken {
+    LyricTokenKind kind = LyricTokenKind::Syllable;
+    std::string    text;
+};
+
+std::vector<LyricToken> tokenize_lyrics(const std::vector<std::string>& lines) {
+    std::vector<LyricToken> tokens;
     for (const auto& line : lines) {
         std::string current;
-        for (char ch : line) {
-            if (std::isspace(static_cast<unsigned char>(ch))) {
-                if (!current.empty()) {
-                    tokens.push_back(current);
-                    current.clear();
-                }
-            } else {
-                current.push_back(ch);
+        auto flush = [&]() {
+            if (!current.empty()) {
+                tokens.push_back({LyricTokenKind::Syllable, current});
+                current.clear();
             }
+        };
+        for (std::size_t idx = 0; idx < line.size();) {
+            char ch = line[idx];
+            if (std::isspace(static_cast<unsigned char>(ch))) {
+                flush();
+                ++idx;
+                continue;
+            }
+            if (ch == '\\') {
+                if (idx + 1 < line.size()) {
+                    current.push_back(line[idx + 1]);
+                    idx += 2;
+                } else {
+                    ++idx;
+                }
+                continue;
+            }
+            if (ch == '~') {
+                current.push_back(' ');
+                ++idx;
+                continue;
+            }
+            if (ch == '-') {
+                if (!current.empty()) {
+                    current.push_back('-');
+                    flush();
+                } else if (!tokens.empty()) {
+                    tokens.back().text.push_back('-');
+                }
+                ++idx;
+                continue;
+            }
+            if (ch == '_') {
+                flush();
+                tokens.push_back({LyricTokenKind::Hold, {}});
+                ++idx;
+                continue;
+            }
+            if (ch == '*') {
+                flush();
+                tokens.push_back({LyricTokenKind::Skip, {}});
+                ++idx;
+                continue;
+            }
+            if (ch == '|') {
+                flush();
+                ++idx;
+                continue;
+            }
+            current.push_back(ch);
+            ++idx;
         }
-        if (!current.empty()) { tokens.push_back(current); }
+        flush();
     }
     return tokens;
 }
@@ -83,11 +138,15 @@ void attach_lyrics(const miniabc::Voice& voice, TrackNative<T>& track) {
     const auto tokens = tokenize_lyrics(voice.lyrics);
     std::size_t note_index = 0;
     for (const auto& token : tokens) {
-        if (token.empty() || token == "|") { continue; }
-        if (token == "_") { continue; }
         if (note_index >= track.notes.size()) { break; }
-        track.lyrics.emplace_back(track.notes[note_index].time, token);
-        ++note_index;
+        if (token.kind == LyricTokenKind::Syllable) {
+            if (!token.text.empty()) {
+                track.lyrics.emplace_back(track.notes[note_index].time, token.text);
+            }
+            ++note_index;
+        } else {
+            ++note_index;
+        }
     }
 }
 
@@ -286,7 +345,7 @@ template<>
 Score<Tick> Score<Tick>::parse<DataFormat::ABC>(std::span<const u8> bytes) {
     const auto view = std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     miniabc::ParseOptions options;
-    options.ticks_per_quarter = 960;
+    options.ticks_per_quarter = 480;
     auto document             = miniabc::parse_document(view, options);
     return to_shared(document_to_native(document));
 }
