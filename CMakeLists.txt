@@ -13,6 +13,8 @@ option(ENABLE_LTO "Enables link-time optimization, requires compiler support." O
 option(VTUNE "Compile Options for Intel VTune" Off)
 option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
 option(ENABLE_COVERAGE "Enable code coverage" OFF)
+set(SYMUSIC_ABC2MIDI_EXECUTABLE "" CACHE FILEPATH "Path to abc2midi executable for tests")
+set(SYMUSIC_ABC2MIDI_EXECUTABLE "" CACHE FILEPATH "Path to abc2midi executable for tests")
 
 # Enable code coverage if requested
 if(ENABLE_COVERAGE)
@@ -67,6 +69,11 @@ target_link_libraries(symusic prestosynth)
 target_link_libraries(symusic pyvec)
 target_link_libraries(symusic miniabc)
 
+set(BUILD_SYMUSIC_ABCMIDI OFF)
+if(BUILD_SYMUSIC_PY OR BUILD_SYMUSIC_TEST)
+    set(BUILD_SYMUSIC_ABCMIDI ON)
+endif()
+
 if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
@@ -99,9 +106,13 @@ if(BUILD_SYMUSIC_PY)
         MARKER_FILE symusic/py.typed
         PYTHON_PATH "."
     )
-#   install abc2midi and midi2abc
+endif()
+
+if(BUILD_SYMUSIC_ABCMIDI)
     add_subdirectory(3rdparty/abcmidi)
-    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+    if(BUILD_SYMUSIC_PY)
+        install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+    endif()
 endif()
 
 if(BUILD_SYMUSIC_EXAMPLE)
@@ -142,6 +153,13 @@ if(BUILD_SYMUSIC_TEST)
         NAME symusic_ctest
         COMMAND $<TARGET_FILE:symusic_test> --success
     )
+    if(SYMUSIC_ABC2MIDI_EXECUTABLE)
+        set_tests_properties(symusic_ctest PROPERTIES
+            ENVIRONMENT "SYMUSIC_ABC2MIDI=${SYMUSIC_ABC2MIDI_EXECUTABLE}")
+    elseif(TARGET abc2midi)
+        set_tests_properties(symusic_ctest PROPERTIES
+            ENVIRONMENT "SYMUSIC_ABC2MIDI=$<TARGET_FILE:abc2midi>")
+    endif()
 endif()
 
 

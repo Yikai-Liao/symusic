@@ -27,6 +27,484 @@ namespace {
 
 using namespace std::string_view_literals;
 
+struct SourceLocation {
+    std::size_t line   = 0;
+    std::size_t column = 0;
+};
+
+namespace ast {
+
+struct Field {
+    std::string   id;
+    std::string   value;
+    SourceLocation loc;
+};
+
+struct Directive {
+    std::string   text;
+    SourceLocation loc;
+};
+
+struct Lyric {
+    bool          block = false;
+    std::string   text;
+    SourceLocation loc;
+};
+
+struct Tuplet {
+    int           p   = 0;
+    int           q   = 0;
+    int           r   = 0;
+    SourceLocation loc;
+};
+
+struct Note {
+    std::string           accidentals;
+    char                  letter = 'C';
+    std::string           octave_mod;
+    std::string           length_text;
+    bool                  tie = false;
+    bool                  explicit_natural = false;
+    bool                  grace = false;
+    std::vector<std::string> decorations;
+    std::vector<std::string> chord_symbols;
+    SourceLocation         loc;
+};
+
+struct Rest {
+    char            symbol = 'z';
+    std::string     length_text;
+    bool            invisible = false;
+    SourceLocation  loc;
+};
+
+struct Bar {
+    std::string     token;
+    SourceLocation  loc;
+};
+
+struct InlineField {
+    Field field;
+};
+
+struct Chord {
+    std::vector<Note> notes;
+    std::string       length_text;
+    bool              grace = false;
+    SourceLocation    loc;
+};
+
+struct GraceGroup {
+    std::vector<Note> notes;
+    SourceLocation    loc;
+};
+
+struct BrokenRhythm {
+    bool           greater = true;  // '>' when true, '<' when false
+    SourceLocation loc;
+};
+
+struct Continuation {
+    SourceLocation loc;
+};
+
+using MusicItem = std::variant<Note, Rest, Chord, Bar, Tuplet, InlineField, GraceGroup, BrokenRhythm, Continuation>;
+
+struct MusicLine {
+    std::vector<MusicItem> items;
+    SourceLocation         loc;
+};
+
+struct Statement {
+    std::variant<Field, Directive, Lyric, MusicLine> payload;
+};
+
+struct Document {
+    std::vector<Statement> statements;
+};
+
+}  // namespace ast
+
+namespace grammar {
+
+namespace dsl = lexy::dsl;
+
+struct ParsingState {
+    const lexy::string_input<lexy::utf8_encoding>* input = nullptr;
+};
+
+struct comment {
+    static constexpr auto rule = dsl::lit_c<'%'> >> dsl::while_(dsl::peek_not(dsl::newline) >> dsl::any);
+    static constexpr auto value = lexy::noop;
+};
+
+struct line_end {
+    static constexpr auto rule = dsl::opt(dsl::p<comment>) + (dsl::newline | dsl::eof);
+    static constexpr auto value = lexy::noop;
+};
+
+struct identifier : lexy::token_production {
+    static constexpr auto rule  = dsl::identifier(dsl::ascii::alpha);
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct field_line {
+    static constexpr auto rule = [] {
+        auto id    = dsl::p<identifier>;
+        auto value = dsl::capture(dsl::while_(dsl::peek_not(dsl::newline) >> dsl::any));
+        return dsl::position + id + dsl::lit_c<':'> + value + dsl::p<line_end>;
+    }();
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    std::string   id,
+                                                                    lexy::lexeme<lexy::utf8_encoding> val) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        return ast::Field{std::move(id), std::string(val.begin(), val.end()), SourceLocation{loc.line_nr(), loc.column_nr()}};
+    });
+};
+
+struct directive_line {
+    static constexpr auto rule = dsl::position
+                                 + dsl::lit_c<'%'> + dsl::lit_c<'%'>
+                                 + dsl::capture(dsl::while_(dsl::peek_not(dsl::newline) >> dsl::any))
+                                 + dsl::p<line_end>;
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    lexy::lexeme<lexy::utf8_encoding> lex) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        std::string text = "%%";
+        text.append(lex.begin(), lex.end());
+        return ast::Directive{std::move(text), SourceLocation{loc.line_nr(), loc.column_nr()}};
+    });
+};
+
+struct lyric_line {
+    static constexpr auto rule = dsl::position
+                                 + dsl::capture(dsl::lit_c<'w'> | dsl::lit_c<'W'>)
+                                 + dsl::lit_c<':'>
+                                 + dsl::capture(dsl::while_(dsl::peek_not(dsl::newline) >> dsl::any))
+                                 + dsl::p<line_end>;
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    lexy::lexeme<lexy::utf8_encoding> prefix,
+                                                                    lexy::lexeme<lexy::utf8_encoding> text) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        const bool block = prefix.begin()[0] == 'W';
+        return ast::Lyric{block, std::string(text.begin(), text.end()), SourceLocation{loc.line_nr(), loc.column_nr()}};
+    });
+};
+
+struct inline_field_token {
+    static constexpr auto rule = dsl::capture(dsl::ascii::upper) + dsl::lit_c<':'> + dsl::capture(dsl::while_(dsl::peek_not(dsl::ascii::blank / dsl::newline / dsl::lit_c<'%'>) >> dsl::any));
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    lexy::lexeme<lexy::utf8_encoding> id,
+                                                                    lexy::lexeme<lexy::utf8_encoding> value) {
+        SourceLocation loc{};
+        if (state.input) {
+            const auto anchor = lexy::get_input_location(*state.input, id.begin());
+            loc = SourceLocation{anchor.line_nr(), anchor.column_nr()};
+        }
+        ast::Field field;
+        field.id    = std::string(id.begin(), id.end());
+        field.value = std::string(value.begin(), value.end());
+        field.loc   = loc;
+        return ast::InlineField{std::move(field)};
+    });
+};
+
+struct bar_token {
+    static constexpr auto rule = dsl::capture(dsl::while_one(dsl::lit_c<'|'> | dsl::lit_c<':' > | dsl::lit_c<'['> | dsl::lit_c<']'>));
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    lexy::lexeme<lexy::utf8_encoding> lex) {
+        SourceLocation loc{};
+        if (state.input) {
+            const auto anchor = lexy::get_input_location(*state.input, lex.begin());
+            loc = SourceLocation{anchor.line_nr(), anchor.column_nr()};
+        }
+        return ast::Bar{std::string(lex.begin(), lex.end()), loc};
+    });
+};
+
+struct tuplet_token {
+    static constexpr auto rule = dsl::position
+                                 + dsl::lit_c<'('>
+                                 + dsl::capture(dsl::digits<>)
+                                 + dsl::opt(dsl::lit_c<':'> >> dsl::capture(dsl::digits<>)
+                                            >> dsl::opt(dsl::lit_c<':'> >> dsl::capture(dsl::digits<>)));
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    lexy::lexeme<lexy::utf8_encoding> p,
+                                                                    std::optional<std::pair<lexy::lexeme<lexy::utf8_encoding>, std::optional<lexy::lexeme<lexy::utf8_encoding>>>> rest) {
+        SourceLocation loc{};
+        if (state.input) {
+            const auto anchor = lexy::get_input_location(*state.input, pos);
+            loc = SourceLocation{anchor.line_nr(), anchor.column_nr()};
+        }
+        auto to_int = [](lexy::lexeme<lexy::utf8_encoding> lex) -> int {
+            int value = 0;
+            for (auto ch : lex) {
+                value = value * 10 + (ch - '0');
+            }
+            return value;
+        };
+        ast::Tuplet tuplet;
+        tuplet.loc = loc;
+        tuplet.p   = to_int(p);
+        if (rest) {
+            tuplet.q = to_int(rest->first);
+            if (rest->second) {
+                tuplet.r = to_int(*rest->second);
+            }
+        }
+        return tuplet;
+    });
+};
+
+struct length_suffix : lexy::token_production {
+    static constexpr auto rule  = dsl::capture(dsl::while_(dsl::digit<> | dsl::lit_c<'/'>));
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct accidental_token : lexy::token_production {
+    static constexpr auto rule  = dsl::capture(dsl::while_(dsl::lit_c<'^'> | dsl::lit_c<'_'> | dsl::lit_c<'='>));
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct octave_modifier : lexy::token_production {
+    static constexpr auto rule  = dsl::capture(dsl::while_(dsl::lit_c<'\''> | dsl::lit_c<','>));
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct decoration_token : lexy::token_production {
+    static constexpr auto rule = dsl::lit_c<'!'>
+                                 >> dsl::capture(dsl::while_(dsl::peek_not(dsl::lit_c<'!'>) >> dsl::any))
+                                 >> dsl::lit_c<'!'>;
+    static constexpr auto value = lexy::callback<std::string>([](lexy::lexeme<lexy::utf8_encoding> lex) {
+        return std::string(lex.begin(), lex.end());
+    });
+};
+
+struct simple_decoration : lexy::token_production {
+    static constexpr auto rule
+        = dsl::capture(dsl::lit_c<'~'> | dsl::lit_c<'`'> | dsl::lit_c<'\''> | dsl::lit_c<'^'> | dsl::lit_c<'v'> | dsl::lit_c<'u'> | dsl::lit_c<'.'> | dsl::lit_c<'H'> | dsl::lit_c<'L'> | dsl::lit_c<'M'> | dsl::lit_c<'O'> | dsl::lit_c<'P'> | dsl::lit_c<'S'> | dsl::lit_c<'T'>);
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct chord_symbol_token : lexy::token_production {
+    static constexpr auto rule  = dsl::lit_c<'\"'> >> dsl::capture(dsl::while_(dsl::peek_not(dsl::lit_c<'\"'>) >> dsl::any)) >> dsl::lit_c<'\"'>;
+    static constexpr auto value = lexy::as_string<std::string>;
+};
+
+struct note_token {
+    static constexpr auto rule = [] {
+        auto decorations = dsl::opt(dsl::list(dsl::p<decoration_token> | dsl::p<simple_decoration>));
+        auto chord_sym   = dsl::opt(dsl::list(dsl::p<chord_symbol_token>));
+        auto accidentals = dsl::p<accidental_token>;
+        auto letter      = dsl::capture(dsl::lit_c<'A'> | dsl::lit_c<'B'> | dsl::lit_c<'C'> | dsl::lit_c<'D'> | dsl::lit_c<'E'> | dsl::lit_c<'F'> | dsl::lit_c<'G'>
+                                        | dsl::lit_c<'a'> | dsl::lit_c<'b'> | dsl::lit_c<'c'> | dsl::lit_c<'d'> | dsl::lit_c<'e'> | dsl::lit_c<'f'> | dsl::lit_c<'g'>);
+        auto octave      = dsl::p<octave_modifier>;
+        auto length      = dsl::opt(dsl::p<length_suffix>);
+        auto tie         = dsl::if_(dsl::lit_c<'-'>);
+        return dsl::position
+               + decorations
+               + chord_sym
+               + accidentals
+               + letter
+               + octave
+               + length
+               + tie;
+    }();
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    std::optional<std::vector<std::string>> decorations,
+                                                                    std::optional<std::vector<std::string>> chord_syms,
+                                                                    std::string accidentals,
+                                                                    lexy::lexeme<lexy::utf8_encoding> letter,
+                                                                    std::string octave,
+                                                                    std::optional<std::string> length,
+                                                                    bool tie) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        ast::Note note;
+        note.loc          = SourceLocation{loc.line_nr(), loc.column_nr()};
+        note.accidentals  = std::move(accidentals);
+        note.letter       = letter.empty() ? 'C' : letter.begin()[0];
+        note.octave_mod   = std::move(octave);
+        if (length.has_value()) { note.length_text = std::move(*length); }
+        note.tie          = tie;
+        if (decorations.has_value()) { note.decorations = std::move(*decorations); }
+        if (chord_syms.has_value()) { note.chord_symbols = std::move(*chord_syms); }
+        note.explicit_natural = note.accidentals.find('=') != std::string::npos;
+        return note;
+    });
+};
+
+struct rest_token {
+    static constexpr auto rule = dsl::position
+                                 + dsl::capture(dsl::lit_c<'z'> | dsl::lit_c<'x'> | dsl::lit_c<'Z'>)
+                                 + dsl::opt(dsl::p<length_suffix>);
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    lexy::lexeme<lexy::utf8_encoding> sym,
+                                                                    std::optional<std::string> length) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        ast::Rest rest;
+        rest.loc          = SourceLocation{loc.line_nr(), loc.column_nr()};
+        rest.symbol       = sym.begin()[0];
+        rest.invisible    = rest.symbol == 'x';
+        if (length.has_value()) { rest.length_text = std::move(*length); }
+        return rest;
+    });
+};
+
+struct grace_group_token {
+    static constexpr auto rule = dsl::position
+                                 + dsl::lit_c<'{'>
+                                 + dsl::list(dsl::p<note_token>)
+                                 + dsl::lit_c<'}'>;
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    std::vector<ast::Note> notes) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        for (auto& note : notes) {
+            note.grace = true;
+        }
+        ast::GraceGroup group;
+        group.loc   = SourceLocation{loc.line_nr(), loc.column_nr()};
+        group.notes = std::move(notes);
+        return group;
+    });
+};
+
+struct chord_token {
+    static constexpr auto rule = dsl::position
+                                 + dsl::lit_c<'['>
+                                 + dsl::opt(dsl::list(dsl::p<note_token>))
+                                 + dsl::lit_c<']'>
+                                 + dsl::opt(dsl::p<length_suffix>);
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    std::optional<std::vector<ast::Note>> notes,
+                                                                    std::optional<std::string> length) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        ast::Chord chord;
+        chord.loc         = SourceLocation{loc.line_nr(), loc.column_nr()};
+        if (notes.has_value()) { chord.notes = std::move(*notes); }
+        if (length.has_value()) { chord.length_text = std::move(*length); }
+        return chord;
+    });
+};
+
+struct broken_rhythm_token {
+    static constexpr auto rule = dsl::position + dsl::capture(dsl::lit_c<'>'> | dsl::lit_c<'<'>);
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    lexy::lexeme<lexy::utf8_encoding> lex) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        const bool greater = lex.begin()[0] == '>';
+        return ast::BrokenRhythm{greater, SourceLocation{loc.line_nr(), loc.column_nr()}};
+    });
+};
+
+struct continuation_token {
+    static constexpr auto rule = dsl::position + dsl::lit_c<'\\'>;
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state, auto pos) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        return ast::Continuation{SourceLocation{loc.line_nr(), loc.column_nr()}};
+    });
+};
+
+struct music_token {
+    static constexpr auto rule = dsl::while_(dsl::ascii::blank)
+                                 >> (dsl::p<inline_field_token>
+                                     | dsl::p<grace_group_token>
+                                     | dsl::p<chord_token>
+                                     | dsl::p<tuplet_token>
+                                     | dsl::p<bar_token>
+                                     | dsl::p<rest_token>
+                                     | dsl::p<note_token>
+                                     | dsl::p<broken_rhythm_token>
+                                     | dsl::p<continuation_token>);
+
+    static constexpr auto value = lexy::callback<ast::MusicItem>(
+        [](ast::InlineField field) { return ast::MusicItem{std::move(field)}; },
+        [](ast::GraceGroup group) { return ast::MusicItem{std::move(group)}; },
+        [](ast::Chord chord) { return ast::MusicItem{std::move(chord)}; },
+        [](ast::Tuplet tuplet) { return ast::MusicItem{std::move(tuplet)}; },
+        [](ast::Bar bar) { return ast::MusicItem{std::move(bar)}; },
+        [](ast::Rest rest) { return ast::MusicItem{std::move(rest)}; },
+        [](ast::Note note) { return ast::MusicItem{std::move(note)}; },
+        [](ast::BrokenRhythm rhythm) { return ast::MusicItem{std::move(rhythm)}; },
+        [](ast::Continuation cont) { return ast::MusicItem{std::move(cont)}; }
+    );
+};
+
+struct music_line {
+    static constexpr auto rule = dsl::position
+                                 + dsl::while_(dsl::ascii::space)
+                                 + dsl::opt(dsl::list(dsl::p<music_token>))
+                                 + dsl::p<line_end>;
+
+    static constexpr auto value = lexy::bind_state<ParsingState>([](ParsingState& state,
+                                                                    auto          pos,
+                                                                    std::optional<std::vector<ast::MusicItem>> tokens) {
+        const auto loc = lexy::get_input_location(*state.input, pos);
+        ast::MusicLine line;
+        line.loc = SourceLocation{loc.line_nr(), loc.column_nr()};
+        if (tokens.has_value()) { line.items = std::move(*tokens); }
+        return line;
+    });
+};
+
+struct blank_line {
+    static constexpr auto rule  = dsl::while_(dsl::ascii::space) >> dsl::p<line_end>;
+    static constexpr auto value = lexy::constant(std::optional<ast::Statement>{});
+};
+
+struct statement {
+    static constexpr auto rule
+        = dsl::p<directive_line>
+          | dsl::p<lyric_line>
+          | dsl::p<field_line>
+          | dsl::p<music_line>;
+
+    static constexpr auto value = lexy::callback<std::optional<ast::Statement>>(
+        [](ast::Directive directive) { return std::optional<ast::Statement>{ast::Statement{std::move(directive)}}; },
+        [](ast::Lyric lyric) { return std::optional<ast::Statement>{ast::Statement{std::move(lyric)}}; },
+        [](ast::Field field) { return std::optional<ast::Statement>{ast::Statement{std::move(field)}}; },
+        [](ast::MusicLine line) { return std::optional<ast::Statement>{ast::Statement{std::move(line)}}; }
+    );
+};
+
+struct document {
+    static constexpr auto whitespace = dsl::ascii::blank - dsl::newline;
+
+    static constexpr auto rule = dsl::terminator(dsl::eof).list(dsl::opt(dsl::p<statement>));
+
+    static constexpr auto value = lexy::callback<ast::Document>([](std::vector<std::optional<ast::Statement>> stmts) {
+        ast::Document doc;
+        for (auto& opt : stmts) {
+            if (opt.has_value()) {
+                doc.statements.push_back(std::move(*opt));
+            }
+        }
+        return doc;
+    });
+};
+
+}  // namespace grammar
+
 constexpr Fraction normalize(const Fraction frac) {
     if (frac.den == 0) { throw std::runtime_error("miniabc: zero denominator"); }
     auto num = frac.num;
@@ -64,33 +542,6 @@ constexpr Fraction div(const Fraction a, const Fraction b) {
 constexpr std::int64_t mul_div(const Fraction frac, const std::int64_t scale) {
     return (frac.num * scale) / frac.den;
 }
-
-struct RawLine {
-    std::string text;
-    std::size_t line = 0;
-};
-
-struct FieldLine {
-    std::string id;
-    std::string value;
-    std::size_t line = 0;
-};
-
-struct MusicLine {
-    std::string text;
-    std::size_t line = 0;
-};
-
-struct LyricLine {
-    std::string text;
-    std::size_t line = 0;
-};
-
-struct VoiceBuffer {
-    std::string               id;
-    std::vector<MusicLine>    music;
-    std::vector<LyricLine>    lyrics;
-};
 
 struct TupletState {
     Fraction ratio{1, 1};
@@ -235,134 +686,6 @@ ParseError::ParseError(std::vector<Diagnostic> diagnostics) :
 
 const char* describe() noexcept { return "miniabc: standalone build helper"; }
 
-std::vector<RawLine> parse_lines(std::string_view input, DiagnosticSink& sink) {
-    (void)sink;
-    std::vector<RawLine> lines;
-    lines.reserve(128);
-
-    std::size_t line_no = 1;
-    std::size_t pos     = 0;
-    while (pos <= input.size()) {
-        const auto next = input.find('\n', pos);
-        if (next == std::string_view::npos) {
-            auto segment = input.substr(pos);
-            lines.push_back(RawLine{std::string(segment), line_no});
-            break;
-        }
-        auto segment = input.substr(pos, next - pos);
-        lines.push_back(RawLine{std::string(segment), line_no});
-        pos = next + 1;
-        ++line_no;
-    }
-    if (input.empty()) { lines.push_back(RawLine{"", line_no}); }
-    return lines;
-}
-
-bool looks_like_field(std::string_view line) {
-    line = trim(line);
-    if (line.size() < 2) { return false; }
-    if (!std::isalpha(static_cast<unsigned char>(line.front()))) { return false; }
-    return line[1] == ':';
-}
-
-std::vector<FieldLine> collect_fields(
-    const std::vector<RawLine>& lines,
-    std::vector<VoiceBuffer>&   voices,
-    std::vector<std::string>&   directives
-) {
-    std::vector<FieldLine> fields;
-    bool                   in_header = true;
-    std::unordered_map<std::string, std::size_t> voice_lookup;
-    std::unordered_map<std::string, std::string> pending;
-    std::unordered_map<std::string, std::size_t> pending_line;
-    auto ensure_voice = [&](const std::string& id) -> VoiceBuffer& {
-        if (auto it = voice_lookup.find(id); it != voice_lookup.end()) {
-            return voices[it->second];
-        }
-        voice_lookup.emplace(id, voices.size());
-        voices.push_back(VoiceBuffer{id});
-        return voices.back();
-    };
-    auto flush_voice = [&](const std::string& id) {
-        auto it = pending.find(id);
-        if (it == pending.end()) { return; }
-        if (!it->second.empty()) {
-            ensure_voice(id).music.push_back(MusicLine{it->second, pending_line[id]});
-        }
-        it->second.clear();
-    };
-
-    std::string current_voice = "V1";
-    ensure_voice(current_voice);
-
-    for (const auto& line : lines) {
-        auto trimmed = trim(line.text);
-        if (trimmed.empty() && in_header) { continue; }
-        if (trimmed.rfind("%%", 0) == 0) {
-            directives.emplace_back(std::string(trimmed));
-            continue;
-        }
-        if (trimmed.rfind('%', 0) == 0) { continue; }
-        const bool header_field = in_header && looks_like_field(trimmed);
-        const bool inline_field = !in_header && looks_like_field(trimmed)
-                                  && (trimmed[0] == 'V' || trimmed[0] == 'v');
-        if (header_field) {
-            const auto colon = trimmed.find(':');
-            FieldLine field{
-                std::string(trimmed.substr(0, colon)),
-                std::string(trimmed.substr(colon + 1)),
-                line.line
-            };
-            if (field.id == "V" || field.id == "v") {
-                auto name = std::string(trim(trimmed.substr(colon + 1)));
-                if (!name.empty()) {
-                    current_voice = name;
-                    ensure_voice(current_voice);
-                }
-            }
-            fields.push_back(std::move(field));
-        } else if (inline_field) {
-            flush_voice(current_voice);
-            auto name = std::string(trim(trimmed.substr(2)));
-            if (!name.empty()) {
-                current_voice = name;
-                ensure_voice(current_voice);
-            }
-            continue;
-        } else {
-            in_header = false;
-            if ((trimmed.size() >= 2)
-                && ((trimmed[0] == 'w' || trimmed[0] == 'W') && trimmed[1] == ':')) {
-                flush_voice(current_voice);
-                auto lyric_text = trim(trimmed.substr(2));
-                ensure_voice(current_voice).lyrics.push_back(LyricLine{std::string(lyric_text), line.line});
-                continue;
-            }
-            auto comment = trimmed.find('%');
-            if (comment != std::string::npos) { trimmed = trimmed.substr(0, comment); }
-            auto content = std::string(trimmed);
-            bool continuation = false;
-            while (!content.empty() && std::isspace(static_cast<unsigned char>(content.back())) != 0) {
-                content.pop_back();
-            }
-            if (!content.empty() && content.back() == '\\') {
-                continuation = true;
-                content.pop_back();
-            }
-            if (!content.empty()) {
-                auto& pending_text = pending[current_voice];
-                if (pending_text.empty()) { pending_line[current_voice] = line.line; }
-                pending_text += content;
-            }
-            if (!continuation) {
-                flush_voice(current_voice);
-            }
-        }
-    }
-    for (const auto& [voice_id, _] : pending) { flush_voice(voice_id); }
-    if (voices.empty()) { voices.push_back(VoiceBuffer{"V1"}); }
-    return fields;
-}
 
 Meter parse_meter(const std::string& value) {
     auto trimmed = trim(value);
@@ -453,7 +776,7 @@ TempoMark parse_tempo(const std::string& value) {
     return tempo;
 }
 
-Fraction default_note_length(const std::vector<FieldLine>& fields, const Meter meter) {
+Fraction default_note_length(const std::vector<ast::Field>& fields, const Meter meter) {
     for (const auto& field : fields) {
         if (field.id == "L") {
             return parse_fraction(field.value);
@@ -462,7 +785,7 @@ Fraction default_note_length(const std::vector<FieldLine>& fields, const Meter m
     return infer_unit_length(meter);
 }
 
-std::optional<int> parse_reference_number(const std::vector<FieldLine>& fields) {
+std::optional<int> parse_reference_number(const std::vector<ast::Field>& fields) {
     for (const auto& field : fields) {
         if (field.id == "X") {
             return parse_integer(field.value);
@@ -471,7 +794,7 @@ std::optional<int> parse_reference_number(const std::vector<FieldLine>& fields) 
     return std::nullopt;
 }
 
-std::string first_title(const std::vector<FieldLine>& fields) {
+std::string first_title(const std::vector<ast::Field>& fields) {
     for (const auto& field : fields) {
         if (field.id == "T") { return std::string(trim(field.value)); }
     }
