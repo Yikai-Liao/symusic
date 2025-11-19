@@ -18,7 +18,12 @@ namespace nb = nanobind;
 using namespace symusic;
 
 template<typename T>
-auto bind_time_stamp(nb::module_& m, const std::string& name) {
+auto bind_time_stamp(
+    nb::module_&       m,
+    const std::string& name,
+    const std::string& generic_base,
+    const std::string& unit_suffix
+) {
     using unit   = typename T::unit;
     using self_t = shared<T>;
     using vec_t  = shared<pyvec<T>>;
@@ -28,8 +33,10 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         return std::make_shared<T>(*self);
     };
 
+    const auto event_sig = fmt::format("class {}({}[{}])", name, generic_base, unit_suffix);
+
     // clang-format off
-    auto event = nb::class_<shared<T>>(m, name.c_str())
+    auto event = nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()))
         .def_prop_rw(RW_COPY(unit, "time", time))
         .def_prop_ro("ttype", [](const self_t&) { return typename T::ttype(); })
         .def(
@@ -63,7 +70,9 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
         .def("__use_count", [](const shared<T>& self) { return self.use_count(); })
     ;
 
-    auto vec_class = bind_shared_pyvec<T>(m, (name + "List").c_str())
+    const auto list_name = name + "List";
+    const auto vec_sig = fmt::format("class {}(PyVec[{}[{}]])", list_name, generic_base, unit_suffix);
+    auto vec_class = bind_shared_pyvec<T>(m, list_name.c_str(), nb::sig(vec_sig.c_str()))
         .def_prop_ro("ttype", [](const vec_t&) { return typename T::ttype(); })
         .def("__getstate__", &vec_to_bytes<T>)
         .def("__setstate__", &vec_from_bytes<T>)
@@ -146,7 +155,7 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     using self_inner = Note<T>;
 
     const std::string name = "Note" + name_;
-    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name);
+    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name, "Note", name_);
 
     auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
 
@@ -202,7 +211,7 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     using self_inner = KeySignature<T>;
 
     const std::string name    = "KeySignature" + name_;
-    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
+    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name, "KeySignature", name_);
 
     auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
 
@@ -227,8 +236,9 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<TimeSignature<T>>;
     using self_inner = TimeSignature<T>;
 
-    const std::string name      = "TimeSignature" + name_;
-    auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name);
+    const std::string name = "TimeSignature" + name_;
+    auto [timesig, timesig_vec]
+        = bind_time_stamp<TimeSignature<T>>(m, name, "TimeSignature", name_);
 
     auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
 
@@ -253,8 +263,9 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
     using self_t     = shared<ControlChange<T>>;
     using self_inner = ControlChange<T>;
 
-    const std::string name                  = "ControlChange" + name_;
-    auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name);
+    const std::string name = "ControlChange" + name_;
+    auto [controlchange, controlchange_vec]
+        = bind_time_stamp<ControlChange<T>>(m, name, "ControlChange", name_);
 
     auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
 
@@ -281,7 +292,7 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     using self_inner = Pedal<T>;
 
     const std::string name  = "Pedal" + name_;
-    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name);
+    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name, "Pedal", name_);
 
     auto to_numpy = TO_NUMPY(PedalArr, time, duration);
 
@@ -312,7 +323,7 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     using self_inner = Tempo<T>;
 
     const std::string name  = "Tempo" + name_;
-    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name);
+    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name, "Tempo", name_);
 
     auto to_numpy = TO_NUMPY(TempoArr, time, mspq);
 
@@ -356,7 +367,7 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     using self_inner = PitchBend<T>;
 
     const std::string name          = "PitchBend" + name_;
-    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name);
+    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(m, name, "PitchBend", name_);
 
     auto to_numpy = TO_NUMPY(PitchBendArr, time, value);
 
@@ -381,7 +392,7 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     using self_t = shared<TextMeta<T>>;
 
     const std::string name        = "TextMeta" + name_;
-    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name);
+    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(m, name, "TextMeta", name_);
 
     // clang-format off
     textmeta

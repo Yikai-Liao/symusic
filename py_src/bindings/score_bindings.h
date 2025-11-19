@@ -195,7 +195,8 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     using unit   = typename T::unit;
     using self_t = shared<Score<T>>;
 
-    const auto name = "Score" + name_;
+    const auto name      = "Score" + name_;
+    const auto score_sig = fmt::format("class {}(Score[{}])", name, name_);
 
     auto copy_func     = [](const self_t& self) { return std::make_shared<Score<T>>(*self); };
     auto deepcopy_func = [](const self_t& self) {
@@ -203,7 +204,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str())
+    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()))
         .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::make_shared<Score<T>>(other->deepcopy()));

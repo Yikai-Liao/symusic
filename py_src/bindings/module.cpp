@@ -13,6 +13,8 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/typing.h>
+#include <fmt/format.h>
 
 #include "MetaMacro.h"
 #include "../utils/python_helpers.h"
@@ -30,6 +32,32 @@ namespace symusic {
 
 using namespace pyutils;
 
+namespace typing_detail {
+struct ScoreTypingPlaceholder {};
+struct PyVecTypingPlaceholder {};
+struct TrackTypingPlaceholder {};
+struct NoteTypingPlaceholder {};
+struct KeySignatureTypingPlaceholder {};
+struct TimeSignatureTypingPlaceholder {};
+struct TempoTypingPlaceholder {};
+struct ControlChangeTypingPlaceholder {};
+struct PedalTypingPlaceholder {};
+struct PitchBendTypingPlaceholder {};
+struct TextMetaTypingPlaceholder {};
+}   // namespace typing_detail
+
+template<typename Placeholder>
+void define_time_generic(nb::module_& m, const char* name) {
+    const auto sig = fmt::format("class {}(typing.Generic[TimeUnitT])", name);
+    const auto msg = fmt::format(
+        "symusic.core.{0} is a typing helper. Instantiate {0}Tick, {0}Quarter, or {0}Second "
+        "instead.",
+        name
+    );
+
+    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()))
+        .def("__init__", [msg](Placeholder*) { throw nb::type_error(msg.c_str()); });
+}
 #define BIND_EVENT(__COUNT, BIND_FUNC) \
     BIND_FUNC<Tick>(m, "Tick");        \
     BIND_FUNC<Quarter>(m, "Quarter");  \
@@ -44,6 +72,41 @@ NB_MODULE(core, m) {
 #endif
 
     m.attr("_MIDI2ABC") = std::string("");
+
+    auto time_unit_t    = nb::type_var("TimeUnitT");
+    auto event_t        = nb::type_var("EventT");
+    m.attr("TimeUnitT") = time_unit_t;
+    m.attr("EventT")    = event_t;
+
+    nb::class_<typing_detail::ScoreTypingPlaceholder>(
+        m, "Score", nb::is_generic(), nb::sig("class Score(typing.Generic[TimeUnitT])")
+    )
+        .def("__init__", [](typing_detail::ScoreTypingPlaceholder*) {
+            throw nb::type_error(
+                "symusic.core.Score is a typing helper. Instantiate ScoreTick, "
+                "ScoreQuarter, or ScoreSecond instead."
+            );
+        });
+
+    nb::class_<typing_detail::PyVecTypingPlaceholder>(
+        m, "PyVec", nb::is_generic(), nb::sig("class PyVec(typing.Generic[EventT])")
+    )
+        .def("__init__", [](typing_detail::PyVecTypingPlaceholder*) {
+            throw nb::type_error(
+                "symusic.core.PyVec is a typing helper. Instantiate concrete event list types "
+                "(e.g., NoteTickList)."
+            );
+        });
+
+    define_time_generic<typing_detail::TrackTypingPlaceholder>(m, "Track");
+    define_time_generic<typing_detail::NoteTypingPlaceholder>(m, "Note");
+    define_time_generic<typing_detail::KeySignatureTypingPlaceholder>(m, "KeySignature");
+    define_time_generic<typing_detail::TimeSignatureTypingPlaceholder>(m, "TimeSignature");
+    define_time_generic<typing_detail::TempoTypingPlaceholder>(m, "Tempo");
+    define_time_generic<typing_detail::ControlChangeTypingPlaceholder>(m, "ControlChange");
+    define_time_generic<typing_detail::PedalTypingPlaceholder>(m, "Pedal");
+    define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
+    define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
     auto tick = nb::class_<Tick>(m, "Tick")
                     .def(nb::init<>())

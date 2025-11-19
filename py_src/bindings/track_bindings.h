@@ -13,6 +13,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
+#include <fmt/format.h>
 
 #include "../utils/python_helpers.h"
 #include "../utils/vector_bindings.h"
@@ -40,14 +41,15 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     using track_t = Track<T>;
     using vec_t   = shared<vec<self_t>>;
 
-    const auto name = "Track" + name_;
+    const auto name      = "Track" + name_;
+    const auto track_sig = fmt::format("class {}(Track[{}])", name, name_);
 
     auto copy_func = [](const self_t& self) { return std::make_shared<track_t>(*self); };
     auto deepcopy_func
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str())
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()))
         .def("__init__", &pyutils::pyinit<Track<T>>)
         .def("__init__", &pyutils::pyinit<Track<T>, std::string, u8, const bool>,
             nb::arg("name"), nb::arg("program") = 0, nb::arg("is_drum") = false)
