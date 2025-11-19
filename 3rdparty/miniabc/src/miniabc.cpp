@@ -86,6 +86,12 @@ struct LyricLine {
     std::size_t line = 0;
 };
 
+struct VoiceBuffer {
+    std::string               id;
+    std::vector<MusicLine>    music;
+    std::vector<LyricLine>    lyrics;
+};
+
 struct TupletState {
     Fraction ratio{1, 1};
     int      remain = 0;
@@ -261,20 +267,33 @@ bool looks_like_field(std::string_view line) {
 
 std::vector<FieldLine> collect_fields(
     const std::vector<RawLine>& lines,
-    std::vector<MusicLine>&     body,
-    std::vector<LyricLine>&     lyrics,
+    std::vector<VoiceBuffer>&   voices,
     std::vector<std::string>&   directives
 ) {
     std::vector<FieldLine> fields;
     bool                   in_header = true;
-    std::string            pending;
-    std::size_t            pending_line = 0;
-
-    auto flush_pending = [&]() {
-        if (pending.empty()) { return; }
-        body.push_back(MusicLine{pending, pending_line});
-        pending.clear();
+    std::unordered_map<std::string, std::size_t> voice_lookup;
+    std::unordered_map<std::string, std::string> pending;
+    std::unordered_map<std::string, std::size_t> pending_line;
+    auto ensure_voice = [&](const std::string& id) -> VoiceBuffer& {
+        if (auto it = voice_lookup.find(id); it != voice_lookup.end()) {
+            return voices[it->second];
+        }
+        voice_lookup.emplace(id, voices.size());
+        voices.push_back(VoiceBuffer{id});
+        return voices.back();
     };
+    auto flush_voice = [&](const std::string& id) {
+        auto it = pending.find(id);
+        if (it == pending.end()) { return; }
+        if (!it->second.empty()) {
+            ensure_voice(id).music.push_back(MusicLine{it->second, pending_line[id]});
+        }
+        it->second.clear();
+    };
+
+    std::string current_voice = "V1";
+    ensure_voice(current_voice);
 
     for (const auto& line : lines) {
         auto trimmed = trim(line.text);
@@ -284,21 +303,39 @@ std::vector<FieldLine> collect_fields(
             continue;
         }
         if (trimmed.rfind('%', 0) == 0) { continue; }
-        const bool is_field = in_header && looks_like_field(trimmed);
-        if (is_field) {
+        const bool header_field = in_header && looks_like_field(trimmed);
+        const bool inline_field = !in_header && looks_like_field(trimmed)
+                                  && (trimmed[0] == 'V' || trimmed[0] == 'v');
+        if (header_field) {
             const auto colon = trimmed.find(':');
             FieldLine field{
                 std::string(trimmed.substr(0, colon)),
                 std::string(trimmed.substr(colon + 1)),
                 line.line
             };
+            if (field.id == "V" || field.id == "v") {
+                auto name = std::string(trim(trimmed.substr(colon + 1)));
+                if (!name.empty()) {
+                    current_voice = name;
+                    ensure_voice(current_voice);
+                }
+            }
             fields.push_back(std::move(field));
+        } else if (inline_field) {
+            flush_voice(current_voice);
+            auto name = std::string(trim(trimmed.substr(2)));
+            if (!name.empty()) {
+                current_voice = name;
+                ensure_voice(current_voice);
+            }
+            continue;
         } else {
             in_header = false;
             if ((trimmed.size() >= 2)
                 && ((trimmed[0] == 'w' || trimmed[0] == 'W') && trimmed[1] == ':')) {
+                flush_voice(current_voice);
                 auto lyric_text = trim(trimmed.substr(2));
-                lyrics.push_back(LyricLine{std::string(lyric_text), line.line});
+                ensure_voice(current_voice).lyrics.push_back(LyricLine{std::string(lyric_text), line.line});
                 continue;
             }
             auto comment = trimmed.find('%');
@@ -313,15 +350,17 @@ std::vector<FieldLine> collect_fields(
                 content.pop_back();
             }
             if (!content.empty()) {
-                if (pending.empty()) { pending_line = line.line; }
-                pending += content;
+                auto& pending_text = pending[current_voice];
+                if (pending_text.empty()) { pending_line[current_voice] = line.line; }
+                pending_text += content;
             }
             if (!continuation) {
-                flush_pending();
+                flush_voice(current_voice);
             }
         }
     }
-    flush_pending();
+    for (const auto& [voice_id, _] : pending) { flush_voice(voice_id); }
+    if (voices.empty()) { voices.push_back(VoiceBuffer{"V1"}); }
     return fields;
 }
 
@@ -965,7 +1004,6 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
 
     auto flattened = flatten_events(events);
     Voice voice;
-    voice.name = header.title;
     voice.elements = std::move(flattened);
     return voice;
 }
@@ -973,10 +1011,9 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
 Document parse_document(std::string_view input, const ParseOptions& options) {
     DiagnosticSink sink;
     const auto lines = parse_lines(input, sink);
-    std::vector<MusicLine> music;
-    std::vector<LyricLine> lyric_lines;
+    std::vector<VoiceBuffer> voice_buffers;
     std::vector<std::string> directives;
-    auto fields = collect_fields(lines, music, lyric_lines, directives);
+    auto fields = collect_fields(lines, voice_buffers, directives);
 
     Document doc;
     doc.header.reference_number = parse_reference_number(fields).value_or(1);
@@ -1002,11 +1039,15 @@ Document parse_document(std::string_view input, const ParseOptions& options) {
     }();
     doc.header.ticks_per_quarter = options.ticks_per_quarter;
 
-    auto voice = parse_voice(music, sink, doc.header, options);
-    for (const auto& lyric : lyric_lines) {
-        voice.lyrics.push_back(lyric.text);
+    for (auto& buffer : voice_buffers) {
+        auto voice = parse_voice(buffer.music, sink, doc.header, options);
+        voice.name = buffer.id;
+        voice.lyrics.clear();
+        for (const auto& lyric : buffer.lyrics) {
+            voice.lyrics.push_back(lyric.text);
+        }
+        doc.voices.push_back(std::move(voice));
     }
-    doc.voices.push_back(std::move(voice));
     doc.directives = std::move(directives);
     if (!sink.diagnostics.empty() && options.strict) {
         throw ParseError(std::move(sink.diagnostics));
@@ -1061,6 +1102,53 @@ std::string render_rest(const RestEvent& rest, const Fraction unit) {
     return "z" + render_duration_token(rest.length, unit);
 }
 
+std::string voice_label(const miniabc::Voice& voice, std::size_t index) {
+    if (!voice.name.empty()) { return voice.name; }
+    return "V" + std::to_string(index + 1);
+}
+
+void render_voice_section(
+    std::ostringstream& out,
+    const miniabc::Voice& voice,
+    const Fraction unit,
+    const miniabc::Meter& meter,
+    const std::string& label
+) {
+    out << "V: " << label << '\n';
+    std::size_t beat_count = 0;
+    const auto   per_measure = meter.numerator;
+    for (const auto& elem : voice.elements) {
+        if (const auto* note = std::get_if<NoteEvent>(&elem)) {
+            out << render_note(*note, unit) << ' ';
+            beat_count += note->length.num * unit.den / note->length.den / unit.num;
+        } else if (const auto* chord = std::get_if<ChordEvent>(&elem)) {
+            out << '[';
+            for (const auto& inner : chord->notes) {
+                out << render_note(inner, unit);
+            }
+            out << "] ";
+            if (!chord->notes.empty()) {
+                beat_count += chord->notes.front().length.num * unit.den / chord->notes.front().length.den / unit.num;
+            }
+        } else if (const auto* rest = std::get_if<RestEvent>(&elem)) {
+            out << render_rest(*rest, unit) << ' ';
+            beat_count += rest->length.num * unit.den / rest->length.den / unit.num;
+        } else {
+            out << '|';
+            beat_count = 0;
+        }
+        if (beat_count >= static_cast<std::size_t>(per_measure)) {
+            out << '|';
+            beat_count = 0;
+        }
+    }
+    out << '\n';
+    for (const auto& lyric : voice.lyrics) {
+        if (lyric.empty()) { continue; }
+        out << "w: " << lyric << '\n';
+    }
+}
+
 std::string render_document(const Document& doc) {
     std::ostringstream out;
     out << "X: " << doc.header.reference_number << '\n';
@@ -1088,36 +1176,9 @@ std::string render_document(const Document& doc) {
 
     if (doc.voices.empty()) { return out.str(); }
     const auto unit = doc.header.unit_note_length;
-    std::size_t beat_count = 0;
-    const auto   per_measure = doc.header.meter.numerator;
-    for (const auto& elem : doc.voices.front().elements) {
-        if (const auto* note = std::get_if<NoteEvent>(&elem)) {
-            out << render_note(*note, unit) << ' ';
-            beat_count += note->length.num * unit.den / note->length.den / unit.num;
-        } else if (const auto* chord = std::get_if<ChordEvent>(&elem)) {
-            out << '[';
-            for (const auto& note : chord->notes) {
-                out << render_note(note, unit);
-            }
-            out << "] ";
-            if (!chord->notes.empty()) {
-                beat_count += chord->notes.front().length.num * unit.den / chord->notes.front().length.den / unit.num;
-            }
-        } else if (const auto* rest = std::get_if<RestEvent>(&elem)) {
-            out << render_rest(*rest, unit) << ' ';
-            beat_count += rest->length.num * unit.den / rest->length.den / unit.num;
-        } else {
-            out << '|';
-            beat_count = 0;
-        }
-        if (beat_count >= static_cast<std::size_t>(per_measure)) {
-            out << '|';
-            beat_count = 0;
-        }
-    }
-    out << '\n';
-    for (const auto& lyric : doc.voices.front().lyrics) {
-        out << "w: " << lyric << '\n';
+    for (std::size_t i = 0; i < doc.voices.size(); ++i) {
+        const auto& voice = doc.voices[i];
+        render_voice_section(out, voice, unit, doc.header.meter, voice_label(voice, i));
     }
     return out.str();
 }

@@ -69,8 +69,8 @@ struct ChordEvent {
 using Element = std::variant<NoteEvent, RestEvent, BarEvent, ChordEvent>;
 
 struct Voice {
-    std::string           name;
-    std::vector<Element>  elements;
+    std::string              name;
+    std::vector<Element>     elements;
     std::vector<std::string> lyrics;
 };
 

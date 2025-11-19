@@ -9,6 +9,7 @@
 #include <numeric>
 #include <span>
 #include <string_view>
+#include <sstream>
 
 namespace symusic {
 
@@ -55,6 +56,39 @@ Fraction infer_unit_note_length(const Score<Tick>& score) {
     if (gcd_ticks <= 0) { return Fraction{1, 8}; }
     const i64 ticks_per_whole = static_cast<i64>(score.ticks_per_quarter) * 4;
     return normalize_fraction(Fraction{gcd_ticks, ticks_per_whole});
+}
+
+std::vector<std::string> tokenize_lyrics(const std::vector<std::string>& lines) {
+    std::vector<std::string> tokens;
+    for (const auto& line : lines) {
+        std::string current;
+        for (char ch : line) {
+            if (std::isspace(static_cast<unsigned char>(ch))) {
+                if (!current.empty()) {
+                    tokens.push_back(current);
+                    current.clear();
+                }
+            } else {
+                current.push_back(ch);
+            }
+        }
+        if (!current.empty()) { tokens.push_back(current); }
+    }
+    return tokens;
+}
+
+template<typename T>
+void attach_lyrics(const miniabc::Voice& voice, TrackNative<T>& track) {
+    if (voice.lyrics.empty() || track.notes.empty()) { return; }
+    const auto tokens = tokenize_lyrics(voice.lyrics);
+    std::size_t note_index = 0;
+    for (const auto& token : tokens) {
+        if (token.empty() || token == "|") { continue; }
+        if (token == "_") { continue; }
+        if (note_index >= track.notes.size()) { break; }
+        track.lyrics.emplace_back(track.notes[note_index].time, token);
+        ++note_index;
+    }
 }
 
 ScoreNative<Tick> document_to_native(const Document& doc) {
@@ -109,10 +143,7 @@ ScoreNative<Tick> document_to_native(const Document& doc) {
                 cursor += fraction_to_ticks(rest->length, doc.header.ticks_per_quarter);
             }
         }
-        for (const auto& lyric : voice.lyrics) {
-            if (lyric.empty()) { continue; }
-            track.lyrics.emplace_back(0, lyric);
-        }
+        attach_lyrics(voice, track);
         native.tracks.push_back(std::move(track));
     }
     return native;
@@ -206,9 +237,16 @@ miniabc::Voice track_to_voice(const Track<Tick>& track, const i32 tpq) {
         }
     }
     if (track.lyrics && !track.lyrics->empty()) {
-        for (const auto& lyric : *track.lyrics) {
-            voice.lyrics.push_back(lyric.text);
+        auto lyrics = track.lyrics->collect();
+        std::sort(lyrics.begin(), lyrics.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.time < rhs.time;
+        });
+        std::ostringstream line;
+        for (std::size_t i = 0; i < lyrics.size(); ++i) {
+            if (i) line << ' ';
+            line << lyrics[i].text;
         }
+        voice.lyrics.push_back(line.str());
     }
     return voice;
 }

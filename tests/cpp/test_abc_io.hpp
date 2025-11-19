@@ -11,7 +11,12 @@
 
 TEST_CASE("ABC round-trip matches for bundled fixtures", "[abc]") {
     namespace fs = std::filesystem;
-    const fs::path root = fs::path("tests/testcases/abc_files");
+    const fs::path root =
+#ifdef SYMUSIC_SOURCE_DIR
+        fs::path(SYMUSIC_SOURCE_DIR) / "tests/testcases/abc_files";
+#else
+        fs::path("tests/testcases/abc_files");
+#endif
     REQUIRE(fs::exists(root));
     for (const auto& entry : fs::directory_iterator(root)) {
         if (!entry.is_regular_file()) { continue; }

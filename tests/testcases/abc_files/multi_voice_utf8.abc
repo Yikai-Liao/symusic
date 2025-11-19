@@ -1,0 +1,11 @@
+X: 901
+T: 多声部示例
+M: 4/4
+L: 1/8
+%%score (V1 V2)
+V: V1
+"G"GABc "D"d2 c2|
+w: 春 风 吹
+V: V2
+z2 G2 z2 G2|
+w: la la 啦 啦
