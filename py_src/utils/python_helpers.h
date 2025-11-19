@@ -148,7 +148,9 @@ auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
 template<TType T, typename unit = typename T::unit>
 auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
     const auto size = time.size();
-    if (size != value.size()) { throw std::invalid_argument("time, value must have the same size"); }
+    if (size != value.size()) {
+        throw std::invalid_argument("time, value must have the same size");
+    }
     vec<PitchBend<T>> ans;
     ans.reserve(size);
     for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), value(i)); }

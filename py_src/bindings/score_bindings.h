@@ -37,8 +37,7 @@ typename T::unit cast_time(const nb::object& t) {
 template<typename To, typename From>
 nb::object convert_score_inner(const shared<Score<From>>& self, const nb::object& min_dur) {
     return nb::cast(
-        std::make_shared<Score<To>>(convert<To>(*self, cast_time<To>(min_dur))),
-        nb::rv_policy::copy
+        std::make_shared<Score<To>>(convert<To>(*self, cast_time<To>(min_dur))), nb::rv_policy::copy
     );
 }
 
@@ -75,17 +74,21 @@ void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) 
 template<TType T>
 void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
     const auto midi2abc_env = getenv("SYMUSIC_MIDI2ABC");
-    if (!midi2abc_env) { throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set"); }
+    if (!midi2abc_env) {
+        throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set");
+    }
     const std::filesystem::path midi2abc = midi2abc_env;
     if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
 
     std::filesystem::path temp_midi_path
-        = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
 
     try {
         dump_midi(self, temp_midi_path);
-        std::string cmd
-            = fmt::format(R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string());
+        std::string cmd = fmt::format(
+            R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string()
+        );
         int ret = std::system(cmd.c_str());
 
         if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
@@ -93,7 +96,8 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
         if (!std::filesystem::exists(path) || ret != 0) {
             throw std::runtime_error(
                 fmt::format(
-                    "midi2abc execution failed (return code: {}). Command: {}. Output file {} not created.",
+                    "midi2abc execution failed (return code: {}). Command: {}. Output file {} not "
+                    "created.",
                     ret,
                     cmd,
                     path.string()
@@ -107,14 +111,17 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
 }
 
 template<TType T>
-void dump_abc_path(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
+void dump_abc_path(
+    const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn
+) {
     dump_abc_fs<T>(self, path, warn);
 }
 
 template<TType T>
 std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
     std::filesystem::path temp_abc_path
-        = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
     try {
         dump_abc_fs(self, temp_abc_path, warn);
         auto data = read_file(temp_abc_path);
@@ -128,9 +135,7 @@ std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
 
 inline std::string get_format(const std::filesystem::path& path) {
     const auto ext = path.extension().string();
-    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") {
-        return "midi";
-    }
+    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") { return "midi"; }
     if (ext == ".abc") { return "abc"; }
     throw std::invalid_argument("Unknown file format");
 }
@@ -143,8 +148,8 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
 
     const std::string midi_path = std::tmpnam(nullptr);
-    const auto        cmd       = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path.string(), midi_path);
-    const auto        ret       = std::system(cmd.c_str());
+    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path.string(), midi_path);
+    const auto ret = std::system(cmd.c_str());
     if (ret != 0) { throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd)); }
 
     const auto data = read_file(midi_path);
@@ -156,7 +161,8 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
 template<TType T>
 shared<Score<T>> from_abc(const std::string& abc) {
     std::filesystem::path temp_abc_path
-        = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
     try {
         write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
         auto score = from_abc_file<T>(temp_abc_path);
@@ -169,7 +175,9 @@ shared<Score<T>> from_abc(const std::string& abc) {
 }
 
 template<TType T>
-shared<Score<T>> from_file(const std::filesystem::path& path, const std::optional<std::string>& format) {
+shared<Score<T>> from_file(
+    const std::filesystem::path& path, const std::optional<std::string>& format
+) {
     std::string format_ = format.has_value() ? *format : "";
     if (format_.empty()) {
         format_ = get_format(path);
@@ -177,9 +185,7 @@ shared<Score<T>> from_file(const std::filesystem::path& path, const std::optiona
         std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
     }
 
-    if (format_ == "midi" || format_ == "mid") {
-        return midi2score<T>(path);
-    }
+    if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path); }
     if (format_ == "abc") { return from_abc_file<T>(path); }
     throw std::invalid_argument("Unknown file format");
 }

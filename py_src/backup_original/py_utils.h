@@ -171,7 +171,7 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
     typedef shared<T>        self_t;
     typedef shared<pyvec<T>> vec_t;
 
-    auto copy_func = [](const shared<T>& self) { return std::make_shared<T>(*self); };
+    auto copy_func     = [](const shared<T>& self) { return std::make_shared<T>(*self); };
     auto deepcopy_func = [](const shared<T>& self, const nb::handle& memo, const nb::handle& nil) {
         return std::make_shared<T>(*self);
     };

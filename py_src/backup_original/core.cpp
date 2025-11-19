@@ -335,44 +335,55 @@ shared<Score<T>> midi2score(PATH path) {
 template<TType T>
 void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) {
     const auto data = self->template dumps<DataFormat::MIDI>();
-    write_file(path, data); // Calls write_file(fs::path)
+    write_file(path, data);   // Calls write_file(fs::path)
 }
 
 // Modified to accept std::filesystem::path and use fs temp path
 template<TType T>
 void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
     const auto midi2abc_env = getenv("SYMUSIC_MIDI2ABC");
-    if (!midi2abc_env) { throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set"); }
+    if (!midi2abc_env) {
+        throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set");
+    }
     const std::filesystem::path midi2abc = midi2abc_env;
     if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
 
     // Create a temporary MIDI file path using std::filesystem
-    std::filesystem::path temp_midi_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
+    std::filesystem::path temp_midi_path
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
 
     try {
-        dump_midi(self, temp_midi_path); // Call updated dump_midi
+        dump_midi(self, temp_midi_path);   // Call updated dump_midi
 
         // Execute midi2abc command. Using path.string() for command line arguments.
-        // WARNING: This might fail if 'path' contains non-ANSI characters on Windows due to std::system limitations.
-        std::string cmd = fmt::format(R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string());
+        // WARNING: This might fail if 'path' contains non-ANSI characters on Windows due to
+        // std::system limitations.
+        std::string cmd = fmt::format(
+            R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string()
+        );
         int ret = std::system(cmd.c_str());
 
         // Clean up temporary MIDI file
-        if (std::filesystem::exists(temp_midi_path)) {
-             std::filesystem::remove(temp_midi_path);
-        }
+        if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
 
         // Check if output ABC file was created and command succeeded (ret == 0 is typical success)
         if (!std::filesystem::exists(path) || ret != 0) {
-             throw std::runtime_error(fmt::format("midi2abc execution failed (return code: {}). Command: {}. Output file {} not created.", ret, cmd, path.string()));
+            throw std::runtime_error(
+                fmt::format(
+                    "midi2abc execution failed (return code: {}). Command: {}. Output file {} not "
+                    "created.",
+                    ret,
+                    cmd,
+                    path.string()
+                )
+            );
         }
-     } catch (...) {
-         // Ensure temp file is removed even if exceptions occur
-         if (std::filesystem::exists(temp_midi_path)) {
-             std::filesystem::remove(temp_midi_path);
-         }
-         throw; // Re-throw the exception
-     }
+    } catch (...) {
+        // Ensure temp file is removed even if exceptions occur
+        if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
+        throw;   // Re-throw the exception
+    }
 }
 
 // dump_abc_path now directly calls the updated dump_abc_fs
@@ -386,19 +397,17 @@ void dump_abc_path(
 // Modified to use fs temp path and call updated functions
 template<TType T>
 std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
-    std::filesystem::path temp_abc_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
+    std::filesystem::path temp_abc_path
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
     try {
-        dump_abc_fs(self, temp_abc_path, warn); // Call updated dump_abc_fs
-        auto data = read_file(temp_abc_path); // Call read_file(fs::path)
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
+        dump_abc_fs(self, temp_abc_path, warn);   // Call updated dump_abc_fs
+        auto data = read_file(temp_abc_path);     // Call read_file(fs::path)
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
         // Assuming read_file returns vec<u8>, convert to std::string
         return std::string(reinterpret_cast<const char*>(data.data()), data.size());
     } catch (...) {
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
         throw;
     }
 }
@@ -415,8 +424,8 @@ inline std::string get_format(const std::string& path) {
 }
 template<TType T>
 shared<Score<T>> from_abc_file(const std::filesystem::path& path_p) {
-    std::string path = path_p.string();
-    const auto abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
+    std::string path     = path_p.string();
+    const auto  abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
     if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
     // convert the abc file to midi file
     const std::string midi_path = std::tmpnam(nullptr);
@@ -436,30 +445,32 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path_p) {
 template<TType T>
 shared<Score<T>> from_abc(const std::string& abc) {
     // Create a temporary ABC file path using std::filesystem
-    std::filesystem::path temp_abc_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
+    std::filesystem::path temp_abc_path
+        = std::filesystem::temp_directory_path()
+          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
     try {
         // Write the ABC string to the temporary file
-        write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size())); // Calls write_file(fs::path)
+        write_file(
+            temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size())
+        );   // Calls write_file(fs::path)
         // Convert the temporary ABC file to a Score object
-        auto score = from_abc_file<T>(temp_abc_path); // Calls updated from_abc_file
+        auto score = from_abc_file<T>(temp_abc_path);   // Calls updated from_abc_file
 
         // Clean up temporary ABC file
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
         return score;
     } catch (...) {
         // Ensure temp file is removed even if exceptions occur
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
-        throw; // Re-throw the exception
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
+        throw;   // Re-throw the exception
     }
 }
 
 // Modified to accept std::filesystem::path directly
 template<TType T>
-shared<Score<T>> from_file(const std::filesystem::path& path, const std::optional<std::string>& format) {
+shared<Score<T>> from_file(
+    const std::filesystem::path& path, const std::optional<std::string>& format
+) {
     // Determine format based on extension or explicit format string
     std::string format_ = format.has_value() ? *format : "";
     if (format_.empty()) {
@@ -480,8 +491,9 @@ shared<Score<T>> from_file(const std::filesystem::path& path, const std::optiona
         // Pass std::filesystem::path directly to midi2score
         return midi2score<T>(path);
     } else if (format_ == "abc") {
-        // from_abc_file currently takes std::string, needs adjustment if we want full fs::path propagation
-        // For now, keep using string conversion for ABC as it involves external commands
+        // from_abc_file currently takes std::string, needs adjustment if we want full fs::path
+        // propagation For now, keep using string conversion for ABC as it involves external
+        // commands
         return from_abc_file<T>(path.string());
     } else {
         throw std::invalid_argument("Unknown file format");

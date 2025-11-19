@@ -19,11 +19,11 @@ using namespace symusic;
 
 template<typename T>
 auto bind_time_stamp(nb::module_& m, const std::string& name) {
-    using unit  = typename T::unit;
+    using unit   = typename T::unit;
     using self_t = shared<T>;
     using vec_t  = shared<pyvec<T>>;
 
-    auto copy_func = [](const shared<T>& self) { return std::make_shared<T>(*self); };
+    auto copy_func     = [](const shared<T>& self) { return std::make_shared<T>(*self); };
     auto deepcopy_func = [](const shared<T>& self, const nb::handle&, const nb::handle&) {
         return std::make_shared<T>(*self);
     };
@@ -129,10 +129,10 @@ auto bind_time_stamp(nb::module_& m, const std::string& name) {
 
 #define TO_NUMPY_INNER(ARR_TYPE, ...)                                                             \
     [](const shared<pyvec<self_inner>>& self) {                                                   \
-        auto* temp = new ARR_TYPE<T>(*self);                                                      \
+        auto*       temp = new ARR_TYPE<T>(*self);                                                \
         nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<ARR_TYPE<T>*>(p); }); \
-        size_t size = self->size();                                                               \
-        nb::dict ans{};                                                                           \
+        size_t      size = self->size();                                                          \
+        nb::dict    ans{};                                                                        \
         REPEAT_ON(ADD_TO_DICT, __VA_ARGS__)                                                       \
         return ans;                                                                               \
     }
@@ -201,7 +201,7 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<KeySignature<T>>;
     using self_inner = KeySignature<T>;
 
-    const std::string name           = "KeySignature" + name_;
+    const std::string name    = "KeySignature" + name_;
     auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
@@ -227,7 +227,7 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<TimeSignature<T>>;
     using self_inner = TimeSignature<T>;
 
-    const std::string name            = "TimeSignature" + name_;
+    const std::string name      = "TimeSignature" + name_;
     auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
@@ -253,7 +253,7 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
     using self_t     = shared<ControlChange<T>>;
     using self_inner = ControlChange<T>;
 
-    const std::string name                 = "ControlChange" + name_;
+    const std::string name                  = "ControlChange" + name_;
     auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
@@ -280,7 +280,7 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Pedal<T>>;
     using self_inner = Pedal<T>;
 
-    const std::string name       = "Pedal" + name_;
+    const std::string name  = "Pedal" + name_;
     auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(PedalArr, time, duration);
@@ -311,7 +311,7 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Tempo<T>>;
     using self_inner = Tempo<T>;
 
-    const std::string name      = "Tempo" + name_;
+    const std::string name  = "Tempo" + name_;
     auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name);
 
     auto to_numpy = TO_NUMPY(TempoArr, time, mspq);

@@ -35,10 +35,10 @@ shared<vec<shared<T>>> clone_track_vector(const shared<vec<shared<T>>>& self) {
 
 template<TType T>
 auto bind_track(nb::module_& m, const std::string& name_) {
-    using unit      = typename T::unit;
-    using self_t    = shared<Track<T>>;
-    using track_t   = Track<T>;
-    using vec_t     = shared<vec<self_t>>;
+    using unit    = typename T::unit;
+    using self_t  = shared<Track<T>>;
+    using track_t = Track<T>;
+    using vec_t   = shared<vec<self_t>>;
 
     const auto name = "Track" + name_;
 

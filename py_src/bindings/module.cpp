@@ -46,25 +46,27 @@ NB_MODULE(core, m) {
     m.attr("_MIDI2ABC") = std::string("");
 
     auto tick = nb::class_<Tick>(m, "Tick")
-        .def(nb::init<>())
-        .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
-        .def("is_time_unit", [](const Tick&) { return true; })
-        .def("__getstate__", [](const Tick&) { return nb::bytes(""); })
-        .def("__setstate__", [](Tick& self, const nb::bytes&) { new (&self) Tick(); });
+                    .def(nb::init<>())
+                    .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
+                    .def("is_time_unit", [](const Tick&) { return true; })
+                    .def("__getstate__", [](const Tick&) { return nb::bytes(""); })
+                    .def("__setstate__", [](Tick& self, const nb::bytes&) { new (&self) Tick(); });
 
-    auto quarter = nb::class_<Quarter>(m, "Quarter")
-        .def(nb::init<>())
-        .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
-        .def("is_time_unit", [](const Quarter&) { return true; })
-        .def("__getstate__", [](const Quarter&) { return nb::bytes(""); })
-        .def("__setstate__", [](Quarter& self, const nb::bytes&) { new (&self) Quarter(); });
+    auto quarter
+        = nb::class_<Quarter>(m, "Quarter")
+              .def(nb::init<>())
+              .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
+              .def("is_time_unit", [](const Quarter&) { return true; })
+              .def("__getstate__", [](const Quarter&) { return nb::bytes(""); })
+              .def("__setstate__", [](Quarter& self, const nb::bytes&) { new (&self) Quarter(); });
 
-    auto second = nb::class_<Second>(m, "Second")
-        .def(nb::init<>())
-        .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
-        .def("is_time_unit", [](const Second&) { return true; })
-        .def("__getstate__", [](const Second&) { return nb::bytes(""); })
-        .def("__setstate__", [](Second& self, const nb::bytes&) { new (&self) Second(); });
+    auto second
+        = nb::class_<Second>(m, "Second")
+              .def(nb::init<>())
+              .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
+              .def("is_time_unit", [](const Second&) { return true; })
+              .def("__getstate__", [](const Second&) { return nb::bytes(""); })
+              .def("__setstate__", [](Second& self, const nb::bytes&) { new (&self) Second(); });
 
     tick.def("__eq__", [](const Tick&, const nb::object& other) {
         return nb::isinstance<Tick>(other);
@@ -78,9 +80,16 @@ NB_MODULE(core, m) {
 
     REPEAT_ON(
         BIND_EVENT,
-        bind_note, bind_keysig, bind_timesig, bind_tempo,
-        bind_controlchange, bind_pedal, bind_pitchbend, bind_textmeta,
-        bind_track, bind_score
+        bind_note,
+        bind_keysig,
+        bind_timesig,
+        bind_tempo,
+        bind_controlchange,
+        bind_pedal,
+        bind_pitchbend,
+        bind_textmeta,
+        bind_track,
+        bind_score
     )
 #undef BIND_EVENT
 
