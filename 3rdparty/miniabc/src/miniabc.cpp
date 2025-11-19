@@ -17,6 +17,7 @@
 #include <lexy/action/parse.hpp>
 #include <lexy/callback.hpp>
 #include <lexy/dsl.hpp>
+#include <lexy/dsl/code_point.hpp>
 #include <lexy/input_location.hpp>
 #include <lexy/input/string_input.hpp>
 
@@ -208,40 +209,42 @@ struct DiagnosticSink {
     }
 };
 
+std::string format_parse_error_message(const std::vector<Diagnostic>& diagnostics) {
+    if (diagnostics.empty()) { return "miniabc: parse failure"; }
+    const auto& diag = diagnostics.front();
+    std::ostringstream oss;
+    oss << "miniabc: parse failure at line " << diag.line << ", column " << diag.column << ": " << diag.message;
+    return oss.str();
+}
+
 }  // namespace
 
 ParseError::ParseError(std::vector<Diagnostic> diagnostics) :
-    std::runtime_error("miniabc: parse failure"), diagnostics_{std::move(diagnostics)} {}
+    std::runtime_error(format_parse_error_message(diagnostics)), diagnostics_{std::move(diagnostics)} {}
 
 const char* describe() noexcept { return "miniabc: standalone build helper"; }
 
-namespace grammar {
-
-namespace dsl = lexy::dsl;
-
-struct line {
-    static constexpr auto rule = dsl::position
-                               + dsl::capture(dsl::until(dsl::newline | dsl::eof))
-                               + dsl::opt(dsl::newline);
-    static constexpr auto value = lexy::construct<RawLine>;
-};
-
-struct document {
-    static constexpr auto rule = dsl::terminator(dsl::eof).list(dsl::p<line>);
-    static constexpr auto value = lexy::as_list<std::vector<RawLine>>;
-};
-
-}  // namespace grammar
-
 std::vector<RawLine> parse_lines(std::string_view input, DiagnosticSink& sink) {
-    lexy::string_input string_input{input};
-    auto               result = lexy::parse<grammar::document>(string_input);
-    if (!result) {
-        const auto& error = result.error();
-        sink.add(error.location().line_nr(), error.location().column_nr(), error.message());
-        throw ParseError(std::move(sink.diagnostics));
+    (void)sink;
+    std::vector<RawLine> lines;
+    lines.reserve(128);
+
+    std::size_t line_no = 1;
+    std::size_t pos     = 0;
+    while (pos <= input.size()) {
+        const auto next = input.find('\n', pos);
+        if (next == std::string_view::npos) {
+            auto segment = input.substr(pos);
+            lines.push_back(RawLine{std::string(segment), line_no});
+            break;
+        }
+        auto segment = input.substr(pos, next - pos);
+        lines.push_back(RawLine{std::string(segment), line_no});
+        pos = next + 1;
+        ++line_no;
     }
-    return result.value();
+    if (input.empty()) { lines.push_back(RawLine{"", line_no}); }
+    return lines;
 }
 
 bool looks_like_field(std::string_view line) {
@@ -265,8 +268,9 @@ std::vector<FieldLine> collect_fields(const std::vector<RawLine>& lines, std::ve
 
     for (const auto& line : lines) {
         auto trimmed = trim(line.text);
+        if (trimmed.empty()) { continue; }
+        if (!trimmed.empty() && trimmed.front() == '%') { continue; }
         const bool is_field = in_header && looks_like_field(trimmed);
-        if (trimmed.empty() && in_header) { continue; }
         if (is_field) {
             const auto colon = trimmed.find(':');
             FieldLine field{
@@ -305,8 +309,17 @@ Meter parse_meter(const std::string& value) {
     auto trimmed = trim(value);
     if (trimmed.empty() || trimmed == "C"sv) { return Meter{4, 4}; }
     if (trimmed == "C|"sv) { return Meter{2, 2}; }
-    const auto fraction = parse_fraction(trimmed);
-    return Meter{static_cast<int>(fraction.num), static_cast<int>(fraction.den)};
+    auto slash = trimmed.find('/');
+    if (slash == std::string::npos) {
+        if (auto num = parse_integer(trimmed)) { return Meter{*num, 1}; }
+        return Meter{4, 4};
+    }
+    auto numerator_str = trim(trimmed.substr(0, slash));
+    auto denominator_str = trim(trimmed.substr(slash + 1));
+    const int numerator = parse_integer(numerator_str).value_or(4);
+    int denominator = parse_integer(denominator_str).value_or(4);
+    if (denominator == 0) { denominator = 1; }
+    return Meter{numerator, denominator};
 }
 
 Fraction infer_unit_length(const Meter meter) {
@@ -320,19 +333,26 @@ KeySignature parse_key(const std::string& value) {
     KeySignature key{};
     auto         trimmed = trim(value);
     if (trimmed.empty()) { return key; }
-    std::string  letters;
-    std::size_t  pos = 0;
-    while (pos < trimmed.size() && std::isalpha(static_cast<unsigned char>(trimmed[pos])) != 0) {
-        letters.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(trimmed[pos]))));
-        ++pos;
-    }
-    std::string  accidental;
+
+    std::size_t pos = 0;
+    while (pos < trimmed.size() && std::isspace(static_cast<unsigned char>(trimmed[pos])) != 0) { ++pos; }
+    if (pos >= trimmed.size() || !std::isalpha(static_cast<unsigned char>(trimmed[pos]))) { return key; }
+
+    std::string root;
+    root.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(trimmed[pos]))));
+    ++pos;
+
+    std::string accidental;
     while (pos < trimmed.size() && (trimmed[pos] == 'b' || trimmed[pos] == '#')) {
         accidental.push_back(trimmed[pos]);
         ++pos;
     }
-    auto mode = trim(trimmed.substr(pos));
-    key.is_minor = mode == "m"sv || mode == "min"sv || mode == "minor"sv;
+
+    auto mode_view = trim(trimmed.substr(pos));
+    std::string mode;
+    mode.reserve(mode_view.size());
+    for (char ch : mode_view) { mode.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch)))); }
+    key.is_minor = (mode == "m" || mode == "min" || mode == "minor");
 
     const std::unordered_map<std::string, int> major{
         {"C", 0},  {"G", 1},  {"D", 2},  {"A", 3},  {"E", 4},   {"B", 5},   {"F#", 6}, {"C#", 7},
@@ -343,7 +363,7 @@ KeySignature parse_key(const std::string& value) {
         {"D", -1}, {"G", -2}, {"C", -3}, {"F", -4}, {"Bb", -5}, {"Eb", -6}, {"Ab", -7}
     };
 
-    std::string key_name = letters + accidental;
+    std::string key_name = root + accidental;
     if (key_name.empty()) { key_name = "C"; }
 
     if (!key.is_minor) {
@@ -434,6 +454,19 @@ struct ParseState {
         return text[column];
     }
 
+    [[nodiscard]] char peek_next() const {
+        if (eof()) { return '\0'; }
+        const auto& text = lines[line_index].text;
+        if (column < text.size()) {
+            if (column + 1 < text.size()) { return text[column + 1]; }
+            return '\n';
+        }
+        if (line_index + 1 >= lines.size()) { return '\0'; }
+        const auto& next_line = lines[line_index + 1].text;
+        if (next_line.empty()) { return '\n'; }
+        return next_line[0];
+    }
+
     void advance(std::size_t count = 1) {
         while (count-- > 0) {
             if (eof()) { return; }
@@ -500,12 +533,15 @@ int compute_midi_pitch(ParseState& state, const char letter, int octave_delta, i
         return base;
     }();
 
-    int shift = explicit_natural ? 0 : state.key_table[idx];
+    int shift = state.key_table[idx];
     if (state.measure_accidentals[idx].has_value()) {
         shift = state.measure_accidentals[idx].value();
     }
-
-    shift += accidental_delta;
+    if (accidental_delta != 0) {
+        shift = accidental_delta;
+    } else if (explicit_natural) {
+        shift = 0;
+    }
     const int final_pitch = base_octave_pitch + octave_delta * 12 + shift;
 
     if (final_pitch < 0 || final_pitch > 127) {
@@ -651,6 +687,7 @@ bool decoration_char(const char c) {
         case 'v':
         case '\'':
         case '"':
+        case '{':
             return true;
         default: return false;
     }
@@ -760,6 +797,15 @@ std::vector<Element> flatten_events(const std::vector<Element>& raw) {
 Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnostics, const Header& header, const ParseOptions& options) {
     ParseState state(lines, diagnostics, header, options);
     std::vector<Element> events;
+    std::optional<Fraction> pending_length_multiplier;
+    auto apply_to_last_note = [&](const Fraction& multiplier) {
+        for (auto it = events.rbegin(); it != events.rend(); ++it) {
+            if (auto* note = std::get_if<NoteEvent>(&*it)) {
+                note->length = mul(note->length, multiplier);
+                break;
+            }
+        }
+    };
     while (!state.eof()) {
         state.skip_space();
         if (state.eof()) { break; }
@@ -774,20 +820,33 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
             continue;
         }
         if (state.peek() == '(') {
-            const auto next = state.peek();
-            if (std::isdigit(static_cast<unsigned char>(state.peek() == '(' ? state.peek() : next)) != 0) {
+            const auto next = state.peek_next();
+            if (std::isdigit(static_cast<unsigned char>(next)) != 0) {
                 state.tuplet = parse_tuplet_spec(state);
             } else {
                 state.advance();
             }
             continue;
         }
-        if (state.peek() == '-') {
+        if (state.peek() == '-' ) {
             state.advance();
             continue;
         }
         if (state.peek() == ')' || state.peek() == ']') {
             state.advance();
+            continue;
+        }
+        if (state.peek() == '>' || state.peek() == '<') {
+            const bool is_greater = state.peek() == '>';
+            state.advance();
+            const Fraction prev_mult = is_greater ? Fraction{3, 2} : Fraction{1, 2};
+            const Fraction next_mult = is_greater ? Fraction{1, 2} : Fraction{3, 2};
+            apply_to_last_note(prev_mult);
+            if (pending_length_multiplier.has_value()) {
+                pending_length_multiplier = mul(*pending_length_multiplier, next_mult);
+            } else {
+                pending_length_multiplier = next_mult;
+            }
             continue;
         }
         if (state.peek() == '!') {
@@ -799,6 +858,10 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
             continue;
         }
         if (auto note = parse_note(state)) {
+            if (pending_length_multiplier.has_value()) {
+                note->length = mul(note->length, *pending_length_multiplier);
+                pending_length_multiplier.reset();
+            }
             events.emplace_back(*note);
             continue;
         }
@@ -812,8 +875,6 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
     voice.elements = std::move(flattened);
     return voice;
 }
-
-}  // namespace
 
 Document parse_document(std::string_view input, const ParseOptions& options) {
     DiagnosticSink sink;
@@ -874,19 +935,19 @@ std::string render_note(const NoteEvent& note, const Fraction unit) {
         "=C", "^C", "=D", "^D", "=E", "=F", "^F", "=G", "^G", "=A", "^A", "=B"
     };
     const int midi = note.midi_pitch;
-    const int octave = midi / 12 - 1;
     const int pc = midi % 12;
     auto       token = names[pc];
-    char       letter = token.back();
-    bool       lower  = octave >= 5 || (octave == 4 && letter >= 'a');
-    if (lower) {
+
+    if (midi >= 60) {
         token.back() = static_cast<char>(std::tolower(static_cast<unsigned char>(token.back())));
-    }
-    int relative = octave - (lower ? 5 : 4);
-    if (relative > 0) {
-        token.append(static_cast<std::size_t>(relative), '\'');
-    } else if (relative < 0) {
-        token.append(static_cast<std::size_t>(-relative), ',');
+        const int extra = (midi - 60) / 12;
+        if (extra > 0) { token.append(static_cast<std::size_t>(extra), '\''); }
+    } else if (midi >= 48) {
+        token.back() = static_cast<char>(std::toupper(static_cast<unsigned char>(token.back())));
+    } else {
+        token.back() = static_cast<char>(std::toupper(static_cast<unsigned char>(token.back())));
+        const int commas = (48 - midi + 11) / 12;
+        if (commas > 0) { token.append(static_cast<std::size_t>(commas), ','); }
     }
     token += render_duration_token(note.length, unit);
     return token;

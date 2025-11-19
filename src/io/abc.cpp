@@ -3,6 +3,7 @@
 #include "symusic/conversion.h"
 #include "symusic/event.h"
 #include "symusic/score.h"
+#include "MetaMacro.h"
 
 #include <algorithm>
 #include <numeric>
