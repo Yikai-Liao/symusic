@@ -18,7 +18,15 @@ using miniabc::Document;
 using miniabc::Fraction;
 
 constexpr Fraction normalize_fraction(const Fraction& frac) {
-    return miniabc::Fraction{frac.num, frac.den};
+    if (frac.den == 0) { return Fraction{0, 1}; }
+    auto num = frac.num;
+    auto den = frac.den;
+    if (den < 0) {
+        num = -num;
+        den = -den;
+    }
+    const auto gcd = std::gcd(std::llabs(num), std::llabs(den));
+    return Fraction{num / gcd, den / gcd};
 }
 
 Fraction ticks_to_fraction(const i64 ticks, const i32 tpq) {
@@ -33,6 +41,22 @@ i32 fraction_to_ticks(const Fraction& fraction, const i32 tpq) {
     return static_cast<i32>(scaled);
 }
 
+Fraction infer_unit_note_length(const Score<Tick>& score) {
+    i64 gcd_ticks = 0;
+    if (!score.tracks->empty()) {
+        for (const auto& track : *score.tracks) {
+            if (track->notes->empty()) { continue; }
+            for (const auto& note : *track->notes) {
+                const auto duration = static_cast<i64>(note.duration);
+                gcd_ticks = gcd_ticks == 0 ? duration : std::gcd(gcd_ticks, duration);
+            }
+        }
+    }
+    if (gcd_ticks <= 0) { return Fraction{1, 8}; }
+    const i64 ticks_per_whole = static_cast<i64>(score.ticks_per_quarter) * 4;
+    return normalize_fraction(Fraction{gcd_ticks, ticks_per_whole});
+}
+
 ScoreNative<Tick> document_to_native(const Document& doc) {
     ScoreNative<Tick> native(doc.header.ticks_per_quarter);
     if (doc.header.meter.numerator > 0 && doc.header.meter.denominator > 0) {
@@ -45,6 +69,10 @@ ScoreNative<Tick> document_to_native(const Document& doc) {
         0, static_cast<i8>(doc.header.key.accidentals), doc.header.key.is_minor ? 1 : 0
     );
     native.markers.clear();
+    for (const auto& directive : doc.directives) {
+        if (directive.empty()) { continue; }
+        native.markers.emplace_back(0, directive);
+    }
 
     if (doc.voices.empty()) {
         native.tracks.emplace_back(TrackNative<Tick>{"Voice 1", 0, false});
@@ -64,9 +92,26 @@ ScoreNative<Tick> document_to_native(const Document& doc) {
                     static_cast<i8>(std::clamp(note->velocity, 0, 127))
                 );
                 cursor += duration;
+            } else if (const auto* chord = std::get_if<miniabc::ChordEvent>(&element)) {
+                for (const auto& chord_note : chord->notes) {
+                    const auto duration = fraction_to_ticks(chord_note.length, doc.header.ticks_per_quarter);
+                    track.notes.emplace_back(
+                        cursor,
+                        duration,
+                        static_cast<i8>(std::clamp(chord_note.midi_pitch, 0, 127)),
+                        static_cast<i8>(std::clamp(chord_note.velocity, 0, 127))
+                    );
+                }
+                if (!chord->notes.empty()) {
+                    cursor += fraction_to_ticks(chord->notes.front().length, doc.header.ticks_per_quarter);
+                }
             } else if (const auto* rest = std::get_if<miniabc::RestEvent>(&element)) {
                 cursor += fraction_to_ticks(rest->length, doc.header.ticks_per_quarter);
             }
+        }
+        for (const auto& lyric : voice.lyrics) {
+            if (lyric.empty()) { continue; }
+            track.lyrics.emplace_back(0, lyric);
         }
         native.tracks.push_back(std::move(track));
     }
@@ -103,29 +148,67 @@ miniabc::KeySignature score_key(const Score<Tick>& score) {
 miniabc::Voice track_to_voice(const Track<Tick>& track, const i32 tpq) {
     miniabc::Voice voice;
     voice.name = track.name;
-    if (track.notes->empty()) { return voice; }
-
-    auto notes = track.notes->collect();
-    std::sort(notes.begin(), notes.end(), [](const auto& lhs, const auto& rhs) {
-        if (lhs.time == rhs.time) { return lhs.duration < rhs.duration; }
-        return lhs.time < rhs.time;
-    });
-
-    i32 cursor = 0;
-    for (const auto& note : notes) {
-        if (note.time > cursor) {
-            const auto gap_ticks = note.time - cursor;
-            voice.elements.emplace_back(miniabc::RestEvent{ticks_to_fraction(gap_ticks, tpq)});
-            cursor = note.time;
-        }
-        const auto duration = ticks_to_fraction(note.duration, tpq);
-        voice.elements.emplace_back(miniabc::NoteEvent{
-            duration,
-            note.pitch,
-            note.velocity,
-            false
+    if (!track.notes->empty()) {
+        auto notes = track.notes->collect();
+        std::sort(notes.begin(), notes.end(), [](const auto& lhs, const auto& rhs) {
+            if (lhs.time == rhs.time) { return lhs.duration < rhs.duration; }
+            return lhs.time < rhs.time;
         });
-        cursor = note.time + note.duration;
+
+        i32 cursor = 0;
+        std::size_t idx = 0;
+        while (idx < notes.size()) {
+            const auto start = notes[idx].time;
+            if (start > cursor) {
+                const auto gap_ticks = start - cursor;
+                voice.elements.emplace_back(miniabc::RestEvent{ticks_to_fraction(gap_ticks, tpq)});
+                cursor = start;
+            }
+            std::size_t j = idx + 1;
+            while (j < notes.size() && notes[j].time == start) { ++j; }
+            const std::size_t group_size = j - idx;
+            bool can_chord = group_size > 1;
+            const auto base_duration = notes[idx].duration;
+            if (can_chord) {
+                for (std::size_t k = idx; k < j; ++k) {
+                    if (notes[k].duration != base_duration) {
+                        can_chord = false;
+                        break;
+                    }
+                }
+            }
+            if (can_chord) {
+                miniabc::ChordEvent chord;
+                chord.notes.reserve(group_size);
+                for (std::size_t k = idx; k < j; ++k) {
+                    chord.notes.push_back(miniabc::NoteEvent{
+                        ticks_to_fraction(notes[k].duration, tpq),
+                        notes[k].pitch,
+                        notes[k].velocity,
+                        false
+                    });
+                }
+                voice.elements.emplace_back(std::move(chord));
+                cursor = start + base_duration;
+                idx = j;
+                continue;
+            }
+
+            const auto duration = ticks_to_fraction(notes[idx].duration, tpq);
+            voice.elements.emplace_back(miniabc::NoteEvent{
+                duration,
+                notes[idx].pitch,
+                notes[idx].velocity,
+                false
+            });
+            cursor = std::max(cursor, notes[idx].time + notes[idx].duration);
+            ++idx;
+        }
+    }
+    if (track.lyrics && !track.lyrics->empty()) {
+        for (const auto& lyric : *track.lyrics) {
+            voice.lyrics.push_back(lyric.text);
+        }
     }
     return voice;
 }
@@ -135,10 +218,17 @@ Document score_to_document(const Score<Tick>& score) {
     doc.header.reference_number  = 1;
     doc.header.title             = score.tracks->empty() ? "symusic" : score.tracks->at(0)->name;
     doc.header.meter             = score_meter(score);
-    doc.header.unit_note_length  = Fraction{1, 8};
+    doc.header.unit_note_length  = infer_unit_note_length(score);
     doc.header.tempo             = score_tempo(score);
     doc.header.key               = score_key(score);
     doc.header.ticks_per_quarter = score.ticks_per_quarter;
+    if (!score.markers->empty()) {
+        for (const auto& marker : *score.markers) {
+            if (!marker.text.empty() && marker.text.rfind("%%", 0) == 0) {
+                doc.directives.push_back(marker.text);
+            }
+        }
+    }
 
     if (!score.tracks->empty()) {
         for (const auto& shared_track : *score.tracks) {

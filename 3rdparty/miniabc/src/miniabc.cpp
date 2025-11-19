@@ -81,6 +81,11 @@ struct MusicLine {
     std::size_t line = 0;
 };
 
+struct LyricLine {
+    std::string text;
+    std::size_t line = 0;
+};
+
 struct TupletState {
     Fraction ratio{1, 1};
     int      remain = 0;
@@ -254,7 +259,12 @@ bool looks_like_field(std::string_view line) {
     return line[1] == ':';
 }
 
-std::vector<FieldLine> collect_fields(const std::vector<RawLine>& lines, std::vector<MusicLine>& body) {
+std::vector<FieldLine> collect_fields(
+    const std::vector<RawLine>& lines,
+    std::vector<MusicLine>&     body,
+    std::vector<LyricLine>&     lyrics,
+    std::vector<std::string>&   directives
+) {
     std::vector<FieldLine> fields;
     bool                   in_header = true;
     std::string            pending;
@@ -268,8 +278,12 @@ std::vector<FieldLine> collect_fields(const std::vector<RawLine>& lines, std::ve
 
     for (const auto& line : lines) {
         auto trimmed = trim(line.text);
-        if (trimmed.empty()) { continue; }
-        if (!trimmed.empty() && trimmed.front() == '%') { continue; }
+        if (trimmed.empty() && in_header) { continue; }
+        if (trimmed.rfind("%%", 0) == 0) {
+            directives.emplace_back(std::string(trimmed));
+            continue;
+        }
+        if (trimmed.rfind('%', 0) == 0) { continue; }
         const bool is_field = in_header && looks_like_field(trimmed);
         if (is_field) {
             const auto colon = trimmed.find(':');
@@ -281,6 +295,12 @@ std::vector<FieldLine> collect_fields(const std::vector<RawLine>& lines, std::ve
             fields.push_back(std::move(field));
         } else {
             in_header = false;
+            if ((trimmed.size() >= 2)
+                && ((trimmed[0] == 'w' || trimmed[0] == 'W') && trimmed[1] == ':')) {
+                auto lyric_text = trim(trimmed.substr(2));
+                lyrics.push_back(LyricLine{std::string(lyric_text), line.line});
+                continue;
+            }
             auto comment = trimmed.find('%');
             if (comment != std::string::npos) { trimmed = trimmed.substr(0, comment); }
             auto content = std::string(trimmed);
@@ -654,7 +674,16 @@ std::optional<BarEvent> parse_bar(ParseState& state) {
     std::string token;
     while (true) {
         const char cur = state.peek();
-        if (cur == '|' || cur == ':' || cur == '[' || cur == ']') {
+        if (cur == '[') {
+            const char next = state.peek_next();
+            if (next == '|' || next == ']') {
+                token.push_back(cur);
+                state.advance();
+                continue;
+            }
+            break;
+        }
+        if (cur == '|' || cur == ':' || cur == ']') {
             token.push_back(cur);
             state.advance();
         } else {
@@ -716,6 +745,17 @@ void skip_decoration(ParseState& state) {
     state.advance();
 }
 
+void skip_inline_space(ParseState& state) {
+    while (!state.eof()) {
+        const auto ch = state.peek();
+        if (ch == ' ' || ch == '\t') {
+            state.advance();
+        } else {
+            break;
+        }
+    }
+}
+
 std::optional<NoteEvent> parse_note(ParseState& state) {
     auto ch = state.peek();
     if (!(is_alpha(ch) || ch == '^' || ch == '_' || ch == '=')) { return std::nullopt; }
@@ -766,6 +806,35 @@ std::optional<NoteEvent> parse_note(ParseState& state) {
     return note;
 }
 
+std::optional<ChordEvent> parse_chord(ParseState& state) {
+    if (state.peek() != '[') { return std::nullopt; }
+    state.advance();
+    std::vector<NoteEvent> notes;
+    while (!state.eof()) {
+        skip_inline_space(state);
+        if (state.peek() == ']') {
+            state.advance();
+            break;
+        }
+        if (state.peek() == '!') {
+            skip_decoration(state);
+            continue;
+        }
+        if (decoration_char(state.peek())) {
+            skip_decoration(state);
+            continue;
+        }
+        if (auto note = parse_note(state)) {
+            notes.emplace_back(*note);
+            continue;
+        }
+        state.report(std::string("unexpected character inside chord '") + state.peek() + "'");
+        state.advance();
+    }
+    if (notes.empty()) { return std::nullopt; }
+    return ChordEvent{std::move(notes)};
+}
+
 void duplicate_section(std::vector<Element>& events, const std::size_t start) {
     if (start >= events.size()) { return; }
     std::vector<Element> slice(events.begin() + static_cast<std::ptrdiff_t>(start), events.end());
@@ -802,7 +871,13 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
         for (auto it = events.rbegin(); it != events.rend(); ++it) {
             if (auto* note = std::get_if<NoteEvent>(&*it)) {
                 note->length = mul(note->length, multiplier);
-                break;
+                return;
+            }
+            if (auto* chord = std::get_if<ChordEvent>(&*it)) {
+                for (auto& inner : chord->notes) {
+                    inner.length = mul(inner.length, multiplier);
+                }
+                return;
             }
         }
     };
@@ -857,12 +932,31 @@ Voice parse_voice(const std::vector<MusicLine>& lines, DiagnosticSink& diagnosti
             skip_decoration(state);
             continue;
         }
+        if (state.peek() == '[') {
+            if (auto chord = parse_chord(state)) {
+                events.emplace_back(std::move(*chord));
+                const auto ratio = parse_length_suffix(state);
+                if (!(ratio.num == 1 && ratio.den == 1)) {
+                    apply_to_last_note(ratio);
+                }
+                if (pending_length_multiplier.has_value()) {
+                    apply_to_last_note(*pending_length_multiplier);
+                    pending_length_multiplier.reset();
+                }
+                continue;
+            }
+        }
         if (auto note = parse_note(state)) {
             if (pending_length_multiplier.has_value()) {
                 note->length = mul(note->length, *pending_length_multiplier);
                 pending_length_multiplier.reset();
             }
             events.emplace_back(*note);
+            continue;
+        }
+        if (std::isdigit(static_cast<unsigned char>(state.peek())) != 0 || state.peek() == '/') {
+            const auto ratio = parse_length_suffix(state);
+            apply_to_last_note(ratio);
             continue;
         }
         state.report(std::string("unexpected character '") + state.peek() + "'");
@@ -880,7 +974,9 @@ Document parse_document(std::string_view input, const ParseOptions& options) {
     DiagnosticSink sink;
     const auto lines = parse_lines(input, sink);
     std::vector<MusicLine> music;
-    auto fields = collect_fields(lines, music);
+    std::vector<LyricLine> lyric_lines;
+    std::vector<std::string> directives;
+    auto fields = collect_fields(lines, music, lyric_lines, directives);
 
     Document doc;
     doc.header.reference_number = parse_reference_number(fields).value_or(1);
@@ -907,7 +1003,11 @@ Document parse_document(std::string_view input, const ParseOptions& options) {
     doc.header.ticks_per_quarter = options.ticks_per_quarter;
 
     auto voice = parse_voice(music, sink, doc.header, options);
+    for (const auto& lyric : lyric_lines) {
+        voice.lyrics.push_back(lyric.text);
+    }
     doc.voices.push_back(std::move(voice));
+    doc.directives = std::move(directives);
     if (!sink.diagnostics.empty() && options.strict) {
         throw ParseError(std::move(sink.diagnostics));
     }
@@ -930,11 +1030,10 @@ std::string render_duration_token(const Fraction length, const Fraction unit) {
     return oss.str();
 }
 
-std::string render_note(const NoteEvent& note, const Fraction unit) {
+std::string render_pitch_token(const int midi) {
     static const std::array<std::string, 12> names = {
         "=C", "^C", "=D", "^D", "=E", "=F", "^F", "=G", "^G", "=A", "^A", "=B"
     };
-    const int midi = note.midi_pitch;
     const int pc = midi % 12;
     auto       token = names[pc];
 
@@ -949,6 +1048,11 @@ std::string render_note(const NoteEvent& note, const Fraction unit) {
         const int commas = (48 - midi + 11) / 12;
         if (commas > 0) { token.append(static_cast<std::size_t>(commas), ','); }
     }
+    return token;
+}
+
+std::string render_note(const NoteEvent& note, const Fraction unit) {
+    auto token = render_pitch_token(note.midi_pitch);
     token += render_duration_token(note.length, unit);
     return token;
 }
@@ -978,6 +1082,9 @@ std::string render_document(const Document& doc) {
     }
     if (is_minor) { out << "min"; }
     out << "\n";
+    for (const auto& directive : doc.directives) {
+        out << directive << '\n';
+    }
 
     if (doc.voices.empty()) { return out.str(); }
     const auto unit = doc.header.unit_note_length;
@@ -985,10 +1092,19 @@ std::string render_document(const Document& doc) {
     const auto   per_measure = doc.header.meter.numerator;
     for (const auto& elem : doc.voices.front().elements) {
         if (const auto* note = std::get_if<NoteEvent>(&elem)) {
-            out << render_note(*note, unit);
+            out << render_note(*note, unit) << ' ';
             beat_count += note->length.num * unit.den / note->length.den / unit.num;
+        } else if (const auto* chord = std::get_if<ChordEvent>(&elem)) {
+            out << '[';
+            for (const auto& note : chord->notes) {
+                out << render_note(note, unit);
+            }
+            out << "] ";
+            if (!chord->notes.empty()) {
+                beat_count += chord->notes.front().length.num * unit.den / chord->notes.front().length.den / unit.num;
+            }
         } else if (const auto* rest = std::get_if<RestEvent>(&elem)) {
-            out << render_rest(*rest, unit);
+            out << render_rest(*rest, unit) << ' ';
             beat_count += rest->length.num * unit.den / rest->length.den / unit.num;
         } else {
             out << '|';
@@ -1000,6 +1116,9 @@ std::string render_document(const Document& doc) {
         }
     }
     out << '\n';
+    for (const auto& lyric : doc.voices.front().lyrics) {
+        out << "w: " << lyric << '\n';
+    }
     return out.str();
 }
 

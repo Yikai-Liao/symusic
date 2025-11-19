@@ -62,16 +62,22 @@ struct BarEvent {
     bool final_bar    = false;
 };
 
-using Element = std::variant<NoteEvent, RestEvent, BarEvent>;
+struct ChordEvent {
+    std::vector<NoteEvent> notes;
+};
+
+using Element = std::variant<NoteEvent, RestEvent, BarEvent, ChordEvent>;
 
 struct Voice {
-    std::string        name;
-    std::vector<Element> elements;
+    std::string           name;
+    std::vector<Element>  elements;
+    std::vector<std::string> lyrics;
 };
 
 struct Document {
     Header              header{};
     std::vector<Voice>  voices;
+    std::vector<std::string> directives;
 };
 
 struct Diagnostic {

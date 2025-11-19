@@ -15,6 +15,7 @@
 #include "test_track_score.hpp"
 #include "test_conversion.hpp"
 #include "test_midi_io.hpp"
+#include "test_abc_io.hpp"
 // Temporarily commented out problematic tests
 #include "test_pianoroll.hpp"
 #include "test_synth.hpp"
