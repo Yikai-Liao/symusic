@@ -18,18 +18,78 @@
 #include "../../utils/python_helpers.h"
 #include "../../utils/vector_bindings.h"
 #include "../core/binding_common.h"
+#include "../docstring_helpers.h"
 
 namespace symusic {
 
 namespace nb = nanobind;
 
 namespace track_docstrings {
-constexpr const char* kTrackDoc
-    = R"pbdoc(Track gathers all per-channel events (notes, controllers, pedals, pitch bends, metadata) alongside the MIDI program/is_drum flags so you can mutate a single instrument lane.)pbdoc";
+constexpr std::string_view kTrackDocTemplate = R"pbdoc(
+{signature}
+{underline}
+
+Container for per-channel events (notes, controllers, pedals, pitch bends, metadata) tied to a MIDI
+program. Tracks emulate Python lists: copy, compare, repr, and pickling propagate through the shared
+pointer. This variant {timeline_sentence}
+
+Parameters
+----------
+name:
+    Human-friendly identifier used when printing or exporting.
+program:
+    MIDI program number (0-127). Defaults to acoustic grand piano.
+is_drum:
+    Flag drum/percussion channels. Useful when writing to SMF channel 10.
+
+Time semantics
+--------------
+- {measurement}
+- Optimized for {best_for}.
+- Durations and controller timestamps share the same {timeline_noun} units.
+
+Examples
+--------
+```python
+{example}
+```
+)pbdoc";
+
+template<TType T>
+const char* doc() {
+    static const std::string rendered = [] {
+        constexpr auto flavor = docstring_helpers::time_flavor<T>();
+        const auto signature = fmt::format(
+            "Track{}(name: str = \"\", program: int = 0, is_drum: bool = False)", flavor.suffix
+        );
+        const std::string underline(signature.size(), '=');
+        const auto example = fmt::format(
+            ">>> from symusic import Track{0}, Note{0}\n"
+            ">>> track = Track{0}(name=\"Piano\")\n"
+            ">>> track.notes.append(Note{0}(0, 120, 60, 90))",
+            flavor.suffix
+        );
+        return fmt::format(
+            fmt::runtime(kTrackDocTemplate),
+            fmt::arg("signature", signature),
+            fmt::arg("underline", underline),
+            fmt::arg("timeline_sentence", flavor.timeline_sentence),
+            fmt::arg("measurement", flavor.measurement_sentence),
+            fmt::arg("best_for", flavor.best_for),
+            fmt::arg("timeline_noun", flavor.timeline_noun),
+            fmt::arg("example", example)
+        );
+    }();
+    return rendered.c_str();
+}
+
 constexpr const char* kDefaultCtorDoc
-    = R"pbdoc(Create an empty track for the current time unit.)pbdoc";
-constexpr const char* kNamedCtorDoc
-    = R"pbdoc(Create a track with a friendly *name*, MIDI *program* number, and optional *is_drum* flag.)pbdoc";
+    = R"pbdoc(Create an empty track bound to the current time unit.)pbdoc";
+constexpr const char* kNamedCtorDoc = R"pbdoc(
+Create a track with a friendly name, MIDI program, and optional drum flag.
+
+Parameters mirror the attributes displayed on :class:`symusic.Track`.
+)pbdoc";
 constexpr const char* kCopyCtorDoc = R"pbdoc(Clone another track, deep-copying its events.)pbdoc";
 constexpr const char* kCopyDoc = R"pbdoc(Return a shallow or deep copy depending on *deep*.)pbdoc";
 constexpr const char* kCopyMethodDoc = R"pbdoc(Return a shallow copy of the track.)pbdoc";
@@ -43,7 +103,7 @@ constexpr const char* kSetStateDoc = R"pbdoc(Rehydrate a track from serialized Z
 constexpr const char* kEqDoc
     = R"pbdoc(Tracks compare equal when their shared pointers or values match.)pbdoc";
 constexpr const char* kClipDoc
-    = R"pbdoc(Return a track clipped to [start, end). When *inplace* is False operate on a deep copy.)pbdoc";
+    = R"pbdoc(Return a track clipped to [start, end). When ``inplace`` is False operate on a deep copy.)pbdoc";
 constexpr const char* kTrimDoc
     = R"pbdoc(Trim notes to fall within [start, end) using overlap/window strategies. Optionally mutate in place.)pbdoc";
 constexpr const char* kSortDoc
@@ -109,7 +169,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_docstrings::kTrackDoc)
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_docstrings::doc<T>())
         .def("__init__", &pyutils::pyinit<Track<T>>, track_docstrings::kDefaultCtorDoc)
         .def("__init__", &pyutils::pyinit<Track<T>, std::string, u8, const bool>,
             nb::arg("name"), nb::arg("program") = 0, nb::arg("is_drum") = false,

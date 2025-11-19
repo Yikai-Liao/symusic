@@ -51,6 +51,7 @@ concepts/synthesis
 :caption: API Reference
 
 api/index
+api/core/index
 ```
 
 ```{toctree}

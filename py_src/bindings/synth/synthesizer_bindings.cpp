@@ -16,16 +16,58 @@ namespace nb = nanobind;
 namespace symusic {
 
 namespace synth_docstrings {
-constexpr const char* kSynthDoc
-    = R"pbdoc(High-level Prestosynth wrapper that renders Scores with SF2/SF3 SoundFonts. Reuse a single synthesizer per SoundFont to avoid disk I/O.)pbdoc";
+constexpr const char* kSynthDoc = R"pbdoc(
+Synthesizer(sf_path: str | Path, sample_rate: int = 44100, quality: int = 0)
+============================================================================
+
+Prestosynth-powered renderer that turns scores into audio buffers using SF2/SF3 soundfonts. Reuse
+a single synthesizer per soundfont to avoid repeated disk I/O.
+
+Parameters
+----------
+sf_path:
+    Filesystem path to an SF2/SF3 soundfont (either ``str`` or ``pathlib.Path``).
+sample_rate:
+    Output sample rate in Hz.
+quality:
+    Prestosynth render quality hint (``0`` = default).
+
+Examples
+--------
+>>> from symusic import Score, Synthesizer
+>>> score = Score.from_file("example.mid")
+>>> synth = Synthesizer("MuseScore_General.sf3", sample_rate=48000)
+>>> buffer = synth.render(score, stereo=True)
+>>> Synthesizer.dump_wav("example.wav", buffer, 48000, use_int16=True)
+)pbdoc";
 constexpr const char* kSynthInitStringDoc
-    = R"pbdoc(Create a synthesizer from a string path to an SF2/SF3 SoundFont.)pbdoc";
+    = R"pbdoc(Create a synthesizer from a string path to an SF2/SF3 soundfont.)pbdoc";
 constexpr const char* kSynthInitPathDoc
-    = R"pbdoc(Create a synthesizer from a pathlib.Path pointing to an SF2/SF3 SoundFont.)pbdoc";
-constexpr const char* kSynthRenderDoc
-    = R"pbdoc(Render a Score into a float32 waveform. When *stereo* is True, two channels are emitted.)pbdoc";
-constexpr const char* kDumpWavDoc
-    = R"pbdoc(Write a NumPy buffer to a WAV file using Prestosynth's writer. Set *use_int16* to quantize to PCM16.)pbdoc";
+    = R"pbdoc(Create a synthesizer from a ``pathlib.Path`` pointing to an SF2/SF3 soundfont.)pbdoc";
+constexpr const char* kSynthRenderDoc = R"pbdoc(
+Render a :class:`symusic.Score` into a float32 waveform.
+
+Parameters
+----------
+score:
+    Tick/quarter/second score to render.
+stereo:
+    When ``True`` two channels are emitted; otherwise mono.
+)pbdoc";
+constexpr const char* kDumpWavDoc = R"pbdoc(
+Write a NumPy buffer to a WAV file using Prestosynth's writer.
+
+Parameters
+----------
+path:
+    Destination path.
+buffer:
+    NumPy ndarray with shape ``(samples,)`` or ``(channels, samples)``.
+sample_rate:
+    Sample rate in Hz.
+use_int16:
+    Set to ``True`` to quantize the float32 buffer to PCM16.
+)pbdoc";
 }   // namespace synth_docstrings
 
 nb::module_& bind_synthesizer(nb::module_& m) {

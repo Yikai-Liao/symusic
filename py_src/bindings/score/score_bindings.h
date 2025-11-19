@@ -22,36 +22,95 @@
 
 #include "../../utils/python_helpers.h"
 #include "../core/binding_common.h"
+#include "../docstring_helpers.h"
 
 namespace symusic {
 
 namespace nb = nanobind;
 
 namespace score_docstrings {
-constexpr const char* kScoreDoc
-    = R"pbdoc(Score represents a collection of tracks, metadata, and events tied to a ticks-per-quarter resolution. Use it to inspect, transform, or serialize musical data within Symusic.)pbdoc";
-constexpr const char* kScoreMidiFileCtorDoc
-    = R"pbdoc(Load a MIDI file from disk into a score. Accepts strings or pathlib.Path objects.)pbdoc";
-constexpr const char* kScoreFromFileDoc
-    = R"pbdoc(Read a score from disk by auto-detecting a MIDI or ABC file, or override detection via the *format* argument.)pbdoc";
-constexpr const char* kScoreFromMidiDoc
-    = R"pbdoc(Parse raw MIDI bytes into a score. Enable *sanitize_data* to reject malformed payloads.)pbdoc";
-constexpr const char* kScoreFromAbcDoc
-    = R"pbdoc(Parse an ABC notation string into a score. Requires the SYMUSIC_ABC2MIDI tool in the environment.)pbdoc";
+constexpr std::string_view kScoreDocTemplate = R"pbdoc(
+{signature}
+
+Container for a full MIDI score consisting of named tracks, tempo/key/time metadata, and helper
+methods for serialization and transformations. This variant {timeline_sentence}
+
+Parameters:
+- **tpq** (*int*): {tpq_desc}
+
+Time semantics
+--------------
+- {measurement}
+- Optimized for {best_for}.
+
+Notes:
+- Score objects expose Pythonic semantics such as slicing, repr/eq, and pickling.
+- ``tpq`` travels with the tempo map so conversions remain lossless.
+
+Examples:
+```python
+{example}
+```
+)pbdoc";
+
+template<TType T>
+const char* doc() {
+    constexpr auto flavor = docstring_helpers::time_flavor<T>();
+    static const std::string rendered = fmt::format(
+        fmt::runtime(kScoreDocTemplate),
+        fmt::arg("signature", fmt::format("Score{}(tpq: int = 480)", flavor.suffix)),
+        fmt::arg("timeline_sentence", flavor.timeline_sentence),
+        fmt::arg("tpq_desc", flavor.tpq_parameter),
+        fmt::arg("measurement", flavor.measurement_sentence),
+        fmt::arg("best_for", flavor.best_for),
+        fmt::arg(
+            "example",
+            fmt::format(
+                ">>> from symusic import Score{0}\n>>> score = Score{0}(960)\n>>> score.dump_midi(\"example.mid\")",
+                flavor.suffix
+            )
+        )
+    );
+    return rendered.c_str();
+}
+
+constexpr const char* kScoreMidiFileCtorDoc = R"pbdoc(
+Load a MIDI file from disk into a score. Accepts strings or ``pathlib.Path`` objects pointing to a
+``.mid``/``.midi`` file.
+)pbdoc";
+constexpr const char* kScoreFromFileDoc = R"pbdoc(
+Read a score from disk by auto-detecting a MIDI or ABC file. Use ``format`` (``"midi"`` or
+``"abc"``) when the extension is ambiguous.
+)pbdoc";
+constexpr const char* kScoreFromMidiDoc = R"pbdoc(
+Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controller/pitch values are
+clamped into the MIDI-safe range.
+)pbdoc";
+constexpr const char* kScoreFromAbcDoc = R"pbdoc(
+Parse an ABC notation string into a score. Requires the ``SYMUSIC_ABC2MIDI`` environment variable
+to point to the abc2midi executable.
+)pbdoc";
 constexpr const char* kScoreDumpMidiDoc
     = R"pbdoc(Write the score to a MIDI file using the current ticks-per-quarter resolution.)pbdoc";
 constexpr const char* kScoreDumpsMidiDoc
     = R"pbdoc(Serialize the score into MIDI bytes for in-memory workflows.)pbdoc";
-constexpr const char* kScoreDumpAbcDoc
-    = R"pbdoc(Dump the score to an ABC file through midi2abc. The SYMUSIC_MIDI2ABC backend must be configured.)pbdoc";
+constexpr const char* kScoreDumpAbcDoc = R"pbdoc(
+Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up automatically.
+)pbdoc";
 constexpr const char* kScoreDumpsAbcDoc
-    = R"pbdoc(Return the score as an ABC notation string via temporary conversion through midi2abc.)pbdoc";
-constexpr const char* kScoreToDoc
-    = R"pbdoc(Convert the score to another time unit (Tick, Quarter, Second). *min_dur* snaps durations when changing resolution.)pbdoc";
-constexpr const char* kScoreResampleDoc
-    = R"pbdoc(Resample the score to a new ticks-per-quarter resolution. Use *min_dur* to control rounding when reducing resolution.)pbdoc";
-constexpr const char* kScorePianorollDoc
-    = R"pbdoc(Export a tick-based score as a pianoroll NumPy tensor. Modes control aggregation while *pitch_range* and *encode_velocity* shape the layout.)pbdoc";
+    = R"pbdoc(Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.)pbdoc";
+constexpr const char* kScoreToDoc = R"pbdoc(
+Convert the score to another time unit (Tick, Quarter, Second). ``ttype`` may be a class object or
+``"tick"/"quarter"/"second"``. ``min_dur`` snaps durations when downsampling.
+)pbdoc";
+constexpr const char* kScoreResampleDoc = R"pbdoc(
+Resample the score to a new ticks-per-quarter resolution. ``min_dur`` controls rounding behaviour
+when reducing resolution.
+)pbdoc";
+constexpr const char* kScorePianorollDoc = R"pbdoc(
+Export a tick-based score as a pianoroll NumPy tensor. ``mode`` controls aggregation, ``pitch_range``
+bounds the vertical axis, and ``encode_velocity`` switches from binary to velocity encoding.
+)pbdoc";
 
 constexpr const char* kCopyDoc = R"pbdoc(Return a shallow or deep copy depending on *deep*.)pbdoc";
 constexpr const char* kCopyCtorDoc
@@ -264,7 +323,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), score_docstrings::kScoreDoc)
+    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), score_docstrings::doc<T>())
         .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"), "Create an empty score with the provided ticks-per-quarter resolution.")
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::make_shared<Score<T>>(other->deepcopy()));

@@ -33,9 +33,3 @@ the high-level `symusic` namespace.
 See {doc}`/concepts/generics` for a guided overview of how the factories relate to their
 templated `symusic.core` counterparts, and use {doc}`/api/core/index` to explore the raw
 Tick-based classes that power the binding.
-
-```{toctree}
-:hidden:
-
-core/index
-```
