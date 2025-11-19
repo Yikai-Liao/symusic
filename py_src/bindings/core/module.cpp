@@ -17,12 +17,12 @@
 #include <fmt/format.h>
 
 #include "MetaMacro.h"
-#include "../utils/python_helpers.h"
+#include "../../utils/python_helpers.h"
 #include "binding_common.h"
-#include "event_bindings.h"
-#include "score_bindings.h"
-#include "track_bindings.h"
-#include "synthesizer_bindings.h"
+#include "../events/event_bindings.h"
+#include "../score/score_bindings.h"
+#include "../track/track_bindings.h"
+#include "../synth/synthesizer_bindings.h"
 
 #pragma warning(disable : 4996)
 
@@ -31,6 +31,15 @@ namespace nb = nanobind;
 namespace symusic {
 
 using namespace pyutils;
+
+namespace time_unit_docstrings {
+constexpr const char* kTickDoc
+    = R"pbdoc(Discrete tick-based time unit that mirrors the raw MIDI resolution.)pbdoc";
+constexpr const char* kQuarterDoc
+    = R"pbdoc(Musical quarter-note time unit derived from the score's ticks-per-quarter setting.)pbdoc";
+constexpr const char* kSecondDoc
+    = R"pbdoc(Real-time second based time unit for wall-clock aligned workflows.)pbdoc";
+}   // namespace time_unit_docstrings
 
 namespace typing_detail {
 struct ScoreTypingPlaceholder {};
@@ -108,7 +117,7 @@ NB_MODULE(core, m) {
     define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
     define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
-    auto tick = nb::class_<Tick>(m, "Tick")
+    auto tick = nb::class_<Tick>(m, "Tick", time_unit_docstrings::kTickDoc)
                     .def(nb::init<>())
                     .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
                     .def("is_time_unit", [](const Tick&) { return true; })
@@ -116,7 +125,7 @@ NB_MODULE(core, m) {
                     .def("__setstate__", [](Tick& self, const nb::bytes&) { new (&self) Tick(); });
 
     auto quarter
-        = nb::class_<Quarter>(m, "Quarter")
+        = nb::class_<Quarter>(m, "Quarter", time_unit_docstrings::kQuarterDoc)
               .def(nb::init<>())
               .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
               .def("is_time_unit", [](const Quarter&) { return true; })
@@ -124,7 +133,7 @@ NB_MODULE(core, m) {
               .def("__setstate__", [](Quarter& self, const nb::bytes&) { new (&self) Quarter(); });
 
     auto second
-        = nb::class_<Second>(m, "Second")
+        = nb::class_<Second>(m, "Second", time_unit_docstrings::kSecondDoc)
               .def(nb::init<>())
               .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
               .def("is_time_unit", [](const Second&) { return true; })

@@ -1,6 +1,7 @@
 # Task completion checklist
-- Ensure new/modified code builds for both core C++ and Python bindings when relevant (via `cmake --build` or `pip install -e .`).
-- Run `pytest` for Python-facing changes; enable `ctest` when touching low-level C++/IO modules.
-- Execute `pre-commit run --all-files` (Ruff, clang-format, etc.) or the relevant subset before handing off patches.
-- Update docs (`docs`/`docs_rtd`) or README when behavior or configuration changes.
-- Verify packaging metadata if interface changes impact Python API (`python/symusic/__init__.py`).
+- Ensure new or modified code builds for both the C++ core and Python bindings (`cmake --build build` or `pip install -e .`).
+- Run the Python test suite (`pytest tests/`) and the C++ tests (`ctest --test-dir build`) after touching their respective layers.
+- Regenerate nanobind stubs (`./generate_stub.sh`) and confirm `.pyi`/bindings remain lint-clean when API/types change.
+- Execute `pre-commit run --all-files` (or the relevant hooks) to keep Ruff/clang-format consistent before sharing a patch.
+- Update documentation (`docs`, `docs_rtd`, README) when behavior or configuration changes; rebuild Sphinx with `sphinx-build -b html docs_rtd docs_rtd/_build/html` (and use `mdbook build docs` only when touching the legacy book).
+- Double-check packaging metadata (`py_src`, `python/symusic/__init__.py`, `pyproject.toml`) whenever interfaces or build scripts are touched.

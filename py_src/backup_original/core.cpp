@@ -10,57 +10,97 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/eigen/dense.h>
 #include <nanobind/stl/filesystem.h>
-#include <nanobind/typing.h>
 #include "prestosynth/wav.h"
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
 
+namespace docstring {
+constexpr const char* kSynthDoc = R"pbdoc(
+High-level Prestosynth wrapper that renders Scores with SF2/SF3 SoundFonts.
+
+The synthesizer keeps the SoundFont in memory, so repeated calls to render()
+avoid disk I/O. Construct one instance per SoundFont and reuse it across
+multiple scores for best performance.
+)pbdoc";
+
+constexpr const char* kSynthInitPathDoc = R"pbdoc(
+Create a synthesizer from a filesystem path to a SF2/SF3 SoundFont.
+)pbdoc";
+
+constexpr const char* kSynthInitStringDoc = R"pbdoc(
+Create a synthesizer from a string path to a SF2/SF3 SoundFont.
+)pbdoc";
+
+constexpr const char* kSynthRenderDoc = R"pbdoc(
+Render a Score into a float32 waveform. When *stereo* is True a two-channel
+buffer is returned; otherwise a mono waveform is produced.
+)pbdoc";
+
+constexpr const char* kDumpWavDoc = R"pbdoc(
+Write a NumPy buffer to a WAV file using Prestosynth's writer.
+)pbdoc";
+
+constexpr const char* kScoreDoc             = R"pbdoc(
+Score represents a collection of tracks, metadata, and events tied to a ticks-per-quarter resolution.
+Use it to inspect, transform, or serialize musical data within the Symusic ecosystem.
+)pbdoc";
+constexpr const char* kScoreMidiFileCtorDoc = R"pbdoc(
+Load a MIDI file from disk into a Score. The path accepts strings or pathlib.Path objects.
+)pbdoc";
+constexpr const char* kScoreFromFileDoc     = R"pbdoc(
+Read a Score from disk by auto-detecting a MIDI or ABC file, or override the detection via the format argument.
+)pbdoc";
+constexpr const char* kScoreFromMidiDoc     = R"pbdoc(
+Parse raw MIDI bytes into a Score. Enable sanitize_data to reject malformed payloads.
+)pbdoc";
+constexpr const char* kScoreFromAbcDoc      = R"pbdoc(
+Parse an ABC notation string into a Score. Requires the SYMUSIC_ABC2MIDI tool in the environment.
+)pbdoc";
+constexpr const char* kScoreDumpMidiDoc     = R"pbdoc(
+Write the Score to a MIDI file using the current ticks-per-quarter resolution.
+)pbdoc";
+constexpr const char* kScoreDumpsMidiDoc    = R"pbdoc(
+Serialize the Score into MIDI bytes for memory-based workflows.
+)pbdoc";
+constexpr const char* kScoreDumpAbcDoc      = R"pbdoc(
+Dump the Score to an ABC file through midi2abc. The SYMUSIC_MIDI2ABC backend must be configured.
+)pbdoc";
+constexpr const char* kScoreDumpsAbcDoc     = R"pbdoc(
+Return the Score as an ABC notation string via temporary conversion through midi2abc.
+)pbdoc";
+constexpr const char* kScoreToDoc           = R"pbdoc(
+Convert the Score to another time unit (Tick, Quarter, or Second). The optional min_dur argument snaps
+durations when changing resolution.
+)pbdoc";
+constexpr const char* kScoreResampleDoc     = R"pbdoc(
+Resample the Score to a new ticks-per-quarter resolution. Use min_dur to control rounding when reducing resolution.
+)pbdoc";
+constexpr const char* kScorePianorollDoc    = R"pbdoc(
+Export a Tick score as a NumPy pianoroll array. Modes control aggregation while pitch_range and encode_velocity adjust the layout.
+)pbdoc";
+}   // namespace docstring
+
 #pragma warning(disable : 4996)
 
 namespace nb = nanobind;
 namespace symusic {
-namespace typing_detail {
-struct ScoreTypingPlaceholder { };
-struct PyVecTypingPlaceholder { };
-struct TrackTypingPlaceholder { };
-struct NoteTypingPlaceholder { };
-struct KeySignatureTypingPlaceholder { };
-struct TimeSignatureTypingPlaceholder { };
-struct TempoTypingPlaceholder { };
-struct ControlChangeTypingPlaceholder { };
-struct PedalTypingPlaceholder { };
-struct PitchBendTypingPlaceholder { };
-struct TextMetaTypingPlaceholder { };
-}  // namespace typing_detail
 
-template <typename Placeholder>
-void define_time_generic(nb::module_& m, const char* name) {
-    const auto sig = fmt::format("class {}(typing.Generic[TimeUnitT])", name);
-    const auto msg = fmt::format(
-        "symusic.core.{0} is a typing helper. Instantiate {0}Tick, {0}Quarter, or {0}Second "
-        "instead.",
-        name
-    );
-
-    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()))
-        .def("__init__", [msg](Placeholder*) {
-            throw nb::type_error(msg.c_str());
-        });
-}
 nb::module_& bind_synthesizer(nb::module_& m) {
-    nb::class_<Synthesizer>(m, "Synthesizer")
+    nb::class_<Synthesizer>(m, "Synthesizer", docstring::kSynthDoc)
         .def(
             nb::init<const std::string&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality")
+            nb::arg("quality"),
+            docstring::kSynthInitStringDoc
         )
         .def(
             nb::init<const std::filesystem::path&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality")
+            nb::arg("quality"),
+            docstring::kSynthInitPathDoc
         )
         .def(
             "render",
@@ -68,7 +108,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         )
         .def(
             "render",
@@ -76,7 +117,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         )
         .def(
             "render",
@@ -84,7 +126,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                 return self.render(*score, stereo);
             },
             nb::arg("score"),
-            nb::arg("stereo") = true
+            nb::arg("stereo") = true,
+            docstring::kSynthRenderDoc
         );
 
     m.def(
@@ -100,7 +143,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         nb::arg("path"),
         nb::arg("data"),
         nb::arg("sample_rate"),
-        nb::arg("use_int16") = true
+        nb::arg("use_int16") = true,
+        docstring::kDumpWavDoc
     );
     return m;
 }
@@ -142,10 +186,8 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     auto deepcopy_func
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
-    const auto track_sig = fmt::format("class {}(Track[{}])", name, name_);
-
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()))
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), docstring::kTrackDoc)
         .def("__init__", &pyinit<Track<T>>)
         .def("__init__", &pyinit<Track<T>, std::string, u8, const bool>,
             nb::arg("name"), nb::arg("program")=0, nb::arg("is_drum")=false)
@@ -543,9 +585,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    const auto score_sig = fmt::format("class {}(Score[{}])", name, name_);
-
-    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()))
+    auto score = nb::class_<self_t>(m, name.c_str(), docstring::kScoreDoc)
         .def("__init__", &pyinit<Score<T>, i32>, nb::arg("tpq"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::move(std::make_shared<Score<T>>(std::move(other->deepcopy()))));
@@ -578,10 +618,10 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         // Remove the string-based constructor to force filesystem::path usage
         .def("__init__", [](self_t* self, const std::filesystem::path& path) {
             new (self) self_t(std::move(midi2score<T>(path)));
-        }, "Load from midi file", nb::arg("path"))
+        }, nb::arg("path"), docstring::kScoreMidiFileCtorDoc)
         // Keep only the binding that points to the fs::path version of from_file
         // nanobind will automatically convert Python str/Path to fs::path
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none())
+        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), docstring::kScoreFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -589,19 +629,19 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         },
             nb::arg("data"),
             nb::arg("sanitize_data") = false,
-            "Load from midi bytes with optional payload sanitization"
+            docstring::kScoreFromMidiDoc
         )
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
+        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), docstring::kScoreFromAbcDoc)
         // Keep only the filesystem::path version for dump_midi
-        .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")
+        .def("dump_midi", &dump_midi<T>, nb::arg("path"), docstring::kScoreDumpMidiDoc)
         .def("dumps_midi", [](const self_t& self) {
             auto data = self->template dumps<DataFormat::MIDI>();
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, "Dump to midi in memory(bytes)")
+        }, docstring::kScoreDumpsMidiDoc)
         // Keep only the filesystem::path version for dump_abc
         // Note: dump_abc_path internally calls dump_abc_fs (renamed from dump_abc_str)
-        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, "Dump to abc file")
-        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, "Dump to abc string")
+        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, docstring::kScoreDumpAbcDoc)
+        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, docstring::kScoreDumpsAbcDoc)
         // attributes
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter))
         .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter))
@@ -614,11 +654,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def_prop_ro("ttype", [](const self_t&) { return T(); })
         .def("__use_count", [](const self_t& self) { return self.use_count(); })
         // member functions
-        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), "Convert to another time unit")
+        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), docstring::kScoreToDoc)
         .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
             const unit min_dur_ = min_dur.has_value() ? *min_dur : 0;
             return std::make_shared<Score<Tick>>(std::move(resample(*self, tpq, min_dur_)));
-        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, "Resample to another ticks per quarter")
+        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, docstring::kScoreResampleDoc)
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             if (inplace) {
                 self->sort_inplace(reverse);
@@ -693,7 +733,8 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             },
             nb::arg("modes")           = vec<std::string>{"frame", "onset"},
             nb::arg("pitch_range")     = std::pair<i64, i64>(0, 128),
-            nb::arg("encode_velocity") = false
+            nb::arg("encode_velocity") = false,
+            docstring::kScorePianorollDoc
         );
     }
     return score;
@@ -715,43 +756,6 @@ NB_MODULE(core, m) {
 #endif
 
     m.attr("_MIDI2ABC") = std::string("");
-
-    auto time_unit_t = nb::type_var("TimeUnitT");
-    auto event_t     = nb::type_var("EventT");
-    m.attr("TimeUnitT") = time_unit_t;
-    m.attr("EventT")    = event_t;
-
-    nb::class_<typing_detail::ScoreTypingPlaceholder>(
-        m,
-        "Score",
-        nb::is_generic(),
-        nb::sig("class Score(typing.Generic[TimeUnitT])"))
-        .def("__init__", [](typing_detail::ScoreTypingPlaceholder*) {
-            throw nb::type_error(
-                "symusic.core.Score is a typing helper. Instantiate ScoreTick, "
-                "ScoreQuarter, or ScoreSecond instead.");
-        });
-
-    nb::class_<typing_detail::PyVecTypingPlaceholder>(
-        m,
-        "PyVec",
-        nb::is_generic(),
-        nb::sig("class PyVec(typing.Generic[EventT])"))
-        .def("__init__", [](typing_detail::PyVecTypingPlaceholder*) {
-            throw nb::type_error(
-                "symusic.core.PyVec is a typing helper. Instantiate concrete "
-                "event list types (e.g., NoteTickList).");
-        });
-
-    define_time_generic<typing_detail::TrackTypingPlaceholder>(m, "Track");
-    define_time_generic<typing_detail::NoteTypingPlaceholder>(m, "Note");
-    define_time_generic<typing_detail::KeySignatureTypingPlaceholder>(m, "KeySignature");
-    define_time_generic<typing_detail::TimeSignatureTypingPlaceholder>(m, "TimeSignature");
-    define_time_generic<typing_detail::TempoTypingPlaceholder>(m, "Tempo");
-    define_time_generic<typing_detail::ControlChangeTypingPlaceholder>(m, "ControlChange");
-    define_time_generic<typing_detail::PedalTypingPlaceholder>(m, "Pedal");
-    define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
-    define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
     // clang-format off
     auto tick = nb::class_<Tick>(m, "Tick")

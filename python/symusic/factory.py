@@ -59,6 +59,13 @@ The __isinstancecheck__ method is overrided to make isinstance() work.
 
 
 class TimeUnitFactory:
+    """User-facing dispatcher for the nanobind `symusic.core` time unit singletons.
+
+    The factory caches Tick/Quarter/Second instances, exposes them via properties,
+    and normalizes both string inputs and already-instantiated units through the
+    `__call__` helper so downstream APIs can accept flexible values without
+    duplicating validation logic.
+    """
     def __init__(self) -> None:
         self._tick = core.Tick()
         self._quarter = core.Quarter()
@@ -111,6 +118,12 @@ S = TypeVar("S")
 
 @dataclass(frozen=True)
 class CoreClasses(Generic[T, Q, S]):
+    """Holds the Tick/Quarter/Second variants for a given low-level type.
+
+    Each factory keeps one of these lightweight records around so it can branch on
+    the requested time unit exactly once and reuse the same logic for constructors,
+    numpy helpers, and isinstance checks.
+    """
     tick: T
     quarter: Q
     second: S
@@ -145,6 +158,12 @@ class CoreClasses(Generic[T, Q, S]):
 
 @dataclass(frozen=True)
 class NoteFactory:
+    """Builds typed note events and typed note vectors backed by `symusic.core`.
+
+    Calling the factory automatically dispatches to `NoteTick`, `NoteQuarter`, or
+    `NoteSecond` depending on the requested time unit, which mirrors the templated
+    C++ API while remaining ergonomic for Python callers.
+    """
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
     __core_lists = CoreClasses(
         core.NoteTickList,
@@ -178,6 +197,12 @@ class NoteFactory:
         velocity: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralNoteList:
+        """Convert structure-of-array NumPy buffers into typed note lists.
+
+        The helper simply forwards to the underlying `symusic.core.Note*List`
+        implementation so the returned container stays synchronized with the
+        nanobind shared-pointer semantics.
+        """
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             duration,
@@ -188,6 +213,7 @@ class NoteFactory:
 
 @dataclass(frozen=True)
 class KeySignatureFactory:
+    """Factory responsible for key signature events and their typed vectors."""
     __core_classes = CoreClasses(
         core.KeySignatureTick,
         core.KeySignatureQuarter,
@@ -218,11 +244,13 @@ class KeySignatureFactory:
         tonality: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralKeySignatureList:
+        """Convert NumPy buffers into a typed key signature list for the core API."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, key, tonality)
 
 
 @dataclass(frozen=True)
 class TimeSignatureFactory:
+    """Factory wrapper for the meter-change events exposed by `symusic.core`."""
     __core_classes = CoreClasses(
         core.TimeSignatureTick,
         core.TimeSignatureQuarter,
@@ -253,6 +281,7 @@ class TimeSignatureFactory:
         denominator: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTimeSignatureList:
+        """Create a typed list from aligned NumPy arrays describing meter changes."""
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             numerator,
@@ -262,6 +291,7 @@ class TimeSignatureFactory:
 
 @dataclass(frozen=True)
 class ControlChangeFactory:
+    """Produces controller events mapped to the requested time domain."""
     __core_classes = CoreClasses(
         core.ControlChangeTick,
         core.ControlChangeQuarter,
@@ -292,11 +322,13 @@ class ControlChangeFactory:
         value: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralControlChangeList:
+        """Build a control-change list from structure-of-array NumPy buffers."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, number, value)
 
 
 @dataclass(frozen=True)
 class TempoFactory:
+    """Creates tempo-change events, handling either QPM or raw MSPQ inputs."""
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
     __core_lists = CoreClasses(
         core.TempoTickList,
@@ -328,11 +360,13 @@ class TempoFactory:
         mspq: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTempoList:
+        """Build a tempo-change list from aligned NumPy arrays."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, mspq)
 
 
 @dataclass(frozen=True)
 class PedalFactory:
+    """Creates sustain/soft-pedal envelopes tied to the requested time resolution."""
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
     __core_lists = CoreClasses(
         core.PedalTickList,
@@ -357,11 +391,13 @@ class PedalFactory:
         duration: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPedalList:
+        """Translate time/duration arrays into a pedal event list."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, duration)
 
 
 @dataclass(frozen=True)
 class PitchBendFactory:
+    """Constructs wheel-based pitch bend events."""
     __core_classes = CoreClasses(
         core.PitchBendTick,
         core.PitchBendQuarter,
@@ -390,11 +426,13 @@ class PitchBendFactory:
         value: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPitchBendList:
+        """Convert NumPy arrays to the appropriate pitch-bend list type."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, value)
 
 
 @dataclass(frozen=True)
 class TextMetaFactory:
+    """Factory for textual metadata events such as lyrics or markers."""
     __core_classes = CoreClasses(
         core.TextMetaTick,
         core.TextMetaQuarter,
@@ -423,12 +461,14 @@ class TextMetaFactory:
         text: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTextMetaList:
+        """Text metadata cannot be materialized from NumPy buffers (strings vary in length)."""
         raise NotImplementedError
         # return self.__core_classes.dispatch(ttype).from_numpy(time, text)
 
 
 @dataclass(frozen=True)
 class TrackFactory:
+    """Creates `symusic.core.Track*` objects pre-populated with optional event lists."""
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
     def __call__(
@@ -464,12 +504,18 @@ class TrackFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
     def empty(self, ttype: smt.GeneralTimeUnit = "tick") -> smt.Track:
-        # create an empty track
+        """Return an empty track specialized for the requested time unit."""
         return self.__core_classes.dispatch(ttype)()
 
 
 @dataclass(frozen=True)
 class ScoreFactory:
+    """High-level wrapper around the templated `symusic.core.Score*` classes.
+
+    It accepts MIDI/ABC paths, byte payloads, or other score instances and
+    forwards everything to the nanobind implementation while preserving the per
+    time-unit specializations.
+    """
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
 
     def __call__(
@@ -546,12 +592,14 @@ class ScoreFactory:
 
 
 class SynthesizerFactory:
+    """Convenience layer over `symusic.core.Synthesizer` with sensible defaults."""
     def __call__(
         self,
         sf_path: str | Path | None = None,
         sample_rate: int = 44100,
         quality: int = 0,
     ):
+        """Create a `symusic.core.Synthesizer`, optionally downloading a built-in SF3."""
         if sf_path is None:
             sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
         sf_path = str(sf_path)

@@ -1,0 +1,5 @@
+site: docs_rtd/_build/html
+output_subdir: _pagefind
+root_selector: html
+exclude_selectors:
+  - ".headerlink"

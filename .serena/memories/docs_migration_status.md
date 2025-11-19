@@ -1,0 +1,4 @@
+# Documentation Migration Status
+- Sphinx-based docs live under `docs_rtd/` (Furo theme, MyST/myst-nb). `index.md` organizes Start Here, Tutorials, Examples, Core Concepts, API Reference, Legacy.
+- Introduction/Quickstart rewritten; Core Concepts (Score/Track/Events/Time Units/Synthesis) migrated from mdBook; `project_notes.md` holds background, local build steps, and contribution guidelines (docstrings, myst-nb, RTD).
+- `docs_rtd/TODO.md` tracks remaining tasks: myst-nb integration for the refreshed `tutorial.ipynb`, Doxygen+Breathe for C++ internals, and replacing the legacy GitHub Pages workflow with a Read the Docs badge/link once the RTD site is live. Tutorials and examples have dedicated sections; FAQ lives in Sphinx and historical mdBook mapping now sits inside `project_notes.md`.
