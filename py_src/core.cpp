@@ -3,6 +3,9 @@
 //
 #include <string>
 #include <random>
+#include <algorithm>
+#include <cstdlib>
+#include <cctype>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
@@ -14,6 +17,7 @@
 #include "symusic.h"
 #include "py_utils.h"
 #include "MetaMacro.h"
+#include <fmt/core.h>
 
 #pragma warning(disable : 4996)
 
@@ -74,6 +78,72 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         nb::arg("use_int16") = true
     );
     return m;
+}
+
+enum class AbcBackend { Miniabc, Abcmidi };
+
+inline AbcBackend parse_backend_argument(const std::optional<std::string>& backend) {
+    if (!backend || backend->empty()) { return AbcBackend::Miniabc; }
+    std::string lowered = *backend;
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (lowered == "miniabc") return AbcBackend::Miniabc;
+    if (lowered == "abcmidi") return AbcBackend::Abcmidi;
+    throw std::invalid_argument("Unknown ABC backend: " + *backend);
+}
+
+inline std::filesystem::path require_tool_path(const char* env_name, const char* tool_name) {
+    const char* raw = std::getenv(env_name);
+    if (!raw) {
+        throw std::runtime_error(
+            std::string("Environment variable ") + env_name + " (path to " + tool_name + ") is not set"
+        );
+    }
+    std::filesystem::path tool{raw};
+    if (tool.empty()) {
+        throw std::runtime_error(std::string("Environment variable ") + env_name + " is empty");
+    }
+    return tool;
+}
+
+inline std::filesystem::path make_temp_path(const std::string& extension) {
+    const auto base = "symusic_temp_" + std::to_string(std::rand());
+    return std::filesystem::temp_directory_path() / (base + extension);
+}
+
+inline vec<u8> convert_abc_to_midi_external(const std::filesystem::path& abc_path) {
+    const auto abc2midi = require_tool_path("SYMUSIC_ABC2MIDI", "abc2midi");
+    const auto midi_path = make_temp_path(".mid");
+    const auto command = fmt::format(
+        R"("{}" "{}" -o "{}" -silent)", abc2midi.string(), abc_path.string(), midi_path.string()
+    );
+    const int ret = std::system(command.c_str());
+    if (ret != 0 || !std::filesystem::exists(midi_path)) {
+        if (std::filesystem::exists(midi_path)) { std::filesystem::remove(midi_path); }
+        throw std::runtime_error(
+            fmt::format("abc2midi failed (code {}), command: {}", ret, command)
+        );
+    }
+    auto midi_data = read_file(midi_path);
+    std::filesystem::remove(midi_path);
+    return midi_data;
+}
+
+inline void convert_midi_to_abc_external(
+    const std::filesystem::path& midi_path, const std::filesystem::path& abc_path
+) {
+    const auto midi2abc = require_tool_path("SYMUSIC_MIDI2ABC", "midi2abc");
+    const auto command = fmt::format(
+        R"("{}" "{}" -o "{}")", midi2abc.string(), midi_path.string(), abc_path.string()
+    );
+    const int ret = std::system(command.c_str());
+    if (ret != 0 || !std::filesystem::exists(abc_path)) {
+        if (std::filesystem::exists(abc_path)) { std::filesystem::remove(abc_path); }
+        throw std::runtime_error(
+            fmt::format("midi2abc failed (code {}), command: {}", ret, command)
+        );
+    }
 }
 
 template<typename T>
@@ -340,65 +410,62 @@ void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) 
 
 // Modified to accept std::filesystem::path and use fs temp path
 template<TType T>
-void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
-    const auto midi2abc_env = getenv("SYMUSIC_MIDI2ABC");
-    if (!midi2abc_env) { throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set"); }
-    const std::filesystem::path midi2abc = midi2abc_env;
-    if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
+void dump_abc_fs(
+    const shared<Score<T>>& self,
+    const std::filesystem::path& path,
+    const bool warn,
+    const std::optional<std::string>& backend
+) {
+    (void)warn;
+    const auto mode = parse_backend_argument(backend);
+    if (mode == AbcBackend::Miniabc) {
+        const auto data = self->template dumps<DataFormat::ABC>();
+        write_file(path, data);
+        return;
+    }
 
-    // Create a temporary MIDI file path using std::filesystem
-    std::filesystem::path temp_midi_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
-
+    const auto temp_midi_path = make_temp_path(".mid");
     try {
-        dump_midi(self, temp_midi_path); // Call updated dump_midi
-
-        // Execute midi2abc command. Using path.string() for command line arguments.
-        // WARNING: This might fail if 'path' contains non-ANSI characters on Windows due to std::system limitations.
-        std::string cmd = fmt::format(R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string());
-        int ret = std::system(cmd.c_str());
-
-        // Clean up temporary MIDI file
-        if (std::filesystem::exists(temp_midi_path)) {
-             std::filesystem::remove(temp_midi_path);
-        }
-
-        // Check if output ABC file was created and command succeeded (ret == 0 is typical success)
-        if (!std::filesystem::exists(path) || ret != 0) {
-             throw std::runtime_error(fmt::format("midi2abc execution failed (return code: {}). Command: {}. Output file {} not created.", ret, cmd, path.string()));
-        }
-     } catch (...) {
-         // Ensure temp file is removed even if exceptions occur
-         if (std::filesystem::exists(temp_midi_path)) {
-             std::filesystem::remove(temp_midi_path);
-         }
-         throw; // Re-throw the exception
-     }
+        dump_midi(self, temp_midi_path);
+        convert_midi_to_abc_external(temp_midi_path, path);
+    } catch (...) {
+        if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
+        throw;
+    }
+    if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
 }
 
 // dump_abc_path now directly calls the updated dump_abc_fs
 template<TType T>
 void dump_abc_path(
-    const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn
+    const shared<Score<T>>& self,
+    const std::filesystem::path& path,
+    const bool warn,
+    const std::optional<std::string>& backend
 ) {
-    dump_abc_fs<T>(self, path, warn);
+    dump_abc_fs<T>(self, path, warn, backend);
 }
 
 // Modified to use fs temp path and call updated functions
 template<TType T>
-std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
-    std::filesystem::path temp_abc_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
+std::string dumps_abc(
+    const shared<Score<T>>& self, const bool warn, const std::optional<std::string>& backend
+) {
+    const auto mode = parse_backend_argument(backend);
+    if (mode == AbcBackend::Miniabc) {
+        (void)warn;
+        const auto data = self->template dumps<DataFormat::ABC>();
+        return std::string(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+
+    const auto temp_abc_path = make_temp_path(".abc");
     try {
-        dump_abc_fs(self, temp_abc_path, warn); // Call updated dump_abc_fs
-        auto data = read_file(temp_abc_path); // Call read_file(fs::path)
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
-        // Assuming read_file returns vec<u8>, convert to std::string
+        dump_abc_fs(self, temp_abc_path, warn, backend);
+        auto data = read_file(temp_abc_path);
+        std::filesystem::remove(temp_abc_path);
         return std::string(reinterpret_cast<const char*>(data.data()), data.size());
     } catch (...) {
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
         throw;
     }
 }
@@ -414,52 +481,50 @@ inline std::string get_format(const std::string& path) {
     }
 }
 template<TType T>
-shared<Score<T>> from_abc_file(const std::filesystem::path& path_p) {
-    std::string path = path_p.string();
-    const auto abc2midi = std::string(getenv("SYMUSIC_ABC2MIDI"));
-    if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
-    // convert the abc file to midi file
-    const std::string midi_path = std::tmpnam(nullptr);
-    const auto        cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path, midi_path);
-    const auto        ret = std::system(cmd.c_str());
-    if (ret != 0) { throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd)); }
-    // read the midi file
-    const auto data = read_file(midi_path);
-    // remove the tmp midi file
-    std::filesystem::remove(midi_path);
-    // parse the midi file
-    auto s = Score<T>::template parse<DataFormat::MIDI>(data);
+shared<Score<T>> from_abc_file(
+    const std::filesystem::path& path_p, const std::optional<std::string>& backend
+) {
+    const auto mode = parse_backend_argument(backend);
+    if (mode == AbcBackend::Miniabc) {
+        auto data = read_file(path_p);
+        auto s    = Score<T>::template parse<DataFormat::ABC>(data);
+        return std::make_shared<Score<T>>(std::move(s));
+    }
+
+    auto midi_data = convert_abc_to_midi_external(path_p);
+    auto s         = Score<T>::template parse<DataFormat::MIDI>(midi_data);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
 // Modified to use fs temp path and call updated functions
 template<TType T>
-shared<Score<T>> from_abc(const std::string& abc) {
-    // Create a temporary ABC file path using std::filesystem
-    std::filesystem::path temp_abc_path = std::filesystem::temp_directory_path() / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
-    try {
-        // Write the ABC string to the temporary file
-        write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size())); // Calls write_file(fs::path)
-        // Convert the temporary ABC file to a Score object
-        auto score = from_abc_file<T>(temp_abc_path); // Calls updated from_abc_file
+shared<Score<T>> from_abc(const std::string& abc, const std::optional<std::string>& backend) {
+    const auto data = std::span(reinterpret_cast<const u8*>(abc.data()), abc.size());
+    const auto mode = parse_backend_argument(backend);
+    if (mode == AbcBackend::Miniabc) {
+        auto s = Score<T>::template parse<DataFormat::ABC>(data);
+        return std::make_shared<Score<T>>(std::move(s));
+    }
 
-        // Clean up temporary ABC file
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
-        return score;
+    const auto temp_abc_path = make_temp_path(".abc");
+    try {
+        write_file(temp_abc_path, data);
+        auto result = from_abc_file<T>(temp_abc_path, backend);
+        std::filesystem::remove(temp_abc_path);
+        return result;
     } catch (...) {
-        // Ensure temp file is removed even if exceptions occur
-        if (std::filesystem::exists(temp_abc_path)) {
-            std::filesystem::remove(temp_abc_path);
-        }
-        throw; // Re-throw the exception
+        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
+        throw;
     }
 }
 
 // Modified to accept std::filesystem::path directly
 template<TType T>
-shared<Score<T>> from_file(const std::filesystem::path& path, const std::optional<std::string>& format) {
+shared<Score<T>> from_file(
+    const std::filesystem::path& path,
+    const std::optional<std::string>& format,
+    const std::optional<std::string>& backend
+) {
     // Determine format based on extension or explicit format string
     std::string format_ = format.has_value() ? *format : "";
     if (format_.empty()) {
@@ -480,9 +545,7 @@ shared<Score<T>> from_file(const std::filesystem::path& path, const std::optiona
         // Pass std::filesystem::path directly to midi2score
         return midi2score<T>(path);
     } else if (format_ == "abc") {
-        // from_abc_file currently takes std::string, needs adjustment if we want full fs::path propagation
-        // For now, keep using string conversion for ABC as it involves external commands
-        return from_abc_file<T>(path.string());
+        return from_abc_file<T>(path, backend);
     } else {
         throw std::invalid_argument("Unknown file format");
     }
@@ -536,7 +599,13 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, "Load from midi file", nb::arg("path"))
         // Keep only the binding that points to the fs::path version of from_file
         // nanobind will automatically convert Python str/Path to fs::path
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none())
+        .def_static(
+            "from_file",
+            &from_file<T>,
+            nb::arg("path"),
+            nb::arg("format")  = nb::none(),
+            nb::arg("backend") = nb::none()
+        )
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -546,7 +615,13 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             nb::arg("sanitize_data") = false,
             "Load from midi bytes with optional payload sanitization"
         )
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), "Load from abc string")
+        .def_static(
+            "from_abc",
+            &from_abc<T>,
+            nb::arg("abc"),
+            nb::arg("backend") = nb::none(),
+            "Load from abc string"
+        )
         // Keep only the filesystem::path version for dump_midi
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), "Dump to midi file")
         .def("dumps_midi", [](const self_t& self) {
@@ -555,8 +630,21 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, "Dump to midi in memory(bytes)")
         // Keep only the filesystem::path version for dump_abc
         // Note: dump_abc_path internally calls dump_abc_fs (renamed from dump_abc_str)
-        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, "Dump to abc file")
-        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, "Dump to abc string")
+        .def(
+            "dump_abc",
+            &dump_abc_path<T>,
+            nb::arg("path"),
+            nb::arg("warn")    = false,
+            nb::arg("backend") = nb::none(),
+            "Dump to abc file"
+        )
+        .def(
+            "dumps_abc",
+            &dumps_abc<T>,
+            nb::arg("warn")    = false,
+            nb::arg("backend") = nb::none(),
+            "Dump to abc string"
+        )
         // attributes
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter))
         .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter))
