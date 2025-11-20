@@ -17,7 +17,7 @@ namespace symusic {
 
 namespace synth_docstrings {
 constexpr const char* kSynthDoc = R"pbdoc(
-Synthesizer(sf_path: str | Path, sample_rate: int = 44100, quality: int = 0)
+Synthesizer(sf_path: str | pathlib.Path, sample_rate: int = 44100, quality: int = 0)
 ============================================================================
 
 Prestosynth-powered renderer that turns scores into audio buffers using SF2/SF3 soundfonts. Reuse
@@ -57,14 +57,14 @@ stereo:
     When ``True`` two channels are emitted; otherwise mono.
 )pbdoc";
 constexpr const char* kDumpWavDoc = R"pbdoc(
-Write a NumPy buffer to a WAV file using Prestosynth's writer.
+Write a :class:`numpy.ndarray` buffer to a WAV file using Prestosynth's writer.
 
 Parameters
 ----------
 path:
     Destination path.
 buffer:
-    NumPy ndarray with shape ``(samples,)`` or ``(channels, samples)``.
+    :class:`numpy.ndarray` with shape ``(samples,)`` or ``(channels, samples)``.
 sample_rate:
     Sample rate in Hz.
 use_int16:

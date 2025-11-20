@@ -10,6 +10,7 @@ option(BUILD_SYMUSIC_PY "Build the python binding of symusic" OFF)
 option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
 option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
 option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
+option(SYMUSIC_FAST_BUILD "Use O1 and disable LTO for faster local builds" OFF)
 option(VTUNE "Compile Options for Intel VTune" Off)
 option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
 option(ENABLE_COVERAGE "Enable code coverage" OFF)
@@ -65,6 +66,22 @@ target_link_libraries(symusic minimidi)
 target_link_libraries(symusic prestosynth)
 target_link_libraries(symusic pyvec)
 
+if(SYMUSIC_FAST_BUILD)
+    message(STATUS "SYMUSIC_FAST_BUILD enabled: disabling LTO and using O1 optimizations")
+    set(ENABLE_LTO OFF)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        set(CMAKE_C_FLAGS_RELEASE "-O1 -DNDEBUG")
+        set(CMAKE_CXX_FLAGS_RELEASE "-O1 -DNDEBUG")
+        set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O1 -g -DNDEBUG")
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O1 -g -DNDEBUG")
+    elseif(MSVC)
+        set(CMAKE_C_FLAGS_RELEASE "/O1 /DNDEBUG")
+        set(CMAKE_CXX_FLAGS_RELEASE "/O1 /DNDEBUG")
+        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O1 /Zi /DNDEBUG")
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O1 /Zi /DNDEBUG")
+    endif()
+endif()
+
 if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
@@ -79,9 +96,15 @@ if(BUILD_SYMUSIC_PY)
 
     add_subdirectory(3rdparty/nanobind EXCLUDE_FROM_ALL)
 
+    set(NB_FLAGS NB_STATIC STABLE_ABI PROTECT_STACK NOSTRIP)
+    if(NOT SYMUSIC_FAST_BUILD)
+        list(APPEND NB_FLAGS LTO)
+    else()
+        list(APPEND NB_FLAGS NOMINSIZE)
+    endif()
     nanobind_add_module(
         core
-        NB_STATIC STABLE_ABI LTO PROTECT_STACK NOSTRIP
+        ${NB_FLAGS}
         NB_DOMAIN symusic
         py_src/bindings/core/module.cpp
         py_src/bindings/synth/synthesizer_bindings.cpp

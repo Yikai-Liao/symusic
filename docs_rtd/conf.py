@@ -69,6 +69,10 @@ nb_execution_mode = "off"
 autosummary_generate = True
 autodoc_typehints = "signature"
 autodoc_docstring_signature = True
+autodoc_type_aliases = {
+    "numpy.ndarray[dtype=uint8]": "numpy.ndarray",
+    "ndarray": "numpy.ndarray",
+}
 autosectionlabel_prefix_document = True
 todo_include_todos = True
 
