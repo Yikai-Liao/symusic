@@ -6,8 +6,10 @@ build:
     nodejs: "20"
   jobs:
     pre_build:
+      - pip install --upgrade pip
+      - pip install "cmake>=3.26.1" "ninja>=1.11"
       - pip install -r docs_rtd/requirements.txt
-      - pip install symusic
+      - pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON
     post_build:
       - SITE_DIR="${READTHEDOCS_OUTPUT:-docs_rtd/_build}/html" && npx pagefind --site "$SITE_DIR" --output-subdir _pagefind
 sphinx:
