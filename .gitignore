@@ -16,4 +16,5 @@
 docs/book
 .venv
 docs_rtd/_build
+doc_tmp/_build
 .venv-docs
