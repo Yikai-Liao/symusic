@@ -23,6 +23,31 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
    TimeUnit
 ```
 
+```{eval-rst}
+.. currentmodule:: symusic
+
+.. autosummary::
+   :toctree: generated
+   :caption: Audio Synthesis
+   :nosignatures:
+
+   Synthesizer
+   dump_wav
+```
+
+```{eval-rst}
+.. currentmodule:: symusic
+
+.. autosummary::
+   :toctree: generated
+   :caption: SoundFonts
+   :nosignatures:
+
+   Soundfont
+   BuiltInSF2
+   BuiltInSF3
+```
+
 ```{note}
 Most Python surfaces are thin factories built on top of nanobind classes defined in
 `symusic.core`. The docstrings you see here are injected at bind time so they

@@ -20,6 +20,7 @@ introduction
 quickstart
 faq
 project_notes
+development
 ```
 
 ```{toctree}
