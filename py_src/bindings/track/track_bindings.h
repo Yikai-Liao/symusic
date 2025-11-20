@@ -42,8 +42,8 @@ program:
 is_drum:
     Flag drum/percussion channels. Useful when writing to SMF channel 10.
 
-Notes
------
+Note
+----
 - {measurement}
 - Optimized for {best_for}
 - Durations and controller timestamps share the same {timeline_noun} units

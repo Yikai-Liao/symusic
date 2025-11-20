@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Activate virtual environment if it exists
-if [ -d ".venv-docs" ]; then
-    echo "Activating virtual environment..."
-    source .venv-docs/bin/activate
+# Activate virtual environment (.venv only)
+if [ -d ".venv" ]; then
+    echo "Activating virtual environment at ./.venv ..."
+    source .venv/bin/activate
 fi
 
 # Clean previous build to ensure proper Pagefind integration

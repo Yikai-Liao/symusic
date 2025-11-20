@@ -40,8 +40,8 @@ Parameters
 tpq:
     {tpq_desc}
 
-Notes
------
+Note
+----
 - {measurement}
 - Optimized for {best_for}
 - Score objects expose Pythonic semantics such as slicing, repr/eq, and pickling.
