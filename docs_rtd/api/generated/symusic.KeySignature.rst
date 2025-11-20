@@ -1,4 +1,4 @@
-symusic.KeySignature
+﻿symusic.KeySignature
 ====================
 
 .. currentmodule:: symusic

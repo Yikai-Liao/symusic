@@ -1,4 +1,4 @@
-symusic.TimeSignature
+﻿symusic.TimeSignature
 =====================
 
 .. currentmodule:: symusic

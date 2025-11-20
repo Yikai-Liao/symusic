@@ -1,4 +1,4 @@
-symusic.Note
+﻿symusic.Note
 ============
 
 .. currentmodule:: symusic

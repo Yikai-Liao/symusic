@@ -42,17 +42,17 @@ program:
 is_drum:
     Flag drum/percussion channels. Useful when writing to SMF channel 10.
 
-Time semantics
---------------
+Notes
+-----
 - {measurement}
-- Optimized for {best_for}.
-- Durations and controller timestamps share the same {timeline_noun} units.
+- Optimized for {best_for}
+- Durations and controller timestamps share the same {timeline_noun} units
 
 Examples
 --------
-```python
+.. code-block:: python
+
 {example}
-```
 )pbdoc";
 
 template<TType T>
@@ -64,9 +64,9 @@ const char* doc() {
         );
         const std::string underline(signature.size(), '=');
         const auto example = fmt::format(
-            ">>> from symusic import Track{0}, Note{0}\n"
-            ">>> track = Track{0}(name=\"Piano\")\n"
-            ">>> track.notes.append(Note{0}(0, 120, 60, 90))",
+            "    from symusic import Track{0}, Note{0}\n"
+            "    track = Track{0}(name=\\\"Piano\\\")\n"
+            "    track.notes.append(Note{0}(0, 120, 60, 90))",
             flavor.suffix
         );
         return fmt::format(
@@ -199,14 +199,14 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         }, track_docstrings::kSetStateDoc)
         .def_prop_ro("ttype", [](const self_t&) { return T(); })
         .def("__use_count", [](const self_t& self) { return self.use_count(); }, track_docstrings::kUseCountDoc)
-        .def_prop_rw(RW_COPY(shared<pyvec<Note<T>>>, "notes", notes))
-        .def_prop_rw(RW_COPY(shared<pyvec<ControlChange<T>>>, "controls", controls))
-        .def_prop_rw(RW_COPY(shared<pyvec<Pedal<T>>>, "pedals", pedals))
-        .def_prop_rw(RW_COPY(shared<pyvec<PitchBend<T>>>, "pitch_bends", pitch_bends))
-        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "lyrics", lyrics))
-        .def_prop_rw(RW_COPY(bool, "is_drum", is_drum))
-        .def_prop_rw(RW_COPY(u8, "program", program))
-        .def_prop_rw(RW_COPY(std::string, "name", name))
+        .def_prop_rw(RW_COPY(shared<pyvec<Note<T>>>, "notes", notes), "List of Note events on this track")
+        .def_prop_rw(RW_COPY(shared<pyvec<ControlChange<T>>>, "controls", controls), "List of ControlChange events")
+        .def_prop_rw(RW_COPY(shared<pyvec<Pedal<T>>>, "pedals", pedals), "List of Pedal events")
+        .def_prop_rw(RW_COPY(shared<pyvec<PitchBend<T>>>, "pitch_bends", pitch_bends), "List of PitchBend events")
+        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "lyrics", lyrics), "List of TextMeta events (lyrics/markers)")
+        .def_prop_rw(RW_COPY(bool, "is_drum", is_drum), "Flag drum/percussion channel (GM channel 10)")
+        .def_prop_rw(RW_COPY(u8, "program", program), "MIDI program number (0–127)")
+        .def_prop_rw(RW_COPY(std::string, "name", name), "Human-friendly track name")
         .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; }, track_docstrings::kEqDoc)
         .def("__eq__", [](const self_t&, nb::handle) { return false; }, track_docstrings::kEqDoc)
         .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; }, track_docstrings::kEqDoc)

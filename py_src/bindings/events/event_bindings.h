@@ -25,8 +25,8 @@ constexpr std::string_view kTimedEventTemplate = R"pbdoc(
 
 {description}
 
-Time semantics
---------------
+Notes
+-----
 {time_notes}
 )pbdoc";
 
@@ -36,9 +36,9 @@ inline std::string build_time_notes(
     std::string_view extra_note = {}
 ) {
     std::string notes
-        = fmt::format("- {}\n- Optimized for {}.", flavor.measurement_sentence, flavor.best_for);
+        = fmt::format("- {}\n- Optimized for {}", flavor.measurement_sentence, flavor.best_for);
     if (include_duration_note) {
-        notes += fmt::format("\n- Durations use the same {} units.", flavor.timeline_noun);
+        notes += fmt::format("\n- Durations use the same {} units", flavor.timeline_noun);
     }
     if (!extra_note.empty()) { notes += fmt::format("\n- {}", extra_note); }
     return notes;
@@ -334,8 +334,8 @@ auto bind_time_stamp(
 
     // clang-format off
     event
-        .def_prop_rw(RW_COPY(unit, "time", time))
-        .def_prop_ro("ttype", [](const self_t&) { return typename T::ttype(); })
+        .def_prop_rw(RW_COPY(unit, "time", time), "Event timestamp in chosen time unit")
+        .def_prop_ro("ttype", [](const self_t&) { return typename T::ttype(); }, "Time unit type — Tick/Quarter/Second")
         .def(
             "shift_time",
             [](const self_t& self, const unit offset, const bool inplace) {

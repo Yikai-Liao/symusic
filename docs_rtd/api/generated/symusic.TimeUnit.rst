@@ -1,4 +1,4 @@
-symusic.TimeUnit
+﻿symusic.TimeUnit
 ================
 
 .. currentmodule:: symusic

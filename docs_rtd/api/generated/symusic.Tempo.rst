@@ -1,4 +1,4 @@
-symusic.Tempo
+﻿symusic.Tempo
 =============
 
 .. currentmodule:: symusic

@@ -28,7 +28,7 @@ constexpr TimeFlavorInfo time_flavor<Tick>() {
     return TimeFlavorInfo{
         .suffix               = "Tick",
         .timeline_sentence    = "stores timestamps as discrete MIDI ticks so round-trips remain lossless.",
-        .measurement_sentence = "Time values are signed 32-bit tick offsets derived from the stored ticks-per-quarter (``tpq``).",
+        .measurement_sentence = "Time values are signed 32-bit tick offsets based on the score's ticks-per-quarter.",
         .best_for             = "lossless MIDI editing or workflows that must match the original resolution",
         .scalar_label         = "int",
         .timeline_noun        = "tick",
@@ -41,7 +41,7 @@ constexpr TimeFlavorInfo time_flavor<Quarter>() {
     return TimeFlavorInfo{
         .suffix               = "Quarter",
         .timeline_sentence    = "stores timestamps as floating-point quarter-note counts (``1.0`` equals one beat).",
-        .measurement_sentence = "Time values are 32-bit floats measured in musical quarter notes relative to the stored ``tpq``.",
+        .measurement_sentence = "Time values are 32-bit floats measured in musical quarter notes.",
         .best_for             = "beat-aware editing, tuplets, swing adjustments, or tempo-relative transforms",
         .scalar_label         = "float",
         .timeline_noun        = "quarter note",
@@ -54,7 +54,7 @@ constexpr TimeFlavorInfo time_flavor<Second>() {
     return TimeFlavorInfo{
         .suffix               = "Second",
         .timeline_sentence    = "stores timestamps as floating-point seconds aligned with the tempo map.",
-        .measurement_sentence = "Time values are 32-bit floats measured in seconds and derived from the tempo/key signatures.",
+        .measurement_sentence = "Time values are 32-bit floats measured in seconds.",
         .best_for             = "audio alignment, wall-clock automation, or duration-based editing",
         .scalar_label         = "float",
         .timeline_noun        = "second",

@@ -1,4 +1,4 @@
-symusic.Pedal
+﻿symusic.Pedal
 =============
 
 .. currentmodule:: symusic

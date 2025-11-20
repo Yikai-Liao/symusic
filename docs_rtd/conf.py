@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "python"))
 EXTENSIONS_ROOT = Path(__file__).resolve().parent / "_ext"
 sys.path.insert(0, str(EXTENSIONS_ROOT))
 
@@ -28,32 +27,14 @@ def _safe_get_module_source(modname: str):
 ModuleAnalyzer.get_module_source = staticmethod(_safe_get_module_source)
 
 
-# Load the compiled extension module directly
-import glob
+# Try to import installed package first; fallback to local build artifact
 import importlib.util
+import glob
 
-# Find the compiled extension
-core_so_pattern = str(PROJECT_ROOT / "build" / "core.cpython-*.so")
-core_so_files = glob.glob(core_so_pattern)
+import symusic.core as core_module  # type: ignore
 
-if not core_so_files:
-    raise RuntimeError(
-        f"Could not find compiled extension at {core_so_pattern}. "
-        "Please build the extension first with: cmake --build build"
-    )
-
-# Load the extension module
-core_so_path = core_so_files[0]
-spec = importlib.util.spec_from_file_location("core", core_so_path)
-if spec is None or spec.loader is None:
-    raise RuntimeError(f"Failed to create module spec from {core_so_path}")
-
-core_module = importlib.util.module_from_spec(spec)
-sys.modules["symusic.core"] = core_module
-spec.loader.exec_module(core_module)
-
-# Also add to python path for other imports
-sys.path.insert(0, str(PROJECT_ROOT / "python"))
+# Also add to python path for other imports (lower precedence than site-packages)
+sys.path.append(str(PROJECT_ROOT / "python"))
 
 
 author = "symusic developers"
@@ -72,6 +53,9 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "remote_images",
+    "sphinx_design",
+    "format_attributes",
+    # "nb_doc",  # disabled to avoid interfering with autosummary stubs
 ]
 
 myst_enable_extensions = [
@@ -82,10 +66,16 @@ myst_enable_extensions = [
 ]
 
 nb_execution_mode = "off"
-autosummary_generate = False
-autodoc_typehints = "description"
+autosummary_generate = True
+autodoc_typehints = "signature"
+autodoc_docstring_signature = True
 autosectionlabel_prefix_document = True
 todo_include_todos = True
+
+# Enforce consistent and richer API pages
+autodoc_member_order = "groupwise"
+autodoc_default_options = {"show-inheritance": True}
+nitpicky = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -111,3 +101,12 @@ html_additional_pages = {
 
 # Tell Sphinx where the package is located without requiring an installed wheel.
 os.environ.setdefault("PYTHONPATH", str(PROJECT_ROOT / "python"))
+html_css_files = [
+    "api-tweaks.css",
+]
+
+# Copybutton: strip prompts like >>> and ... when copying
+copybutton_prompt_text = ">>> |\\.\\.\\. "
+copybutton_prompt_isregexp = True
+copybutton_line_continuation = "\\"
+copybutton_copy_empty_lines = False

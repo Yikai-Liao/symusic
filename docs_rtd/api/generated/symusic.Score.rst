@@ -1,4 +1,4 @@
-symusic.Score
+﻿symusic.Score
 =============
 
 .. currentmodule:: symusic

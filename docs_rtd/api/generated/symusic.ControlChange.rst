@@ -1,4 +1,4 @@
-symusic.ControlChange
+﻿symusic.ControlChange
 =====================
 
 .. currentmodule:: symusic

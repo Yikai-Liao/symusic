@@ -34,11 +34,13 @@ quality:
 
 Examples
 --------
->>> from symusic import Score, Synthesizer
->>> score = Score.from_file("example.mid")
->>> synth = Synthesizer("MuseScore_General.sf3", sample_rate=48000)
->>> buffer = synth.render(score, stereo=True)
->>> Synthesizer.dump_wav("example.wav", buffer, 48000, use_int16=True)
+.. code-block:: python
+
+    from symusic import Score, Synthesizer
+    score = Score.from_file("example.mid")
+    synth = Synthesizer("MuseScore_General.sf3", sample_rate=48000)
+    buffer = synth.render(score, stereo=True)
+    Synthesizer.dump_wav("example.wav", buffer, 48000, use_int16=True)
 )pbdoc";
 constexpr const char* kSynthInitStringDoc
     = R"pbdoc(Create a synthesizer from a string path to an SF2/SF3 soundfont.)pbdoc";

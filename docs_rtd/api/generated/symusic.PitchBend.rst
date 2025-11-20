@@ -1,4 +1,4 @@
-symusic.PitchBend
+﻿symusic.PitchBend
 =================
 
 .. currentmodule:: symusic

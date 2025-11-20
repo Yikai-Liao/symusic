@@ -1,4 +1,4 @@
-symusic.Track
+﻿symusic.Track
 =============
 
 .. currentmodule:: symusic

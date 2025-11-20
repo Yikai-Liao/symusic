@@ -35,22 +35,23 @@ constexpr std::string_view kScoreDocTemplate = R"pbdoc(
 Container for a full MIDI score consisting of named tracks, tempo/key/time metadata, and helper
 methods for serialization and transformations. This variant {timeline_sentence}
 
-Parameters:
-- **tpq** (*int*): {tpq_desc}
+Parameters
+----------
+tpq:
+    {tpq_desc}
 
-Time semantics
---------------
+Notes
+-----
 - {measurement}
-- Optimized for {best_for}.
-
-Notes:
+- Optimized for {best_for}
 - Score objects expose Pythonic semantics such as slicing, repr/eq, and pickling.
 - ``tpq`` travels with the tempo map so conversions remain lossless.
 
-Examples:
-```python
+Examples
+--------
+.. code-block:: python
+
 {example}
-```
 )pbdoc";
 
 template<TType T>
@@ -66,7 +67,10 @@ const char* doc() {
         fmt::arg(
             "example",
             fmt::format(
-                ">>> from symusic import Score{0}\n>>> score = Score{0}(960)\n>>> score.dump_midi(\"example.mid\")",
+                "    from symusic import Score{0}\n"
+                "    score = Score{0}(960)\n"
+                "    dump_path = \"example.mid\"\n"
+                "    score.dump_midi(dump_path)",
                 flavor.suffix
             )
         )
@@ -373,14 +377,14 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, score_docstrings::kScoreDumpsMidiDoc)
         .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kScoreDumpAbcDoc)
         .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kScoreDumpsAbcDoc)
-        .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter))
-        .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter))
-        .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks))
-        .def_prop_rw(RW_COPY(shared<pyvec<TimeSignature<T>>>, "time_signatures", time_signatures))
-        .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures))
-        .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos))
-        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers))
-        .def_prop_ro("ttype", [](const self_t&) { return T(); })
+        .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note")
+        .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter), "Alias of ticks_per_quarter")
+        .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks), "List of tracks")
+        .def_prop_rw(RW_COPY(shared<pyvec<TimeSignature<T>>>, "time_signatures", time_signatures), "List of time signature events")
+        .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "List of key signature events")
+        .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "List of tempo events")
+        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "List of text/marker events")
+        .def_prop_ro("ttype", [](const self_t&) { return T(); }, "Time unit type — Tick/Quarter/Second")
         .def("__use_count", [](const self_t& self) { return self.use_count(); }, score_docstrings::kUseCountDoc)
         .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), score_docstrings::kScoreToDoc)
         .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
