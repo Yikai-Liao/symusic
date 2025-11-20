@@ -68,6 +68,7 @@ myst_enable_extensions = [
 nb_execution_mode = "off"
 autosummary_generate = True
 autodoc_typehints = "signature"
+autodoc_typehints_format = "short"
 autodoc_docstring_signature = True
 autodoc_type_aliases = {
     "numpy.ndarray[dtype=uint8]": "numpy.ndarray",
@@ -78,8 +79,19 @@ todo_include_todos = True
 
 # Enforce consistent and richer API pages
 autodoc_member_order = "groupwise"
-autodoc_default_options = {"show-inheritance": True}
+autodoc_default_options = {
+    "show-inheritance": True,
+    "members": True,
+    "undoc-members": True,
+}
+# Don't add module names to member signatures
+add_module_names = False
 nitpicky = True
+
+# Napoleon settings
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_preprocess_types = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

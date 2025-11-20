@@ -592,14 +592,36 @@ class ScoreFactory:
 
 
 class SynthesizerFactory:
-    """Convenience layer over `symusic.core.Synthesizer` with sensible defaults."""
+    """Convenience layer over `symusic.core.Synthesizer` with sensible defaults.
+
+    This factory downloads a curated SF3 by default so users can audition MIDI
+    without hunting for a SoundFont. It forwards parameters to the underlying
+    engine and returns a ready-to-use synthesizer instance.
+    """
     def __call__(
         self,
         sf_path: str | Path | None = None,
         sample_rate: int = 44100,
         quality: int = 0,
     ):
-        """Create a `symusic.core.Synthesizer`, optionally downloading a built-in SF3."""
+        """Create a `symusic.core.Synthesizer`.
+
+        Parameters
+        ----------
+        sf_path : str | pathlib.Path | None, default None
+            Path to a `.sf2`/`.sf3` file. When ``None``, downloads
+            ``BuiltInSF3.MuseScoreGeneral`` to a user data directory.
+        sample_rate : int, default 44100
+            Output sample rate in Hz.
+        quality : int, default 0
+            Synthesis quality knob (0–6). Higher values improve fidelity at the
+            cost of performance.
+
+        Returns
+        -------
+        symusic.core.Synthesizer
+            A configured Prestosynth wrapper ready to render scores.
+        """
         if sf_path is None:
             sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
         sf_path = str(sf_path)

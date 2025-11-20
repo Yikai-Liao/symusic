@@ -5,6 +5,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackTick
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.TrackTick.name
@@ -34,6 +35,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackQuarter
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.TrackQuarter.name
@@ -62,6 +64,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackSecond
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.TrackSecond.name

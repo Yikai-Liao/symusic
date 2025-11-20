@@ -61,13 +61,13 @@ Write a :class:`numpy.ndarray` buffer to a WAV file using Prestosynth's writer.
 
 Parameters
 ----------
-path:
+path :
     Destination path.
-buffer:
+buffer :
     :class:`numpy.ndarray` with shape ``(samples,)`` or ``(channels, samples)``.
-sample_rate:
+sample_rate :
     Sample rate in Hz.
-use_int16:
+use_int16 :
     Set to ``True`` to quantize the float32 buffer to PCM16.
 )pbdoc";
 }   // namespace synth_docstrings

@@ -8,16 +8,48 @@ from pySmartDL import SmartDL
 
 @dataclass(frozen=True)
 class Soundfont:
+    """Descriptor for a SoundFont artifact (.sf2/.sf3).
+
+    This lightweight record tracks where to fetch a curated font, how to
+    verify it, and where it is stored locally. It exposes convenience
+    helpers so downstream code can obtain a valid path without duplicating
+    download or integrity logic.
+    """
     name: str
+    """Local filename used when saving the SoundFont."""
+    
     url: str
+    """Public URL from which the SoundFont can be downloaded."""
+    
     hash_: str
+    """SHA-384 digest of the file used to verify integrity after download."""
 
     def path(self, download: bool = True) -> Path:
+        """Return the local path to the SoundFont file.
+
+        Parameters
+        ----------
+        download : bool, default True
+            When True, automatically download the file if it is missing or
+            fails integrity verification.
+
+        Returns
+        -------
+        pathlib.Path
+            Absolute path where the SoundFont is stored.
+        """
         if download and not self.exists():
             self.download()
         return user_data_path("soundfont", "symusic") / self.name
 
     def exists(self) -> bool:
+        """Check whether the local SoundFont file exists and matches the hash.
+
+        Returns
+        -------
+        bool
+            True if the file exists and its SHA-384 digest matches ``hash_``.
+        """
         path = self.path(download=False)
         if not path.exists():
             return False
@@ -25,6 +57,12 @@ class Soundfont:
             return sha384(f.read()).hexdigest() == self.hash_
 
     def download(self) -> None:
+        """Download the SoundFont file and verify its integrity.
+
+        The payload is stored under the platform-specific
+        ``platformdirs.user_data_path('soundfont', 'symusic')`` directory.
+        Verification uses the expected SHA-384 digest in ``hash_``.
+        """
         # Get path
         path = self.path(download=False)
         # Create directory if not exists
@@ -46,8 +84,20 @@ class Soundfont:
 
 
 class BuiltInSF3:
+    """Curated SoundFont 3 (SF3) presets.
+
+    Methods return a :class:`Soundfont` descriptor that can be used to download
+    and verify the corresponding asset.
+    """
     @staticmethod
     def MuseScoreGeneral() -> Soundfont:
+        """MuseScore General (SF3) preset.
+
+        Returns
+        -------
+        Soundfont
+            Descriptor for the MuseScore General SF3 asset.
+        """
         return Soundfont(
             name="MuseScore_General.sf3",
             url="https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3",
@@ -56,8 +106,20 @@ class BuiltInSF3:
 
 
 class BuiltInSF2:
+    """Curated SoundFont 2 (SF2) presets.
+
+    Methods return a :class:`Soundfont` descriptor that can be used to download
+    and verify the corresponding asset.
+    """
     @staticmethod
     def MuseScoreGeneral() -> Soundfont:
+        """MuseScore General (SF2) preset.
+
+        Returns
+        -------
+        Soundfont
+            Descriptor for the MuseScore General SF2 asset.
+        """
         return Soundfont(
             name="MuseScore_General.sf2",
             url="https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",

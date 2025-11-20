@@ -23,29 +23,21 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
    TimeUnit
 ```
 
-```{eval-rst}
-.. currentmodule:: symusic
+```{toctree}
+:maxdepth: 1
+:caption: Audio Synthesis
 
-.. autosummary::
-   :toctree: generated
-   :caption: Audio Synthesis
-   :nosignatures:
-
-   Synthesizer
-   dump_wav
+generated/symusic.Synthesizer
+generated/symusic.dump_wav
 ```
 
-```{eval-rst}
-.. currentmodule:: symusic
+```{toctree}
+:maxdepth: 1
+:caption: SoundFonts
 
-.. autosummary::
-   :toctree: generated
-   :caption: SoundFonts
-   :nosignatures:
-
-   Soundfont
-   BuiltInSF2
-   BuiltInSF3
+generated/symusic.Soundfont
+generated/symusic.BuiltInSF2
+generated/symusic.BuiltInSF3
 ```
 
 ```{note}

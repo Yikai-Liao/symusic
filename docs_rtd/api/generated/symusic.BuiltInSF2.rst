@@ -4,17 +4,9 @@
 .. currentmodule:: symusic
 
 .. autoclass:: BuiltInSF2
-
-   
-   .. automethod:: __init__
-
-   
-   .. rubric:: Methods
-
-   .. autosummary::
-   
-      ~BuiltInSF2.MuseScoreGeneral
-      ~BuiltInSF2.__init__
+   :members: MuseScoreGeneral
+   :undoc-members:
+   :show-inheritance:
    
    
 

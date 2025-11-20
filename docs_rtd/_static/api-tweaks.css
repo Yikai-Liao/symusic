@@ -1,4 +1,32 @@
-.py.method{border-top:1px solid var(--color-content-foreground-border);margin-top:1rem;padding-top:.5rem}
-.py.attribute,.py.property{margin-top:.5rem}
-.sig-name.descname{font-weight:600}
-.sig-prename.descclassname{display:none}
+/* Method styling - add visual separator */
+.py.method {
+    border-top: 1px solid var(--color-content-foreground-border);
+    margin-top: 1rem;
+    padding-top: .5rem;
+}
+
+/* Attribute and property spacing */
+.py.attribute,
+.py.property {
+    margin-top: .5rem;
+}
+
+/* Signature styling */
+.sig-name.descname {
+    font-weight: 600;
+}
+
+/* Hide class name prefix in method/function signatures */
+.sig-prename.descclassname {
+    display: none;
+}
+
+/* Style unresolved type references like linked types */
+code.xref.py.py-class {
+    color: var(--color-link);
+    text-decoration: none;
+}
+
+code.xref.py.py-class:hover {
+    text-decoration: underline;
+}

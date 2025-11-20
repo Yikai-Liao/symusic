@@ -5,6 +5,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.ScoreTick
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.ScoreTick.ticks_per_quarter
@@ -41,6 +42,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.ScoreQuarter
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.ScoreQuarter.ticks_per_quarter
@@ -77,6 +79,7 @@
 ```{eval-rst}
 .. autoclass:: symusic.core.ScoreSecond
    :show-inheritance:
+   :no-members:
 
 .. rubric:: Attributes
 .. autoattribute:: symusic.core.ScoreSecond.ticks_per_quarter
