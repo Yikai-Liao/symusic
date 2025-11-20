@@ -27,31 +27,34 @@ def _safe_get_module_source(modname: str):
 
 ModuleAnalyzer.get_module_source = staticmethod(_safe_get_module_source)
 
-MOCK_SYMUSIC_CORE = False
-try:
-    import symusic.core  # noqa: F401  # type: ignore[attr-defined]
-except Exception:
-    MOCK_SYMUSIC_CORE = True
 
-    class _SymusicCore(types.ModuleType):
-        """Lightweight mock of the nanobind extension for documentation builds."""
+# Load the compiled extension module directly
+import glob
+import importlib.util
 
-        def __init__(self) -> None:
-            super().__init__("symusic.core")
-            self._members: dict[str, object] = {}
+# Find the compiled extension
+core_so_pattern = str(PROJECT_ROOT / "build" / "core.cpython-*.so")
+core_so_files = glob.glob(core_so_pattern)
 
-        def __getattr__(self, name: str) -> object:
-            if name == "dump_wav":  # behaves like a function
-                def _placeholder(*_args, **_kwargs):  # noqa: ANN001, ANN002 - placeholder
-                    return None
+if not core_so_files:
+    raise RuntimeError(
+        f"Could not find compiled extension at {core_so_pattern}. "
+        "Please build the extension first with: cmake --build build"
+    )
 
-                return _placeholder
-            if name not in self._members:
-                placeholder = type(name, (), {"__module__": "symusic.core"})
-                self._members[name] = placeholder
-            return self._members[name]
+# Load the extension module
+core_so_path = core_so_files[0]
+spec = importlib.util.spec_from_file_location("core", core_so_path)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"Failed to create module spec from {core_so_path}")
 
-    sys.modules.setdefault("symusic.core", _SymusicCore())
+core_module = importlib.util.module_from_spec(spec)
+sys.modules["symusic.core"] = core_module
+spec.loader.exec_module(core_module)
+
+# Also add to python path for other imports
+sys.path.insert(0, str(PROJECT_ROOT / "python"))
+
 
 author = "symusic developers"
 project = "symusic"
@@ -81,7 +84,6 @@ myst_enable_extensions = [
 nb_execution_mode = "off"
 autosummary_generate = False
 autodoc_typehints = "description"
-autodoc_mock_imports = ["symusic.core"] if MOCK_SYMUSIC_CORE else []
 autosectionlabel_prefix_document = True
 todo_include_todos = True
 
