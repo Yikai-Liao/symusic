@@ -333,9 +333,20 @@ auto bind_time_stamp(
                              nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()));
 
     // clang-format off
+    constexpr auto flavor = docstring_helpers::time_flavor<typename T::ttype>();
     event
-        .def_prop_rw(RW_COPY(unit, "time", time), "Event timestamp in chosen time unit")
-        .def_prop_ro("ttype", [](const self_t&) { return typename T::ttype(); }, "Time unit type — Tick/Quarter/Second")
+        .def_prop_rw(
+            RW_COPY(unit, "time", time),
+            "Event timestamp in chosen time unit",
+            nb::for_getter(nb::sig(fmt::format("def time(self, /) -> {}", flavor.scalar_label).c_str())),
+            nb::for_setter(nb::sig(fmt::format("def time(self, value: {}, /) -> None", flavor.scalar_label).c_str()))
+        )
+        .def_prop_ro(
+            "ttype",
+            [](const self_t&) { return typename T::ttype(); },
+            "Time unit type — Tick/Quarter/Second",
+            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<typename T::ttype>().suffix).c_str()))
+        )
         .def(
             "shift_time",
             [](const self_t& self, const unit offset, const bool inplace) {
@@ -346,45 +357,51 @@ auto bind_time_stamp(
             nb::rv_policy::copy,
             nb::arg("offset"),
             nb::arg("inplace") = false,
-            event_docstrings::kShiftTimeDoc
+            event_docstrings::kShiftTimeDoc,
+            nb::sig(fmt::format("def shift_time(self, offset: {}, inplace: bool = False) -> {}",
+                                flavor.scalar_label,
+                                name).c_str())
         )
         .def(
             "__init__",
             [](self_t* self, const self_t& other) { new (self) shared<T>(std::make_shared<T>(*other)); },
             nb::arg("other"),
-            event_docstrings::kCopyCtorDoc
+            event_docstrings::kCopyCtorDoc,
+            nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str())
         )
         .def(
             "copy",
             [](const shared<T>& self, const bool deep) { return std::make_shared<T>(*self); },
             nb::arg("deep") = true,
-            event_docstrings::kCopyDoc
+            event_docstrings::kCopyDoc,
+            nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str())
         )
-        .def("__copy__", copy_func, event_docstrings::kCopyMethodDoc)
+        .def("__copy__", copy_func, event_docstrings::kCopyMethodDoc, nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
         .def(
             "__deepcopy__",
             deepcopy_func,
             nb::arg("memo") = nb::none(),
             nb::arg("_nil") = nb::none(),
-            event_docstrings::kDeepcopyDoc
+            event_docstrings::kDeepcopyDoc,
+            nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", name).c_str())
         )
-        .def("__repr__", [](const shared<T>& self) { return self->to_string(); }, event_docstrings::kReprDoc)
-        .def("__eq__", [](const shared<T>& self, const shared<T>& other) { return *self == *other; }, event_docstrings::kEqDoc)
-        .def("__eq__", [](const shared<T>&, const nb::object&) { return false; }, event_docstrings::kEqDoc)
-        .def("__ne__", [](const shared<T>& self, const shared<T>& other) { return *self != *other; }, event_docstrings::kNeDoc)
-        .def("__ne__", [](const shared<T>&, const nb::object&) { return true; }, event_docstrings::kNeDoc)
+        .def("__repr__", [](const shared<T>& self) { return self->to_string(); }, event_docstrings::kReprDoc, nb::sig("def __repr__(self, /) -> str"))
+        .def("__eq__", [](const shared<T>& self, const shared<T>& other) { return *self == *other; }, event_docstrings::kEqDoc, nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__eq__", [](const shared<T>&, const nb::object&) { return false; }, event_docstrings::kEqDoc, nb::sig("def __eq__(self, other: object, /) -> bool"))
+        .def("__ne__", [](const shared<T>& self, const shared<T>& other) { return *self != *other; }, event_docstrings::kNeDoc, nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__ne__", [](const shared<T>&, const nb::object&) { return true; }, event_docstrings::kNeDoc, nb::sig("def __ne__(self, other: object, /) -> bool"))
         .def(nb::self != nb::self) // NOLINT
-        .def("__getstate__", &to_bytes<T>, event_docstrings::kGetStateDoc)
-        .def("__setstate__", &from_bytes<T>, event_docstrings::kSetStateDoc)
-        .def("__use_count", [](const shared<T>& self) { return self.use_count(); }, event_docstrings::kUseCountDoc)
+        .def("__getstate__", &to_bytes<T>, event_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
+        .def("__setstate__", &from_bytes<T>, event_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
+        .def("__use_count", [](const shared<T>& self) { return self.use_count(); }, event_docstrings::kUseCountDoc, nb::sig("def __use_count(self, /) -> int"))
     ;
 
     const auto list_name = name + "List";
     const auto vec_sig = fmt::format("class {}(PyVec[{}[{}]])", list_name, generic_base, unit_suffix);
     auto vec_class = bind_shared_pyvec<T>(m, list_name.c_str(), nb::sig(vec_sig.c_str()))
         .def_prop_ro("ttype", [](const vec_t&) { return typename T::ttype(); })
-        .def("__getstate__", &vec_to_bytes<T>, event_docstrings::kGetStateDoc)
-        .def("__setstate__", &vec_from_bytes<T>, event_docstrings::kSetStateDoc)
+        .def("__getstate__", &vec_to_bytes<T>, event_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
+        .def("__setstate__", &vec_from_bytes<T>, event_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str()))
         .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
         .def(
             "sort",
@@ -401,7 +418,8 @@ auto bind_time_stamp(
             nb::arg("key")      = nb::none(),
             nb::arg("reverse")  = false,
             nb::arg("inplace")  = true,
-            event_docstrings::kVecSortDoc
+            event_docstrings::kVecSortDoc,
+            nb::sig(fmt::format("def sort(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, inplace: bool = True) -> {}", list_name).c_str())
         )
         .def(
             "filter",
@@ -416,7 +434,8 @@ auto bind_time_stamp(
             nb::rv_policy::copy,
             nb::arg("function"),
             nb::arg("inplace") = true,
-            event_docstrings::kVecFilterDoc
+            event_docstrings::kVecFilterDoc,
+            nb::sig(fmt::format("def filter(self, function: typing.Callable, inplace: bool = True) -> {}", list_name).c_str())
         )
         .def(
             "is_sorted",
@@ -428,7 +447,8 @@ auto bind_time_stamp(
             },
             nb::arg("key")     = nb::none(),
             nb::arg("reverse") = false,
-            event_docstrings::kVecIsSortedDoc
+            event_docstrings::kVecIsSortedDoc,
+            nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False) -> bool")
         )
         .def(
             "adjust_time",
@@ -441,7 +461,8 @@ auto bind_time_stamp(
             nb::arg("original_times"),
             nb::arg("new_times"),
             nb::arg("inplace") = false,
-            event_docstrings::kVecAdjustTimeDoc
+            event_docstrings::kVecAdjustTimeDoc,
+            nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str())
         )
     ;
     // clang-format on

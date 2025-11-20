@@ -320,6 +320,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
 
     const auto name      = "Score" + name_;
     const auto score_sig = fmt::format("class {}(Score[{}])", name, name_);
+    constexpr auto flavor = docstring_helpers::time_flavor<T>();
 
     auto copy_func     = [](const self_t& self) { return std::make_shared<Score<T>>(*self); };
     auto deepcopy_func = [](const self_t& self) {
@@ -328,37 +329,48 @@ auto bind_score(nb::module_& m, const std::string& name_) {
 
     // clang-format off
     auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), score_docstrings::doc<T>())
-        .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"), "Create an empty score with the provided ticks-per-quarter resolution.")
+        .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"), "Create an empty score with the provided ticks-per-quarter resolution.",
+             nb::sig("def __init__(self, tpq: int, /) -> None"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::make_shared<Score<T>>(other->deepcopy()));
-        }, "Copy constructor", nb::arg("other"), score_docstrings::kCopyCtorDoc)
+        }, "Copy constructor", nb::arg("other"), score_docstrings::kCopyCtorDoc,
+           nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str()))
         .def("copy", [&](const self_t &self, const bool deep) {
             if (deep) return deepcopy_func(self);
             return copy_func(self);
-        }, nb::arg("deep") = true, nb::rv_policy::copy, score_docstrings::kCopyDoc)
-        .def("__copy__", copy_func, "Shallow copy", nb::rv_policy::copy, score_docstrings::kCopyMethodDoc)
+        }, nb::arg("deep") = true, nb::rv_policy::copy, score_docstrings::kCopyDoc,
+           nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str()))
+        .def("__copy__", copy_func, "Shallow copy", nb::rv_policy::copy, score_docstrings::kCopyMethodDoc,
+           nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
         .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
             return deepcopy_func(self);
-        }, "Deep copy", nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move, score_docstrings::kDeepcopyDoc)
-        .def("__repr__", [](const self_t& self) { return self->to_string(); }, score_docstrings::kReprDoc)
-        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; }, score_docstrings::kEqDoc)
-        .def("__eq__", [](const self_t&, nb::handle) { return false; }, score_docstrings::kEqDoc)
-        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; }, score_docstrings::kEqDoc)
-        .def("__ne__", [](const self_t&, nb::handle) { return true; }, score_docstrings::kEqDoc)
+        }, "Deep copy", nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move, score_docstrings::kDeepcopyDoc,
+           nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", name).c_str()))
+        .def("__repr__", [](const self_t& self) { return self->to_string(); }, score_docstrings::kReprDoc,
+           nb::sig("def __repr__(self, /) -> str"))
+        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; }, score_docstrings::kEqDoc,
+           nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__eq__", [](const self_t&, nb::handle) { return false; }, score_docstrings::kEqDoc,
+           nb::sig("def __eq__(self, other: object, /) -> bool"))
+        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; }, score_docstrings::kEqDoc,
+           nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__ne__", [](const self_t&, nb::handle) { return true; }, score_docstrings::kEqDoc,
+           nb::sig("def __ne__(self, other: object, /) -> bool"))
         .def("__getstate__", [](const self_t& self) {
             const auto native = to_native(*self);
             const vec<unsigned char> data = dumps<DataFormat::ZPP>(native);
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, score_docstrings::kGetStateDoc)
+        }, score_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__", [](self_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
             auto ans = symusic::parse<symusic::DataFormat::ZPP, ScoreNative<T>>(span);
             new (&self) self_t(std::make_shared<Score<T>>(std::move(to_shared(std::move(ans)))));
-        }, score_docstrings::kSetStateDoc)
+        }, score_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
         .def("__init__", [](self_t* self, const std::filesystem::path& path) {
             new (self) self_t(midi2score<T>(path));
-        }, nb::arg("path"), score_docstrings::kScoreMidiFileCtorDoc)
+        }, nb::arg("path"), score_docstrings::kScoreMidiFileCtorDoc,
+           nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
         .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), score_docstrings::kScoreFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
