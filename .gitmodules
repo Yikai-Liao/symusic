@@ -25,5 +25,5 @@
 	url = https://github.com/Yikai-Liao/pyvec.git
 [submodule "3rdparty/nanobind"]
 	path = 3rdparty/nanobind
-	url = https://github.com/wjakob/nanobind.git
-	tag = v2.9.2
+	url = git@github.com:Yikai-Liao/nanobind.git
+	branch = feat/pep-introspection
