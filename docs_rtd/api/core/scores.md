@@ -6,8 +6,6 @@
 .. autoclass:: symusic.core.ScoreTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -16,8 +14,6 @@
 .. autoclass:: symusic.core.ScoreQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -26,8 +22,6 @@
 .. autoclass:: symusic.core.ScoreSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::

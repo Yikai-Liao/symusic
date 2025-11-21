@@ -37,6 +37,24 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
 
 .. autosummary::
    :toctree: _autosummary
+   :caption: Factory Internals
+
+   symusic.factory.ControlChangeFactory
+   symusic.factory.CoreClasses
+   symusic.factory.KeySignatureFactory
+   symusic.factory.NoteFactory
+   symusic.factory.PedalFactory
+   symusic.factory.PitchBendFactory
+   symusic.factory.ScoreFactory
+   symusic.factory.SynthesizerFactory
+   symusic.factory.TempoFactory
+   symusic.factory.TextMetaFactory
+   symusic.factory.TimeSignatureFactory
+   symusic.factory.TimeUnitFactory
+   symusic.factory.TrackFactory
+
+.. autosummary::
+   :toctree: _autosummary
    :caption: Low-Level Modules
    :recursive:
 

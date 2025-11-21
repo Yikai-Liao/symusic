@@ -6,8 +6,6 @@
 .. autoclass:: symusic.core.TrackTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -16,8 +14,6 @@
 .. autoclass:: symusic.core.TrackQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -26,8 +22,6 @@
 .. autoclass:: symusic.core.TrackSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::

@@ -9,8 +9,6 @@ Event lists are container types that hold multiple event objects of the same typ
 ```{eval-rst}
 .. autoclass:: symusic.core.NoteTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.NoteTick`` objects.
 ```
@@ -19,8 +17,6 @@ List container for ``symusic.core.NoteTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.NoteQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.NoteQuarter`` objects.
 ```
@@ -29,8 +25,6 @@ List container for ``symusic.core.NoteQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.NoteSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.NoteSecond`` objects.
 ```
@@ -44,8 +38,6 @@ List container for ``symusic.core.NoteSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.ControlChangeTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.ControlChangeTick`` objects.
 ```
@@ -54,8 +46,6 @@ List container for ``symusic.core.ControlChangeTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.ControlChangeQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.ControlChangeQuarter`` objects.
 ```
@@ -64,8 +54,6 @@ List container for ``symusic.core.ControlChangeQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.ControlChangeSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.ControlChangeSecond`` objects.
 ```
@@ -79,8 +67,6 @@ List container for ``symusic.core.ControlChangeSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TempoTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TempoTick`` objects.
 ```
@@ -89,8 +75,6 @@ List container for ``symusic.core.TempoTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TempoQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TempoQuarter`` objects.
 ```
@@ -99,8 +83,6 @@ List container for ``symusic.core.TempoQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TempoSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TempoSecond`` objects.
 ```
@@ -114,8 +96,6 @@ List container for ``symusic.core.TempoSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PedalTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PedalTick`` objects.
 ```
@@ -124,8 +104,6 @@ List container for ``symusic.core.PedalTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PedalQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PedalQuarter`` objects.
 ```
@@ -134,8 +112,6 @@ List container for ``symusic.core.PedalQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PedalSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PedalSecond`` objects.
 ```
@@ -149,8 +125,6 @@ List container for ``symusic.core.PedalSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PitchBendTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PitchBendTick`` objects.
 ```
@@ -159,8 +133,6 @@ List container for ``symusic.core.PitchBendTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PitchBendQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PitchBendQuarter`` objects.
 ```
@@ -169,8 +141,6 @@ List container for ``symusic.core.PitchBendQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.PitchBendSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.PitchBendSecond`` objects.
 ```
@@ -184,8 +154,6 @@ List container for ``symusic.core.PitchBendSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.KeySignatureTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.KeySignatureTick`` objects.
 ```
@@ -194,8 +162,6 @@ List container for ``symusic.core.KeySignatureTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.KeySignatureQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.KeySignatureQuarter`` objects.
 ```
@@ -204,8 +170,6 @@ List container for ``symusic.core.KeySignatureQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.KeySignatureSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.KeySignatureSecond`` objects.
 ```
@@ -219,8 +183,6 @@ List container for ``symusic.core.KeySignatureSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TimeSignatureTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TimeSignatureTick`` objects.
 ```
@@ -229,8 +191,6 @@ List container for ``symusic.core.TimeSignatureTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TimeSignatureQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TimeSignatureQuarter`` objects.
 ```
@@ -239,8 +199,6 @@ List container for ``symusic.core.TimeSignatureQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TimeSignatureSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TimeSignatureSecond`` objects.
 ```
@@ -254,8 +212,6 @@ List container for ``symusic.core.TimeSignatureSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TextMetaTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TextMetaTick`` objects.
 ```
@@ -264,8 +220,6 @@ List container for ``symusic.core.TextMetaTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TextMetaQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TextMetaQuarter`` objects.
 ```
@@ -274,8 +228,6 @@ List container for ``symusic.core.TextMetaQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TextMetaSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TextMetaSecond`` objects.
 ```
@@ -289,8 +241,6 @@ List container for ``symusic.core.TextMetaSecond`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackTickList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TrackTick`` objects.
 ```
@@ -299,8 +249,6 @@ List container for ``symusic.core.TrackTick`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackQuarterList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TrackQuarter`` objects.
 ```
@@ -309,8 +257,6 @@ List container for ``symusic.core.TrackQuarter`` objects.
 ```{eval-rst}
 .. autoclass:: symusic.core.TrackSecondList
    :members:
-   :show-inheritance:
-   :no-index:
 
 List container for ``symusic.core.TrackSecond`` objects.
 ```

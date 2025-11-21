@@ -8,8 +8,6 @@
 .. autoclass:: symusic.core.NoteTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -18,8 +16,6 @@
 .. autoclass:: symusic.core.NoteQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -28,8 +24,6 @@
 .. autoclass:: symusic.core.NoteSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -42,8 +36,6 @@
 .. autoclass:: symusic.core.ControlChangeTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -52,8 +44,6 @@
 .. autoclass:: symusic.core.ControlChangeQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -62,8 +52,6 @@
 .. autoclass:: symusic.core.ControlChangeSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -76,8 +64,6 @@
 .. autoclass:: symusic.core.TempoTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -86,8 +72,6 @@
 .. autoclass:: symusic.core.TempoQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -96,8 +80,6 @@
 .. autoclass:: symusic.core.TempoSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -110,8 +92,6 @@
 .. autoclass:: symusic.core.PedalTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -120,8 +100,6 @@
 .. autoclass:: symusic.core.PedalQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -130,8 +108,6 @@
 .. autoclass:: symusic.core.PedalSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -144,8 +120,6 @@
 .. autoclass:: symusic.core.PitchBendTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -154,8 +128,6 @@
 .. autoclass:: symusic.core.PitchBendQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -164,8 +136,6 @@
 .. autoclass:: symusic.core.PitchBendSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -178,8 +148,6 @@
 .. autoclass:: symusic.core.KeySignatureTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -188,8 +156,6 @@
 .. autoclass:: symusic.core.KeySignatureQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -198,8 +164,6 @@
 .. autoclass:: symusic.core.KeySignatureSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -212,8 +176,6 @@
 .. autoclass:: symusic.core.TimeSignatureTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -222,8 +184,6 @@
 .. autoclass:: symusic.core.TimeSignatureQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -232,8 +192,6 @@
 .. autoclass:: symusic.core.TimeSignatureSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
@@ -246,8 +204,6 @@
 .. autoclass:: symusic.core.TextMetaTick
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -256,8 +212,6 @@
 .. autoclass:: symusic.core.TextMetaQuarter
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 
@@ -266,8 +220,6 @@
 .. autoclass:: symusic.core.TextMetaSecond
    :members:
    :undoc-members:
-   :show-inheritance:
-   :no-index:
 ```
 :::
 ::::
