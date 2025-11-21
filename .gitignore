@@ -15,6 +15,5 @@
 **/.vs
 docs/book
 .venv
-docs_rtd/_build
-doc_tmp/_build
+docs/_build
 .venv-docs

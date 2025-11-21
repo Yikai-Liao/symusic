@@ -1,4 +1,4 @@
-site: docs_rtd/_build/html
+site: docs/_build/html
 output_subdir: _pagefind
 root_selector: html
 exclude_selectors:

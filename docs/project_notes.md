@@ -23,21 +23,21 @@ These steps mirror the Read the Docs build process:
 ```bash
 python -m venv .venv-docs
 source .venv-docs/bin/activate
-pip install -r docs_rtd/requirements.txt
+pip install -r docs/requirements.txt
 pip install -e .
-sphinx-build -b html docs_rtd docs_rtd/_build/html
+sphinx-build -b html docs docs/_build/html
 ```
 
-Open `docs_rtd/_build/html/index.html` in your browser to preview the site. Remember to remove the
+Open `docs/_build/html/index.html` in your browser to preview the site. Remember to remove the
 local virtual environment when you are done (`rm -rf .venv-docs`).
 
 ## Contributing to the documentation
 
 When working on documentation and docstrings:
 
-1. Edit files under `docs_rtd/` rather than the legacy mdBook in `docs/src`.
+1. Edit files under `docs/` rather than the legacy mdBook in `docs/src`.
 2. Keep prose concise and task-oriented; prefer small, composable pages over monolithic guides.
-3. Run a local Sphinx build (`sphinx-build -b html docs_rtd docs_rtd/_build/html`) before opening a PR.
+3. Run a local Sphinx build (`sphinx-build -b html docs docs/_build/html`) before opening a PR.
 
 ### Docstring conventions and nanobind bindings
 
@@ -53,10 +53,10 @@ The public tutorial notebook (`tutorial.ipynb` at the repo root) is currently **
 Before wiring it into the docs with myst-nb, refresh every cell to reflect the latest API and confirm
 with the interface owners that the examples are still endorsed. While it remains stale:
 
-- Keep the notebook outside `docs_rtd/` and do not include it in the navigation.
-- Track the refresh work in `docs_rtd/TODO.md` (see the blocked entry for myst-nb integration).
+- Keep the notebook outside `docs/` and do not include it in the navigation.
+- Track the refresh work in `docs/TODO.md` (see the blocked entry for myst-nb integration).
 
-Once the notebook is updated and approved, we can move it under `docs_rtd/`, enable myst-nb rendering,
+Once the notebook is updated and approved, we can move it under `docs/`, enable myst-nb rendering,
 and follow the usual hygiene guidelines (deterministic execution, concise outputs, no heavyweight
 downloads).
 
@@ -65,7 +65,7 @@ downloads).
 While the mdBook remains online for historical context, the Sphinx tree is now the canonical source.
 Use the table below when redirecting deep links or triaging stale references:
 
-| Legacy mdBook (`docs/src`) | New Sphinx docs (`docs_rtd`) |
+| Legacy mdBook (`docs/src`) | New Sphinx docs (`docs/`) |
 | --- | --- |
 | `introduction.md` | {doc}`/introduction` |
 | `quick_start.md` | {doc}`/quickstart` |
@@ -84,7 +84,7 @@ When updating downstream content:
 ### Continuous integration / Read the Docs
 
 The Read the Docs configuration lives in `readthedocs.yml` and installs dependencies from
-`docs_rtd/requirements.txt`, followed by `pip install symusic` so it can pull the prebuilt wheels
+`docs/requirements.txt`, followed by `pip install symusic` so it can pull the prebuilt wheels
 from PyPI and expose the nanobind docstrings. When you add a new dependency for docs only, update
 that requirements file rather than the project-wide dependencies.
 

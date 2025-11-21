@@ -113,7 +113,7 @@ html_title = "Symusic Documentation"
 
 # 使用 Pagefind 自定义搜索页面
 html_additional_pages = {
-    'search': 'search.html',  # 相对于 docs_rtd/_templates 目录
+    'search': 'search.html',  # 相对于 docs/_templates 目录
 }
 
 # Tell Sphinx where the package is located without requiring an installed wheel.

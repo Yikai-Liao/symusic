@@ -18,8 +18,8 @@ And a [document](https://yikai-liao.github.io/symusic/) is also available. Not c
 ## Documentation Roadmap
 
 - The legacy mdBook (link above) stays online for historical reference but is no longer updated.
-- The next-generation documentation for the 1.0 release is being rebuilt with Sphinx + MyST under `docs_rtd/`.
-- Build the new docs locally via `pip install -r docs_rtd/requirements.txt` followed by `sphinx-build -b html docs_rtd docs_rtd/_build/html`.
+- The next-generation documentation for the 1.0 release is being rebuilt with Sphinx + MyST under `docs/`.
+- Build the new docs locally via `pip install -r docs/requirements.txt` followed by `sphinx-build -b html docs docs/_build/html`.
 - Once the Read the Docs deployment is live, this README will point to the canonical URL.
 
 ## Features
