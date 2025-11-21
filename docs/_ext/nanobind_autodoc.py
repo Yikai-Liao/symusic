@@ -1,8 +1,17 @@
+from __future__ import annotations
+
+import importlib
+
 from inspect import Parameter
 from typing import Any, Optional
 
 import sphinx.util.inspect as sphinx_inspect
-from sphinx.ext.autodoc import PropertyDocumenter
+from sphinx.ext.autodoc import (
+    ClassDocumenter,
+    Documenter,
+    MethodDocumenter,
+    PropertyDocumenter,
+)
 from sphinx.locale import __
 from sphinx.util import logging
 from sphinx.util.typing import stringify_annotation
@@ -39,6 +48,19 @@ def isfunction(obj: Any) -> bool:
 sphinx_inspect.isfunction = isfunction
 
 
+# Patch isroutine so nanobind callables attached to classes are treated as methods.
+_orig_isroutine = sphinx_inspect.isroutine
+
+
+def isroutine(obj: Any) -> bool:
+    """Return True for Python routines and nanobind callables."""
+
+    return _orig_isroutine(obj) or isnanobind(obj)
+
+
+sphinx_inspect.isroutine = isroutine
+
+
 # Patch sphinx.util.inspect.ismethoddescriptor to recognize nanobind objects
 _orig_ismethoddescriptor = getattr(sphinx_inspect, "ismethoddescriptor", None)
 
@@ -65,7 +87,7 @@ def _nanobind_property_return_from_doc(func: Any) -> Optional[str]:
     if "->" not in first_line:
         return None
 
-    # nanobind docstrings keep ``value(self, /) -> symusic.core.Quarter``.
+    # nanobind docstrings keep ``value(self, /) -> int``.
     # Everything to the right still contains the fully qualified type name, which is
     # sufficient for Sphinx' ``:type:`` option.
     return first_line.split("->", 1)[1].strip()
@@ -96,6 +118,107 @@ def _patch_property_documenter() -> None:
 
 
 _patch_property_documenter()
+
+
+def _patch_method_documenter() -> None:
+    """Teach MethodDocumenter to mark nanobind static factories properly."""
+
+    orig_import_object = MethodDocumenter.import_object
+    orig_add_directive_header = MethodDocumenter.add_directive_header
+
+    def import_object(self, raiseerror: bool = False) -> bool:  # type: ignore[override]
+        ret = orig_import_object(self, raiseerror)
+        self._is_nanobind_static = False  # type: ignore[attr-defined]
+        if not ret:
+            return ret
+
+        obj = self.parent.__dict__.get(self.object_name)
+        # ``nb.def_static`` stores a plain ``nanobind.nb_func`` inside ``__dict__`` while
+        # bound instance methods are ``nanobind.nb_method`` descriptors. Checking for
+        # ``nb_func`` ensures that only nanobind static factories get tagged as static
+        # and regular methods keep their default treatment.
+        if (
+            isinstance(obj, type(self.object))
+            and type(obj).__name__ == "nb_func"
+            and isnanobind(obj)
+        ):
+            self._is_nanobind_static = True  # type: ignore[attr-defined]
+            self.member_order -= 1
+        return ret
+
+    def add_directive_header(self, sig: str) -> None:  # type: ignore[override]
+        orig_add_directive_header(self, sig)
+
+        if getattr(self, "_is_nanobind_static", False):  # type: ignore[attr-defined]
+            self.add_line('   :staticmethod:', self.get_sourcename())
+
+    MethodDocumenter.import_object = import_object
+    MethodDocumenter.add_directive_header = add_directive_header
+
+
+_patch_method_documenter()
+
+
+def _resolve_class_member(documenter: MethodDocumenter) -> tuple[object, str, Any] | None:
+    """Resolve the owning class and raw descriptor for a member name."""
+
+    if "::" not in documenter.name:
+        return None
+
+    modname, qualname = documenter.name.split("::", 1)
+    if not qualname:
+        return None
+
+    chunks = qualname.split(".")
+    if len(chunks) < 2:
+        return None
+
+    try:
+        module = importlib.import_module(modname)
+    except Exception:  # pragma: no cover - defensive, module already imported by autodoc
+        return None
+
+    owner: Any = module
+    for chunk in chunks[:-1]:
+        owner = getattr(owner, chunk, None)
+        if owner is None:
+            return None
+
+    member_name = chunks[-1]
+    owner_dict = getattr(owner, "__dict__", {})
+    raw = owner_dict.get(member_name)
+    if raw is None:
+        raw = getattr(owner, member_name, None)
+
+    if raw is None:
+        return None
+
+    return owner, member_name, raw
+
+
+def _patch_member_sorting() -> None:
+    """Lower member_order for nanobind static factories before sorting."""
+
+    orig_sort_members = Documenter.sort_members
+
+    def sort_members(self, documenters, order):  # type: ignore[override]
+        if order == "groupwise" and isinstance(self, ClassDocumenter):
+            for documenter, _ in documenters:
+                if isinstance(documenter, MethodDocumenter):
+                    resolved = _resolve_class_member(documenter)
+                    if not resolved:
+                        continue
+
+                    _, _, raw = resolved
+                    if type(raw).__name__ == "nb_func" and isnanobind(raw):
+                        documenter.member_order = MethodDocumenter.member_order - 1
+
+        return orig_sort_members(self, documenters, order)
+
+    Documenter.sort_members = sort_members
+
+
+_patch_member_sorting()
 
 
 def setup(app):
