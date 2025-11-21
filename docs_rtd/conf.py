@@ -52,9 +52,9 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
+    "nanobind_autodoc",
     "remote_images",
     "sphinx_design",
-    "format_attributes",
     # "nb_doc",  # disabled to avoid interfering with autosummary stubs
 ]
 
@@ -104,6 +104,7 @@ exclude_patterns: list[str] = [
     "Thumbs.db",
     ".DS_Store",
     "README.md",
+    "api/generated/*",
 ]
 
 html_theme = "furo"

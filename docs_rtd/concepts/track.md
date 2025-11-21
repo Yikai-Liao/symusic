@@ -33,4 +33,4 @@ between ticks/quarters/seconds updates every track and event automatically.
 4. Use specialized helpers: `track.shift_pitch(offset)`, `track.shift_time(offset)`,
    `track.adjust_time(original_times, new_times)`, etc.
 
-For signatures and constructor arguments, see :doc:`../api/generated/symusic.Track`.
+For signatures and constructor arguments, see :doc:`../api/_autosummary/symusic.Track`.

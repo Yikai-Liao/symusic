@@ -47,4 +47,4 @@ to zero.
 | Synthesize audio, align with wave files | `second` |
 
 Regardless of the unit you pick, `score.ttype` tells you the active domain, and downstream APIs honor
-it automatically. Read more in the :doc:`../api/generated/symusic.TimeUnit` entry.
+it automatically. Read more in the :doc:`../api/_autosummary/symusic.TimeUnit` entry.

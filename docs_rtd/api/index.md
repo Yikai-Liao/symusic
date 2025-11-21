@@ -4,40 +4,47 @@ This section is generated from the actual source tree so it stays in sync with r
 below focus on the user-facing factories that mirror the `symusic` namespace.
 
 ```{eval-rst}
-.. currentmodule:: symusic
-
 .. autosummary::
-   :toctree: generated
+   :toctree: _autosummary
    :caption: Core Factories
    :nosignatures:
 
-   Score
-   Track
-   Note
-   ControlChange
-   Tempo
-   Pedal
-   PitchBend
-   KeySignature
-   TimeSignature
-   TimeUnit
-```
+   symusic.Score
+   symusic.Track
+   symusic.Note
+   symusic.ControlChange
+   symusic.Tempo
+   symusic.Pedal
+   symusic.PitchBend
+   symusic.KeySignature
+   symusic.TimeSignature
+   symusic.TimeUnit
 
-```{toctree}
-:maxdepth: 1
-:caption: Audio Synthesis
+.. autosummary::
+   :toctree: _autosummary
+   :caption: Audio Synthesis
 
-generated/symusic.Synthesizer
-generated/symusic.dump_wav
-```
+   symusic.Synthesizer
+   symusic.dump_wav
 
-```{toctree}
-:maxdepth: 1
-:caption: SoundFonts
+.. autosummary::
+   :toctree: _autosummary
+   :caption: SoundFonts
 
-generated/symusic.Soundfont
-generated/symusic.BuiltInSF2
-generated/symusic.BuiltInSF3
+   symusic.Soundfont
+   symusic.BuiltInSF2
+   symusic.BuiltInSF3
+
+.. autosummary::
+   :toctree: _autosummary
+   :caption: Low-Level Modules
+   :recursive:
+
+   symusic.core
+   symusic.factory
+   symusic.soundfont
+   symusic.types
+   symusic.demo
 ```
 
 ```{note}

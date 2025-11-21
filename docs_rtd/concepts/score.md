@@ -47,4 +47,4 @@ and `score.to("second")` (or `.to(TimeUnit.quarter)`) to convert the entire hier
 4. **Convert** – change to a different time unit if downstream tooling needs quarters/seconds.
 5. **Export** – `dump_midi`, `dump_abc`, `pianoroll`, `Synthesizer.render`, etc.
 
-Refer to the :doc:`../api/generated/symusic.Score` entry for the full factory/API surface.
+Refer to the :doc:`../api/_autosummary/symusic.Score` entry for the full factory/API surface.

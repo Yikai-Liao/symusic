@@ -87,6 +87,6 @@ Follow this loop whenever you update nanobind docstrings so `.pyi` files, local 
    sphinx-build -b html docs_rtd docs_rtd/_build/html
    npx pagefind --site docs_rtd/_build/html --output-subdir _pagefind
    ```
-   Verify under `docs_rtd/_build/html/api/generated/core/` that “Core bindings” pages show the updated text.
+   Verify under `docs_rtd/_build/html/api/_autosummary/symusic.core.html` that “Core bindings” pages show the updated text.
 
 Repeat this cycle whenever bindings change to keep local previews and the hosted site consistent.

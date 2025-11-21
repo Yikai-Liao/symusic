@@ -10,8 +10,9 @@ Event lists are container types that hold multiple event objects of the same typ
 .. autoclass:: symusic.core.NoteTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.NoteTick` objects.
+List container for ``symusic.core.NoteTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -19,8 +20,9 @@ List container for :py:class:`~symusic.core.NoteTick` objects.
 .. autoclass:: symusic.core.NoteQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.NoteQuarter` objects.
+List container for ``symusic.core.NoteQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -28,8 +30,9 @@ List container for :py:class:`~symusic.core.NoteQuarter` objects.
 .. autoclass:: symusic.core.NoteSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.NoteSecond` objects.
+List container for ``symusic.core.NoteSecond`` objects.
 ```
 :::
 ::::
@@ -42,8 +45,9 @@ List container for :py:class:`~symusic.core.NoteSecond` objects.
 .. autoclass:: symusic.core.ControlChangeTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.ControlChangeTick` objects.
+List container for ``symusic.core.ControlChangeTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -51,8 +55,9 @@ List container for :py:class:`~symusic.core.ControlChangeTick` objects.
 .. autoclass:: symusic.core.ControlChangeQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.ControlChangeQuarter` objects.
+List container for ``symusic.core.ControlChangeQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -60,8 +65,9 @@ List container for :py:class:`~symusic.core.ControlChangeQuarter` objects.
 .. autoclass:: symusic.core.ControlChangeSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.ControlChangeSecond` objects.
+List container for ``symusic.core.ControlChangeSecond`` objects.
 ```
 :::
 ::::
@@ -74,8 +80,9 @@ List container for :py:class:`~symusic.core.ControlChangeSecond` objects.
 .. autoclass:: symusic.core.TempoTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TempoTick` objects.
+List container for ``symusic.core.TempoTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -83,8 +90,9 @@ List container for :py:class:`~symusic.core.TempoTick` objects.
 .. autoclass:: symusic.core.TempoQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TempoQuarter` objects.
+List container for ``symusic.core.TempoQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -92,8 +100,9 @@ List container for :py:class:`~symusic.core.TempoQuarter` objects.
 .. autoclass:: symusic.core.TempoSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TempoSecond` objects.
+List container for ``symusic.core.TempoSecond`` objects.
 ```
 :::
 ::::
@@ -106,8 +115,9 @@ List container for :py:class:`~symusic.core.TempoSecond` objects.
 .. autoclass:: symusic.core.PedalTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PedalTick` objects.
+List container for ``symusic.core.PedalTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -115,8 +125,9 @@ List container for :py:class:`~symusic.core.PedalTick` objects.
 .. autoclass:: symusic.core.PedalQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PedalQuarter` objects.
+List container for ``symusic.core.PedalQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -124,8 +135,9 @@ List container for :py:class:`~symusic.core.PedalQuarter` objects.
 .. autoclass:: symusic.core.PedalSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PedalSecond` objects.
+List container for ``symusic.core.PedalSecond`` objects.
 ```
 :::
 ::::
@@ -138,8 +150,9 @@ List container for :py:class:`~symusic.core.PedalSecond` objects.
 .. autoclass:: symusic.core.PitchBendTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PitchBendTick` objects.
+List container for ``symusic.core.PitchBendTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -147,8 +160,9 @@ List container for :py:class:`~symusic.core.PitchBendTick` objects.
 .. autoclass:: symusic.core.PitchBendQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PitchBendQuarter` objects.
+List container for ``symusic.core.PitchBendQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -156,8 +170,9 @@ List container for :py:class:`~symusic.core.PitchBendQuarter` objects.
 .. autoclass:: symusic.core.PitchBendSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.PitchBendSecond` objects.
+List container for ``symusic.core.PitchBendSecond`` objects.
 ```
 :::
 ::::
@@ -170,8 +185,9 @@ List container for :py:class:`~symusic.core.PitchBendSecond` objects.
 .. autoclass:: symusic.core.KeySignatureTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.KeySignatureTick` objects.
+List container for ``symusic.core.KeySignatureTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -179,8 +195,9 @@ List container for :py:class:`~symusic.core.KeySignatureTick` objects.
 .. autoclass:: symusic.core.KeySignatureQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.KeySignatureQuarter` objects.
+List container for ``symusic.core.KeySignatureQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -188,8 +205,9 @@ List container for :py:class:`~symusic.core.KeySignatureQuarter` objects.
 .. autoclass:: symusic.core.KeySignatureSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.KeySignatureSecond` objects.
+List container for ``symusic.core.KeySignatureSecond`` objects.
 ```
 :::
 ::::
@@ -202,8 +220,9 @@ List container for :py:class:`~symusic.core.KeySignatureSecond` objects.
 .. autoclass:: symusic.core.TimeSignatureTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TimeSignatureTick` objects.
+List container for ``symusic.core.TimeSignatureTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -211,8 +230,9 @@ List container for :py:class:`~symusic.core.TimeSignatureTick` objects.
 .. autoclass:: symusic.core.TimeSignatureQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TimeSignatureQuarter` objects.
+List container for ``symusic.core.TimeSignatureQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -220,8 +240,9 @@ List container for :py:class:`~symusic.core.TimeSignatureQuarter` objects.
 .. autoclass:: symusic.core.TimeSignatureSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TimeSignatureSecond` objects.
+List container for ``symusic.core.TimeSignatureSecond`` objects.
 ```
 :::
 ::::
@@ -234,8 +255,9 @@ List container for :py:class:`~symusic.core.TimeSignatureSecond` objects.
 .. autoclass:: symusic.core.TextMetaTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TextMetaTick` objects.
+List container for ``symusic.core.TextMetaTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -243,8 +265,9 @@ List container for :py:class:`~symusic.core.TextMetaTick` objects.
 .. autoclass:: symusic.core.TextMetaQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TextMetaQuarter` objects.
+List container for ``symusic.core.TextMetaQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -252,8 +275,9 @@ List container for :py:class:`~symusic.core.TextMetaQuarter` objects.
 .. autoclass:: symusic.core.TextMetaSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TextMetaSecond` objects.
+List container for ``symusic.core.TextMetaSecond`` objects.
 ```
 :::
 ::::
@@ -266,8 +290,9 @@ List container for :py:class:`~symusic.core.TextMetaSecond` objects.
 .. autoclass:: symusic.core.TrackTickList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TrackTick` objects.
+List container for ``symusic.core.TrackTick`` objects.
 ```
 :::
 :::{tab-item} Quarter
@@ -275,8 +300,9 @@ List container for :py:class:`~symusic.core.TrackTick` objects.
 .. autoclass:: symusic.core.TrackQuarterList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TrackQuarter` objects.
+List container for ``symusic.core.TrackQuarter`` objects.
 ```
 :::
 :::{tab-item} Second
@@ -284,8 +310,9 @@ List container for :py:class:`~symusic.core.TrackQuarter` objects.
 .. autoclass:: symusic.core.TrackSecondList
    :members:
    :show-inheritance:
+   :no-index:
 
-List container for :py:class:`~symusic.core.TrackSecond` objects.
+List container for ``symusic.core.TrackSecond`` objects.
 ```
 :::
 ::::

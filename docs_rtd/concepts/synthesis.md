@@ -38,5 +38,5 @@ dump_wav("piece.wav", audio, sample_rate=48000)
 - Generate audio datasets aligned with symbolic annotations.
 - Prototype differentiable or procedural music systems that need quick feedback loops.
 
-See :doc:`../api/generated/symusic.Synthesizer` and :doc:`../api/generated/symusic.dump_wav` for all
+See :doc:`../api/_autosummary/symusic.Synthesizer` and :doc:`../api/_autosummary/symusic.dump_wav` for all
 arguments and return types.

@@ -32,5 +32,5 @@ or a single part (transpose just the bass line).
 4. **Sort/filter**: `notes.sort(key=lambda n: (n.time, n.pitch))`, `notes.filter(lambda n: n.velocity > 60)`.
 5. **Vectorize**: `notes.numpy()` returns a mapping of NumPy arrays suitable for ML pipelines.
 
-Find type-specific APIs under :doc:`../api/generated/symusic.Note`,
-:doc:`../api/generated/symusic.ControlChange`, and the related entries.
+Find type-specific APIs under :doc:`../api/_autosummary/symusic.Note`,
+:doc:`../api/_autosummary/symusic.ControlChange`, and the related entries.
