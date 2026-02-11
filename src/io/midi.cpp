@@ -225,7 +225,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
                 if (note_on.velocity() != 0) {
                     trackManager.add_note(
-                        note_on.channel(), note_on.pitch(), cur_tick, note_on.velocity()
+                        note_on.channel(), note_on.pitch(), cur_time, note_on.velocity()
                     );
                     break;
                 }
@@ -233,7 +233,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             }
             case minimidi::MessageType::NoteOff: {
                 const auto& note_off = msg.template cast<minimidi::NoteOff>();
-                trackManager.end_note(note_off.channel(), note_off.pitch(), cur_tick);
+                trackManager.end_note(note_off.channel(), note_off.pitch(), cur_time);
                 break;
             }
             case minimidi::MessageType::ProgramChange: {

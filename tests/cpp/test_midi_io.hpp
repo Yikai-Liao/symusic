@@ -2,6 +2,7 @@
 #ifndef SYMUSIC_TEST_MIDI_IO_HPP
 #define SYMUSIC_TEST_MIDI_IO_HPP
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -230,23 +231,22 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         Score<Quarter> quarter_score = Score<Quarter>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
 
-        // Verify time values
+        // Verify quarter-unit values
         REQUIRE(quarter_score.tracks->at(0)->notes->size() == 2);
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(0).time == 0.0);
-        // Note: The library may maintain raw tick values even when using Quarter type
-        // So we'll check whether the relative proportions are maintained instead
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(1).time == quarter_score.tracks->at(0)->notes->at(0).time + quarter_score.tracks->at(0)->notes->at(0).duration);
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(1).duration == 2 * quarter_score.tracks->at(0)->notes->at(0).duration);
+        REQUIRE(std::abs(quarter_score.tracks->at(0)->notes->at(0).time - 0.0f) < 1e-6f);
+        REQUIRE(std::abs(quarter_score.tracks->at(0)->notes->at(0).duration - 1.0f) < 1e-6f);
+        REQUIRE(std::abs(quarter_score.tracks->at(0)->notes->at(1).time - 1.0f) < 1e-6f);
+        REQUIRE(std::abs(quarter_score.tracks->at(0)->notes->at(1).duration - 2.0f) < 1e-6f);
 
         // Read as Second time type
         Score<Second> second_score = Score<Second>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
 
         // Verify time values in seconds
         REQUIRE(second_score.tracks->at(0)->notes->size() == 2);
-        REQUIRE(second_score.tracks->at(0)->notes->at(0).time == 0.0);
-        // Check relative timing is preserved
-        REQUIRE(second_score.tracks->at(0)->notes->at(1).time == second_score.tracks->at(0)->notes->at(0).time + second_score.tracks->at(0)->notes->at(0).duration);
-        REQUIRE(second_score.tracks->at(0)->notes->at(1).duration == 2 * second_score.tracks->at(0)->notes->at(0).duration);
+        REQUIRE(std::abs(second_score.tracks->at(0)->notes->at(0).time - 0.0f) < 1e-6f);
+        REQUIRE(std::abs(second_score.tracks->at(0)->notes->at(0).duration - 0.5f) < 1e-6f);
+        REQUIRE(std::abs(second_score.tracks->at(0)->notes->at(1).time - 0.5f) < 1e-6f);
+        REQUIRE(std::abs(second_score.tracks->at(0)->notes->at(1).duration - 1.0f) < 1e-6f);
     }
 
     // Clean up the temporary directory

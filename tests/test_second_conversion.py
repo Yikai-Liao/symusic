@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from symusic import Score
+from symusic import Note, Score, Tempo, Track
 
 from tests.utils import MIDI_PATHS_ALL
 
@@ -83,3 +83,39 @@ def test_second_conversion(midi_path: Path):
         assert (
             max_delta_rel < 1e-5
         ), f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+
+
+def test_quarter_parse_matches_tick_conversion(tmp_path):
+    score_tick = Score(480)
+    track = Track("quarter-check", 0, False)
+    track.notes.append(Note(0, 480, 60, 80))
+    track.notes.append(Note(480, 960, 64, 80))
+    score_tick.tracks.append(track)
+    score_tick.tempos.append(Tempo(0, 120))
+    score_tick.tempos.append(Tempo(960, 60))
+
+    midi_path = tmp_path / "quarter_time_check.mid"
+    score_tick.dump_midi(midi_path)
+
+    quarter_direct = Score(midi_path, ttype="quarter")
+    quarter_from_tick = Score(midi_path, ttype="tick").to("quarter")
+
+    notes_direct = quarter_direct.tracks[0].notes
+    notes_from_tick = quarter_from_tick.tracks[0].notes
+
+    assert len(notes_direct) == 2
+    assert len(notes_from_tick) == 2
+
+    # Explicitly validate quarter-unit note times/durations.
+    assert notes_direct[0].time == pytest.approx(0.0)
+    assert notes_direct[0].duration == pytest.approx(1.0)
+    assert notes_direct[1].time == pytest.approx(1.0)
+    assert notes_direct[1].duration == pytest.approx(2.0)
+
+    for note_direct, note_from_tick in zip(notes_direct, notes_from_tick):
+        assert note_direct.time == pytest.approx(note_from_tick.time)
+        assert note_direct.duration == pytest.approx(note_from_tick.duration)
+
+    # Non-note time events should remain in quarter units as well.
+    assert quarter_direct.tempos[0].time == pytest.approx(0.0)
+    assert quarter_direct.tempos[1].time == pytest.approx(2.0)
