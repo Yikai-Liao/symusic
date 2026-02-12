@@ -63,4 +63,3 @@ constexpr TimeFlavorInfo time_flavor<Second>() {
 }
 
 }   // namespace symusic::docstring_helpers
-

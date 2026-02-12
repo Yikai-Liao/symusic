@@ -3,11 +3,15 @@ repos:
     rev: v0.1.6
     hooks:
       - id: ruff
+        files: '^(src|include|py_src|tests)/(?!testcases/|typecheck/).*\.(py|h|hpp|c|cc|cpp|cxx)$'
         args:
           - --fix
       - id: ruff-format
+        files: '^(src|include|py_src|tests)/(?!testcases/|typecheck/).*\.(py|h|hpp|c|cc|cpp|cxx)$'
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: end-of-file-fixer
+        files: '^(src|include|py_src|tests)/(?!testcases/|typecheck/).*\.(py|h|hpp|c|cc|cpp|cxx)$'
       - id: trailing-whitespace
+        files: '^(src|include|py_src|tests)/(?!testcases/|typecheck/).*\.(py|h|hpp|c|cc|cpp|cxx)$'

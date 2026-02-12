@@ -37,6 +37,10 @@ jobs:
           # Install local package with tests dependencies extras
           pip install ".[test]"
 
+      - name: Install PyPy-specific runtime deps
+        if: startsWith(matrix.python-version, 'pypy')
+        run: pip install librt
+
       - name: Test with pytest
         run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
