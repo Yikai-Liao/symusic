@@ -59,7 +59,7 @@ jobs:
 
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -68,7 +68,7 @@ jobs:
 
       - name: Build wheels for manylinux aarch64
         if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' }}
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -77,7 +77,7 @@ jobs:
 
       - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -86,7 +86,7 @@ jobs:
 
       - name: Build wheels for musllinux aarch64
         if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -95,7 +95,7 @@ jobs:
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
