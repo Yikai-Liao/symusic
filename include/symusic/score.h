@@ -147,6 +147,12 @@ struct Score {
     // return true if the score is empty
     [[nodiscard]] bool empty() const;
 
+    // return beat locations in the current time unit
+    [[nodiscard]] vec<unit> get_beats(unit start_time = 0) const;
+
+    // return downbeat locations in the current time unit
+    [[nodiscard]] vec<unit> get_downbeats(unit start_time = 0) const;
+
     // return a string representation of the score, same as summary
     [[nodiscard]] std::string to_string() const;
 

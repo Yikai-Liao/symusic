@@ -10,15 +10,15 @@
 #include <filesystem>
 #include <optional>
 #include <random>
-#include <string>
 #include <span>
+#include <string>
 #include <string_view>
 
-#include <nanobind/nanobind.h>
+#include <fmt/format.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/nanobind.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/string.h>
-#include <fmt/format.h>
 
 #include "../../utils/python_helpers.h"
 #include "../core/binding_common.h"
@@ -103,6 +103,14 @@ Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up 
 )pbdoc";
 constexpr const char* kScoreDumpsAbcDoc
     = R"pbdoc(Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.)pbdoc";
+constexpr const char* kScoreGetBeatsDoc = R"pbdoc(
+Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
+PrettyMIDI heuristic of grouping every three denominator notes into one beat.
+)pbdoc";
+constexpr const char* kScoreGetDownbeatsDoc = R"pbdoc(
+Return downbeat locations as a NumPy array in the score's current time unit. When no time
+signature is available at *start_time*, a 4/4 sentinel is assumed.
+)pbdoc";
 constexpr const char* kScoreToDoc = R"pbdoc(
 Convert the score to another time unit (Tick, Quarter, Second). ``ttype`` may be a class object or
 ``"tick"/"quarter"/"second"``. ``min_dur`` snaps durations when downsampling.
@@ -182,9 +190,9 @@ nb::object convert_score(
 }
 
 template<TType T>
-shared<Score<T>> midi2score(const std::filesystem::path& path) {
+shared<Score<T>> midi2score(const std::filesystem::path& path, const bool sanitize_data = false) {
     auto     data = read_file(path);
-    Score<T> s    = Score<T>::template parse<DataFormat::MIDI>(data);
+    Score<T> s    = parse<DataFormat::MIDI, Score<T>>(data, sanitize_data);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
@@ -210,7 +218,7 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
     try {
         dump_midi(self, temp_midi_path);
         std::string cmd = fmt::format(
-            R"("{} "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string()
+            R"("{}" "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string()
         );
         int ret = std::system(cmd.c_str());
 
@@ -271,7 +279,8 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
 
     const std::string midi_path = std::tmpnam(nullptr);
-    const auto cmd = fmt::format(R"({} "{}" -o "{}" -silent)", abc2midi, path.string(), midi_path);
+    const auto cmd
+        = fmt::format(R"("{}" "{}" -o "{}" -silent)", abc2midi, path.string(), midi_path);
     const auto ret = std::system(cmd.c_str());
     if (ret != 0) { throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd)); }
 
@@ -299,7 +308,9 @@ shared<Score<T>> from_abc(const std::string& abc) {
 
 template<TType T>
 shared<Score<T>> from_file(
-    const std::filesystem::path& path, const std::optional<std::string>& format
+    const std::filesystem::path& path,
+    const std::optional<std::string>& format,
+    const bool sanitize_data
 ) {
     std::string format_ = format.has_value() ? *format : "";
     if (format_.empty()) {
@@ -308,9 +319,32 @@ shared<Score<T>> from_file(
         std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
     }
 
-    if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path); }
-    if (format_ == "abc") { return from_abc_file<T>(path); }
+    if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path, sanitize_data); }
+    if (format_ == "abc") {
+        if (sanitize_data) {
+            throw std::invalid_argument("sanitize_data is only supported for MIDI input");
+        }
+        return from_abc_file<T>(path);
+    }
     throw std::invalid_argument("Unknown file format");
+}
+
+template<typename Scalar>
+auto to_numpy_array(const vec<Scalar>& values) {
+    auto* data = new Scalar[values.size()];
+    std::copy(values.begin(), values.end(), data);
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<Scalar*>(p); });
+    return nb::ndarray<nb::numpy, Scalar>(data, {values.size()}, owner);
+}
+
+template<TType T>
+auto get_beats_array(const shared<Score<T>>& self, const typename T::unit start_time) {
+    return to_numpy_array(self->get_beats(start_time));
+}
+
+template<TType T>
+auto get_downbeats_array(const shared<Score<T>>& self, const typename T::unit start_time) {
+    return to_numpy_array(self->get_downbeats(start_time));
 }
 
 template<TType T>
@@ -371,7 +405,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             new (self) self_t(midi2score<T>(path));
         }, nb::arg("path"), score_docstrings::kScoreMidiFileCtorDoc,
            nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), score_docstrings::kScoreFromFileDoc)
+        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), nb::arg("sanitize_data") = false, score_docstrings::kScoreFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -389,6 +423,8 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, score_docstrings::kScoreDumpsMidiDoc)
         .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kScoreDumpAbcDoc)
         .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kScoreDumpsAbcDoc)
+        .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetBeatsDoc)
+        .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetDownbeatsDoc)
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note")
         .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter), "Alias of ticks_per_quarter")
         .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks), "List of tracks")

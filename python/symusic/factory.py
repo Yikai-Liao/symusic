@@ -523,9 +523,13 @@ class ScoreFactory:
         x: int | str | Path | smt.Score = 960,
         ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
+        sanitize_data: bool = False,
     ) -> smt.Score:
         if isinstance(x, (str, Path)):
-            return self.from_file(x, ttype, fmt)
+            return self.from_file(x, ttype, fmt, sanitize_data=sanitize_data)
+        if sanitize_data:
+            msg = "sanitize_data is only supported when loading MIDI files from path"
+            raise ValueError(msg)
         if isinstance(x, int):
             return self.from_tpq(x, ttype)
         if isinstance(x, self):  # type: ignore
@@ -538,12 +542,19 @@ class ScoreFactory:
         path: str | Path,
         ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
+        sanitize_data: bool = False,
+        format: str | None = None,
     ) -> smt.Score:
+        if format is not None:
+            if fmt is not None and fmt != format:
+                msg = "fmt and format must match when both are provided"
+                raise ValueError(msg)
+            fmt = format
         if isinstance(path, str):
             path = Path(path)
         if not path.is_file():
             raise ValueError(_ := f"{path} is not a file")
-        return self.__core_classes.dispatch(ttype).from_file(path, fmt)
+        return self.__core_classes.dispatch(ttype).from_file(path, fmt, sanitize_data)
 
     def from_midi(
         self,

@@ -312,6 +312,62 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         REQUIRE(score.note_num() == 3);
         REQUIRE(score.track_num() == 2);
     }
+
+    SECTION("Score Beat Locations Use Current Time Unit") {
+        Score<Tick> score(480);
+        auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
+        track->notes->push_back(Note<Tick>{0, 3840, 60, 80});
+        score.tracks->push_back(track);
+
+        const auto beats = score.get_beats();
+        const auto downbeats = score.get_downbeats();
+
+        REQUIRE(beats == vec<Tick::unit>{0, 480, 960, 1440, 1920, 2400, 2880, 3360});
+        REQUIRE(downbeats == vec<Tick::unit>{0, 1920});
+    }
+
+    SECTION("Score Beat Locations Follow Compound Meter Heuristic") {
+        Score<Quarter> score(480);
+        auto track = std::make_shared<Track<Quarter>>("Piano", 0, false);
+        track->notes->push_back(Note<Quarter>{0.f, 12.f, 60, 80});
+        score.tracks->push_back(track);
+        score.time_signatures->push_back(TimeSignature<Quarter>{0.f, 6, 8});
+
+        const auto beats = score.get_beats();
+        const auto downbeats = score.get_downbeats();
+
+        REQUIRE(beats.size() == 8);
+        REQUIRE(beats[0] == Catch::Approx(0.f));
+        REQUIRE(beats[1] == Catch::Approx(1.5f));
+        REQUIRE(beats[2] == Catch::Approx(3.f));
+        REQUIRE(downbeats.size() == 4);
+        REQUIRE(downbeats[0] == Catch::Approx(0.f));
+        REQUIRE(downbeats[1] == Catch::Approx(3.f));
+        REQUIRE(downbeats[2] == Catch::Approx(6.f));
+        REQUIRE(downbeats[3] == Catch::Approx(9.f));
+    }
+
+    SECTION("Score Beat Locations Respect Tempo Changes In Second Time") {
+        Score<Tick> tick_score(480);
+        auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
+        track->notes->push_back(Note<Tick>{0, 3840, 60, 80});
+        tick_score.tracks->push_back(track);
+        tick_score.tempos->push_back(Tempo<Tick>{0, 500000});
+        tick_score.tempos->push_back(Tempo<Tick>{1920, 1000000});
+
+        const auto second_score = convert<Second>(tick_score);
+        const auto beats = second_score.get_beats();
+        const auto downbeats = second_score.get_downbeats();
+
+        REQUIRE(beats.size() == 8);
+        REQUIRE(beats[0] == Catch::Approx(0.f));
+        REQUIRE(beats[1] == Catch::Approx(0.5f));
+        REQUIRE(beats[4] == Catch::Approx(2.f));
+        REQUIRE(beats[5] == Catch::Approx(3.f));
+        REQUIRE(downbeats.size() == 2);
+        REQUIRE(downbeats[0] == Catch::Approx(0.f));
+        REQUIRE(downbeats[1] == Catch::Approx(2.f));
+    }
 }
 
 #endif // SYMUSIC_TEST_TRACK_SCORE_HPP
