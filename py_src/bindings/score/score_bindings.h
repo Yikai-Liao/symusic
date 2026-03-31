@@ -9,7 +9,6 @@
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
-#include <random>
 #include <span>
 #include <string>
 #include <string_view>
@@ -21,6 +20,7 @@
 #include <nanobind/stl/string.h>
 
 #include "../../utils/python_helpers.h"
+#include "../../utils/process_runner.h"
 #include "../core/binding_common.h"
 #include "../docstring_helpers.h"
 
@@ -204,40 +204,23 @@ void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) 
 
 template<TType T>
 void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
-    const auto midi2abc_env = getenv("SYMUSIC_MIDI2ABC");
+    const auto midi2abc_env = std::getenv("SYMUSIC_MIDI2ABC");
     if (!midi2abc_env) {
         throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set");
     }
     const std::filesystem::path midi2abc = midi2abc_env;
     if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
 
-    std::filesystem::path temp_midi_path
-        = std::filesystem::temp_directory_path()
-          / ("symusic_temp_" + std::to_string(std::rand()) + ".mid");
+    process_runner::ScopedTempDir temp_dir;
+    const auto                    temp_midi_path = temp_dir.path() / "input.mid";
 
-    try {
-        dump_midi(self, temp_midi_path);
-        std::string cmd = fmt::format(
-            R"("{}" "{}" -o "{}")", midi2abc.string(), temp_midi_path.string(), path.string()
-        );
-        int ret = std::system(cmd.c_str());
+    dump_midi(self, temp_midi_path);
+    process_runner::run_process_checked(
+        midi2abc, {temp_midi_path, std::filesystem::path("-o"), path}, !warn
+    );
 
-        if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
-
-        if (!std::filesystem::exists(path) || ret != 0) {
-            throw std::runtime_error(
-                fmt::format(
-                    "midi2abc execution failed (return code: {}). Command: {}. Output file {} not "
-                    "created.",
-                    ret,
-                    cmd,
-                    path.string()
-                )
-            );
-        }
-    } catch (...) {
-        if (std::filesystem::exists(temp_midi_path)) { std::filesystem::remove(temp_midi_path); }
-        throw;
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error(fmt::format("midi2abc did not create {}", path.string()));
     }
 }
 
@@ -250,18 +233,11 @@ void dump_abc_path(
 
 template<TType T>
 std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
-    std::filesystem::path temp_abc_path
-        = std::filesystem::temp_directory_path()
-          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
-    try {
-        dump_abc_fs(self, temp_abc_path, warn);
-        auto data = read_file(temp_abc_path);
-        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
-        return std::string(reinterpret_cast<const char*>(data.data()), data.size());
-    } catch (...) {
-        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
-        throw;
-    }
+    process_runner::ScopedTempDir temp_dir;
+    const auto                    temp_abc_path = temp_dir.path() / "output.abc";
+    dump_abc_fs(self, temp_abc_path, warn);
+    const auto data = read_file(temp_abc_path);
+    return std::string(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
 inline std::string get_format(const std::filesystem::path& path) {
@@ -275,35 +251,31 @@ template<TType T>
 shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     const auto abc2midi_env = std::getenv("SYMUSIC_ABC2MIDI");
     if (!abc2midi_env) { throw std::runtime_error("abc2midi not found"); }
-    const std::string abc2midi = abc2midi_env;
+    const std::filesystem::path abc2midi = abc2midi_env;
     if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
 
-    const std::string midi_path = std::tmpnam(nullptr);
-    const auto cmd
-        = fmt::format(R"("{}" "{}" -o "{}" -silent)", abc2midi, path.string(), midi_path);
-    const auto ret = std::system(cmd.c_str());
-    if (ret != 0) { throw std::runtime_error(fmt::format("abc2midi failed({}): {}", ret, cmd)); }
+    process_runner::ScopedTempDir temp_dir;
+    const auto                    midi_path = temp_dir.path() / "output.mid";
+    process_runner::run_process_checked(
+        abc2midi,
+        {path, std::filesystem::path("-o"), midi_path, std::filesystem::path("-silent")},
+        false
+    );
+    if (!std::filesystem::exists(midi_path)) {
+        throw std::runtime_error(fmt::format("abc2midi did not create {}", midi_path.string()));
+    }
 
     const auto data = read_file(midi_path);
-    std::filesystem::remove(midi_path);
     auto s = Score<T>::template parse<DataFormat::MIDI>(data);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
 template<TType T>
 shared<Score<T>> from_abc(const std::string& abc) {
-    std::filesystem::path temp_abc_path
-        = std::filesystem::temp_directory_path()
-          / ("symusic_temp_" + std::to_string(std::rand()) + ".abc");
-    try {
-        write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
-        auto score = from_abc_file<T>(temp_abc_path);
-        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
-        return score;
-    } catch (...) {
-        if (std::filesystem::exists(temp_abc_path)) { std::filesystem::remove(temp_abc_path); }
-        throw;
-    }
+    process_runner::ScopedTempDir temp_dir;
+    const auto                    temp_abc_path = temp_dir.path() / "input.abc";
+    write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
+    return from_abc_file<T>(temp_abc_path);
 }
 
 template<TType T>

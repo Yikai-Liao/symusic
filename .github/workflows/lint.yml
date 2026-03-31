@@ -11,7 +11,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Enforce pinned third-party actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          pattern = re.compile(r"^\s*-\s+uses:\s*([^\s#]+)")
+          bad_refs: list[str] = []
+
+          for workflow in sorted(Path(".github/workflows").glob("*.yml")):
+              for line_number, line in enumerate(workflow.read_text().splitlines(), start=1):
+                  match = pattern.match(line)
+                  if match is None:
+                      continue
+                  ref = match.group(1)
+                  if ref.startswith("actions/") or ref.startswith("./"):
+                      continue
+                  if "@" not in ref:
+                      bad_refs.append(f"{workflow}:{line_number}: missing ref pin in {ref}")
+                      continue
+                  _, version = ref.rsplit("@", 1)
+                  if re.fullmatch(r"[0-9a-fA-F]{40}", version) is None:
+                      bad_refs.append(
+                          f"{workflow}:{line_number}: third-party action must use a full SHA: {ref}"
+                      )
+
+          if bad_refs:
+              print("\n".join(bad_refs))
+              sys.exit(1)
+          PY
       - uses: actions/setup-python@v5
-      - uses: pre-commit/action@v3.0.1
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
         env:
           RUFF_OUTPUT_FORMAT: github

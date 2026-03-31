@@ -107,12 +107,14 @@ if(BUILD_SYMUSIC_PY)
         ${NB_FLAGS}
         NB_DOMAIN symusic
         py_src/bindings/core/module.cpp
+        py_src/utils/process_runner.cpp
         py_src/bindings/synth/synthesizer_bindings.cpp
         py_src/bindings/track/track_bindings.h
         py_src/bindings/score/score_bindings.h
         py_src/bindings/events/event_bindings.h
         py_src/bindings/core/binding_common.h
         py_src/utils/python_helpers.h
+        py_src/utils/process_runner.h
         py_src/utils/vector_bindings.h
     )
     target_link_libraries(core PRIVATE symusic)
@@ -155,7 +157,7 @@ if(BUILD_SYMUSIC_TEST)
     FetchContent_Declare(
             Catch2
             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-            GIT_TAG v3.4.0 # or a later release
+            GIT_TAG f90e8f50a6e76e3492ee9aadfe1014677c4807d2 # Catch2 v3.4.0
     )
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)

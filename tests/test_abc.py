@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -20,6 +23,29 @@ def make_roundtrip_score() -> Score:
     score.tempos.append(Tempo(0, 120))
     score.time_signatures.append(TimeSignature(0, 4, 4))
     return score
+
+
+def make_roundtrip_abc_text() -> str:
+    return "\n".join(
+        [
+            "X:1",
+            "T:Roundtrip",
+            "M:4/4",
+            "L:1/4",
+            "Q:1/4=120",
+            "K:C",
+            "C D E F|",
+            "",
+        ]
+    )
+
+
+def list_symusic_temp_dirs() -> set[Path]:
+    return {
+        path
+        for path in Path(tempfile.gettempdir()).glob("symusic-abc-*")
+        if path.is_dir()
+    }
 
 
 @pytest.mark.parametrize("abc_path", ABC_PATHS, ids=lambda path: path.name)
@@ -51,3 +77,137 @@ def test_dump_abc_roundtrip(tmp_path: Path):
     assert loaded_with_factory.note_num() == score.note_num()
     assert len(loaded_with_ctor.tracks) == 1
     assert len(loaded_with_factory.tracks) == 1
+
+
+@pytest.mark.parametrize(
+    ("directory_name", "file_name"),
+    [
+        ("abc output", "round trip score.abc"),
+        pytest.param(
+            "windows shell like",
+            "shell & semicolon ;.abc",
+            marks=pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific path"),
+        ),
+        pytest.param(
+            "shell like",
+            'bad"; touch symusic-injection-probe; echo ".abc',
+            marks=pytest.mark.skipif(sys.platform == "win32", reason="invalid path characters"),
+        ),
+        ("多语言 路径", "旋律 导出.abc"),
+    ],
+)
+def test_dump_abc_roundtrip_special_paths(
+    tmp_path: Path, directory_name: str, file_name: str
+):
+    score = make_roundtrip_score()
+    output_dir = tmp_path / directory_name
+    output_dir.mkdir()
+    output_path = output_dir / file_name
+    injection_probe = Path.cwd() / "symusic-injection-probe"
+    if injection_probe.exists():
+        injection_probe.unlink()
+
+    try:
+        score.dump_abc(output_path)
+    finally:
+        assert not injection_probe.exists()
+
+    assert output_path.exists()
+    loaded_score = Score.from_file(output_path, format="abc")
+    assert loaded_score.note_num() == score.note_num()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="shell script test is Linux-only")
+def test_dumps_abc_warn_false_suppresses_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    converter = tmp_path / "midi2abc.sh"
+    converter.write_text(
+        "\n".join(
+            [
+                "#!/bin/sh",
+                'printf "suppressed stderr\\n" >&2',
+                'cat > "$3" <<\'EOF\'',
+                "X:1",
+                "T:Suppressed",
+                "M:4/4",
+                "L:1/4",
+                "Q:1/4=120",
+                "K:C",
+                "C D E F|",
+                "EOF",
+                "",
+            ]
+        )
+    )
+    converter.chmod(0o755)
+    monkeypatch.setenv("SYMUSIC_MIDI2ABC", str(converter))
+
+    abc_text = make_roundtrip_score().dumps_abc(warn=False)
+    captured = capsys.readouterr()
+
+    assert "Suppressed" in abc_text
+    assert captured.err == ""
+
+
+def test_abc_conversion_is_safe_under_parallel_calls(tmp_path: Path):
+    score = make_roundtrip_score()
+    abc_text = make_roundtrip_abc_text()
+    expected_from_abc = Score.from_abc(abc_text).note_num()
+
+    def dump_once(index: int) -> int:
+        output_path = tmp_path / f"parallel {index}.abc"
+        score.dump_abc(output_path)
+        return Score.from_file(output_path, format="abc").note_num()
+
+    def load_once(_: int) -> int:
+        return Score.from_abc(abc_text).note_num()
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        dumped = list(executor.map(dump_once, range(4)))
+        loaded = list(executor.map(load_once, range(4)))
+
+    assert dumped == [score.note_num()] * 4
+    assert loaded == [expected_from_abc] * 4
+
+
+def test_from_abc_missing_converter_cleans_temp_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    missing_converter = tmp_path / "missing-abc2midi"
+    if sys.platform == "win32":
+        missing_converter = missing_converter.with_suffix(".exe")
+
+    monkeypatch.setenv("SYMUSIC_ABC2MIDI", str(missing_converter))
+    before = list_symusic_temp_dirs()
+
+    with pytest.raises(RuntimeError, match="Failed to start process"):
+        Score.from_abc(make_roundtrip_abc_text())
+
+    assert list_symusic_temp_dirs() == before
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="shell script test is Linux-only")
+def test_from_abc_failure_cleans_temp_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    failing_converter = tmp_path / "abc2midi.sh"
+    failing_converter.write_text(
+        "\n".join(
+            [
+                "#!/bin/sh",
+                'printf "abc2midi failed on purpose\\n" >&2',
+                "exit 23",
+                "",
+            ]
+        )
+    )
+    failing_converter.chmod(0o755)
+    monkeypatch.setenv("SYMUSIC_ABC2MIDI", str(failing_converter))
+
+    before = list_symusic_temp_dirs()
+
+    with pytest.raises(RuntimeError, match="Process exited with code 23"):
+        Score.from_abc(make_roundtrip_abc_text())
+
+    assert list_symusic_temp_dirs() == before
