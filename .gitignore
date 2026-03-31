@@ -17,3 +17,4 @@ docs/book
 .venv
 docs/_build
 .venv-docs
+.gstack
