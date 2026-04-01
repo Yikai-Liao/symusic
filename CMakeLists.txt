@@ -164,6 +164,12 @@ if(BUILD_SYMUSIC_TEST)
     add_executable(symusic_test tests/cpp/test_main.cpp)
     target_include_directories(symusic_test PRIVATE tests/cpp)
     target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
+    add_custom_command(
+        TARGET symusic_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/testcases"
+                "$<TARGET_FILE_DIR:symusic_test>/testcases"
+    )
     include(CTest)
     include(Catch)
     enable_testing()
@@ -171,6 +177,7 @@ if(BUILD_SYMUSIC_TEST)
         NAME symusic_ctest
         COMMAND $<TARGET_FILE:symusic_test> --success
     )
+    set_tests_properties(symusic_ctest PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 endif()
 
 

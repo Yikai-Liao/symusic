@@ -19,10 +19,9 @@ def test_multilang_file_read(filepath):
     Test reading MIDI files with multilingual filenames to verify UTF-8 path support in Python bindings.
     """
     abs_path = Path(filepath).resolve()
-    print(f"[DEBUG] Current working directory: {Path.cwd()}")
-    print(f"[DEBUG] Absolute path: {abs_path}")
+    safe_path = ascii(str(abs_path))
     try:
         score = Score(abs_path)
         assert score.note_num() > 0 or len(score.tracks) > 0
-    except Exception as e:
-        pytest.fail(f"Failed to read file '{abs_path}': {e}")
+    except Exception as exc:
+        pytest.fail(f"Failed to read file {safe_path}: {exc}")
