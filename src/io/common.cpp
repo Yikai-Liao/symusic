@@ -16,24 +16,29 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-std::wstring ToUtf16(const std::string& str) {
-    std::wstring ret;
 
-    printf("[ToUtf16] Input UTF-8 path: %s\n", str.c_str());
+namespace {
 
-    const int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
-    printf("[ToUtf16] Calculated UTF-16 length: %d\n", len);
-    if (len > 0) {
-        ret.resize(len);
-        MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &ret[0], len);
-        printf("[ToUtf16] UTF-16 first 10 code units: ");
-        for (int i = 0; i < len && i < 10; ++i) {
-            printf("%04x ", static_cast<unsigned int>(ret[i]));
-        }
-        printf("\n");
+std::wstring to_utf16(const std::string& path) {
+    const int wide_len = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    if (wide_len == 0) {
+        throw std::runtime_error(
+            fmt::format("Failed to convert UTF-8 path to UTF-16: {}", path)
+        );
     }
-    return ret;
+
+    std::wstring wide_path(static_cast<size_t>(wide_len), L'\0');
+    if (MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wide_path.data(), wide_len) == 0) {
+        throw std::runtime_error(
+            fmt::format("Failed to convert UTF-8 path to UTF-16: {}", path)
+        );
+    }
+
+    wide_path.pop_back();
+    return wide_path;
 }
+
+}   // namespace
 #endif
 
 namespace symusic {
@@ -44,14 +49,11 @@ vec<u8> read_file(const std::string& path) {
     if (fp == nullptr) {
         throw std::runtime_error(fmt::format("File not found file: {}", path));
     }
-#else   // deal with utf-8 path on windows
-    printf("[read_file] Input path: %s\n", path.c_str());
+#else
     FILE*         fp  = nullptr;
-    const auto wpath = ToUtf16(path);
+    const auto    wpath = to_utf16(path);
     const errno_t err = _wfopen_s(&fp, wpath.c_str(), L"rb");
-    printf("[read_file] _wfopen_s returned: %d\n", static_cast<int>(err));
     if (err != 0 || fp == nullptr) {
-        printf("[read_file] Failed to open file: %s\n", path.c_str());
         throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
     }
 #endif
@@ -66,17 +68,11 @@ vec<u8> read_file(const std::string& path) {
 
 vec<u8> read_file(const std::filesystem::path& path) {
 #ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
     return read_file(path.string());
 #else
-    // On Windows, use the wide-character path directly with _wfopen_s
-    printf("[read_file(fs::path)] Input path: %ls\n", path.c_str()); // Use %ls for wchar_t*
     FILE* fp = nullptr;
     const errno_t err = _wfopen_s(&fp, path.c_str(), L"rb");
-    printf("[read_file(fs::path)] _wfopen_s returned: %d\n", static_cast<int>(err));
     if (err != 0 || fp == nullptr) {
-        // Use path.string() for error message formatting if needed, but the primary issue is opening
-        printf("[read_file(fs::path)] Failed to open file using wide path.\n");
         throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path.string()));
     }
     fseek(fp, 0, SEEK_END);
@@ -92,14 +88,11 @@ vec<u8> read_file(const std::filesystem::path& path) {
 void write_file(const std::string& path, const std::span<const u8> buffer) {
 #ifndef _WIN32
     FILE* fp = fopen(path.c_str(), "wb");
-#else   // deal with utf-8 path on windows
-    printf("[write_file] Input path: %s\n", path.c_str());
+#else
     FILE*         fp  = nullptr;
-    const auto wpath = ToUtf16(path);
+    const auto    wpath = to_utf16(path);
     const errno_t err = _wfopen_s(&fp, wpath.c_str(), L"wb");
-    printf("[write_file] _wfopen_s returned: %d\n", static_cast<int>(err));
     if (err != 0 || fp == nullptr) {
-        printf("[write_file] Failed to open file: %s\n", path.c_str());
         throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
     }
 #endif
@@ -112,16 +105,11 @@ void write_file(const std::string& path, const std::span<const u8> buffer) {
 
 void write_file(const std::filesystem::path& path, const std::span<const u8> buffer) {
 #ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
     return write_file(path.string(), buffer);
 #else
-    // On Windows, use the wide-character path directly with _wfopen_s
-    printf("[write_file(fs::path)] Input path: %ls\n", path.c_str()); // Use %ls for wchar_t*
     FILE* fp = nullptr;
     const errno_t err = _wfopen_s(&fp, path.c_str(), L"wb");
-    printf("[write_file(fs::path)] _wfopen_s returned: %d\n", static_cast<int>(err));
     if (err != 0 || fp == nullptr) {
-        printf("[write_file(fs::path)] Failed to open file using wide path.\n");
         throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path.string()));
     }
     fwrite(buffer.data(), 1, buffer.size(), fp);

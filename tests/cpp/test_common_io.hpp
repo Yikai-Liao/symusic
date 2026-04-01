@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "symusic.h"
 #include "symusic/io/common.h"
 #include "catch2/catch_test_macros.hpp"
 using namespace symusic;
@@ -68,6 +69,30 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
 
         // Check that an exception is thrown
         REQUIRE_THROWS_AS(read_file(non_existent_file), std::runtime_error);
+    }
+
+    SECTION("Read and Roundtrip Fixture MIDI from Disk") {
+        const fs::path fixture_path = fs::path("testcases") / "One_track_MIDIs" / "Maestro_1.mid";
+        REQUIRE(fs::exists(fixture_path));
+
+        const auto fixture_data = read_file(fixture_path);
+        REQUIRE(fixture_data.size() > 14);
+
+        const Score<Tick> original_score
+            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(fixture_data));
+        REQUIRE(original_score.ticks_per_quarter > 0);
+        REQUIRE_FALSE(original_score.tracks->empty());
+
+        const fs::path roundtrip_path = temp_dir / "issue_91_roundtrip.mid";
+        write_file(roundtrip_path, original_score.dumps<DataFormat::MIDI>());
+
+        const auto roundtrip_data = read_file(roundtrip_path);
+        const Score<Tick> roundtrip_score
+            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(roundtrip_data));
+
+        REQUIRE(roundtrip_score.ticks_per_quarter == original_score.ticks_per_quarter);
+        REQUIRE(roundtrip_score.tracks->size() == original_score.tracks->size());
+        REQUIRE(roundtrip_score.note_num() == original_score.note_num());
     }
 
     // Clean up the temporary directory

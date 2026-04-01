@@ -50,8 +50,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
 
-  py_test_windows_abc:
-    name: ABC regressions on Windows
+  py_test_windows_regressions:
+    name: MIDI path and ABC regressions on Windows
     runs-on: windows-latest
 
     steps:
@@ -70,8 +70,8 @@ jobs:
         run: |
           pip install ".[test]"
 
-      - name: Run Windows ABC regression tests
-        run: pytest -s -v tests/test_abc.py tests/test_multilang_path.py
+      - name: Run Windows regression tests
+        run: pytest -s -v tests/test_read_dump.py tests/test_abc.py tests/test_multilang_path.py
 
   cpp_test:
     runs-on: ${{ matrix.os }}
