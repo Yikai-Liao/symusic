@@ -2,11 +2,9 @@
 // Implementation of the Synthesizer bindings.
 //
 
+#include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
 
-#include <nanobind/ndarray.h>
-#include <nanobind/stl/filesystem.h>
-#include <nanobind/stl/string.h>
 
 #include "prestosynth/wav.h"
 #include "symusic.h"

@@ -34,10 +34,16 @@ jobs:
           cache: pip
           cache-dependency-path: setup.py
 
-      - name: Install dependencies
-        run: |
-          # Install local package with tests dependencies extras
-          pip install ".[test]"
+      - name: Install dependencies and capture build timings
+        run: python scripts/benchmark_install.py --output-dir build-bench --package ".[test]"
+
+      - name: Upload install benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-benchmark-${{ matrix.os }}-${{ matrix.python-version }}
+          path: build-bench
+          retention-days: 30
 
       - name: Test with pytest
         run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests

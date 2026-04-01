@@ -6,22 +6,11 @@
 #include <random>
 #include <string>
 
-#include <nanobind/eigen/dense.h>
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
-#include <nanobind/stl/filesystem.h>
-#include <nanobind/stl/optional.h>
-#include <nanobind/stl/string.h>
-#include <nanobind/stl/vector.h>
-#include <nanobind/typing.h>
+#include "binding_prelude.h"
 #include <fmt/format.h>
 
-#include "MetaMacro.h"
 #include "../../utils/python_helpers.h"
-#include "binding_common.h"
-#include "../events/event_bindings.h"
-#include "../score/score_bindings.h"
-#include "../track/track_bindings.h"
+#include "binding_registration.h"
 #include "../synth/synthesizer_bindings.h"
 
 #pragma warning(disable : 4996)
@@ -67,11 +56,6 @@ void define_time_generic(nb::module_& m, const char* name) {
     nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()))
         .def("__init__", [msg](Placeholder*) { throw nb::type_error(msg.c_str()); });
 }
-#define BIND_EVENT(__COUNT, BIND_FUNC) \
-    BIND_FUNC<Tick>(m, "Tick");        \
-    BIND_FUNC<Quarter>(m, "Quarter");  \
-    BIND_FUNC<Second>(m, "Second");
-
 NB_MODULE(core, m) {
 #ifndef MEM_LEAK_WARNING
     nb::set_leak_warnings(false);
@@ -150,21 +134,9 @@ NB_MODULE(core, m) {
         return nb::isinstance<Second>(other);
     });
 
-    REPEAT_ON(
-        BIND_EVENT,
-        bind_note,
-        bind_keysig,
-        bind_timesig,
-        bind_tempo,
-        bind_controlchange,
-        bind_pedal,
-        bind_pitchbend,
-        bind_textmeta,
-        bind_track,
-        bind_score
-    )
-#undef BIND_EVENT
-
+    bind_event_types(m);
+    bind_track_types(m);
+    bind_score_types(m);
     bind_synthesizer(m);
 }
 

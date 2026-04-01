@@ -32,11 +32,6 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-# Add multilingual path test executable
-add_executable(test_multilang_path tests/cpp/test_multilang_path.cpp src/io/common.cpp)
-target_include_directories(test_multilang_path PRIVATE include)
-target_link_libraries(test_multilang_path symusic)
-
 if(MEM_LEAK_WARNING)
     message(STATUS "Nanobind memory leak warning ENABLED")
     add_definitions(-DMEM_LEAK_WARNING)
@@ -107,7 +102,14 @@ if(BUILD_SYMUSIC_PY)
         ${NB_FLAGS}
         NB_DOMAIN symusic
         py_src/bindings/core/module.cpp
+        py_src/bindings/core/binding_prelude.h
+        py_src/bindings/core/binding_registration.h
         py_src/utils/process_runner.cpp
+        py_src/bindings/events/register_events.cpp
+        py_src/bindings/events/register_events_notes.cpp
+        py_src/bindings/events/register_events_controls.cpp
+        py_src/bindings/track/register_tracks.cpp
+        py_src/bindings/score/register_scores.cpp
         py_src/bindings/synth/synthesizer_bindings.cpp
         py_src/bindings/track/track_bindings.h
         py_src/bindings/score/score_bindings.h
@@ -161,6 +163,11 @@ if(BUILD_SYMUSIC_TEST)
     )
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+
+    add_executable(test_multilang_path tests/cpp/test_multilang_path.cpp src/io/common.cpp)
+    target_include_directories(test_multilang_path PRIVATE include)
+    target_link_libraries(test_multilang_path symusic)
+
     add_executable(symusic_test tests/cpp/test_main.cpp)
     target_include_directories(symusic_test PRIVATE tests/cpp)
     target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
