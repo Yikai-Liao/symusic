@@ -16,7 +16,7 @@
 	url = https://github.com/martinus/nanobench.git
 [submodule "3rdparty/abcmidi"]
 	path = 3rdparty/abcmidi
-	url = https://github.com/Yikai-Liao/abcmidi.git
+	url = https://github.com/sshlien/abcmidi.git
 [submodule "3rdparty/prestosynth"]
 	path = 3rdparty/prestosynth
 	url = https://github.com/lzqlzzq/prestosynth.git

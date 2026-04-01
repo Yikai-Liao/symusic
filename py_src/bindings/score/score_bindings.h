@@ -158,6 +158,15 @@ constexpr const char* kUseCountDoc
     = R"pbdoc(Return the reference count of the shared score pointer for debugging aliasing.)pbdoc";
 }   // namespace score_docstrings
 
+inline std::string path_to_utf8_string(const std::filesystem::path& path) {
+#ifdef _WIN32
+    const auto utf8 = path.u8string();
+    return std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size());
+#else
+    return path.string();
+#endif
+}
+
 template<TType T>
 typename T::unit cast_time(const nb::object& t) {
     using unit = typename T::unit;
@@ -213,15 +222,44 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
 
     process_runner::ScopedTempDir temp_dir;
     const auto                    temp_midi_path = temp_dir.path() / "input.mid";
+#ifdef _WIN32
+    const auto temp_abc_path = temp_dir.path() / "output.abc";
+    const auto& converter_output_path = temp_abc_path;
+#else
+    const auto& converter_output_path = path;
+#endif
 
     dump_midi(self, temp_midi_path);
     process_runner::run_process_checked(
-        midi2abc, {temp_midi_path, std::filesystem::path("-o"), path}, !warn
+        midi2abc,
+        {temp_midi_path, std::filesystem::path("-o"), converter_output_path},
+        !warn
     );
 
-    if (!std::filesystem::exists(path)) {
-        throw std::runtime_error(fmt::format("midi2abc did not create {}", path.string()));
+    if (!std::filesystem::exists(converter_output_path)) {
+        throw std::runtime_error(
+            fmt::format("midi2abc did not create {}", path_to_utf8_string(path))
+        );
     }
+
+#ifdef _WIN32
+    std::error_code error;
+    std::filesystem::copy_file(
+        converter_output_path,
+        path,
+        std::filesystem::copy_options::overwrite_existing,
+        error
+    );
+    if (error) {
+        throw std::runtime_error(
+            fmt::format(
+                "Failed to copy ABC output to {}: {}",
+                path_to_utf8_string(path),
+                error.message()
+            )
+        );
+    }
+#endif
 }
 
 template<TType T>
@@ -255,10 +293,37 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
 
     process_runner::ScopedTempDir temp_dir;
+#ifdef _WIN32
+    const auto temp_abc_path = temp_dir.path() / "input.abc";
+    std::error_code copy_error;
+    std::filesystem::copy_file(
+        path,
+        temp_abc_path,
+        std::filesystem::copy_options::overwrite_existing,
+        copy_error
+    );
+    if (copy_error) {
+        throw std::runtime_error(
+            fmt::format(
+                "Failed to stage ABC input {}: {}",
+                path_to_utf8_string(path),
+                copy_error.message()
+            )
+        );
+    }
+    const auto& converter_input_path = temp_abc_path;
+#else
+    const auto& converter_input_path = path;
+#endif
     const auto                    midi_path = temp_dir.path() / "output.mid";
     process_runner::run_process_checked(
         abc2midi,
-        {path, std::filesystem::path("-o"), midi_path, std::filesystem::path("-silent")},
+        {
+            converter_input_path,
+            std::filesystem::path("-o"),
+            midi_path,
+            std::filesystem::path("-silent"),
+        },
         false
     );
     if (!std::filesystem::exists(midi_path)) {

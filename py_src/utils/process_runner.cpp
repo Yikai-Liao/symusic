@@ -26,14 +26,23 @@ namespace symusic::process_runner {
 
 namespace {
 
+std::string path_to_utf8(const std::filesystem::path& path) {
+#ifdef _WIN32
+    const auto utf8 = path.u8string();
+    return std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size());
+#else
+    return path.string();
+#endif
+}
+
 std::string render_command(
     const std::filesystem::path&              executable,
     const std::vector<std::filesystem::path>& args
 ) {
-    std::string rendered = executable.string();
+    std::string rendered = path_to_utf8(executable);
     for (const auto& arg : args) {
         rendered += " ";
-        rendered += arg.string();
+        rendered += path_to_utf8(arg);
     }
     return rendered;
 }
@@ -55,12 +64,19 @@ std::filesystem::path create_scoped_temp_dir(std::string_view prefix) {
         if (error == ERROR_ALREADY_EXISTS) { continue; }
 
         throw std::runtime_error(
-            fmt::format("CreateDirectoryW failed for {} (error {})", candidate.string(), error)
+            fmt::format(
+                "CreateDirectoryW failed for {} (error {})",
+                path_to_utf8(candidate),
+                error
+            )
         );
     }
 
     throw std::runtime_error(
-        fmt::format("Failed to create a unique temporary directory under {}", temp_root.string())
+        fmt::format(
+            "Failed to create a unique temporary directory under {}",
+            path_to_utf8(temp_root)
+        )
     );
 #else
     const auto pattern = temp_root / fmt::format("{}XXXXXX", prefix);

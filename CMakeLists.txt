@@ -130,7 +130,7 @@ if(BUILD_SYMUSIC_PY)
         PYTHON_PATH "."
     )
 #   install abc2midi and midi2abc
-    add_subdirectory(3rdparty/abcmidi)
+    add_subdirectory(cmake/abcmidi ${CMAKE_CURRENT_BINARY_DIR}/abcmidi)
     install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
 endif()
 
