@@ -8,7 +8,9 @@ from symusic import Score
 
 from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
-ISSUE_104_PATH = TESTCASES_PATH / "MIDIs_corrupted" / "Issue104_Bizarre_Love_Triangle2.mid"
+ISSUE_104_PATH = (
+    TESTCASES_PATH / "MIDIs_corrupted" / "Issue104_Bizarre_Love_Triangle2.mid"
+)
 ABC_FIXTURE_PATH = TESTCASES_PATH / "abc_files" / "a_morning_in_summer.abc"
 
 
@@ -57,7 +59,7 @@ except RuntimeError:
 raise SystemExit(1)
 """
     result = subprocess.run(
-        [sys.executable, "-c", script],
+        [sys.executable, "-c", script],  # noqa: S603
         check=False,
         capture_output=True,
         text=True,

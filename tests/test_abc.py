@@ -36,7 +36,7 @@ def make_roundtrip_abc_text() -> str:
             "K:C",
             "C D E F|",
             "",
-        ]
+        ],
     )
 
 
@@ -86,18 +86,26 @@ def test_dump_abc_roundtrip(tmp_path: Path):
         pytest.param(
             "windows shell like",
             "shell & semicolon ;.abc",
-            marks=pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific path"),
+            marks=pytest.mark.skipif(
+                sys.platform != "win32",
+                reason="Windows-specific path",
+            ),
         ),
         pytest.param(
             "shell like",
             'bad"; touch symusic-injection-probe; echo ".abc',
-            marks=pytest.mark.skipif(sys.platform == "win32", reason="invalid path characters"),
+            marks=pytest.mark.skipif(
+                sys.platform == "win32",
+                reason="invalid path characters",
+            ),
         ),
         ("多语言 路径", "旋律 导出.abc"),
     ],
 )
 def test_dump_abc_roundtrip_special_paths(
-    tmp_path: Path, directory_name: str, file_name: str
+    tmp_path: Path,
+    directory_name: str,
+    file_name: str,
 ):
     score = make_roundtrip_score()
     output_dir = tmp_path / directory_name
@@ -119,7 +127,9 @@ def test_dump_abc_roundtrip_special_paths(
 
 @pytest.mark.skipif(sys.platform != "linux", reason="shell script test is Linux-only")
 def test_dumps_abc_warn_false_suppresses_stderr(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ):
     converter = tmp_path / "midi2abc.sh"
     converter.write_text(
@@ -127,7 +137,7 @@ def test_dumps_abc_warn_false_suppresses_stderr(
             [
                 "#!/bin/sh",
                 'printf "suppressed stderr\\n" >&2',
-                'cat > "$3" <<\'EOF\'',
+                "cat > \"$3\" <<'EOF'",
                 "X:1",
                 "T:Suppressed",
                 "M:4/4",
@@ -137,8 +147,8 @@ def test_dumps_abc_warn_false_suppresses_stderr(
                 "C D E F|",
                 "EOF",
                 "",
-            ]
-        )
+            ],
+        ),
     )
     converter.chmod(0o755)
     monkeypatch.setenv("SYMUSIC_MIDI2ABC", str(converter))
@@ -172,7 +182,8 @@ def test_abc_conversion_is_safe_under_parallel_calls(tmp_path: Path):
 
 
 def test_from_abc_missing_converter_cleans_temp_dirs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     missing_converter = tmp_path / "missing-abc2midi"
     if sys.platform == "win32":
@@ -189,7 +200,8 @@ def test_from_abc_missing_converter_cleans_temp_dirs(
 
 @pytest.mark.skipif(sys.platform != "linux", reason="shell script test is Linux-only")
 def test_from_abc_failure_cleans_temp_dirs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     failing_converter = tmp_path / "abc2midi.sh"
     failing_converter.write_text(
@@ -199,8 +211,8 @@ def test_from_abc_failure_cleans_temp_dirs(
                 'printf "abc2midi failed on purpose\\n" >&2',
                 "exit 23",
                 "",
-            ]
-        )
+            ],
+        ),
     )
     failing_converter.chmod(0o755)
     monkeypatch.setenv("SYMUSIC_ABC2MIDI", str(failing_converter))

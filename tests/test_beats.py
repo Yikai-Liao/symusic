@@ -18,7 +18,7 @@ def make_tick_score(
         score.tempos.append(Tempo(int(round(quarter_time * 480)), qpm))
     for quarter_time, numerator, denominator in time_signatures or []:
         score.time_signatures.append(
-            TimeSignature(int(round(quarter_time * 480)), numerator, denominator)
+            TimeSignature(int(round(quarter_time * 480)), numerator, denominator),
         )
     return score
 

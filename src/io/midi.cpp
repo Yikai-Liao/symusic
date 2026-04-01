@@ -23,6 +23,18 @@ namespace symusic {
 namespace details {
 // define some utils
 
+[[nodiscard]] bool is_valid_midi_data_byte(const uint8_t value) { return value <= 0x7F; }
+
+void ensure_valid_midi_data_byte(
+    const char* const field_name, const uint8_t value, const bool sanitize_data
+) {
+    if (!sanitize_data && !is_valid_midi_data_byte(value)) {
+        throw std::runtime_error(
+            "Get " + std::string(field_name) + "=" + std::to_string(value)
+        );
+    }
+}
+
 template<typename T>
 void sort_by_time(vec<T>& data) {
     pdqsort_branchless(data.begin(), data.end(), [](const auto& a, const auto& b) {
@@ -223,6 +235,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             switch (msg.type()) {
             case minimidi::MessageType::NoteOn: {
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
+                ensure_valid_midi_data_byte("pitch", note_on.pitch(), sanitize_data);
+                ensure_valid_midi_data_byte("velocity", note_on.velocity(), sanitize_data);
                 if (note_on.velocity() != 0) {
                     trackManager.add_note(
                         note_on.channel(), note_on.pitch(), cur_time, note_on.velocity()
@@ -233,6 +247,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             }
             case minimidi::MessageType::NoteOff: {
                 const auto& note_off = msg.template cast<minimidi::NoteOff>();
+                ensure_valid_midi_data_byte("pitch", note_off.pitch(), sanitize_data);
+                ensure_valid_midi_data_byte("velocity", note_off.velocity(), sanitize_data);
                 trackManager.end_note(note_off.channel(), note_off.pitch(), cur_time);
                 break;
             }
@@ -240,8 +256,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
                 const uint8_t channel        = program_change.channel();
                 const uint8_t program        = program_change.program();
-                if (sanitize_data && (program >= 128))
-                    throw std::range_error("Get program=" + std::to_string(program));
+                ensure_valid_midi_data_byte("program", program, sanitize_data);
                 trackManager.set_program(
                     channel, program
                 );   // Changed to call TrackManager's method
@@ -260,10 +275,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const uint8_t control_number = control_change.control_number();
                 const uint8_t control_value  = control_change.control_value();
 
-                if (sanitize_data && (control_number >= 128))
-                    throw std::range_error("Get control_number=" + std::to_string(control_number));
-                if (sanitize_data && (control_value >= 128))
-                    throw std::range_error("Get control_value=" + std::to_string(control_value));
+                ensure_valid_midi_data_byte("control_number", control_number, sanitize_data);
+                ensure_valid_midi_data_byte("control_value", control_value, sanitize_data);
                 track.controls.emplace_back(cur_time, control_number, control_value);
                 // Pedal Part
                 if (control_number == 64) {
@@ -284,10 +297,10 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
                 auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
                 auto        value = pitch_bend.pitch_bend();
-                if (sanitize_data
+                if (!sanitize_data
                     && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
                         || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
-                    throw std::range_error("Get pitch_bend=" + std::to_string(value));
+                    throw std::runtime_error("Get pitch_bend=" + std::to_string(value));
                 track.pitch_bends.emplace_back(cur_time, value);
                 break;
             }
