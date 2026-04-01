@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import shutil
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +9,18 @@ import pytest
 import textwrap
 
 
-MYPY_BIN = shutil.which("mypy")
+def _mypy_is_runnable() -> bool:
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+MYPY_SUPPORTED = platform.python_implementation() != "PyPy" and _mypy_is_runnable()
+MYPY_SKIP_REASON = "mypy is unavailable or intentionally skipped on PyPy CI"
 
 
 def _run_mypy(tmp_path: Path, content: str) -> subprocess.CompletedProcess[str]:
@@ -33,7 +44,7 @@ def _assert_success(result: subprocess.CompletedProcess[str]) -> None:
     ), f"mypy failed ({result.returncode}):\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_score_typing(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
@@ -51,7 +62,7 @@ def test_score_typing(tmp_path: Path) -> None:
     _assert_success(_run_mypy(tmp_path, content))
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_pyvec_typing(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
@@ -64,7 +75,7 @@ def test_pyvec_typing(tmp_path: Path) -> None:
     _assert_success(_run_mypy(tmp_path, content))
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_event_and_track_typing(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
@@ -81,7 +92,7 @@ def test_event_and_track_typing(tmp_path: Path) -> None:
     _assert_success(_run_mypy(tmp_path, content))
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_nested_pyvec_typing(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
@@ -97,7 +108,7 @@ def test_nested_pyvec_typing(tmp_path: Path) -> None:
     _assert_success(_run_mypy(tmp_path, content))
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_types_module_aliases(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
@@ -115,7 +126,7 @@ def test_types_module_aliases(tmp_path: Path) -> None:
     _assert_success(_run_mypy(tmp_path, content))
 
 
-@pytest.mark.skipif(MYPY_BIN is None, reason="mypy is not installed")
+@pytest.mark.skipif(not MYPY_SUPPORTED, reason=MYPY_SKIP_REASON)
 def test_time_signature_list_union(tmp_path: Path) -> None:
     content = """
         import symusic.core as core
