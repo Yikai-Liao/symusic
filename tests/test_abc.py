@@ -48,6 +48,24 @@ def list_symusic_temp_dirs() -> set[Path]:
     }
 
 
+@pytest.fixture()
+def isolated_symusic_temp_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    original_tempdir = tempfile.tempdir
+    temp_root = tmp_path / "symusic-temp-root"
+    temp_root.mkdir()
+    monkeypatch.setenv("TMPDIR", str(temp_root))
+    monkeypatch.setenv("TMP", str(temp_root))
+    monkeypatch.setenv("TEMP", str(temp_root))
+    tempfile.tempdir = None
+    try:
+        yield temp_root
+    finally:
+        tempfile.tempdir = original_tempdir
+
+
 @pytest.mark.parametrize("abc_path", ABC_PATHS, ids=lambda path: path.name)
 def test_read_abc(abc_path: Path):
     score = Score(abc_path, fmt="abc")
@@ -181,6 +199,7 @@ def test_abc_conversion_is_safe_under_parallel_calls(tmp_path: Path):
     assert loaded == [expected_from_abc] * 4
 
 
+@pytest.mark.usefixtures("isolated_symusic_temp_root")
 def test_from_abc_missing_converter_cleans_temp_dirs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -199,6 +218,7 @@ def test_from_abc_missing_converter_cleans_temp_dirs(
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="shell script test is Linux-only")
+@pytest.mark.usefixtures("isolated_symusic_temp_root")
 def test_from_abc_failure_cleans_temp_dirs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

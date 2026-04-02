@@ -8,6 +8,7 @@
 
 #include "binding_prelude.h"
 #include <fmt/format.h>
+#include <nanobind/typing.h>
 
 #include "../../utils/python_helpers.h"
 #include "binding_registration.h"
