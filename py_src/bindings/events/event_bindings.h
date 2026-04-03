@@ -400,8 +400,18 @@ auto bind_time_stamp(
     const auto vec_sig = fmt::format("class {}(PyVec[{}[{}]])", list_name, generic_base, unit_suffix);
     auto vec_class = bind_shared_pyvec<T>(m, list_name.c_str(), nb::sig(vec_sig.c_str()))
         .def_prop_ro("ttype", [](const vec_t&) { return typename T::ttype(); })
-        .def("__getstate__", &vec_to_bytes<T>, event_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
-        .def("__setstate__", &vec_from_bytes<T>, event_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str()))
+        .def(
+            "__getstate__",
+            [](const vec_t& self) { return vec_to_bytes<T>(*self); },
+            event_docstrings::kGetStateDoc,
+            nb::sig("def __getstate__(self, /) -> bytes")
+        )
+        .def(
+            "__setstate__",
+            [](vec_t& self, const nb::bytes& bytes) { vec_from_bytes<T>(self, bytes); },
+            event_docstrings::kSetStateDoc,
+            nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str())
+        )
         .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
         .def(
             "sort",
