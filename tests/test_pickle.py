@@ -71,13 +71,15 @@ def _build_score(ttype: str):
 
 
 def _assert_pickle_roundtrip(obj: object) -> object:
-    restored = pickle.loads(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+    restored = pickle.loads(  # noqa: S301
+        pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL),
+    )
     assert type(restored) is type(obj)
     assert restored == obj
     return restored
 
 
-@pytest.mark.parametrize("label,event", _event_cases("tick"))
+@pytest.mark.parametrize(("label", "event"), _event_cases("tick"))
 def test_pickle_event_roundtrip_tick(label: str, event: object):
     del label
     restored = _assert_pickle_roundtrip(event)
