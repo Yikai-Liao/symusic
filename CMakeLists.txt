@@ -31,6 +31,11 @@ endif()
 if(MSVC)
     add_compile_options(-bigobj)
     add_compile_options(/utf-8)
+    # The Visual Studio generator does not reliably propagate /MP from
+    # add_compile_options() onto regular targets in this project, but the
+    # language-wide flags do.
+    string(APPEND CMAKE_C_FLAGS " /MP")
+    string(APPEND CMAKE_CXX_FLAGS " /MP")
 endif()
 
 if(MEM_LEAK_WARNING)
@@ -208,8 +213,6 @@ endif()
 if(MSVC)
     message(STATUS "MSVC parallel compilation enabled")
     add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Gm->)
-    cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
 endif()
 
 if(VTUNE)
@@ -223,5 +226,9 @@ if(VTUNE)
     endif ()
 endif ()
 
-set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
-set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
+option(SYMUSIC_TIME_BUILD_RULES "Prefix compile and link rules with `cmake -E time`." OFF)
+
+if(SYMUSIC_TIME_BUILD_RULES)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
+endif()

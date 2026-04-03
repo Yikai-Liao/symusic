@@ -60,6 +60,8 @@ Or you could install the source distribution from pypi
 pip install symusic --no-binary symusic
 ```
 
+On Windows, `pip install ./symusic` will prefer `Ninja + MSVC` when it is launched from a Visual Studio Developer shell. In a regular shell it keeps using the default Visual Studio generator.
+
 For debugging purpose, you could pass `-Ccmake.define.MEM_LEAK_WARNING=True` to `pip install` to enable the memory leak warning from `nanobind`.
 ```bash
 pip install -Ccmake.define.MEM_LEAK_WARNING=True ./symusic

@@ -57,6 +57,18 @@ jobs:
         with:
           architecture: 'x86'
 
+      - name: Setup MSVC (64-bit)
+        if: ${{ matrix.buildplat[1] == 'win_amd64' }}
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x64'
+
+      - name: Setup MSVC (ARM64)
+        if: ${{ matrix.buildplat[1] == 'win_arm64' }}
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'arm64'
+
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
         uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
@@ -100,7 +112,8 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_ARCHS: 'all'
-          CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
+          CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=11.0"
+          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_GENERATOR=Ninja"
 
       - uses: actions/upload-artifact@v6
         with:

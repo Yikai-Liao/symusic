@@ -64,6 +64,21 @@ Issues = "https://github.com/Yikai-Liao/symusic/issues"
 cmake.version = ">=3.26.1"
 ninja.version = ">=1.11"
 
+[[tool.scikit-build.overrides]]
+if.platform-system = "^win32$"
+build.tool-args = ["/m"]
+
+[[tool.scikit-build.overrides]]
+if.platform-system = "^win32$"
+if.env.VSCMD_VER = ".+"
+if.env.CMAKE_GENERATOR = false
+cmake.args = ["-GNinja"]
+build.tool-args = []
+
+[[tool.scikit-build.overrides]]
+if.env.CMAKE_GENERATOR = "^Ninja( Multi-Config)?$"
+build.tool-args = []
+
 [tool.scikit-build.cmake.define]
 BUILD_SYMUSIC_PY = "ON"
 CMAKE_POLICY_VERSION_MINIMUM = "3.5"

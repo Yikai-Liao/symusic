@@ -27,6 +27,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup MSVC DevShell (Windows)
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x64'
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -65,6 +71,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup MSVC DevShell (Windows)
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x64'
+
       - name: Install gcovr (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get install -y gcovr
@@ -79,7 +91,7 @@ jobs:
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        run: cmake -S . -Bbuild -G Ninja -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build --config Debug
