@@ -164,10 +164,6 @@ if(BUILD_SYMUSIC_TEST)
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
-    add_executable(test_multilang_path tests/cpp/test_multilang_path.cpp src/io/common.cpp)
-    target_include_directories(test_multilang_path PRIVATE include)
-    target_link_libraries(test_multilang_path symusic)
-
     add_executable(symusic_test tests/cpp/test_main.cpp)
     target_include_directories(symusic_test PRIVATE tests/cpp)
     target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)

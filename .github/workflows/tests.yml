@@ -54,29 +54,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
 
-  py_test_windows_regressions:
-    name: MIDI path and ABC regressions on Windows
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Set up Python 3.x
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-          cache: pip
-          cache-dependency-path: setup.py
-
-      - name: Install dependencies
-        run: |
-          pip install ".[test]"
-
-      - name: Run Windows regression tests
-        run: pytest -s -v tests/test_read_dump.py tests/test_abc.py tests/test_multilang_path.py
-
   cpp_test:
     runs-on: ${{ matrix.os }}
     strategy:

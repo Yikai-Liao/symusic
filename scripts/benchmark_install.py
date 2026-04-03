@@ -34,8 +34,6 @@ def bucket_step(command: str) -> str:
         return "nanobind-static"
     if "abcmidi" in command or "abc2midi" in command or "midi2abc" in command:
         return "abcmidi-tools"
-    if "test_multilang_path" in command:
-        return "test_multilang_path"
     return "other"
 
 
