@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload install benchmark artifact
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: install-benchmark-${{ matrix.os }}-${{ matrix.python-version }}
           path: build-bench
@@ -55,7 +55,7 @@ jobs:
         run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
       - name: Codecov
-        uses: codecov/codecov-action@af09b5e394c93991b95a5e7646aeb90c1917f78f
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
@@ -109,7 +109,7 @@ jobs:
 
       - name: Codecov
         if: runner.os != 'Windows'
-        uses: codecov/codecov-action@af09b5e394c93991b95a5e7646aeb90c1917f78f
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./build/coverage.xml

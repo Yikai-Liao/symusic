@@ -71,7 +71,7 @@ jobs:
 
       - name: Build wheels for manylinux x86_64
         if: ${{ matrix.buildplat[1] == 'manylinux_x86_64' }}
-        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084  # v3.4.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -80,7 +80,7 @@ jobs:
 
       - name: Build wheels for manylinux aarch64
         if: ${{ matrix.buildplat[1] == 'manylinux_aarch64' }}
-        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084  # v3.4.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Build wheels for musllinux x86_64
         if: ${{ matrix.buildplat[1] == 'musllinux_x86_64' }}
-        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084  # v3.4.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build wheels for musllinux aarch64
         if: ${{ matrix.buildplat[1] == 'musllinux_aarch64' }}
-        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084  # v3.4.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -107,7 +107,7 @@ jobs:
 
       - name: Build wheels
         if: ${{ !contains(matrix.buildplat[1], 'linux') }}
-        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc  # v3.3.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084  # v3.4.1
         env:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
@@ -115,7 +115,7 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=11.0"
           CIBW_ENVIRONMENT_WINDOWS: "CMAKE_GENERATOR=Ninja"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: tmp-${{ matrix.python }}-${{ matrix.buildplat[1] }}
           path: ./wheelhouse/*.whl
@@ -133,7 +133,7 @@ jobs:
         run: pipx run build --sdist
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tmp-sdist
           path: dist/*.tar.gz
@@ -143,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v6
+        uses: actions/upload-artifact/merge@v7
         with:
           name: artifact
           pattern: tmp-*
@@ -157,7 +157,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           # unpacks default artifact into dist/
           # if `name: artifact` is omitted, the action will create extra parent dir
