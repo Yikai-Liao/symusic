@@ -18,3 +18,4 @@ docs/book
 docs/_build
 .venv-docs
 .gstack
+.codex
