@@ -27,3 +27,6 @@
 	path = 3rdparty/nanobind
 	url = https://github.com/wjakob/nanobind.git
 	tag = v2.9.2
+[submodule "3rdparty/Catch2"]
+	path = 3rdparty/Catch2
+	url = https://github.com/catchorg/Catch2.git

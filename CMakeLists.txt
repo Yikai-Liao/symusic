@@ -155,14 +155,15 @@ if(BUILD_SYMUSIC_EXAMPLE)
 endif()
 
 if(BUILD_SYMUSIC_TEST)
-    Include(FetchContent)
-    FetchContent_Declare(
-            Catch2
-            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-            GIT_TAG f90e8f50a6e76e3492ee9aadfe1014677c4807d2 # Catch2 v3.4.0
-    )
-    FetchContent_MakeAvailable(Catch2)
-    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Catch2/CMakeLists.txt")
+        message(
+            FATAL_ERROR
+            "Catch2 submodule is missing. Run `git submodule update --init --recursive 3rdparty/Catch2`."
+        )
+    endif()
+
+    add_subdirectory(3rdparty/Catch2 EXCLUDE_FROM_ALL)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Catch2/extras")
 
     add_executable(symusic_test tests/cpp/test_main.cpp)
     target_include_directories(symusic_test PRIVATE tests/cpp)

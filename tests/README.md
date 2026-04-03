@@ -17,7 +17,7 @@ The C++ tests use the [Catch2](https://github.com/catchorg/Catch2) framework. To
 ```bash
 # From the project root directory
 mkdir -p build && cd build
-cmake .. -DBUILD_TESTS=ON
+cmake .. -DBUILD_SYMUSIC_TEST=ON
 make -j
 ```
 
