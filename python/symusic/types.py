@@ -1,9 +1,4 @@
-try:
-    from typing import Protocol, TypeVar
-except ImportError:
-    from typing_extensions import Protocol, TypeVar
-
-from typing import List, Union
+from typing import List, Protocol, TypeVar, Union
 
 from . import core
 

@@ -21,7 +21,7 @@ from .soundfont import (
     Soundfont,
 )
 
-__version__ = "0.5.9"
+__version__ = "0.6.0"
 
 __all__ = [
     "TimeUnit",

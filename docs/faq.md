@@ -6,7 +6,7 @@ This page collects short answers to common setup and runtime issues when using S
 
 ### `pip install symusic` falls back to a source build
 
-Symusic publishes wheels for Linux, macOS, and Windows on CPython 3.8–3.12 (plus PyPy 3.9). If `pip`
+Symusic publishes wheels for Linux, macOS, and Windows on CPython 3.9–3.14 (plus PyPy 3.9). If `pip`
 starts compiling from source:
 
 - Check that your Python version is supported (`python -m pip debug --verbose` is helpful).
