@@ -10,7 +10,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Enforce pinned third-party actions
         shell: bash
         run: |
@@ -44,7 +44,7 @@ jobs:
               print("\n".join(bad_refs))
               sys.exit(1)
           PY
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
         env:
           RUFF_OUTPUT_FORMAT: github
