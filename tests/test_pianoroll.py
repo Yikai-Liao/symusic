@@ -6,6 +6,8 @@ These tests verify that the pianoroll creation, manipulation, and conversion wor
 
 from __future__ import annotations
 
+import gc
+
 import numpy as np
 import pytest
 from symusic import Note, Score, Track
@@ -167,6 +169,42 @@ def test_pianoroll_binary_encoding(simple_track):
     assert pianoroll[0, 64, 720] == 1  # Middle of second note
     assert pianoroll[0, 67, 1200] == 1  # Middle of third note
     assert pianoroll[0, 72, 1920] == 1  # Middle of fourth note
+
+
+def test_track_pianoroll_outlives_builder_scope():
+    """Test that ndarray ownership survives after the builder scope exits."""
+
+    def build_pianoroll():
+        track = Track("Piano", 0, False)
+        track.notes.append(Note(0, 480, 60, 100))
+        track.notes.append(Note(480, 480, 64, 80))
+        return track.pianoroll(modes=["frame"], encode_velocity=True)
+
+    pianoroll = build_pianoroll()
+    gc.collect()
+
+    assert pianoroll.shape == (1, 128, 961)
+    assert pianoroll[0, 60, 240] == 100
+    assert pianoroll[0, 64, 720] == 80
+
+
+def test_score_pianoroll_outlives_builder_scope():
+    """Test that score-backed ndarray ownership survives after the builder scope exits."""
+
+    def build_pianoroll():
+        score = Score(480)
+        track = Track("Piano", 0, False)
+        track.notes.append(Note(0, 480, 60, 100))
+        track.notes.append(Note(960, 240, 67, 70))
+        score.tracks.append(track)
+        return score.pianoroll(modes=["frame"], encode_velocity=True)
+
+    pianoroll = build_pianoroll()
+    gc.collect()
+
+    assert pianoroll.shape == (1, 1, 128, 1201)
+    assert pianoroll[0, 0, 60, 240] == 100
+    assert pianoroll[0, 0, 67, 1080] == 70
 
 
 if __name__ == "__main__":

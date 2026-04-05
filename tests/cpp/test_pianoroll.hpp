@@ -2,16 +2,28 @@
 #ifndef SYMUSIC_TEST_PIANOROLL_HPP
 #define SYMUSIC_TEST_PIANOROLL_HPP
 
-#include <vector>
-#include <tuple>
-#include "symusic.h"
+#include <catch2/catch_all.hpp>
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/matchers/catch_matchers_floating_point.hpp"
-#include <catch2/catch_all.hpp>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include "symusic.h"
+#include "symusic/score.h"
 #include "symusic/pianoroll.h"
 #include "symusic/track.h"
-#include "symusic/score.h"
 using namespace symusic;
+
+static_assert(!std::is_copy_constructible_v<TrackPianoroll>);
+static_assert(!std::is_copy_assignable_v<TrackPianoroll>);
+static_assert(std::is_move_constructible_v<TrackPianoroll>);
+static_assert(std::is_move_assignable_v<TrackPianoroll>);
+static_assert(!std::is_copy_constructible_v<ScorePianoroll>);
+static_assert(!std::is_copy_assignable_v<ScorePianoroll>);
+static_assert(std::is_move_constructible_v<ScorePianoroll>);
+static_assert(std::is_move_assignable_v<ScorePianoroll>);
 
 /**
  * Test suite for pianoroll functionality
@@ -123,13 +135,42 @@ TEST_CASE("Test TrackPianoroll", "[symusic][pianoroll]") {
         pianoroll.set(0, 0, 0, 1, 50);
 
         // Release data
-        pianoroll_t* data = pianoroll.release();
+        std::unique_ptr<pianoroll_t[]> data(pianoroll.release());
 
         // Check the released data still has the value
         REQUIRE(data[0] == 50);
 
-        // Clean up the released data
-        delete[] data;
+        REQUIRE_THROWS_AS(pianoroll.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(pianoroll.release(), std::runtime_error);
+    }
+
+    SECTION("Move Construction Transfers Ownership") {
+        TrackPianoroll source(1, 2, 2);
+        source.set(0, 1, 1, 1, 77);
+
+        const pianoroll_t* original_data = source.data();
+        TrackPianoroll     moved(std::move(source));
+
+        REQUIRE(moved.data() == original_data);
+        REQUIRE(moved.get(0, 1, 1) == 77);
+        REQUIRE_THROWS_AS(source.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(source.release(), std::runtime_error);
+    }
+
+    SECTION("Move Assignment Transfers Ownership") {
+        TrackPianoroll source(1, 2, 2);
+        source.set(0, 0, 1, 1, 91);
+
+        const pianoroll_t* original_data = source.data();
+        TrackPianoroll     target(1, 1, 1);
+        target.set(0, 0, 0, 1, 12);
+
+        target = std::move(source);
+
+        REQUIRE(target.data() == original_data);
+        REQUIRE(target.get(0, 0, 1) == 91);
+        REQUIRE_THROWS_AS(source.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(source.release(), std::runtime_error);
     }
 }
 
@@ -256,13 +297,42 @@ TEST_CASE("Test ScorePianoroll", "[symusic][pianoroll]") {
         pianoroll.set(0, 0, 0, 0, 1, 50);
 
         // Release data
-        pianoroll_t* data = pianoroll.release();
+        std::unique_ptr<pianoroll_t[]> data(pianoroll.release());
 
         // Check the released data still has the value
         REQUIRE(data[0] == 50);
 
-        // Clean up the released data
-        delete[] data;
+        REQUIRE_THROWS_AS(pianoroll.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(pianoroll.release(), std::runtime_error);
+    }
+
+    SECTION("Move Construction Transfers Ownership") {
+        ScorePianoroll source(1, 1, 2, 2);
+        source.set(0, 0, 1, 1, 1, 65);
+
+        const pianoroll_t* original_data = source.data();
+        ScorePianoroll     moved(std::move(source));
+
+        REQUIRE(moved.data() == original_data);
+        REQUIRE(moved.get(0, 0, 1, 1) == 65);
+        REQUIRE_THROWS_AS(source.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(source.release(), std::runtime_error);
+    }
+
+    SECTION("Move Assignment Transfers Ownership") {
+        ScorePianoroll source(1, 1, 2, 2);
+        source.set(0, 0, 0, 1, 1, 33);
+
+        const pianoroll_t* original_data = source.data();
+        ScorePianoroll     target(1, 1, 1, 1);
+        target.set(0, 0, 0, 0, 1, 14);
+
+        target = std::move(source);
+
+        REQUIRE(target.data() == original_data);
+        REQUIRE(target.get(0, 0, 0, 1) == 33);
+        REQUIRE_THROWS_AS(source.data(), std::runtime_error);
+        REQUIRE_THROWS_AS(source.release(), std::runtime_error);
     }
 }
 

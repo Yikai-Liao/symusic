@@ -1,18 +1,14 @@
 #include "symusic/pianoroll.h"
 
-#include <iostream>
+#include <memory>
 
 namespace symusic {
 
-TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim) {
-    this->modeDim  = modeDim;
-    this->pitchDim = pitchDim;
-    this->timeDim  = timeDim;
-    this->dataPtr  = new pianoroll_t[modeDim * pitchDim * timeDim]();
-    // this->clear();
-};
-
-TrackPianoroll::~TrackPianoroll() { delete this->dataPtr; };
+TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim)
+    : modeDim(modeDim),
+      pitchDim(pitchDim),
+      timeDim(timeDim),
+      dataPtr(std::make_unique<pianoroll_t[]>(modeDim * pitchDim * timeDim)) {}
 
 TrackPianoroll TrackPianoroll::from_track(
     const Track<Tick>&                track,
@@ -24,8 +20,8 @@ TrackPianoroll TrackPianoroll::from_track(
     TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, track.end() + 1);
 
     for (const auto& note : *track.notes) {
-        if(note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
-            for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
+        if (note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
+            for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
                 pianoroll.set(
                     modeIdx,
                     note->pitch - pitchRange.first,
@@ -42,21 +38,17 @@ TrackPianoroll TrackPianoroll::from_track(
 
 pianoroll_t* TrackPianoroll::data() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in TrackPianoroll is moved.");
-    return this->dataPtr;
+    return this->dataPtr.get();
 };
 
 const pianoroll_t* TrackPianoroll::data() const {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in TrackPianoroll is moved.");
-    return this->dataPtr;
+    return this->dataPtr.get();
 };
 
 pianoroll_t* TrackPianoroll::release() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in TrackPianoroll is moved.");
-
-    pianoroll_t* ptr = this->dataPtr;
-    this->dataPtr    = nullptr;
-
-    return ptr;
+    return this->dataPtr.release();
 };
 
 pianoroll_t* TrackPianoroll::operator()(const size_t mode, const size_t pitch, const size_t time) {
@@ -85,17 +77,12 @@ std::tuple<size_t, size_t, size_t> TrackPianoroll::dims() const {
     return {this->modeDim, this->pitchDim, this->timeDim};
 };
 
-
-ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim) {
-    this->modeDim  = modeDim;
-    this->trackDim = trackDim;
-    this->pitchDim = pitchDim;
-    this->timeDim  = timeDim;
-    this->dataPtr  = new pianoroll_t[modeDim * trackDim * pitchDim * timeDim]();
-    // this->clear();
-};
-
-ScorePianoroll::~ScorePianoroll() { delete this->dataPtr; };
+ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim)
+    : modeDim(modeDim),
+      trackDim(trackDim),
+      pitchDim(pitchDim),
+      timeDim(timeDim),
+      dataPtr(std::make_unique<pianoroll_t[]>(modeDim * trackDim * pitchDim * timeDim)) {}
 
 ScorePianoroll ScorePianoroll::from_score(
     const Score<Tick>&                score,
@@ -108,10 +95,10 @@ ScorePianoroll ScorePianoroll::from_score(
         modes.size(), tracks.size(), pitchRange.second - pitchRange.first, score.end() + 1
     );
 
-    for (int trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
+    for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
         for (const Track<Tick>& track = *tracks[trackIdx]; const auto& note : *track.notes) {
-            if(note.pitch >= pitchRange.first && note.pitch < pitchRange.second){
-                for (int modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
+            if (note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
+                for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
                     pianoroll.set(
                         modeIdx,
                         trackIdx,
@@ -130,21 +117,17 @@ ScorePianoroll ScorePianoroll::from_score(
 
 pianoroll_t* ScorePianoroll::data() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in ScorePianoroll is moved.");
-    return this->dataPtr;
+    return this->dataPtr.get();
 };
 
 const pianoroll_t* ScorePianoroll::data() const {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in ScorePianoroll is moved.");
-    return this->dataPtr;
+    return this->dataPtr.get();
 };
 
 pianoroll_t* ScorePianoroll::release() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in ScorePianoroll is moved.");
-
-    pianoroll_t* ptr = this->dataPtr;
-    this->dataPtr    = nullptr;
-
-    return ptr;
+    return this->dataPtr.release();
 };
 
 pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch, size_t time) {
@@ -163,7 +146,7 @@ pianoroll_t ScorePianoroll::get(size_t mode, size_t track, size_t pitch, size_t 
 };
 
 void ScorePianoroll::clear() {
-    std::fill_n(this->dataPtr, this->modeDim * this->trackDim * this->pitchDim * this->timeDim, 0);
+    std::fill_n(this->data(), this->modeDim * this->trackDim * this->pitchDim * this->timeDim, 0);
 };
 
 std::tuple<size_t, size_t, size_t, size_t> ScorePianoroll::dims() const {

@@ -4,12 +4,13 @@
 #define LIBSYMUSIC_PIANOROLL_H
 
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
-#include <utility>
 #include <tuple>
+#include <utility>
 
-#include "symusic/track.h"
 #include "symusic/score.h"
+#include "symusic/track.h"
 
 namespace symusic {
 
@@ -36,14 +37,18 @@ static PianorollMode str_to_pianoroll_mode(const std::string& modeStr) {
 
 class TrackPianoroll {
 private:
-    size_t       modeDim;
-    size_t       pitchDim;
-    size_t       timeDim;
-    pianoroll_t* dataPtr;
+    size_t                      modeDim;
+    size_t                      pitchDim;
+    size_t                      timeDim;
+    std::unique_ptr<pianoroll_t[]> dataPtr;
 
 public:
-     TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim);
-    ~TrackPianoroll();
+    TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim);
+    TrackPianoroll(const TrackPianoroll&) = delete;
+    TrackPianoroll& operator=(const TrackPianoroll&) = delete;
+    TrackPianoroll(TrackPianoroll&&) noexcept = default;
+    TrackPianoroll& operator=(TrackPianoroll&&) noexcept = default;
+    ~TrackPianoroll() = default;
 
     static TrackPianoroll from_track(
         const Track<Tick>&                track,
@@ -71,15 +76,19 @@ public:
 
 class ScorePianoroll {
 private:
-    size_t       modeDim;
-    size_t       trackDim;
-    size_t       pitchDim;
-    size_t       timeDim;
-    pianoroll_t* dataPtr;
+    size_t                      modeDim;
+    size_t                      trackDim;
+    size_t                      pitchDim;
+    size_t                      timeDim;
+    std::unique_ptr<pianoroll_t[]> dataPtr;
 
 public:
-     ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim);
-    ~ScorePianoroll();
+    ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim);
+    ScorePianoroll(const ScorePianoroll&) = delete;
+    ScorePianoroll& operator=(const ScorePianoroll&) = delete;
+    ScorePianoroll(ScorePianoroll&&) noexcept = default;
+    ScorePianoroll& operator=(ScorePianoroll&&) noexcept = default;
+    ~ScorePianoroll() = default;
 
     static ScorePianoroll from_score(
         const Score<Tick>&                   score,
