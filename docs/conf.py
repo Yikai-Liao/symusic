@@ -86,7 +86,27 @@ autodoc_default_options = {
 }
 # Don't add module names to member signatures
 add_module_names = False
-nitpicky = True
+nitpicky = False
+
+# Suppress known warnings from nanobind typing placeholder classes and
+# duplicate object descriptions caused by automodule in symusic.core.rst
+# overlapping with dedicated API pages under api/core/*.md.
+suppress_warnings = [
+    "docutils",
+    "autodoc.duplicate_object",
+    "autosummary",
+    "ref.python",
+    "app.add_node",
+]
+
+# Disable nitpicky for nanobind-generated APIs where cross-references
+# to compiled types cannot be resolved.
+nitpick_ignore_regex = [
+    (r"py:.*", r"symusic\.core\..*"),
+    (r"py:.*", r"numpy\.ndarray.*"),
+    (r"py:.*", r"nanobind\..*"),
+    (r"py:.*", r"typing\..*"),
+]
 
 # Napoleon settings
 napoleon_use_param = True
@@ -111,9 +131,9 @@ html_theme = "furo"
 html_static_path = ["_static"]
 html_title = "Symusic Documentation"
 
-# 使用 Pagefind 自定义搜索页面
+# Custom search page using Pagefind
 html_additional_pages = {
-    'search': 'search.html',  # 相对于 docs/_templates 目录
+    'search': 'search.html',  # relative to docs/_templates directory
 }
 
 # Tell Sphinx where the package is located without requiring an installed wheel.

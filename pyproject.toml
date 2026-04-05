@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "symusic"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Yikai Liao", email = "lyk-boya@outlook.com"},
     {name = "Zhongqi Luo", email = "luozhongqi@mail.com"},
@@ -35,11 +35,12 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: MIDI",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
@@ -48,7 +49,6 @@ classifiers = [
 
 dependencies = [
     "numpy",
-    "typing_extensions;python_version<'3.8'",
     "pySmartDL",
     "platformdirs"
 ]
@@ -101,7 +101,7 @@ filterwarnings = [
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 exclude = ["3rdparty"]
 
 [tool.ruff.lint]

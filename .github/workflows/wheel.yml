@@ -26,7 +26,7 @@ jobs:
           - [windows-latest, win_amd64]
           - [windows-2022, win32]
           - [windows-11-arm, win_arm64]
-        python: ["cp38", "cp39", "cp310", "cp311", "cp312", "cp313", "cp314", "pp311"]
+        python: ["cp39", "cp310", "cp311", "cp312", "cp313", "cp314", "pp311"]
         exclude:
           - buildplat: [windows-latest, win_amd64]
             python: "pp311"
@@ -40,8 +40,6 @@ jobs:
             python: "pp311"
           - buildplat: [ ubuntu-24.04-arm, manylinux_aarch64 ]
             python: "pp311"
-          - buildplat: [windows-11-arm, win_arm64]
-            python: "cp38"
     env:
       CIBW_ENABLE: "pypy"
 

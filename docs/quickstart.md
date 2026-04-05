@@ -13,7 +13,7 @@ pip install symusic
 ```
 
 We publish wheels for Linux, macOS, and Windows across both x86 and ARM (Windows ARM64 is pending).
-CPython 3.8–3.12 and PyPy 3.9 builds are uploaded for each release. CPython 3.12 still triggers
+CPython 3.9–3.14 and PyPy 3.9 builds are uploaded for each release. CPython 3.12 still triggers
 harmless nanobind leak warnings; if they become distracting, use 3.11 until upstream fixes land.
 
 ### Build from source
