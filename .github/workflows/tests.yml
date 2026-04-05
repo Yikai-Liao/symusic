@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: setup.py
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies and capture build timings
         run: python scripts/benchmark_install.py --output-dir build-bench --package ".[test]"

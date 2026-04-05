@@ -48,13 +48,17 @@ struct TextMetaTypingPlaceholder {};
 template<typename Placeholder>
 void define_time_generic(nb::module_& m, const char* name) {
     const auto sig = fmt::format("class {}(typing.Generic[TimeUnitT])", name);
+    const auto doc = fmt::format(
+        "Generic typing placeholder for {0}. Use {0}Tick, {0}Quarter, or {0}Second instead.",
+        name
+    );
     const auto msg = fmt::format(
         "symusic.core.{0} is a typing helper. Instantiate {0}Tick, {0}Quarter, or {0}Second "
         "instead.",
         name
     );
 
-    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()))
+    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()), doc.c_str())
         .def("__init__", [msg](Placeholder*) { throw nb::type_error(msg.c_str()); });
 }
 NB_MODULE(core, m) {

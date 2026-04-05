@@ -62,7 +62,6 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
    symusic.factory
    symusic.soundfont
    symusic.types
-   symusic.demo
 ```
 
 ```{note}

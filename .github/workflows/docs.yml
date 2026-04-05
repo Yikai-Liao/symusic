@@ -1,0 +1,35 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install cmake ninja
+          pip install -r docs/requirements.txt
+          pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON
+
+      - name: Build docs
+        run: |
+          python -m sphinx -b html docs docs/_build/html 2>&1 | tee sphinx-output.log
+          # Fail only on CRITICAL errors (not duplicate object warnings)
+          if grep -q "CRITICAL" sphinx-output.log; then
+            echo "::error::Sphinx build contains CRITICAL errors"
+            exit 1
+          fi

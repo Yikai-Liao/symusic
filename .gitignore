@@ -20,3 +20,5 @@ docs/_build
 .gstack
 .codex
 .serena
+.trae
+build*/

@@ -25,8 +25,6 @@ constexpr std::string_view kTimedEventTemplate = R"pbdoc(
 
 {description}
 
-Note
-----
 {time_notes}
 )pbdoc";
 

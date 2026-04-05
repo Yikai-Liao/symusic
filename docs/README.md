@@ -66,14 +66,14 @@ Then visit: http://localhost:1414/search.html
 Follow this loop whenever you update nanobind docstrings so `.pyi` files, local previews, and Read the Docs stay aligned.
 
 1. **Author docstrings at the binding site**  
-   Use `nb::doc(R"pbdoc(...)pbdoc")` alongside each definition in `py_src/core.cpp` (or the relevant `.cpp`) so the compiled `symusic.core` exposes real descriptions.
+   Use `nb::doc(R"pbdoc(...)pbdoc")` alongside each definition in the binding files under `py_src/bindings/` (e.g. `events/`, `score/`, `track/`, `synth/`) so the compiled `symusic.core` exposes real descriptions.
 
 2. **Install the extension into the docs virtualenv**  
    ```bash
    source .venv-docs/bin/activate
    pip install -e .
    ```
-   Read the Docs can’t build from source on every run, so `readthedocs.yml` instead executes `pip install symusic` to fetch the published wheel. Ship a new wheel whenever docstrings change.
+   Read the Docs builds from source on every run: `readthedocs.yml` executes `pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON` so the hosted docs always reflect the latest bindings in the repository.
 
 3. **Regenerate `.pyi` stubs (optional but recommended)**  
    ```bash
