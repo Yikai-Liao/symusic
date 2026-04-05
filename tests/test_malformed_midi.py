@@ -78,8 +78,8 @@ def test_abc_rejects_sanitize_data():
                         0xFF,
                         0x2F,
                         0x00,
-                    ]
-                )
+                    ],
+                ),
             ),
             id="zero-length-sysex",
         ),
@@ -104,8 +104,8 @@ def test_abc_rejects_sanitize_data():
                         0xFF,
                         0x2F,
                         0x00,
-                    ]
-                )
+                    ],
+                ),
             ),
             id="zero-length-meta",
         ),
