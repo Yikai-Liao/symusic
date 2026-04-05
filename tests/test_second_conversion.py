@@ -137,7 +137,7 @@ def test_issue90_direct_second_load_durations_not_all_one():
     notes = score.tracks[0].notes
     assert len(notes) > 0, "Expected at least one note in track 0"
     durations = [n.duration for n in notes]
-    unique_durations = set(round(d, 6) for d in durations)
+    unique_durations = {round(d, 6) for d in durations}
     assert len(unique_durations) > 1, (
         f"All durations are identical ({durations[0]}); "
         f"expected varying values (issue #90 regression)"
@@ -154,17 +154,18 @@ def test_issue90_direct_load_matches_tick_conversion():
     for track_d, track_c in zip(score_direct.tracks, score_convert.tracks):
         notes_d = track_d.notes
         notes_c = track_c.notes
-        assert len(notes_d) == len(notes_c), (
-            f"Note count mismatch: direct={len(notes_d)}, convert={len(notes_c)}"
-        )
+        assert len(notes_d) == len(
+            notes_c,
+        ), f"Note count mismatch: direct={len(notes_d)}, convert={len(notes_c)}"
 
         for i, (nd, nc) in enumerate(zip(notes_d, notes_c)):
-            assert nd.time == pytest.approx(nc.time, abs=1e-4), (
-                f"Note {i} time mismatch: direct={nd.time}, convert={nc.time}"
-            )
-            assert nd.duration == pytest.approx(nc.duration, abs=1e-4), (
-                f"Note {i} duration mismatch: direct={nd.duration}, convert={nc.duration}"
-            )
+            assert nd.time == pytest.approx(
+                nc.time,
+                abs=1e-4,
+            ), f"Note {i} time mismatch: direct={nd.time}, convert={nc.time}"
+            assert (
+                nd.duration == pytest.approx(nc.duration, abs=1e-4)
+            ), f"Note {i} duration mismatch: direct={nd.duration}, convert={nc.duration}"
             assert nd.pitch == nc.pitch
             assert nd.velocity == nc.velocity
 
