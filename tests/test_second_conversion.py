@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from symusic import Note, Score, Tempo, Track
 
-from tests.utils import MIDI_PATHS_ALL
+from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -119,3 +119,68 @@ def test_quarter_parse_matches_tick_conversion(tmp_path):
     # Non-note time events should remain in quarter units as well.
     assert quarter_direct.tempos[0].time == pytest.approx(0.0)
     assert quarter_direct.tempos[1].time == pytest.approx(2.0)
+
+
+# ---------------------------------------------------------------------------
+# Regression test for GitHub issue #90:
+#   Score(path, ttype="second") produced all-1.0 durations instead of the
+#   correct per-note values.  The root cause was in the MIDI parsing path
+#   when converting directly to seconds during load.
+# ---------------------------------------------------------------------------
+
+ISSUE_90_MIDI = TESTCASES_PATH / "issue90.mid"
+
+
+def test_issue90_direct_second_load_durations_not_all_one():
+    """Loading with ttype='second' must not produce uniform 1.0 durations."""
+    score = Score(ISSUE_90_MIDI, ttype="second")
+    notes = score.tracks[0].notes
+    assert len(notes) > 0, "Expected at least one note in track 0"
+    durations = [n.duration for n in notes]
+    unique_durations = set(round(d, 6) for d in durations)
+    assert len(unique_durations) > 1, (
+        f"All durations are identical ({durations[0]}); "
+        f"expected varying values (issue #90 regression)"
+    )
+
+
+def test_issue90_direct_load_matches_tick_conversion():
+    """Score(path, ttype='second') must match Score(path).to('second')."""
+    score_direct = Score(ISSUE_90_MIDI, ttype="second")
+    score_convert = Score(ISSUE_90_MIDI, ttype="tick").to("second")
+
+    assert len(score_direct.tracks) == len(score_convert.tracks)
+
+    for track_d, track_c in zip(score_direct.tracks, score_convert.tracks):
+        notes_d = track_d.notes
+        notes_c = track_c.notes
+        assert len(notes_d) == len(notes_c), (
+            f"Note count mismatch: direct={len(notes_d)}, convert={len(notes_c)}"
+        )
+
+        for i, (nd, nc) in enumerate(zip(notes_d, notes_c)):
+            assert nd.time == pytest.approx(nc.time, abs=1e-4), (
+                f"Note {i} time mismatch: direct={nd.time}, convert={nc.time}"
+            )
+            assert nd.duration == pytest.approx(nc.duration, abs=1e-4), (
+                f"Note {i} duration mismatch: direct={nd.duration}, convert={nc.duration}"
+            )
+            assert nd.pitch == nc.pitch
+            assert nd.velocity == nc.velocity
+
+
+def test_issue90_first_notes_have_expected_relative_durations():
+    """The first two notes should be roughly twice as long as the next three."""
+    score = Score(ISSUE_90_MIDI, ttype="second")
+    notes = score.tracks[0].notes[:5]
+    assert len(notes) >= 5, "Expected at least 5 notes in track 0"
+
+    dur = [n.duration for n in notes]
+    # Notes 0-1 (~0.95s) should be roughly 2x notes 2-4 (~0.5s).
+    long_avg = (dur[0] + dur[1]) / 2
+    short_avg = (dur[2] + dur[3] + dur[4]) / 3
+    ratio = long_avg / short_avg
+    assert 1.5 < ratio < 2.5, (
+        f"Duration ratio of first two vs next three notes is {ratio:.2f}; "
+        f"expected ~2.0 (durations: {dur})"
+    )

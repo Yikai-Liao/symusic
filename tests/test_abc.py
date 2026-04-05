@@ -243,3 +243,38 @@ def test_from_abc_failure_cleans_temp_dirs(
         Score.from_abc(make_roundtrip_abc_text())
 
     assert list_symusic_temp_dirs() == before
+
+
+# ---------------------------------------------------------------------------
+# Regression test for GitHub issue #78
+# https://github.com/lzqlzzq/symusic/issues/78
+# ---------------------------------------------------------------------------
+
+ISSUE78_MIDI = TESTCASES_PATH / "issue78_dump_abc.mid"
+
+
+@pytest.mark.skipif(not ISSUE78_MIDI.exists(), reason="issue78 test MIDI not found")
+def test_dump_abc_issue78_regression(tmp_path: Path):
+    """Regression test for GitHub issue #78.
+
+    ``score.dump_abc()`` used to fail with ``RuntimeError: midi2abc execution
+    failed (return code: 512)`` when processing certain MIDI files.  Now that
+    symusic bundles its own midi2abc, this must succeed.
+    """
+    score = Score(ISSUE78_MIDI)
+    assert score.note_num() > 0, "sanity: the MIDI file should contain notes"
+
+    # --- dump_abc to file must not raise ---
+    output_path = tmp_path / "issue78.abc"
+    score.dump_abc(output_path)
+
+    assert output_path.exists(), "ABC file was not created"
+    assert output_path.stat().st_size > 0, "ABC file is empty"
+
+    # --- dumps_abc (to string) must also work ---
+    abc_text = score.dumps_abc()
+    assert abc_text.strip(), "dumps_abc returned empty text"
+
+    # --- roundtrip: reload the ABC and verify note count ---
+    reloaded = Score(output_path, fmt="abc")
+    assert reloaded.note_num() > 0, "reloaded Score has no notes"
