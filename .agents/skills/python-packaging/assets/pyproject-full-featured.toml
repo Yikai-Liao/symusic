@@ -1,0 +1,123 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "advanced-sci-package"
+version = "1.0.0"
+description = "Advanced scientific computing package"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [
+    {name = "Research Team", email = "team@university.edu"},
+]
+maintainers = [
+    {name = "Lead Maintainer", email = "maintainer@university.edu"},
+]
+keywords = ["scientific-computing", "data-analysis", "research"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "pandas>=1.3",
+    "matplotlib>=3.4",
+]
+
+[project.optional-dependencies]
+ml = [
+    "scikit-learn>=1.0",
+    "tensorflow>=2.8",
+]
+viz = [
+    "plotly>=5.0",
+    "seaborn>=0.11",
+]
+all = [
+    "advanced-sci-package[ml,viz]",
+]
+
+[project.urls]
+Homepage = "https://github.com/org/advanced-sci-package"
+Documentation = "https://advanced-sci-package.readthedocs.io"
+Repository = "https://github.com/org/advanced-sci-package"
+"Bug Tracker" = "https://github.com/org/advanced-sci-package/issues"
+Discussions = "https://github.com/org/advanced-sci-package/discussions"
+Changelog = "https://advanced-sci-package.readthedocs.io/en/latest/changelog.html"
+
+[project.scripts]
+sci-analyze = "advanced_sci_package.cli:main"
+
+[dependency-groups]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
+]
+docs = [
+    "sphinx>=5.0",
+    "sphinx-rtd-theme>=1.0",
+    "numpydoc>=1.5",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "docs"},
+    "ruff>=0.1",
+    "mypy>=1.0",
+    "pre-commit>=3.0",
+]
+
+# Hatchling configuration
+[tool.hatch.build.targets.wheel]
+packages = ["src/advanced_sci_package"]
+
+# Ruff configuration (linting and formatting)
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "NPY", "RUF"]
+ignore = ["E501"]  # Line too long (handled by formatter)
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=advanced_sci_package --cov-report=term-missing"
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

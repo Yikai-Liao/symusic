@@ -1,0 +1,49 @@
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",                          # Show summary of all test outcomes
+    "--showlocals",                 # Show local variables in tracebacks
+    "--strict-markers",             # Error on undefined markers
+    "--strict-config",              # Error on config issues
+    "--cov=my_package",             # Coverage for package
+    "--cov-report=term-missing",    # Show missing lines
+    "--cov-report=html",            # HTML coverage report
+]
+xfail_strict = true                 # xfail tests must fail
+filterwarnings = [
+    "error",                        # Treat warnings as errors
+    "ignore::DeprecationWarning:pkg_resources",  # Ignore specific warning
+    "ignore::PendingDeprecationWarning",
+]
+log_cli_level = "info"              # Log level for test output
+testpaths = [
+    "tests",                        # Test directory
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "requires_gpu: marks tests that need GPU hardware",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/conftest.py",
+]
+branch = true                       # Measure branch coverage
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
+show_missing = true
+skip_covered = false

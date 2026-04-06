@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "my-sci-package"
+version = "0.1.0"
+description = "A scientific Python package for data analysis"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [
+    {name = "Your Name", email = "you@example.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/username/my-sci-package"
+Documentation = "https://my-sci-package.readthedocs.io"
+"Bug Tracker" = "https://github.com/username/my-sci-package/issues"
+Discussions = "https://github.com/username/my-sci-package/discussions"
+Changelog = "https://my-sci-package.readthedocs.io/en/latest/changelog.html"
+
+[dependency-groups]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+dev = [
+    {include-group = "test"},
+    "ruff>=0.1",
+    "mypy>=1.0",
+]

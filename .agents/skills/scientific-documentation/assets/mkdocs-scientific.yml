@@ -1,0 +1,295 @@
+# mkdocs.yml - MkDocs Material Configuration for Scientific Python Packages
+
+site_name: My Scientific Package
+site_description: A comprehensive description of your scientific Python package
+site_author: Your Name
+site_url: https://org.github.io/package
+
+# Repository
+repo_url: https://github.com/org/package
+repo_name: org/package
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 Your Name
+
+# Configuration
+theme:
+  name: material
+
+  # Color scheme
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  # Features
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+
+  # Custom settings
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+  # Favicon and logo
+  # favicon: assets/favicon.png
+  # logo: assets/logo.png
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            # Docstring style
+            docstring_style: numpy
+            docstring_section_style: table
+
+            # Signature options
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 60
+
+            # Members options
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+            # Class options
+            merge_init_into_class: true
+            show_if_no_docstring: false
+
+            # Headings
+            heading_level: 2
+
+            # Filters
+            filters:
+              - "!^_"  # Exclude private members
+
+            # Cross-references
+            show_bases: true
+            show_inheritance_diagram: false
+
+  - mkdocs-jupyter:
+      include_source: true
+      execute: false
+      allow_errors: false
+      kernel_name: python3
+      theme: light
+
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+
+  # - social:
+  #     cards_layout_options:
+  #       background_color: "#0072B2"
+
+# Markdown extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Anchor link to this section
+      toc_depth: 3
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Extra JavaScript
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  # - javascripts/katex.js
+  # - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.js
+  # - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/contrib/auto-render.min.js
+
+# Extra CSS
+extra_css:
+  # - stylesheets/extra.css
+  # - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
+
+# Extra configuration
+extra:
+  # Version selector
+  version:
+    provider: mike
+    default: latest
+
+  # Social links
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/org
+      name: GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/package
+      name: PyPI
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/org
+      name: Twitter
+
+  # Analytics
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX
+
+  # Consent
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+
+# Page tree / Navigation
+nav:
+  - Home: index.md
+
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+
+  - Tutorials:
+      - tutorials/index.md
+      - First Analysis: tutorials/first-analysis.md
+      - Data Loading: tutorials/data-loading.md
+      - Visualization: tutorials/visualization.md
+      - Advanced Topics: tutorials/advanced.md
+
+  - How-to Guides:
+      - guides/index.md
+      - Handle Large Datasets: guides/large-datasets.md
+      - Optimize Performance: guides/performance.md
+      - Integrate with Other Tools: guides/integration.md
+      - Extend the Library: guides/extending.md
+      - Debug Common Issues: guides/debugging.md
+
+  - Reference:
+      - reference/index.md
+      - API Documentation: reference/api.md
+      - CLI Reference: reference/cli.md
+      - Configuration Options: reference/configuration.md
+      - Data Formats: reference/data-formats.md
+
+  - Explanation:
+      - explanation/index.md
+      - Architecture Overview: explanation/architecture.md
+      - Design Decisions: explanation/design.md
+      - Algorithms: explanation/algorithms.md
+      - Performance: explanation/performance.md
+
+  - Community:
+      - Contributing: contributing.md
+      - Code of Conduct: code-of-conduct.md
+      - Citation: citation.md
+      - Changelog: changelog.md
+      - License: license.md
+
+# Validation
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+
+# Watch for changes
+watch:
+  - src
+  - docs

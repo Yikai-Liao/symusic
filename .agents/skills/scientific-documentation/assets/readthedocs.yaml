@@ -1,0 +1,79 @@
+# .readthedocs.yaml
+# Read the Docs configuration file for scientific Python packages
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+# Set the version of Python and other build tools
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+  # Install dependencies and build steps
+  jobs:
+    # Post-create-environment step (before install)
+    # Useful for system dependencies
+    # post_create_environment:
+    #   - apt-get update
+    #   - apt-get install -y graphviz
+
+    # Post-install step (after package installation)
+    post_install:
+      # Install package with documentation dependencies
+      - pip install .[docs]
+
+      # Alternative: Install from requirements file
+      # - pip install -r docs/requirements.txt
+
+      # If you need to install the package itself separately
+      # - pip install -e .
+
+    # Pre-build step (before sphinx-build)
+    # pre_build:
+    #   - python scripts/generate_api_docs.py
+
+# Build documentation with Sphinx
+sphinx:
+  # Path to conf.py
+  configuration: docs/conf.py
+
+  # Fail the build on any warnings
+  fail_on_warning: true
+
+  # Builder to use (html is default)
+  # builder: html
+
+# Build documentation formats to provide
+formats:
+  - pdf
+  - epub
+
+# Python configuration
+python:
+  # Install package
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+
+    # Alternative: Install from requirements file
+    # - requirements: docs/requirements.txt
+
+# Optionally, set submodules to include
+# submodules:
+#   include: all
+#   recursive: true
+
+# Search configuration
+search:
+  # Ranking for search results
+  ranking:
+    "docs/tutorials/*": 2
+    "docs/guides/*": 1
+
+# Redirects for renamed/moved pages (optional)
+# redirects:
+#   old-page.html: new-page.html
+#   guides/old-guide.html: guides/new-guide.html
