@@ -52,16 +52,6 @@ below focus on the user-facing factories that mirror the `symusic` namespace.
    symusic.factory.TimeSignatureFactory
    symusic.factory.TimeUnitFactory
    symusic.factory.TrackFactory
-
-.. autosummary::
-   :toctree: _autosummary
-   :caption: Low-Level Modules
-   :recursive:
-
-   symusic.core
-   symusic.factory
-   symusic.soundfont
-   symusic.types
 ```
 
 ```{note}
@@ -70,6 +60,18 @@ Most Python surfaces are thin factories built on top of nanobind classes defined
 accurately describe the compiled extension even though the documentation focuses on
 the high-level `symusic` namespace.
 ```
+
+## Low-Level Core API
+
+The low-level `symusic.core` API is documented through dedicated pages that keep the
+`tick`, `quarter`, and `second` specializations side by side in tabs:
+
+- {doc}`/api/core/time_units`
+- {doc}`/api/core/scores`
+- {doc}`/api/core/tracks`
+- {doc}`/api/core/events`
+- {doc}`/api/core/event_lists`
+- {doc}`/api/core/utilities`
 
 See {doc}`/concepts/generics` for a guided overview of how the factories relate to their
 templated `symusic.core` counterparts, and use {doc}`/api/core/index` to explore the raw

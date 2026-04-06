@@ -1,14 +1,26 @@
-﻿symusic.soundfont
+﻿symusic.Soundfont
 =================
 
-.. automodule:: symusic.soundfont
+.. currentmodule:: symusic
 
-   
-   .. rubric:: Classes
+.. autoclass:: Soundfont
+
+   .. automethod:: __init__
+
+   .. rubric:: Methods
 
    .. autosummary::
-   
-      BuiltInSF2
-      BuiltInSF3
-      Soundfont
+
+      ~Soundfont.__init__
+      ~Soundfont.download
+      ~Soundfont.exists
+      ~Soundfont.path
+
+   .. rubric:: Attributes
+
+   .. autosummary::
+
+      ~Soundfont.name
+      ~Soundfont.url
+      ~Soundfont.hash_
    

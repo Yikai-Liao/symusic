@@ -27,7 +27,7 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 | C++ engine | MIDI/ABC parsing, time-unit conversions, vectorized containers | C++20, fmt, minimidi, zpp_bits |
 | Python bindings | Factories (`Score`, `Track`, `Note`, …) + helper utilities | nanobind, stubs in `python/symusic/core.pyi` |
 | Synthesizer | SoundFont 2/3 rendering and WAV dumping | Prestosynth, NumPy |
-| Documentation | This site (Sphinx + MyST) + legacy mdBook for historical reference | Read the Docs |
+| Documentation | Canonical versioned docs on Read the Docs; legacy mdBook kept as an archive | Sphinx, MyST, Read the Docs |
 
 ## Installation overview
 
@@ -49,9 +49,10 @@ Symusic requires a C++20 compiler (GCC ≥ 11, Clang ≥ 15, MSVC 2022). If you 
 permissions on Linux, a `conda-forge::gcc` toolchain plus the `CC=/path/to/gcc` override works well.
 
 ```{note}
-The legacy mdBook remains online at <https://yikai-liao.github.io/symusic/> until every page is
-migrated. Treat it as historical reference; the codebase and this site contain the canonical
-behavior.
+The canonical documentation lives on Read the Docs at
+<https://symusic.readthedocs.io/en/stable/>. The legacy mdBook remains online at
+<https://yikai-liao.github.io/symusic/> for historical links, but the Read the Docs site and the
+codebase are the primary references for current behavior.
 
 For doc migration history and local build instructions, see {doc}`project_notes`.
 ```

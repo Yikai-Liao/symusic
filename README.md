@@ -13,14 +13,17 @@ Here, we have added a tutorial.ipynb for you to learn about how to use the libra
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
-And a [document](https://yikai-liao.github.io/symusic/) is also available. Not complete though.
+The canonical documentation is hosted on Read the Docs at
+[symusic.readthedocs.io](https://symusic.readthedocs.io/en/stable/). The legacy GitHub Pages mdBook
+remains available at [yikai-liao.github.io/symusic](https://yikai-liao.github.io/symusic/) for
+historical links only.
 
-## Documentation Roadmap
+## Documentation
 
-- The legacy mdBook (link above) stays online for historical reference but is no longer updated.
-- The next-generation documentation for the 1.0 release is being rebuilt with Sphinx + MyST under `docs/`.
-- Build the new docs locally via `pip install -r docs/requirements.txt` followed by `sphinx-build -b html docs docs/_build/html`.
-- Once the Read the Docs deployment is live, this README will point to the canonical URL.
+- Read the Docs is the primary public documentation target: <https://symusic.readthedocs.io/en/stable/>.
+- The documentation source for RTD lives under `docs/` and is built with Sphinx + MyST.
+- The legacy mdBook stays online for historical reference but is no longer updated.
+- Build the docs locally via `pip install -r docs/requirements.txt` followed by `sphinx-build -b html docs docs/_build/html`.
 
 ## Features
 

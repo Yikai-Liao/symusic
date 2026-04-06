@@ -1,8 +1,8 @@
 # Documentation Notes
 
-The documentation is migrating from the legacy mdBook to this Sphinx + MyST stack. This page
-explains why the move happened and how contributors can preview the site locally before the Read the
-Docs deployment.
+The documentation now publishes primarily on Read the Docs at
+<https://symusic.readthedocs.io/en/stable/>. This page explains why the move happened and how
+contributors can preview the site locally before changes are published there.
 
 ## Why a new documentation site?
 
@@ -24,7 +24,8 @@ These steps mirror the Read the Docs build process:
 python -m venv .venv-docs
 source .venv-docs/bin/activate
 pip install -r docs/requirements.txt
-pip install -e .
+git submodule update --init --recursive --depth 1
+pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON
 sphinx-build -b html docs docs/_build/html
 ```
 
@@ -83,9 +84,11 @@ When updating downstream content:
 
 ### Continuous integration / Read the Docs
 
-The Read the Docs configuration lives in `readthedocs.yml` and installs dependencies from
-`docs/requirements.txt`, followed by `pip install symusic` so it can pull the prebuilt wheels
-from PyPI and expose the nanobind docstrings. When you add a new dependency for docs only, update
-that requirements file rather than the project-wide dependencies.
+The Read the Docs configuration lives in `readthedocs.yml`. It installs dependencies from
+`docs/requirements.txt`, initializes the submodules, and then builds the local checkout with
+`pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON` so the hosted pages reflect the current
+nanobind bindings and docstrings from the repository.
 
-Once the Sphinx build passes locally, CI should produce identical HTML on Read the Docs.
+When you add a docs-only dependency, update `docs/requirements.txt` rather than the project-wide
+runtime dependencies. Once the Sphinx build passes locally, the same source tree should publish
+cleanly on Read the Docs.

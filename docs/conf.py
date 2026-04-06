@@ -89,8 +89,7 @@ add_module_names = False
 nitpicky = False
 
 # Suppress known warnings from nanobind typing placeholder classes and
-# duplicate object descriptions caused by automodule in symusic.core.rst
-# overlapping with dedicated API pages under api/core/*.md.
+# Sphinx extension internals that are noisy during local previews.
 suppress_warnings = [
     "docutils",
     "autodoc.duplicate_object",
@@ -103,6 +102,9 @@ suppress_warnings = [
 # to compiled types cannot be resolved.
 nitpick_ignore_regex = [
     (r"py:.*", r"symusic\.core\..*"),
+    (r"py:.*", r"symusic\.types\.TimeUnit"),
+    (r"py:.*", r"symusic\.factory\.[TQS]"),
+    (r"py:.*", r"Eigen::Array<.*>"),
     (r"py:.*", r"numpy\.ndarray.*"),
     (r"py:.*", r"nanobind\..*"),
     (r"py:.*", r"typing\..*"),
@@ -130,6 +132,10 @@ exclude_patterns: list[str] = [
 html_theme = "furo"
 html_static_path = ["_static"]
 html_title = "Symusic Documentation"
+html_baseurl = os.environ.get(
+    "READTHEDOCS_CANONICAL_URL",
+    "https://symusic.readthedocs.io/en/stable/",
+)
 
 # Custom search page using Pagefind
 html_additional_pages = {
@@ -140,6 +146,9 @@ html_additional_pages = {
 os.environ.setdefault("PYTHONPATH", str(PROJECT_ROOT / "python"))
 html_css_files = [
     "api-tweaks.css",
+]
+html_js_files = [
+    "sidebar-scroll.js",
 ]
 
 # Copybutton: strip prompts like >>> and ... when copying

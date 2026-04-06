@@ -21,10 +21,10 @@ core class based on the requested time unit.
 
 ## Low-level API surface
 
-The :doc:`/api/index` page now includes a dedicated *Low-Level symusic.core*
-section that documents the canonical Tick specializations (Tick, Quarter,
-Second, ScoreTick, TrackTick, NoteTick, and related events). Quarter/Second
-variants behave identically except for the time data type.
+The low-level API lives under {doc}`/api/core/index`. Those pages keep the
+`tick`, `quarter`, and `second` variants together in tabbed sections so you can
+compare the interfaces for `Score*`, `Track*`, event classes, and list
+containers without bouncing between separate pages.
 
 Because the documentation reuses the real docstrings injected inside each
 binding, you can rely on the descriptions to stay aligned with the binary that

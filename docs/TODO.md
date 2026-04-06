@@ -12,4 +12,4 @@ This checklist tracks pending work for the Sphinx migration.
 - [x] Draft migration guide highlighting differences between 0.x mdBook and 1.0 documentation.
 - [ ] Wire up Doxygen + Breathe for C++ internals (Score/Track/Event/IO/Synth).
 - [x] Document contribution workflow (docstring conventions, nb::doc usage, doc build in CI).
-- [ ] Replace legacy GitHub Pages workflow with Read the Docs badge + link once RTD site is live.
+- [x] Make Read the Docs the primary public entry point in README and documentation landing pages.
