@@ -193,7 +193,7 @@ template<TType T>
 typename T::unit Score<T>::end() const {
     if (this->empty()) return 0;
 
-    typename T::unit ans = std::numeric_limits<typename T::unit>::min();
+    typename T::unit ans = std::numeric_limits<typename T::unit>::lowest();
     for (const shared<Track<T>>& track : *tracks) { ans = std::max(ans, track->end()); }
     ans = std::max(ans, ops::end(*time_signatures));
     ans = std::max(ans, ops::end(*key_signatures));
