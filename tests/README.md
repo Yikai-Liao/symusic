@@ -1,109 +1,75 @@
-# SyMusic Test Suite
+# symusic Test Suite
 
-This directory contains comprehensive tests for both the C++ library and Python bindings of SyMusic.
+This directory contains regression coverage for both the C++ core and the Python package.
 
-## Directory Structure
+## Layout
 
-- `cpp/`: C++ tests using the Catch2 framework
-- `testcases/`: MIDI files used for testing
-- `*.py`: Python test files using pytest
+- `cpp/`: Catch2-based C++ tests
+- `testcases/`: MIDI / ABC fixtures and edge-case files
+- `typecheck/`: mypy-based typing regressions
+- `test_*.py`: pytest-based Python regressions
 
-## Running C++ Tests
+## Python tests
 
-The C++ tests use the [Catch2](https://github.com/catchorg/Catch2) framework. To build and run the tests:
-
-### Building the Tests
+Build and install the package into an active virtual environment before running pytest. The test
+suite imports the compiled extension, so stale installs will give misleading results.
 
 ```bash
-# From the project root directory
-mkdir -p build && cd build
-cmake .. -DBUILD_SYMUSIC_TEST=ON
-make -j
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[test]"
+pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 ```
 
-### Running the Tests
+Useful targeted commands:
 
 ```bash
-# From the build directory
-./tests/cpp/symusic_tests
-```
-
-You can also run specific test cases or test tags:
-
-```bash
-# Run only time event tests
-./tests/cpp/symusic_tests "[time_events]"
-
-# Run only score tests
-./tests/cpp/symusic_tests "[score]"
-
-# List all available tests
-./tests/cpp/symusic_tests --list-tests
-```
-
-## Running Python Tests
-
-The Python tests use pytest. To run the Python tests:
-
-### Installing Test Dependencies
-
-```bash
-pip install pytest numpy
-```
-
-### Running the Tests
-
-```bash
-# From the project root directory
-pytest tests/
-```
-
-You can also run specific test files or test functions:
-
-```bash
-# Run a specific test file
 pytest tests/test_py_bindings.py
-
-# Run a specific test function
 pytest tests/test_py_bindings.py::test_note_creation
-
-# Run with verbose output
-pytest -v tests/
-
-# Run with output for each test
-pytest -vs tests/
+pytest tests/typecheck/test_typing_mypy.py
+pytest tests/test_beats.py tests/test_beats_pretty_midi.py
+pytest tests/test_abc.py tests/test_malformed_midi.py
 ```
 
-## Test Coverage
+## C++ tests
 
-The test suite covers:
+Configure the project with `BUILD_SYMUSIC_TEST` and run the suite through `ctest`:
 
-### C++ Tests:
-- Time event classes (Note, Tempo, TimeSignature, etc.)
-- Track and Score classes
-- Time unit conversions
-- File I/O operations
+```bash
+cmake -S . -B build -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure --verbose
+```
 
-### Python Tests:
-- Python binding functionality
-- Object creation and manipulation
-- File I/O operations
-- Filtering and transformations
-- PianoRoll functionality
-- Advanced operations (quantization, transposition, etc.)
+If you want to invoke the Catch2 binary directly, the executable is named `symusic_test`.
 
-## Adding New Tests
+## Coverage focus
 
-### C++ Tests:
-1. Create a new header file in the `cpp/` directory
-2. Include your test cases using the Catch2 macros
-3. Add the header to `test_main.cpp`
+The suite covers:
 
-### Python Tests:
-1. Create a new Python file with a name starting with `test_`
-2. Write test functions starting with `test_`
-3. Use pytest fixtures as needed
+- Score / Track / Event behavior across `tick`, `quarter`, and `second`
+- MIDI and ABC parsing, round-trips, and malformed-file regressions
+- Beat and downbeat extraction
+- Piano-roll generation and ownership semantics
+- Pickle support and multiprocessing-friendly serialization
+- Unicode and shell-sensitive path handling
+- Python typing regressions under mypy
 
-## Continuous Integration
+## Adding new tests
 
-The tests are automatically run as part of the CI pipeline on GitHub. See the GitHub Actions workflow configuration for details.
+### C++ tests
+
+1. Add a new header under `tests/cpp/`.
+2. Include it from `tests/cpp/test_main.cpp`.
+3. Keep fixtures in `tests/testcases/` when the case depends on external files.
+
+### Python tests
+
+1. Add a new `test_*.py` file under `tests/`.
+2. Prefer focused regression cases over broad integration scripts.
+3. Reinstall the package after changing compiled bindings before re-running pytest.
+
+## Continuous integration
+
+GitHub Actions runs both the Python and C++ suites. See `.github/workflows/tests.yml` and
+`.github/workflows/test_wheel.yml` for the current matrix.

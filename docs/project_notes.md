@@ -21,8 +21,8 @@ stack addresses those pain points by:
 These steps mirror the Read the Docs build process:
 
 ```bash
-python -m venv .venv-docs
-source .venv-docs/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r docs/requirements.txt
 git submodule update --init --recursive --depth 1
 pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON
@@ -30,7 +30,7 @@ sphinx-build -b html docs docs/_build/html
 ```
 
 Open `docs/_build/html/index.html` in your browser to preview the site. Remember to remove the
-local virtual environment when you are done (`rm -rf .venv-docs`).
+local build artifacts when you are done if you want a clean tree (`rm -rf docs/_build`).
 
 ## Contributing to the documentation
 
@@ -50,16 +50,14 @@ When working on documentation and docstrings:
 
 ### Notebooks and myst-nb
 
-The public tutorial notebook (`tutorial.ipynb` at the repo root) is currently **out of date**.
-Before wiring it into the docs with myst-nb, refresh every cell to reflect the latest API and confirm
-with the interface owners that the examples are still endorsed. While it remains stale:
+The historical tutorial notebook is not part of the active documentation workflow anymore. If we
+bring a notebook back into the tree, refresh every cell against the current API first and confirm
+that the examples are still endorsed before wiring it into MyST-NB.
 
-- Keep the notebook outside `docs/` and do not include it in the navigation.
-- Track the refresh work in `docs/TODO.md` (see the blocked entry for myst-nb integration).
+Until then:
 
-Once the notebook is updated and approved, we can move it under `docs/`, enable myst-nb rendering,
-and follow the usual hygiene guidelines (deterministic execution, concise outputs, no heavyweight
-downloads).
+- Keep notebook experiments outside `docs/` and out of the navigation.
+- Track any notebook-refresh work in `docs/TODO.md`.
 
 ## Legacy mdBook reference
 
@@ -73,7 +71,7 @@ Use the table below when redirecting deep links or triaging stale references:
 | `tutorials/*` | {doc}`/tutorials/index` and its subpages |
 | `examples/*` | {doc}`/examples/index` and its subpages |
 | `api_reference*` | {doc}`/api/index` |
-| `development.md` | {doc}`/project_notes` (this page) |
+| `development.md` | {doc}`/development` |
 | top-level overview | {doc}`/index` |
 
 When updating downstream content:

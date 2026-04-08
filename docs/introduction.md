@@ -17,8 +17,8 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 - **Cross-language friendly** – The core lives entirely in standard C++, so bindings for other
   languages (Julia, Lua, etc.) can be built on the same foundation.
 - **End-to-end pipeline** – Beyond parsing, Symusic includes transformations (filtering, trimming,
-  resampling), structured NumPy exports (SoA), piano-roll conversion, and synthesis via the
-  Prestosynth engine.
+  resampling), beat/downbeat extraction, structured NumPy exports (SoA), piano-roll conversion, and
+  synthesis via the Prestosynth engine.
 
 ## Architecture at a glance
 
@@ -35,14 +35,17 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 pip install symusic
 ```
 
-We publish wheels for Linux, macOS, and Windows on both x86 and ARM (Windows ARM64 is the only
-unsupported combination at the moment). When you need to build from source, clone the repository with
-submodules and install in editable mode:
+We publish CPython wheels for Python 3.9 through 3.14 across the Linux, macOS, and Windows targets
+listed in `.github/workflows/wheel.yml`, including Windows ARM64. PyPy wheels are currently
+published for `pp311` on `manylinux_x86_64`, `macosx_x86_64`, and `macosx_arm64`.
+
+When you need to build from source, clone the repository with submodules and install it through
+`pip`:
 
 ```bash
 git clone --recursive https://github.com/Yikai-Liao/symusic
 cd symusic
-pip install -e .
+pip install .
 ```
 
 Symusic requires a C++20 compiler (GCC ≥ 11, Clang ≥ 15, MSVC 2022). If you lack system compiler
@@ -76,11 +79,16 @@ and currently run on GitHub Actions M1 runners.
 
 ## Motivation
 
-**Symusic** aims to offer fast and efficient symbolic music data (e.g. MIDI, Music XML and ABC Notation) preprocessing backend.
+**Symusic** aims to provide a fast symbolic music preprocessing backend for MIDI and ABC workflows,
+with room to grow into additional formats over time.
 
 The former dominant MIDI parsing backend is [mido](https://github.com/mido/mido) (used by [pretty_midi](https://github.com/craffel/pretty-midi) and [miditoolkit](https://github.com/YatingMusic/miditoolkit)), which is written in pure python. However, it is too slow for the large-scale symbolic music data preprocessing task in the deep learning era, which makes it impossible to tokenize the needed data in real-time while training.
 
-Out of the need, we developed this library. It is written in C++, offers a python binding using pybind11/nanobind, and is over 100 times faster than mido. We parse the MIDI file to `note level` (similar to [miditoolkit](https://github.com/YatingMusic/miditoolkit)) instead of `event level` ([mido](https://github.com/mido/mido)), which is more suitable for the symbolic music data preprocessing task. More data formats like `Music XML` and `ABC Notation` will be supported in the future.
+Out of that need, we developed this library. It is written in C++, exposes a Python binding through
+nanobind, and is over 100 times faster than mido. We parse MIDI files to `note level` (similar to
+[miditoolkit](https://github.com/YatingMusic/miditoolkit)) instead of `event level`
+([mido](https://github.com/mido/mido)), which is more suitable for large-scale symbolic music
+preprocessing. ABC support is already integrated, while formats such as MusicXML remain future work.
 
 We separated the `event-level` MIDI parsing code into a lightweight and efficient header-only C++ library [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) for those who only need to parse MIDI files to `event level` in C++.
 

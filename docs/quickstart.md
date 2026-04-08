@@ -12,9 +12,12 @@ powers the library in production, so the snippets scale from a notebook to a tra
 pip install symusic
 ```
 
-We publish wheels for Linux, macOS, and Windows across both x86 and ARM (Windows ARM64 is pending).
-CPython 3.9–3.14 and PyPy 3.9 builds are uploaded for each release. CPython 3.12 still triggers
-harmless nanobind leak warnings; if they become distracting, use 3.11 until upstream fixes land.
+We publish CPython wheels for Python 3.9 through 3.14 across Linux, macOS, and Windows, including
+Windows ARM64. PyPy wheels are currently published for `pp311` on `manylinux_x86_64`,
+`macosx_x86_64`, and `macosx_arm64`.
+
+CPython 3.12 can still emit harmless nanobind leak warnings. If they become distracting during local
+work, use 3.11 until the upstream warning noise is reduced.
 
 ### Build from source
 
@@ -27,7 +30,7 @@ or clone the repository if you need the latest commit:
 ```bash
 git clone --recursive https://github.com/Yikai-Liao/symusic
 cd symusic
-pip install -e .
+pip install .
 ```
 
 Symusic targets C++20. Minimum compiler versions: GCC 11, Clang 15, MSVC 2022. On Linux machines
@@ -59,6 +62,20 @@ score_second = score_tick.to("second")          # convert after loading
 
 The `Score.to(new_unit, min_dur=None)` method converts the entire hierarchy—tracks, notes, pedals,
 etc.—to a different unit. Use `min_dur` when converting to ticks to avoid rounding durations to zero.
+
+## Beat and downbeat helpers
+
+```python
+from symusic import Score
+
+score = Score("example.mid").to("quarter")
+beats = score.get_beats()
+downbeats = score.get_downbeats()
+```
+
+`get_beats()` returns the musical beat grid implied by the tempo and time-signature maps.
+`get_downbeats()` keeps only bar starts. Both helpers return NumPy arrays in the score's current
+time unit, so they work naturally in `tick`, `quarter`, or `second` workflows.
 
 ## Save back to disk
 

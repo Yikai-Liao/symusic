@@ -70,8 +70,8 @@ Follow this loop whenever you update nanobind docstrings so `.pyi` files, local 
 
 2. **Install the extension into the docs virtualenv**  
    ```bash
-   source .venv-docs/bin/activate
-   pip install -e .
+   source .venv/bin/activate
+   pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON
    ```
    Read the Docs builds from source on every run: `readthedocs.yml` executes `pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON` so the hosted docs always reflect the latest bindings in the repository.
 

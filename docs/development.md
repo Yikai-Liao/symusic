@@ -1,56 +1,74 @@
 # Development
 
-## Environment
+## Create a local environment
 
-Since symusic is bound to python using nanobind, it would be a bit complicated to set a development environment.
-
-The key problem is that, you need to let you IDE detect the right python evn on your system. Here, I recommend you to open your ide (like clion or vscode) in your terminal, after you have activated your python env.
-
-```bash
-conda activate symusic-env
-clion path/to/symusic
-```
-
-You could also set your http proxy before open your ide in terminal.
-
-The only requirement for symusic is [nanobind](https://github.com/wjakob/nanobind). You could install it by:
+Symusic development is easiest when you keep everything inside a project-local virtual environment.
+Clone the repository with submodules, create `.venv`, and install the package through `pip` so the
+compiled extension and Python package stay in sync.
 
 ```bash
-pip install nanobind
+git clone --recursive https://github.com/Yikai-Liao/symusic
+cd symusic
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e ".[test]"
+pip install -r docs/requirements.txt
 ```
 
-> Note that, cpython 3.12 get some memory leak problem, and it will be detected by nanobind. So I recommend you to use cpython <= 3.11 currently.
+On Windows, activate the environment with `.venv\\Scripts\\activate` instead.
 
-As for compiler, it should support c++20. `clang` (linux and mac), `gcc` and `msvc` all works (I have tested them).
+Symusic targets C++20. GCC 11+, Clang 15+, and MSVC 2022 are the supported compiler baselines.
+CPython 3.12 can still emit harmless nanobind leak warnings during local work; 3.11 remains the
+smoothest choice if you want less noise.
 
-## Build
+## Build the Python extension
 
-If you want to compile the python binding target, you need to set `-DBUILD_PY:BOOL=ON` when using cmake. Also, `-DBUILD_TEST:BOOL=ON` for some test cases.
+The supported contributor workflow is to build the extension through `pip`, not by manually driving
+the Python bindings from raw CMake targets.
 
-If you are using clion, just set the cmake options to:
-
-```text
--DBUILD_TEST:BOOL=ON -DBUILD_PY:BOOL=ON
+```bash
+pip install .
 ```
 
-For installing symusic to your python env, you could use `pip install .` in the root directory of symusic. And everything is done.
+That command rebuilds `symusic.core`, regenerates the installed `core.pyi` / `py.typed` artifacts,
+and refreshes the active environment. If you changed bindings, factories, or typing-related files,
+reinstall before running tests. Otherwise you will be debugging stale binaries or stale stubs.
 
-## PYI File
+## Run the test suite
 
-nanobind 2.9 introduces an official `nanobind_add_stub` CMake command. The symusic build now relies on this integration, so no standalone script is needed. Whenever you configure CMake with `-DBUILD_SYMUSIC_PY=ON` (which is the case for `pip install .`), the build automatically runs the stub generator and produces both `core.pyi` and a `py.typed` marker inside the build directory. Those artifacts are then installed next to the compiled `symusic/core` module and are shipped with wheels and editable installs.
+### Python tests
 
-If you need to regenerate the stubs manually, simply rebuild the `symusic_core_stub` target (e.g. `cmake --build build --target symusic_core_stub`). You will find the resulting file at `<build>/symusic/core.pyi`.
+```bash
+pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
+```
 
-After touching the bindings, run `pre-commit run --all-files` to keep the stub and the rest of the sources formatted, and always review the resulting diff before sending a patch.
+If you only need the typing regressions:
 
-## Type hints
+```bash
+pytest tests/typecheck/test_typing_mypy.py
+```
 
-Symusic exposes a relatively rich typing surface so that downstream projects can benefit from IDE completion and static analysis:
+### C++ tests
 
-### Core generics
+```bash
+cmake -S . -B build -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure --verbose
+```
 
-- The nanobind bindings now “lie” in the generated stubs so that classes like `ScoreTick`, `TrackQuarter`, `NoteTickList`, … derive from generic helpers. This enables Python code to annotate values using `core.Score[core.Tick]` or `core.PyVec[core.Note[core.Tick]]`.
-- The Python package mirrors these helpers. Importing `import symusic.types as smt` gives you `smt.Score`, `smt.Note`, `smt.PyVec`, etc., that map directly to the nanobind types. Prefer the generic form when you need an explicit time unit, e.g.
+Use a Visual Studio Developer shell on Windows if you want `pip install .` or CMake to pick up the
+expected MSVC toolchain automatically.
+
+## Stubs and type hints
+
+nanobind generates the installed stubs as part of the normal build. Whenever `pip install .` or
+`pip install -e .` rebuilds the package, the build also refreshes `symusic/core.pyi` and the
+`py.typed` marker.
+
+The typing surface intentionally mirrors the tick / quarter / second specializations exposed by the
+compiled extension. When you need explicit annotations, prefer the generic helpers from
+`symusic.types` and `symusic.core`, for example:
 
 ```python
 import symusic.core as core
@@ -60,32 +78,18 @@ score: smt.Score[core.Tick] = core.ScoreTick(480)
 notes: core.PyVec[core.Note[core.Tick]] = core.NoteTickList()
 ```
 
-### List aliases
+## Formatting and hooks
 
-- To keep runtime behavior simple, the convenience aliases exposed from `symusic.types` (e.g. `NoteList`, `TimeSignatureList`) remain ordinary `Union` types over their tick/quarter/second variants. Downstream code should treat them as “either of the concrete `*List` classes” rather than full generics.
-- `General*List` helpers now collapse to `Union[List[Event], <list alias>]`, so existing factory signatures keep accepting plain Python lists without any type juggling.
-
-### Testing the typing surface
-
-- The file `tests/typecheck/test_typing_mypy.py` contains narrow mypy-based regression tests that exercise the combinations we care about (`Score[T]`, `PyVec[Event[T]]`, `General*List`, etc.). Run it after touching bindings or the `types` module:
+Install the project hooks with:
 
 ```bash
-pip install .[test]
-pytest tests/typecheck/test_typing_mypy.py
+./scripts/install_git_hooks.sh
 ```
 
-- These tests rely on the freshly built `symusic` package inside the active virtualenv. Always reinstall (`pip install .` or `pip install .[test]`) or copy the updated files into `.venv/lib/.../symusic/` before invoking pytest, otherwise mypy will keep validating stale stubs.
-
-## Format
-
-We use `pre-commit` to format the code. You could install it by:
+Run formatting and lint checks manually with:
 
 ```bash
-pip install pre-commit
+pre-commit run --all-files
 ```
 
-And then, run `pre-commit install` to install the pre-commit script.
-
-You could run it manually by `pre-commit run --all-files`, or just run it before committing by `pre-commit run --all-files --hook-stage commit`.
-
-The config is in `pyproject.toml`.
+The pre-commit configuration lives in `.pre-commit-config.yaml`.

@@ -6,12 +6,14 @@ This page collects short answers to common setup and runtime issues when using S
 
 ### `pip install symusic` falls back to a source build
 
-Symusic publishes wheels for Linux, macOS, and Windows on CPython 3.9–3.14 (plus PyPy 3.9). If `pip`
-starts compiling from source:
+Symusic publishes CPython wheels for Python 3.9 through 3.14 across the supported Linux, macOS, and
+Windows targets, including Windows ARM64. PyPy wheels are currently published for `pp311` on
+`manylinux_x86_64`, `macosx_x86_64`, and `macosx_arm64`. If `pip` starts compiling from source:
 
 - Check that your Python version is supported (`python -m pip debug --verbose` is helpful).
 - Upgrade `pip`, `setuptools`, and `wheel` in your environment.
-- On ARM or less common platforms, prefer a recent CPython release before trying to build from source.
+- On PyPy, musllinux, or less common platform combinations, a source build can still be expected.
+- On ARM or other less common platforms, prefer a recent CPython release before trying to build from source.
 
 If a wheel is not available for your platform, follow the source build instructions in {doc}`/quickstart`.
 
