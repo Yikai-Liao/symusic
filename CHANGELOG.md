@@ -9,9 +9,6 @@ in obviously under-described user-facing changes.
 ### Added
 
 - Added `get_beats()` and `get_downbeats()` helpers for beat-grid and bar-start extraction.
-- Added broader Python typing support for core generics, `PyVec`-backed containers, and list aliases.
-- Added a full Sphinx + MyST documentation site on Read the Docs, including API reference,
-  tutorials, FAQ, and Pagefind search.
 
 ### Changed
 
