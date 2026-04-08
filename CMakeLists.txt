@@ -47,6 +47,7 @@ endif()
 
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/mx EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 
@@ -64,8 +65,16 @@ endforeach()
 add_library(symusic ${symusic_src})
 target_link_libraries(symusic fmt::fmt-header-only)
 target_link_libraries(symusic minimidi)
+target_link_libraries(symusic mx)
 target_link_libraries(symusic prestosynth)
 target_link_libraries(symusic pyvec)
+target_include_directories(
+    symusic
+    PRIVATE
+        3rdparty/mx/Sourcecode/private
+        3rdparty/mx/Sourcecode/private/mx/ezxml/src/include
+        3rdparty/mx/Sourcecode/private/mx/ezxml/src/private
+)
 
 if(SYMUSIC_FAST_BUILD)
     message(STATUS "SYMUSIC_FAST_BUILD enabled: disabling LTO and using O1 optimizations")
@@ -97,7 +106,7 @@ if(BUILD_SYMUSIC_PY)
 
     add_subdirectory(3rdparty/nanobind EXCLUDE_FROM_ALL)
 
-    set(NB_FLAGS NB_STATIC STABLE_ABI PROTECT_STACK NOSTRIP)
+    set(NB_FLAGS NB_STATIC STABLE_ABI FREE_THREADED PROTECT_STACK NOSTRIP)
     if(NOT SYMUSIC_FAST_BUILD)
         list(APPEND NB_FLAGS LTO)
     else()

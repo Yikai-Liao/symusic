@@ -83,8 +83,8 @@ Load a MIDI file from disk into a score. Accepts strings or ``pathlib.Path`` obj
 ``.mid``/``.midi`` file.
 )pbdoc";
 constexpr const char* kScoreFromFileDoc = R"pbdoc(
-Read a score from disk by auto-detecting a MIDI or ABC file. Use ``format`` (``"midi"`` or
-``"abc"``) when the extension is ambiguous.
+Read a score from disk by auto-detecting a MIDI, ABC, or MusicXML file. Use ``format`` to
+override extension-based detection when needed.
 )pbdoc";
 constexpr const char* kScoreFromMidiDoc = R"pbdoc(
 Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controller/pitch values are
@@ -94,6 +94,8 @@ constexpr const char* kScoreFromAbcDoc = R"pbdoc(
 Parse an ABC notation string into a score. Requires the ``SYMUSIC_ABC2MIDI`` environment variable
 to point to the abc2midi executable.
 )pbdoc";
+constexpr const char* kScoreFromMusicXmlDoc
+    = R"pbdoc(Parse a MusicXML document from an in-memory XML string.)pbdoc";
 constexpr const char* kScoreDumpMidiDoc
     = R"pbdoc(Write the score to a MIDI file using the current ticks-per-quarter resolution.)pbdoc";
 constexpr const char* kScoreDumpsMidiDoc
@@ -103,6 +105,10 @@ Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up 
 )pbdoc";
 constexpr const char* kScoreDumpsAbcDoc
     = R"pbdoc(Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.)pbdoc";
+constexpr const char* kScoreDumpMusicXmlDoc
+    = R"pbdoc(Write the score to a MusicXML file as plain XML text.)pbdoc";
+constexpr const char* kScoreDumpsMusicXmlDoc
+    = R"pbdoc(Return the score as a MusicXML XML string.)pbdoc";
 constexpr const char* kScoreGetBeatsDoc = R"pbdoc(
 Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
 PrettyMIDI heuristic of grouping every three denominator notes into one beat.
@@ -212,6 +218,19 @@ void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) 
 }
 
 template<TType T>
+shared<Score<T>> musicxml2score(const std::filesystem::path& path) {
+    const auto data = read_file(path);
+    auto       s = Score<T>::template parse<DataFormat::MusicXML>(data);
+    return std::make_shared<Score<T>>(std::move(s));
+}
+
+template<TType T>
+void dump_musicxml(const shared<Score<T>>& self, const std::filesystem::path& path) {
+    const auto data = self->template dumps<DataFormat::MusicXML>();
+    write_file(path, data);
+}
+
+template<TType T>
 void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
     const auto midi2abc_env = std::getenv("SYMUSIC_MIDI2ABC");
     if (!midi2abc_env) {
@@ -279,9 +298,14 @@ std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
 }
 
 inline std::string get_format(const std::filesystem::path& path) {
-    const auto ext = path.extension().string();
-    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") { return "midi"; }
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if (ext == ".mid" || ext == ".midi") { return "midi"; }
     if (ext == ".abc") { return "abc"; }
+    if (ext == ".musicxml" || ext == ".xml") { return "musicxml"; }
+    if (ext == ".mxl") {
+        throw std::invalid_argument("Compressed MusicXML (.mxl) is not supported yet");
+    }
     throw std::invalid_argument("Unknown file format");
 }
 
@@ -363,7 +387,32 @@ shared<Score<T>> from_file(
         }
         return from_abc_file<T>(path);
     }
+    if (format_ == "musicxml" || format_ == "xml") {
+        auto ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".mxl") {
+            throw std::invalid_argument("Compressed MusicXML (.mxl) is not supported yet");
+        }
+        if (sanitize_data) {
+            throw std::invalid_argument("sanitize_data is only supported for MIDI input");
+        }
+        return musicxml2score<T>(path);
+    }
     throw std::invalid_argument("Unknown file format");
+}
+
+template<TType T>
+shared<Score<T>> from_musicxml(const std::string& xml) {
+    const auto* data = reinterpret_cast<const u8*>(xml.data());
+    const auto  span = std::span(data, xml.size());
+    auto        s = Score<T>::template parse<DataFormat::MusicXML>(span);
+    return std::make_shared<Score<T>>(std::move(s));
+}
+
+template<TType T>
+std::string dumps_musicxml(const shared<Score<T>>& self) {
+    const auto data = self->template dumps<DataFormat::MusicXML>();
+    return std::string(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
 template<typename Scalar>
@@ -453,6 +502,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             score_docstrings::kScoreFromMidiDoc
         )
         .def_static("from_abc", &from_abc<T>, nb::arg("abc"), score_docstrings::kScoreFromAbcDoc)
+        .def_static("from_musicxml", &from_musicxml<T>, nb::arg("xml"), score_docstrings::kScoreFromMusicXmlDoc)
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), score_docstrings::kScoreDumpMidiDoc)
         .def("dumps_midi", [](const self_t& self) {
             auto data = self->template dumps<DataFormat::MIDI>();
@@ -460,6 +510,8 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, score_docstrings::kScoreDumpsMidiDoc)
         .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kScoreDumpAbcDoc)
         .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kScoreDumpsAbcDoc)
+        .def("dump_musicxml", &dump_musicxml<T>, nb::arg("path"), score_docstrings::kScoreDumpMusicXmlDoc)
+        .def("dumps_musicxml", &dumps_musicxml<T>, score_docstrings::kScoreDumpsMusicXmlDoc)
         .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetBeatsDoc)
         .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetDownbeatsDoc)
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note")

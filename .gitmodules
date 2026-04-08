@@ -30,3 +30,6 @@
 [submodule "3rdparty/Catch2"]
 	path = 3rdparty/Catch2
 	url = https://github.com/catchorg/Catch2.git
+[submodule "3rdparty/mx"]
+	path = 3rdparty/mx
+	url = https://github.com/Yikai-Liao/mx.git

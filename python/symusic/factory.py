@@ -512,7 +512,7 @@ class TrackFactory:
 class ScoreFactory:
     """High-level wrapper around the templated `symusic.core.Score*` classes.
 
-    It accepts MIDI/ABC paths, byte payloads, or other score instances and
+    It accepts MIDI/ABC/MusicXML paths, byte or string payloads, or other score instances and
     forwards everything to the nanobind implementation while preserving the per
     time-unit specializations.
     """
@@ -575,6 +575,13 @@ class ScoreFactory:
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
         return self.__core_classes.dispatch(ttype).from_abc(abc)
+
+    def from_musicxml(
+        self,
+        xml: str,
+        ttype: smt.GeneralTimeUnit = "tick",
+    ) -> smt.Score:
+        return self.__core_classes.dispatch(ttype).from_musicxml(xml)
 
     def from_tpq(
         self,
