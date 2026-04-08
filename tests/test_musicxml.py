@@ -6,6 +6,69 @@ from pathlib import Path
 import pytest
 from symusic import KeySignature, Note, Score, Tempo, TextMeta, TimeSignature, Track
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+MX_RESOURCES = REPO_ROOT / "3rdparty" / "mx" / "Resources"
+MX_CORPUS_CASES = sorted(
+    path.relative_to(MX_RESOURCES).as_posix()
+    for path in MX_RESOURCES.rglob("*")
+    if path.suffix in {".xml", ".musicxml"}
+)
+
+MX_EXPECTED_IMPORT_FAILURES = {
+    "generalxml/fake.xml": r"score-timewise or score-partwise",
+    "lysuite/ly41g_PartNoId.xml": r"'id' is a required attribute but was not found",
+    "lysuite/ly41h_TooManyParts.xml": r"MusicXML part reconciliation failed",
+    "musuite/testPartsSpecialCases.xml": r"MusicXML part reconciliation failed",
+}
+
+MX_LOSSY_ROUNDTRIP_CASES = {
+    "foundsuite/An Chloe.xml",
+    "foundsuite/O_Holy_Night-Adam-1871.xml",
+    "foundsuite/O_Holy_Night-Adam-1974.xml",
+    "foundsuite/PezR44Sco.xml",
+    "foundsuite/SCHUBERT An die Sonne.xml",
+    "foundsuite/Schubert_der_Mueller.xml",
+    "foundsuite/Silent_Night-Hartwig.xml",
+    "foundsuite/Silent_Night_Young_1.xml",
+    "lysuite/ly11d_TimeSignatures_CompoundMultiple.xml",
+    "lysuite/ly11f_TimeSignatures_SymbolMeaning.xml",
+    "lysuite/ly31a_Directions.xml",
+    "lysuite/ly31c_MetronomeMarks.xml",
+    "lysuite/ly32a_Notations.xml",
+    "lysuite/ly33i_Ties_NotEnded.xml",
+    "lysuite/ly41e_StaffGroups_InstrumentNames_Linebroken.xml",
+    "lysuite/ly61h_Lyrics_BeamsMelismata.xml",
+    "lysuite/ly71f_AllChordTypes.xml",
+    "lysuite/ly99b_Lyrics_BeamsMelismata_IgnoreBeams.xml",
+    "mjbsuite/freezing.old.xml",
+    "mjbsuite/krz_v40.xml",
+    "recsuite/BeetAnGeSample.xml",
+    "recsuite/Binchois.xml",
+    "recsuite/BrahWiMeSample.xml",
+    "recsuite/BrookeWestSample.xml",
+    "recsuite/DebuMandSample.xml",
+    "recsuite/Dichterliebe01.xml",
+    "recsuite/Echigo_Jishi.xml",
+    "recsuite/FaurReveSample.xml",
+    "recsuite/MahlFaGe4Sample.xml",
+    "recsuite/MozaChloSample.xml",
+    "recsuite/MozaChloSample2.xml",
+    "recsuite/MozaVeilSample.xml",
+    "recsuite/SchbAvMaSample.xml",
+    "recsuite/Telemann.xml",
+}
+
+MX_IMPORTABLE_CASES = [
+    relative_path
+    for relative_path in MX_CORPUS_CASES
+    if relative_path not in MX_EXPECTED_IMPORT_FAILURES
+]
+MX_STRICT_ROUNDTRIP_CASES = [
+    relative_path
+    for relative_path in MX_IMPORTABLE_CASES
+    if relative_path not in MX_LOSSY_ROUNDTRIP_CASES
+]
+
 
 def make_roundtrip_score() -> Score:
     score = Score(480)
@@ -39,6 +102,37 @@ def normalize_score(score: Score) -> None:
     for track in score.tracks:
         track.notes.sort(key=lambda note: (note.start, note.pitch, note.end, note.velocity))
         track.lyrics.sort(key=lambda lyric: (lyric.time, lyric.text))
+
+
+def sample_path(relative_path: str) -> Path:
+    return MX_RESOURCES / relative_path
+
+
+def musicxml_contract_snapshot(score: Score) -> tuple:
+    return (
+        score.ticks_per_quarter,
+        sorted((event.time, round(event.tempo, 9)) for event in score.tempos),
+        sorted((event.time, event.numerator, event.denominator) for event in score.time_signatures),
+        sorted((event.time, event.key, event.tonality) for event in score.key_signatures),
+        [
+            (
+                track.name or f"Track {index + 1}",
+                track.program,
+                track.is_drum,
+                sorted((note.start, note.duration, note.pitch, note.velocity) for note in track.notes),
+                sorted((lyric.time, lyric.text) for lyric in track.lyrics),
+            )
+            for index, track in enumerate(score.tracks)
+        ],
+    )
+
+
+def test_musicxml_mx_corpus_expectation_sets_are_consistent() -> None:
+    corpus = set(MX_CORPUS_CASES)
+
+    assert set(MX_EXPECTED_IMPORT_FAILURES).issubset(corpus)
+    assert MX_LOSSY_ROUNDTRIP_CASES.issubset(corpus)
+    assert set(MX_EXPECTED_IMPORT_FAILURES).isdisjoint(MX_LOSSY_ROUNDTRIP_CASES)
 
 
 def test_musicxml_roundtrip_in_memory() -> None:
@@ -107,3 +201,104 @@ def test_musicxml_conversion_is_safe_under_parallel_calls(tmp_path: Path) -> Non
 
     assert dumped == [score.note_num()] * 4
     assert loaded == [expected_notes] * 4
+
+
+@pytest.mark.parametrize("relative_path", MX_CORPUS_CASES)
+def test_musicxml_import_covers_full_mx_corpus(relative_path: str) -> None:
+    path = sample_path(relative_path)
+
+    if relative_path in MX_EXPECTED_IMPORT_FAILURES:
+        with pytest.raises(RuntimeError, match=MX_EXPECTED_IMPORT_FAILURES[relative_path]):
+            Score(path)
+        return
+
+    Score(path)
+
+
+@pytest.mark.parametrize("relative_path", MX_IMPORTABLE_CASES)
+def test_musicxml_export_and_reimport_covers_full_mx_corpus(relative_path: str) -> None:
+    score = Score(sample_path(relative_path))
+    Score.from_musicxml(score.dumps_musicxml())
+
+
+@pytest.mark.parametrize("relative_path", MX_STRICT_ROUNDTRIP_CASES)
+def test_musicxml_roundtrip_preserves_supported_contract_for_full_mx_corpus(
+    relative_path: str,
+) -> None:
+    score = Score(sample_path(relative_path))
+    reloaded = Score.from_musicxml(score.dumps_musicxml())
+
+    assert musicxml_contract_snapshot(reloaded) == musicxml_contract_snapshot(score)
+
+
+def test_musicxml_imports_timewise_documents() -> None:
+    score = Score(sample_path("mjbsuite/hello_timewise.xml"))
+
+    assert score.ticks_per_quarter == 1
+    assert [(event.time, event.numerator, event.denominator) for event in score.time_signatures] == [
+        (0, 4, 4)
+    ]
+    assert len(score.tracks) == 1
+    assert score.tracks[0].name == "Music"
+    assert [(note.start, note.duration, note.pitch, note.velocity) for note in score.tracks[0].notes] == [
+        (0, 4, 60, 64)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "expected_tempos"),
+    [
+        ("ksuite/k012a_Tempo_Markings.xml", [(0, 120.0), (8, 40.0)]),
+        ("musuite/testTempo1.xml", [(0, 60.0), (16, 126.000126000126)]),
+    ],
+)
+def test_musicxml_imports_tempos_from_external_samples(
+    relative_path: str, expected_tempos: list[tuple[int, float]]
+) -> None:
+    score = Score(sample_path(relative_path))
+
+    assert len(score.tempos) == len(expected_tempos)
+    for tempo, (expected_time, expected_value) in zip(score.tempos, expected_tempos, strict=True):
+        assert tempo.time == expected_time
+        assert tempo.tempo == pytest.approx(expected_value)
+
+
+def test_musicxml_imports_lyrics_from_external_sample() -> None:
+    score = Score(sample_path("musuite/testLyricsVoice2a.xml"))
+
+    assert len(score.tracks) == 2
+    assert score.tracks[0].name == "Alto"
+    assert score.tracks[1].name == "Tenor"
+    assert [(lyric.time, lyric.text) for lyric in score.tracks[0].lyrics] == [
+        (0, "Lyrics"),
+        (1, "in"),
+        (2, "voice"),
+        (3, "1."),
+    ]
+    assert [(lyric.time, lyric.text) for lyric in score.tracks[1].lyrics] == [
+        (0, "Here"),
+        (1, "in"),
+        (2, "voice"),
+        (3, "2 !"),
+    ]
+
+
+def test_musicxml_imports_drum_and_program_metadata() -> None:
+    drum_score = Score(sample_path("musuite/testDrumset1.xml"))
+    transposition_score = Score(sample_path("custom/transposition.musicxml"))
+
+    assert len(drum_score.tracks) == 1
+    assert drum_score.tracks[0].name == "Drumset"
+    assert drum_score.tracks[0].is_drum is True
+    assert drum_score.tracks[0].program == 0
+
+    assert len(transposition_score.tracks) == 31
+    assert transposition_score.tracks[0].name == "Piccolo"
+    assert transposition_score.tracks[0].program == 72
+    assert transposition_score.tracks[1].name == "Flute 1"
+    assert transposition_score.tracks[1].program == 73
+    assert [track.name for track in transposition_score.tracks if track.is_drum] == [
+        "Percussion 1",
+        "Percussion 2",
+    ]
+    assert [track.program for track in transposition_score.tracks if track.is_drum] == [48, 48]

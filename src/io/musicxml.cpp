@@ -122,6 +122,16 @@ struct OutputPatchInfo {
     bool         needs_type_patch = false;
 };
 
+struct OutputPatchKey {
+    int measure_index = 0;
+    int local_time = 0;
+    int duration = 0;
+    int pitch = 0;
+    int voice = 0;
+
+    auto operator<=>(const OutputPatchKey&) const = default;
+};
+
 struct TraversedNote {
     NoteData        note;
     mx::core::Note* core_note = nullptr;
@@ -804,50 +814,17 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
     auto current_time_signature = TimeSignature<Tick>{0, 4, 4};
     size_t time_signature_index = 0;
-    bool   current_is_explicit = false;
 
     std::vector<MeasureLayout> measures;
     int measure_start = 0;
     while (measure_start <= max_event_time || measures.empty()) {
-        current_is_explicit = false;
         if (time_signature_index < time_signatures.size()
             && time_signatures[time_signature_index].time == measure_start) {
             current_time_signature = time_signatures[time_signature_index];
-            current_is_explicit = true;
             ++time_signature_index;
-        } else if (time_signature_index < time_signatures.size()
-                   && time_signatures[time_signature_index].time < measure_start) {
-            throw std::runtime_error(
-                "MusicXML export only supports time signature changes at measure boundaries"
-            );
         }
 
-        auto measure = MeasureLayout{};
-        measure.start_tick = measure_start;
-        measure.length = nominal_measure_length(
-            make_time_signature_data(
-                current_time_signature.numerator,
-                current_time_signature.denominator,
-                !current_is_explicit
-            ),
-            score.ticks_per_quarter
-        );
-        measures.push_back(measure);
-        measure_start += measure.length;
-    }
-
-    while (time_signature_index < time_signatures.size()) {
-        if (time_signatures[time_signature_index].time != measure_start) {
-            throw std::runtime_error(
-                "MusicXML export only supports time signature changes at measure boundaries"
-            );
-        }
-        current_time_signature = time_signatures[time_signature_index];
-        ++time_signature_index;
-
-        auto measure = MeasureLayout{};
-        measure.start_tick = measure_start;
-        measure.length = nominal_measure_length(
+        const int nominal_length = nominal_measure_length(
             make_time_signature_data(
                 current_time_signature.numerator,
                 current_time_signature.denominator,
@@ -855,6 +832,17 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
             ),
             score.ticks_per_quarter
         );
+        int measure_length = nominal_length;
+        if (time_signature_index < time_signatures.size()) {
+            const int next_change_time = time_signatures[time_signature_index].time;
+            if (next_change_time > measure_start && next_change_time < measure_start + nominal_length) {
+                measure_length = next_change_time - measure_start;
+            }
+        }
+
+        auto measure = MeasureLayout{};
+        measure.start_tick = measure_start;
+        measure.length = std::max(1, measure_length);
         measures.push_back(measure);
         measure_start += measure.length;
     }
@@ -1008,7 +996,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 [[nodiscard]] ScoreData export_score_to_musicxml_data(
     const Score<Tick>& score,
     std::vector<std::map<int, std::vector<std::string>>>& part_lyrics_by_time,
-    std::vector<std::deque<OutputPatchInfo>>&            part_patch_queues
+    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup
 ) {
     ScoreData score_data{};
     score_data.musicXmlVersion = mx::api::MusicXmlVersion::ThreePointZero;
@@ -1016,9 +1004,9 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
     const auto measures = build_measure_layouts(score);
     part_lyrics_by_time.clear();
-    part_patch_queues.clear();
+    part_patch_lookup.clear();
     part_lyrics_by_time.reserve(score.tracks->size());
-    part_patch_queues.reserve(score.tracks->size());
+    part_patch_lookup.reserve(score.tracks->size());
 
     std::vector<mx::api::TimeSignatureData> measure_time_signatures(measures.size());
     {
@@ -1099,7 +1087,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         auto segments = split_track_into_segments(track, measures, score.ticks_per_quarter);
         std::vector<std::vector<TrackMeasureNote>> grouped_segments(measures.size());
         grouped_segments.reserve(measures.size());
-        std::deque<OutputPatchInfo> patch_queue;
+        std::map<OutputPatchKey, std::deque<OutputPatchInfo>> patch_lookup;
         for (const auto& segment : segments) {
             auto note_data = TrackMeasureNote{};
             note_data.voice = segment.voice;
@@ -1116,15 +1104,23 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
             note_data.duration_dots = segment.duration_dots;
             grouped_segments[segment.measure_index].push_back(std::move(note_data));
 
-            patch_queue.push_back(
-                {segment.measure_index,
-                 segment.local_start,
-                 segment.duration,
-                 segment.pitch,
-                 segment.voice,
-                 segment.velocity,
-                 segment.needs_type_patch}
-            );
+            auto patch_info = OutputPatchInfo{
+                segment.measure_index,
+                segment.local_start,
+                segment.duration,
+                segment.pitch,
+                segment.voice,
+                segment.velocity,
+                segment.needs_type_patch
+            };
+            const auto patch_key = OutputPatchKey{
+                segment.measure_index,
+                segment.local_start,
+                segment.duration,
+                segment.pitch,
+                segment.voice
+            };
+            patch_lookup[patch_key].push_back(std::move(patch_info));
         }
 
         for (size_t measure_index = 0; measure_index < grouped_segments.size(); ++measure_index) {
@@ -1169,7 +1165,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         }
 
         part_lyrics_by_time.push_back(group_lyrics_by_time(track));
-        part_patch_queues.push_back(std::move(patch_queue));
+        part_patch_lookup.push_back(std::move(patch_lookup));
         score_data.parts.push_back(std::move(part));
     }
 
@@ -1191,17 +1187,17 @@ void add_lyric_to_note(mx::core::Note& note, const std::string& text) {
 void patch_exported_partwise_score(
     mx::core::ScorePartwise&                                 score_partwise,
     const std::vector<std::map<int, std::vector<std::string>>>& part_lyrics_by_time,
-    std::vector<std::deque<OutputPatchInfo>>&                part_patch_queues,
+    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup,
     const int                                                global_tpq
 ) {
     const auto& parts = score_partwise.getPartwisePartSet();
-    if (parts.size() != part_patch_queues.size()) {
+    if (parts.size() != part_patch_lookup.size()) {
         throw std::runtime_error("Internal MusicXML patch bookkeeping mismatch");
     }
 
     for (size_t part_index = 0; part_index < parts.size(); ++part_index) {
         auto&               core_part = *parts.at(part_index);
-        auto&               patch_queue = part_patch_queues.at(part_index);
+        auto&               patch_lookup = part_patch_lookup.at(part_index);
         auto                remaining_lyrics = part_lyrics_by_time.at(part_index);
         mx::impl::MeasureCursor cursor{1, global_tpq};
         int absolute_measure_start = 0;
@@ -1223,19 +1219,30 @@ void patch_exported_partwise_score(
                     const int,
                     const int absolute_time) {
                     if (note_data.isRest) { return; }
-                    if (patch_queue.empty()) {
-                        throw std::runtime_error("Internal MusicXML note patch queue underrun");
+                    const auto actual_key = OutputPatchKey{
+                        current_measure_index,
+                        note_data.tickTimePosition,
+                        note_data.durationData.durationTimeTicks,
+                        midi_pitch_from_musicxml_pitch(note_data.pitchData),
+                        note_data.userRequestedVoiceNumber - 1
+                    };
+                    const auto patch_iter = patch_lookup.find(actual_key);
+                    if (patch_iter == patch_lookup.end() || patch_iter->second.empty()) {
+                        throw std::runtime_error(
+                            fmt::format(
+                                "Internal MusicXML note patch lookup miss: measure={} "
+                                "time={} duration={} pitch={} voice={}",
+                                actual_key.measure_index,
+                                actual_key.local_time,
+                                actual_key.duration,
+                                actual_key.pitch,
+                                actual_key.voice
+                            )
+                        );
                     }
-
-                    const auto expected = patch_queue.front();
-                    patch_queue.pop_front();
-                    if (expected.measure_index != current_measure_index
-                        || expected.local_time != note_data.tickTimePosition
-                        || expected.duration != note_data.durationData.durationTimeTicks
-                        || expected.pitch != midi_pitch_from_musicxml_pitch(note_data.pitchData)
-                        || expected.voice != note_data.userRequestedVoiceNumber - 1) {
-                        throw std::runtime_error("Internal MusicXML note patch order mismatch");
-                    }
+                    auto expected = patch_iter->second.front();
+                    patch_iter->second.pop_front();
+                    if (patch_iter->second.empty()) { patch_lookup.erase(patch_iter); }
 
                     auto& core_note = *core_note_ptr;
                     auto  attributes = core_note.getAttributes();
@@ -1260,8 +1267,8 @@ void patch_exported_partwise_score(
             absolute_measure_start += last_measure_tick;
         }
 
-        if (!patch_queue.empty()) {
-            throw std::runtime_error("Internal MusicXML note patch queue overflow");
+        if (!patch_lookup.empty()) {
+            throw std::runtime_error("Internal MusicXML note patch lookup overflow");
         }
     }
 }
@@ -1286,16 +1293,16 @@ vec<u8> dump_musicxml_score(const Score<T>& score) {
         }
     }();
 
-    std::vector<std::map<int, std::vector<std::string>>> lyrics_by_time;
-    std::vector<std::deque<OutputPatchInfo>>             patch_queues;
-    auto score_data = export_score_to_musicxml_data(tick_score, lyrics_by_time, patch_queues);
+    std::vector<std::map<int, std::vector<std::string>>>             lyrics_by_time;
+    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>> patch_lookup;
+    auto score_data = export_score_to_musicxml_data(tick_score, lyrics_by_time, patch_lookup);
 
     mx::impl::ScoreWriter writer{score_data};
     auto                  score_partwise = writer.getScorePartwise();
     patch_exported_partwise_score(
         *score_partwise,
         lyrics_by_time,
-        patch_queues,
+        patch_lookup,
         score_data.ticksPerQuarter
     );
 
