@@ -342,3 +342,68 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         REQUIRE(adjusted_score.tracks->at(0)->notes->at(0).duration == 0.1f);  // Adjusted to 0.1 beats
     }
 }
+
+TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
+    Score<Tick> tick_score(480);
+    tick_score.tempos->push_back(Tempo<Tick>::from_qpm(0, 120.0));
+    tick_score.tempos->push_back(Tempo<Tick>::from_qpm(360, 60.0));
+    tick_score.time_signatures->push_back(TimeSignature<Tick>(0, 4, 4));
+    tick_score.time_signatures->push_back(TimeSignature<Tick>(960, 3, 4));
+
+    SECTION("Scalar and vector time conversion reuse the shared tempo map") {
+        REQUIRE(convert_time<Quarter>(480, tick_score) == Catch::Approx(1.0f));
+        REQUIRE(convert_time<Second>(240, tick_score) == Catch::Approx(0.25f));
+        REQUIRE(convert_time<Second>(480, tick_score) == Catch::Approx(0.625f));
+
+        const vec<Tick::unit> tick_times{0, 240, 360, 480, 960};
+        const auto second_times = convert_times<Second>(
+            std::span<const Tick::unit>(tick_times.data(), tick_times.size()), tick_score
+        );
+
+        REQUIRE(second_times.size() == tick_times.size());
+        REQUIRE(second_times[0] == Catch::Approx(0.0f));
+        REQUIRE(second_times[1] == Catch::Approx(0.25f));
+        REQUIRE(second_times[2] == Catch::Approx(0.375f));
+        REQUIRE(second_times[3] == Catch::Approx(0.625f));
+        REQUIRE(second_times[4] == Catch::Approx(1.625f));
+    }
+
+    SECTION("Time event conversion preserves payloads while remapping timestamps") {
+        const auto quarter_time_signatures = convert_time_events<Quarter>(
+            *tick_score.time_signatures, tick_score
+        );
+        const auto second_tempos = convert_time_events<Second>(*tick_score.tempos, tick_score);
+
+        REQUIRE(quarter_time_signatures.size() == 2);
+        REQUIRE(quarter_time_signatures[0].time == Catch::Approx(0.0f));
+        REQUIRE(quarter_time_signatures[1].time == Catch::Approx(2.0f));
+        REQUIRE(quarter_time_signatures[1].numerator == 3);
+        REQUIRE(quarter_time_signatures[1].denominator == 4);
+
+        REQUIRE(second_tempos.size() == 2);
+        REQUIRE(second_tempos[0].time == Catch::Approx(0.0f));
+        REQUIRE(second_tempos[1].time == Catch::Approx(0.375f));
+        REQUIRE(second_tempos[0].mspq == Tempo<Tick>::from_qpm(0, 120.0).mspq);
+        REQUIRE(second_tempos[1].mspq == Tempo<Tick>::from_qpm(0, 60.0).mspq);
+    }
+
+    SECTION("Duration event conversion handles tempo crossings and minimum durations") {
+        pyvec<Note<Tick>> notes;
+        notes.push_back(Note<Tick>(240, 240, 60, 100));
+        notes.push_back(Note<Tick>(720, 30, 62, 90));
+
+        const auto second_notes = convert_duration_events<Second>(notes, tick_score);
+        REQUIRE(second_notes.size() == 2);
+        REQUIRE(second_notes[0].time == Catch::Approx(0.25f));
+        REQUIRE(second_notes[0].duration == Catch::Approx(0.375f));
+        REQUIRE(second_notes[1].time == Catch::Approx(1.125f));
+        REQUIRE(second_notes[1].duration == Catch::Approx(0.0625f));
+
+        const auto quarter_notes = convert_duration_events<Quarter>(notes, tick_score, 0.1f);
+        REQUIRE(quarter_notes.size() == 2);
+        REQUIRE(quarter_notes[0].time == Catch::Approx(0.5f));
+        REQUIRE(quarter_notes[0].duration == Catch::Approx(0.5f));
+        REQUIRE(quarter_notes[1].time == Catch::Approx(1.5f));
+        REQUIRE(quarter_notes[1].duration == Catch::Approx(0.1f));
+    }
+}

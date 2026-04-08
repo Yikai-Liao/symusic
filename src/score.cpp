@@ -22,6 +22,11 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 
 namespace details {
 
+struct BeatTimelineQuarter {
+    Quarter::unit              end_time;
+    vec<TimeSignature<Quarter>> time_signatures;
+};
+
 constexpr Quarter::unit kQuarterTimeTolerance = 1e-4f;
 
 inline bool close_enough(const Quarter::unit lhs, const Quarter::unit rhs) {
@@ -52,35 +57,21 @@ inline size_t beats_per_bar_for(const TimeSignature<Quarter>& time_signature) {
     return std::max<size_t>(1, time_signature.numerator);
 }
 
-template<TType From, TType To>
-vec<typename To::unit> convert_times_via_markers(
-    const vec<typename From::unit>& times, const Score<From>& context
-) {
-    if constexpr (std::is_same_v<From, To>) {
-        return vec<typename To::unit>(times.begin(), times.end());
-    } else {
-        Score<From> marker_score(context.ticks_per_quarter);
-        marker_score.tempos = context.tempos;
-
-        vec<TextMeta<From>> markers;
-        markers.reserve(times.size());
-        for (const auto time : times) { markers.emplace_back(time, ""); }
-        marker_score.markers = std::make_shared<pyvec<TextMeta<From>>>(std::move(markers));
-
-        auto converted_markers = convert<To>(marker_score).markers->collect();
-        vec<typename To::unit> converted_times;
-        converted_times.reserve(converted_markers.size());
-        for (const auto& marker : converted_markers) { converted_times.push_back(marker.time); }
-        return converted_times;
-    }
+template<TType T>
+BeatTimelineQuarter make_beat_timeline_quarter(const Score<T>& score) {
+    return {
+        .end_time = convert_time<Quarter>(score.end(), score),
+        .time_signatures = convert_time_events<Quarter>(*score.time_signatures, score).collect()
+    };
 }
 
-inline Score<Quarter> to_quarter_score(const Score<Quarter>& score) { return score; }
-
 template<TType T>
-    requires(!std::is_same_v<T, Quarter>)
-Score<Quarter> to_quarter_score(const Score<T>& score) {
-    return convert<Quarter>(score);
+Score<Quarter> make_quarter_tempo_context(const Score<T>& score) {
+    Score<Quarter> quarter_context(score.ticks_per_quarter);
+    quarter_context.tempos = std::make_shared<pyvec<Tempo<Quarter>>>(
+        convert_time_events<Quarter>(*score.tempos, score)
+    );
+    return quarter_context;
 }
 
 inline size_t find_time_index(
@@ -93,14 +84,14 @@ inline size_t find_time_index(
 }
 
 inline vec<Quarter::unit> compute_beats_quarter(
-    const Score<Quarter>& score, const Quarter::unit start_time
+    const BeatTimelineQuarter& timeline, const Quarter::unit start_time
 ) {
-    const auto end_time = score.end();
+    const auto end_time = timeline.end_time;
     if (!std::isfinite(start_time) || !std::isfinite(end_time) || start_time >= end_time) {
         return {};
     }
 
-    auto time_signatures = score.time_signatures->collect();
+    auto time_signatures = timeline.time_signatures;
     std::sort(time_signatures.begin(), time_signatures.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.time < rhs.time;
     });
@@ -135,12 +126,12 @@ inline vec<Quarter::unit> compute_beats_quarter(
 }
 
 inline vec<Quarter::unit> compute_downbeats_quarter(
-    const Score<Quarter>& score, const Quarter::unit start_time
+    const BeatTimelineQuarter& timeline, const Quarter::unit start_time
 ) {
-    auto beats = compute_beats_quarter(score, start_time);
+    auto beats = compute_beats_quarter(timeline, start_time);
     if (beats.empty()) { return {}; }
 
-    auto time_signatures = score.time_signatures->collect();
+    auto time_signatures = timeline.time_signatures;
     std::sort(time_signatures.begin(), time_signatures.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.time < rhs.time;
     });
@@ -227,21 +218,25 @@ size_t Score<T>::track_num() const {
 
 template<TType T>
 vec<typename T::unit> Score<T>::get_beats(const unit start_time) const {
-    const auto quarter_score = details::to_quarter_score(*this);
-    const auto quarter_start
-        = details::convert_times_via_markers<T, Quarter>(vec<unit>{start_time}, *this).front();
-    const auto quarter_beats = details::compute_beats_quarter(quarter_score, quarter_start);
-    return details::convert_times_via_markers<Quarter, T>(quarter_beats, quarter_score);
+    const auto timeline              = details::make_beat_timeline_quarter(*this);
+    const auto quarter_tempo_context = details::make_quarter_tempo_context(*this);
+    const auto quarter_start         = convert_time<Quarter>(start_time, *this);
+    const auto quarter_beats         = details::compute_beats_quarter(timeline, quarter_start);
+    return convert_times<T, Quarter>(
+        std::span<const Quarter::unit>(quarter_beats), quarter_tempo_context
+    );
 }
 
 template<TType T>
 vec<typename T::unit> Score<T>::get_downbeats(const unit start_time) const {
-    const auto quarter_score = details::to_quarter_score(*this);
-    const auto quarter_start
-        = details::convert_times_via_markers<T, Quarter>(vec<unit>{start_time}, *this).front();
+    const auto timeline              = details::make_beat_timeline_quarter(*this);
+    const auto quarter_tempo_context = details::make_quarter_tempo_context(*this);
+    const auto quarter_start         = convert_time<Quarter>(start_time, *this);
     const auto quarter_downbeats
-        = details::compute_downbeats_quarter(quarter_score, quarter_start);
-    return details::convert_times_via_markers<Quarter, T>(quarter_downbeats, quarter_score);
+        = details::compute_downbeats_quarter(timeline, quarter_start);
+    return convert_times<T, Quarter>(
+        std::span<const Quarter::unit>(quarter_downbeats), quarter_tempo_context
+    );
 }
 
 template<TType T>

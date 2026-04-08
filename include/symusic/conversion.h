@@ -6,8 +6,11 @@
 #ifndef LIBSYMUSIC_CONVERSION_H
 #define LIBSYMUSIC_CONVERSION_H
 
+#include <span>
+
 #include "symusic/time_unit.h"
 #include "symusic/score.h"
+#include "symusic/detail/time_conversion.h"
 
 namespace symusic {
 
@@ -15,6 +18,42 @@ template<TType To, TType From>
 Score<To> convert(
     const Score<From>& score, typename To::unit min_dur = static_cast<typename To::unit>(0)
 );
+
+template<TType To, TType From>
+[[nodiscard]] typename To::unit convert_time(
+    typename From::unit time, const Score<From>& context
+) {
+    const auto converter = details::make_time_converter<To>(context);
+    return converter.time_value(time);
+}
+
+template<TType To, TType From>
+[[nodiscard]] vec<typename To::unit> convert_times(
+    std::span<const typename From::unit> times, const Score<From>& context
+) {
+    const auto converter = details::make_time_converter<To>(context);
+    return converter.time_values(times);
+}
+
+template<TType To, TType From, template<class> class Event>
+    requires TimeEvent<Event<From>>
+[[nodiscard]] pyvec<Event<To>> convert_time_events(
+    const pyvec<Event<From>>& data, const Score<From>& context
+) {
+    const auto converter = details::make_time_converter<To>(context);
+    return converter.template time_vec<Event>(data);
+}
+
+template<TType To, TType From, template<class> class Event>
+    requires HashDuration<Event<From>>
+[[nodiscard]] pyvec<Event<To>> convert_duration_events(
+    const pyvec<Event<From>>& data,
+    const Score<From>&        context,
+    typename To::unit         min_dur = static_cast<typename To::unit>(0)
+) {
+    const auto converter = details::make_time_converter<To>(context);
+    return converter.template duration_vec<Event>(data, min_dur);
+}
 
 template<TType T>
 Score<Tick> resample(const Score<T>& score, i32 tpq, Tick::unit min_dur = 0);
