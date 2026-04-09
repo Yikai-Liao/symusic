@@ -15,9 +15,10 @@ The MusicXML backend is built around four constraints:
 
 - Preserve the `Score` contract rather than the full MusicXML document model.
 - Keep the implementation in the pure C++ core layer, with no nanobind or Python coupling.
-- Avoid a large fork of `mx`; prefer a thin Symusic-side adaptation layer.
+- Prefer limited, targeted `mx` changes over a large invasive fork when the existing API cannot
+  carry required `symusic` semantics such as per-note velocity.
 - Preserve semantic musical data first: note timing, duration, pitch, velocity, track metadata,
-  tempos, time signatures, key signatures, and note-attached lyric text.
+  tempos, time signatures, key signatures, and lyric text/timing.
 
 This immediately implies that the backend is not a generic engraving-preserving roundtrip engine.
 MusicXML can represent much more notation state than `Score` can store. The Symusic backend
@@ -32,7 +33,8 @@ The current backend maps between them with the following contract:
 - One MusicXML part becomes one `Track`.
 - Multiple staves and voices inside one part are flattened into that `Track`.
 - Tied fragments are merged into one `Note` whenever they form a continuous note in time.
-- Lyrics on tied continuations are conservatively merged onto the surviving tie-chain onset.
+- Lyric text is reduced to track-level timed text events; exact note attachment is not preserved by
+  the current `symusic` data model.
 - Engraving-specific data such as layout, page geometry, many directions, ornaments, slurs, and
   other notation details are outside the v1 contract.
 
@@ -150,6 +152,13 @@ This is what `canonicalize_musicxml_global_events(...)` and the specialized help
 The goal is not to infer editorial intent. The goal is to turn notation-local duplication into a
 stable global stream that roundtrips well through `Score`.
 
+Maintainer direction:
+
+- this strategy is now considered too aggressive for time signatures
+- the intended v1 contract is to deduplicate repeated time signatures only when their timestamps are
+  exactly identical
+- broader near-window collapsing remains under review for other global event categories
+
 ## Export algorithm
 
 ### 1. Convert to tick space and canonicalize again
@@ -176,6 +185,13 @@ The measure builder supports:
 This layout drives every later export decision: where notes are split, where key and tempo events
 are placed, and where `implicit=yes` must be emitted.
 
+Maintainer direction:
+
+- this reconstruction behavior is currently accepted as an implementation detail, but it should stay
+  prominently documented
+- future revisions should compare this behavior against peer libraries such as music21 and
+  MuseScore before treating it as settled policy
+
 ### 3. Assign voices greedily
 
 `Track` has no explicit voice structure, but partwise MusicXML does. Symusic reconstructs voices
@@ -193,6 +209,18 @@ This greedy allocator is intentionally simple:
 
 The output is a valid MusicXML voice layout, not necessarily the same voice layout as the original
 document.
+
+Maintainer direction:
+
+- this heuristic voice reconstruction is not intended to be the default long-term export behavior
+- a future version may expose it as an opt-in export mode after deeper study of `mx`, music21, and
+  MuseScore behavior
+- until then, cases that require heuristic voice reconstruction should be treated as outside the
+  default v1 export contract and should raise an explicit export error rather than silently
+  synthesizing voices
+- the future export option name and interface are still TBD, so code comments and user-facing error
+  messages must say that the heuristic mode is not yet exposed and must be kept in sync when that
+  option is added later
 
 ### 4. Split notes into measure-bounded segments
 
@@ -224,6 +252,14 @@ That includes:
 - one synthesized staff per track in v1,
 - one exported voice stream per reconstructed voice,
 - auxiliary lookup tables for lyrics, note patches, and decimal tempo strings.
+
+Maintainer direction:
+
+- raw MusicXML parts that do not reconcile with the part-list should not force whole-document import
+  failure in v1; matched parts should be imported and unmatched extras ignored silently because the
+  current `symusic` import surface has no warning-reporting channel
+- empty track names should remain empty rather than being rewritten to synthesized fallback names by
+  default
 
 This function does not finish the job by itself. It prepares enough structure for `ScoreWriter` to
 emit a valid MusicXML DOM and enough side data for the later patch pass to restore semantic details.
