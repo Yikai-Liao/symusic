@@ -47,6 +47,7 @@ concepts/score
 concepts/track
 concepts/events
 concepts/time_units
+concepts/musicxml_io
 concepts/generics
 concepts/synthesis
 ```

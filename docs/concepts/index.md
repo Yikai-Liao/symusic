@@ -7,5 +7,6 @@ abstractions makes it easier to reason about both the Python API and the underly
 - {doc}`/concepts/track`
 - {doc}`/concepts/events`
 - {doc}`/concepts/time_units`
+- {doc}`/concepts/musicxml_io`
 - {doc}`/concepts/synthesis`
 - {doc}`/concepts/generics`

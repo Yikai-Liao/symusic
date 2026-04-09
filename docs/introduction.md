@@ -32,7 +32,8 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 MusicXML is now integrated through the same `Score` API as MIDI and ABC. The current contract is
 semantic `Score` interchange for plain `.xml` / `.musicxml` files: note timing, duration, pitch,
 velocity, tempo, time signatures, key signatures, and basic note-attached lyrics are preserved,
-while engraving-specific notation and compressed `.mxl` containers remain out of scope.
+while engraving-specific notation and compressed `.mxl` containers remain out of scope. For the
+internal import/export algorithm and its performance tradeoffs, see {doc}`concepts/musicxml_io`.
 
 ## Installation overview
 
