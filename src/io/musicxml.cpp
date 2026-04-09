@@ -15,18 +15,19 @@
 #include <limits>
 #include <map>
 #include <optional>
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <fmt/format.h>
 
+#include "pdqsort.h"
+#include "timsort.hpp"
+#include "unordered_dense.h"
 #include "ezxml/XFactory.h"
 #include "mx/api/DirectionData.h"
 #include "mx/api/DurationData.h"
@@ -66,10 +67,10 @@ namespace symusic {
 
 namespace {
 
-constexpr int kDefaultMusicXmlTpq = 480;
-constexpr int kDefaultVelocity = 64;
-constexpr int kDrumMusicXmlChannel = 10;
-constexpr int kMaxDotCount = 3;
+constexpr int kDefaultMusicXmlTpq                   = 480;
+constexpr int kDefaultVelocity                      = 64;
+constexpr int kDrumMusicXmlChannel                  = 10;
+constexpr int kMaxDotCount                          = 3;
 constexpr int kGlobalEventDuplicateWindowInMeasures = 2;
 
 using mx::api::DurationData;
@@ -86,8 +87,8 @@ template<typename T>
 using shared_track = shared<Track<T>>;
 
 struct ParsedMusicXml {
-    ScoreData                    score_data;
-    mx::core::ScorePartwisePtr   score_partwise;
+    ScoreData                  score_data;
+    mx::core::ScorePartwisePtr score_partwise;
 };
 
 struct AbsoluteTempo {
@@ -102,91 +103,111 @@ struct AbsoluteKeySignature {
 };
 
 struct MeasureLayout {
-    int                  start_tick = 0;
-    int                  length = 0;
-    mx::api::MeasureData* measure = nullptr;
+    int                   start_tick = 0;
+    int                   length     = 0;
+    mx::api::MeasureData* measure    = nullptr;
 };
 
 struct TrackMeasureNote {
-    int            voice = 0;
-    int            chord_group = -1;
-    int            abs_time = 0;
-    int            local_time = 0;
-    int            duration = 0;
-    int            pitch = 0;
-    int            velocity = 0;
-    bool           tie_start = false;
-    bool           tie_stop = false;
-    bool           needs_type_patch = false;
-    DurationName   duration_name = DurationName::quarter;
-    int            duration_dots = 0;
+    int          voice            = 0;
+    int          chord_group      = -1;
+    int          abs_time         = 0;
+    int          local_time       = 0;
+    int          duration         = 0;
+    int          pitch            = 0;
+    int          velocity         = 0;
+    bool         tie_start        = false;
+    bool         tie_stop         = false;
+    bool         needs_type_patch = false;
+    DurationName duration_name    = DurationName::quarter;
+    int          duration_dots    = 0;
 };
 
 struct OutputPatchInfo {
-    int          measure_index = 0;
-    int          local_time = 0;
-    int          duration = 0;
-    int          pitch = 0;
-    int          voice = 0;
-    int          velocity = 0;
-    bool         needs_type_patch = false;
+    int  measure_index    = 0;
+    int  local_time       = 0;
+    int  duration         = 0;
+    int  pitch            = 0;
+    int  voice            = 0;
+    int  velocity         = 0;
+    bool needs_type_patch = false;
 };
 
 struct OutputPatchKey {
     int measure_index = 0;
-    int local_time = 0;
-    int duration = 0;
-    int pitch = 0;
-    int voice = 0;
+    int local_time    = 0;
+    int duration      = 0;
+    int pitch         = 0;
+    int voice         = 0;
 
     auto operator<=>(const OutputPatchKey&) const = default;
 };
 
+struct OutputPatchKeyHash {
+    using is_avalanching = void;
+
+    [[nodiscard]] auto operator()(const OutputPatchKey& key) const noexcept -> uint64_t {
+        return ankerl::unordered_dense::hash<std::tuple<int, int, int, int, int>>{}(
+            std::tuple{key.measure_index, key.local_time, key.duration, key.pitch, key.voice}
+        );
+    }
+};
+
 struct TraversedNote {
     NoteData        note;
-    mx::core::Note* core_note = nullptr;
+    mx::core::Note* core_note     = nullptr;
     int             measure_index = 0;
-    int             staff_index = 0;
+    int             staff_index   = 0;
     int             absolute_time = 0;
 };
 
 struct TieKey {
     int staff_index = 0;
-    int voice = 0;
-    int pitch = 0;
+    int voice       = 0;
+    int pitch       = 0;
 
     auto operator<=>(const TieKey&) const = default;
 };
 
+struct TieKeyHash {
+    using is_avalanching = void;
+
+    [[nodiscard]] auto operator()(const TieKey& key) const noexcept -> uint64_t {
+        return ankerl::unordered_dense::hash<std::tuple<int, int, int>>{}(
+            std::tuple{key.staff_index, key.voice, key.pitch}
+        );
+    }
+};
+
 struct ActiveTie {
-    int       start = 0;
-    int       duration = 0;
-    i8        pitch = 0;
-    i8        velocity = 0;
+    int                                              start    = 0;
+    int                                              duration = 0;
+    i8                                               pitch    = 0;
+    i8                                               velocity = 0;
     std::vector<std::pair<std::string, std::string>> lyrics;
 };
 
 struct ChordCluster {
-    int                start = 0;
-    int                end = 0;
+    int                 start = 0;
+    int                 end   = 0;
     std::vector<size_t> note_indices;
-    int                voice = 0;
+    int                 voice = 0;
 };
 
 struct SegmentInfo {
-    int          measure_index = 0;
-    int          voice = 0;
-    int          chord_group = -1;
-    int          abs_start = 0;
-    int          local_start = 0;
-    int          duration = 0;
-    int          pitch = 0;
-    int          velocity = 0;
-    bool         tie_start = false;
-    bool         tie_stop = false;
+    int          measure_index    = 0;
+    int          voice            = 0;
+    int          chord_group      = -1;
+    int          abs_start        = 0;
+    int          local_start      = 0;
+    int          duration         = 0;
+    int          pitch            = 0;
+    int          velocity         = 0;
+    bool         tie_start        = false;
+    bool         tie_stop         = false;
     bool         needs_type_patch = false;
-    DurationName duration_name = DurationName::quarter;
-    int          duration_dots = 0;
+    DurationName duration_name    = DurationName::quarter;
+    int          duration_dots    = 0;
 };
 
 struct CanonicalMusicXmlGlobals {
@@ -196,11 +217,15 @@ struct CanonicalMusicXmlGlobals {
     int                              max_event_time = 0;
 };
 
+template<typename Key, typename Value, typename Hash = ankerl::unordered_dense::hash<Key>>
+using dense_map = ankerl::unordered_dense::map<Key, Value, Hash>;
+
+using LyricsByTime = dense_map<int, std::vector<std::string>>;
+using OutputPatchLookup
+    = dense_map<OutputPatchKey, std::deque<OutputPatchInfo>, OutputPatchKeyHash>;
+
 [[nodiscard]] std::string_view to_string_view(const std::span<const u8> bytes) {
-    return {
-        reinterpret_cast<const char*>(bytes.data()),
-        bytes.size()
-    };
+    return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
 }
 
 [[nodiscard]] std::string normalize_musicxml_text(std::string value) {
@@ -217,13 +242,11 @@ struct CanonicalMusicXmlGlobals {
     return normalized;
 }
 
-[[nodiscard]] bool parse_numeric_musicxml_text(
-    const std::string_view text, double& value_out
-) {
+[[nodiscard]] bool parse_numeric_musicxml_text(const std::string_view text, double& value_out) {
     if (text.empty()) { return false; }
 
     std::string buffer{text};
-    char*       end = nullptr;
+    char*       end    = nullptr;
     const auto  parsed = std::strtod(buffer.c_str(), &end);
     if (end == buffer.c_str() || end == nullptr) { return false; }
     while (*end != '\0') {
@@ -247,13 +270,13 @@ struct CanonicalMusicXmlGlobals {
 }
 
 [[nodiscard]] ParsedMusicXml parse_musicxml_document(const std::span<const u8> bytes) {
-    auto xdoc = ezxml::XFactory::makeXDoc();
+    auto               xdoc = ezxml::XFactory::makeXDoc();
     std::istringstream stream(std::string(to_string_view(bytes)));
     xdoc->loadStream(stream);
 
-    auto document = mx::core::makeDocument();
+    auto               document = mx::core::makeDocument();
     std::ostringstream messages;
-    const bool ok = document->fromXDoc(messages, *xdoc);
+    const bool         ok = document->fromXDoc(messages, *xdoc);
     if (!ok) {
         throw std::runtime_error(
             fmt::format("Failed to parse MusicXML document: {}", messages.str())
@@ -268,13 +291,13 @@ struct CanonicalMusicXmlGlobals {
 
     mx::impl::ScoreReader reader(*score_partwise);
     auto                  score_data = reader.getScoreData();
-    score_data.ticksPerQuarter = sanitize_musicxml_tpq(score_data.ticksPerQuarter);
+    score_data.ticksPerQuarter       = sanitize_musicxml_tpq(score_data.ticksPerQuarter);
     return {std::move(score_data), std::move(score_partwise)};
 }
 
 [[nodiscard]] int midi_pitch_from_musicxml_pitch(const PitchData& pitch_data) {
     constexpr std::array<int, 7> step_to_semitone = {0, 2, 4, 5, 7, 9, 11};
-    const auto step_index = static_cast<int>(pitch_data.step);
+    const auto                   step_index       = static_cast<int>(pitch_data.step);
     if (step_index < 0 || step_index >= static_cast<int>(step_to_semitone.size())) {
         throw std::runtime_error("Unsupported MusicXML pitch step");
     }
@@ -303,11 +326,11 @@ struct CanonicalMusicXmlGlobals {
 
     const int chroma = midi_pitch % 12;
     const int octave = midi_pitch / 12 - 1;
-    PitchData  pitch_data{};
-    pitch_data.step = spelling[static_cast<size_t>(chroma)].first;
-    pitch_data.alter = spelling[static_cast<size_t>(chroma)].second;
+    PitchData pitch_data{};
+    pitch_data.step   = spelling[static_cast<size_t>(chroma)].first;
+    pitch_data.alter  = spelling[static_cast<size_t>(chroma)].second;
     pitch_data.octave = octave;
-    pitch_data.cents = 0.0;
+    pitch_data.cents  = 0.0;
     pitch_data.hideAccidental();
     if (pitch_data.alter != 0) { pitch_data.showAccidental(); }
     return pitch_data;
@@ -318,45 +341,31 @@ struct CanonicalMusicXmlGlobals {
 }
 
 [[nodiscard]] i32 mspq_from_tempo_data(const mx::api::TempoData& tempo_data) {
-    const auto to_qpm = [](const DurationName duration_name, const int dots, const int bpm) -> double {
+    const auto to_qpm
+        = [](const DurationName duration_name, const int dots, const int bpm) -> double {
         const auto duration_value = [&](const DurationName name) -> double {
             switch (name) {
-                case DurationName::maxima:
-                    return 32.0;
-                case DurationName::longa:
-                    return 16.0;
-                case DurationName::breve:
-                    return 8.0;
-                case DurationName::whole:
-                    return 4.0;
-                case DurationName::half:
-                    return 2.0;
-                case DurationName::quarter:
-                    return 1.0;
-                case DurationName::eighth:
-                    return 0.5;
-                case DurationName::dur16th:
-                    return 0.25;
-                case DurationName::dur32nd:
-                    return 0.125;
-                case DurationName::dur64th:
-                    return 0.0625;
-                case DurationName::dur128th:
-                    return 0.03125;
-                case DurationName::dur256th:
-                    return 0.015625;
-                case DurationName::dur512th:
-                    return 0.0078125;
-                case DurationName::dur1024th:
-                    return 0.00390625;
-                case DurationName::unspecified:
-                    return 1.0;
+            case DurationName::maxima: return 32.0;
+            case DurationName::longa: return 16.0;
+            case DurationName::breve: return 8.0;
+            case DurationName::whole: return 4.0;
+            case DurationName::half: return 2.0;
+            case DurationName::quarter: return 1.0;
+            case DurationName::eighth: return 0.5;
+            case DurationName::dur16th: return 0.25;
+            case DurationName::dur32nd: return 0.125;
+            case DurationName::dur64th: return 0.0625;
+            case DurationName::dur128th: return 0.03125;
+            case DurationName::dur256th: return 0.015625;
+            case DurationName::dur512th: return 0.0078125;
+            case DurationName::dur1024th: return 0.00390625;
+            case DurationName::unspecified: return 1.0;
             }
             return 1.0;
         };
 
         double quarter_ratio = duration_value(duration_name);
-        double add = quarter_ratio / 2.0;
+        double add           = quarter_ratio / 2.0;
         for (int i = 0; i < dots; ++i) {
             quarter_ratio += add;
             add /= 2.0;
@@ -365,60 +374,49 @@ struct CanonicalMusicXmlGlobals {
     };
 
     switch (tempo_data.tempoType) {
-        case mx::api::TempoType::beatsPerMinute:
-            if (tempo_data.beatsPerMinute.beatsPerMinute > 0) {
-                return Tempo<Tick>::qpm2mspq(
-                    to_qpm(
-                        tempo_data.beatsPerMinute.durationName,
-                        tempo_data.beatsPerMinute.dots < 0 ? 0 : tempo_data.beatsPerMinute.dots,
-                        tempo_data.beatsPerMinute.beatsPerMinute
-                    )
-                );
-            }
-            break;
-        case mx::api::TempoType::tempoText: {
-            if (tempo_data.tempoText.playbackBeatsPerMinute.beatsPerMinute > 0) {
-                return Tempo<Tick>::qpm2mspq(
-                    to_qpm(
-                        tempo_data.tempoText.playbackBeatsPerMinute.durationName,
-                        tempo_data.tempoText.playbackBeatsPerMinute.dots < 0
-                            ? 0
-                            : tempo_data.tempoText.playbackBeatsPerMinute.dots,
-                        tempo_data.tempoText.playbackBeatsPerMinute.beatsPerMinute
-                    )
-                );
-            }
-            double numeric_tempo_text = 0.0;
-            if (parse_numeric_musicxml_text(tempo_data.tempoText.tempoText, numeric_tempo_text)) {
-                const auto duration_name = tempo_data.beatsPerMinute.durationName
-                    == DurationName::unspecified
-                    ? DurationName::quarter
-                    : tempo_data.beatsPerMinute.durationName;
-                const auto dots = tempo_data.beatsPerMinute.dots < 0
-                    ? 0
-                    : tempo_data.beatsPerMinute.dots;
-                return Tempo<Tick>::qpm2mspq(
-                    to_qpm(duration_name, dots, 1) * numeric_tempo_text
-                );
-            }
-            break;
+    case mx::api::TempoType::beatsPerMinute:
+        if (tempo_data.beatsPerMinute.beatsPerMinute > 0) {
+            return Tempo<Tick>::qpm2mspq(to_qpm(
+                tempo_data.beatsPerMinute.durationName,
+                tempo_data.beatsPerMinute.dots < 0 ? 0 : tempo_data.beatsPerMinute.dots,
+                tempo_data.beatsPerMinute.beatsPerMinute
+            ));
         }
-        case mx::api::TempoType::metricModulation:
-        case mx::api::TempoType::unspecified:
-            break;
+        break;
+    case mx::api::TempoType::tempoText: {
+        if (tempo_data.tempoText.playbackBeatsPerMinute.beatsPerMinute > 0) {
+            return Tempo<Tick>::qpm2mspq(to_qpm(
+                tempo_data.tempoText.playbackBeatsPerMinute.durationName,
+                tempo_data.tempoText.playbackBeatsPerMinute.dots < 0 ?
+                    0 :
+                    tempo_data.tempoText.playbackBeatsPerMinute.dots,
+                tempo_data.tempoText.playbackBeatsPerMinute.beatsPerMinute
+            ));
+        }
+        double numeric_tempo_text = 0.0;
+        if (parse_numeric_musicxml_text(tempo_data.tempoText.tempoText, numeric_tempo_text)) {
+            const auto duration_name
+                = tempo_data.beatsPerMinute.durationName == DurationName::unspecified ?
+                      DurationName::quarter :
+                      tempo_data.beatsPerMinute.durationName;
+            const auto dots
+                = tempo_data.beatsPerMinute.dots < 0 ? 0 : tempo_data.beatsPerMinute.dots;
+            return Tempo<Tick>::qpm2mspq(to_qpm(duration_name, dots, 1) * numeric_tempo_text);
+        }
+        break;
+    }
+    case mx::api::TempoType::metricModulation:
+    case mx::api::TempoType::unspecified: break;
     }
     throw std::runtime_error("Unsupported MusicXML tempo representation");
 }
 
 [[nodiscard]] std::optional<i8> tonality_from_mode(const mx::api::KeyMode mode) {
     switch (mode) {
-        case mx::api::KeyMode::major:
-            return static_cast<i8>(0);
-        case mx::api::KeyMode::minor:
-            return static_cast<i8>(1);
-        case mx::api::KeyMode::unspecified:
-        case mx::api::KeyMode::unsupported:
-            return std::nullopt;
+    case mx::api::KeyMode::major: return static_cast<i8>(0);
+    case mx::api::KeyMode::minor: return static_cast<i8>(1);
+    case mx::api::KeyMode::unspecified:
+    case mx::api::KeyMode::unsupported: return std::nullopt;
     }
     return std::nullopt;
 }
@@ -426,8 +424,8 @@ struct CanonicalMusicXmlGlobals {
 [[nodiscard]] int nominal_measure_length(
     const mx::api::TimeSignatureData& time_signature, const int tpq
 ) {
-    const int beats = time_signature.beats > 0 ? time_signature.beats : 4;
-    const int beat_type = time_signature.beatType > 0 ? time_signature.beatType : 4;
+    const int       beats     = time_signature.beats > 0 ? time_signature.beats : 4;
+    const int       beat_type = time_signature.beatType > 0 ? time_signature.beatType : 4;
     const long long numerator = static_cast<long long>(tpq) * 4LL * static_cast<long long>(beats);
     return static_cast<int>(std::max(1LL, numerator / beat_type));
 }
@@ -435,25 +433,18 @@ struct CanonicalMusicXmlGlobals {
 [[nodiscard]] mx::api::TimeSignatureData make_time_signature_data(
     const int beats, const int beat_type, const bool is_implicit
 ) {
-    auto time_signature = mx::api::TimeSignatureData{};
-    time_signature.symbol = mx::api::TimeSignatureSymbol::unspecified;
-    time_signature.beats = beats;
-    time_signature.beatType = beat_type;
+    auto time_signature       = mx::api::TimeSignatureData{};
+    time_signature.symbol     = mx::api::TimeSignatureSymbol::unspecified;
+    time_signature.beats      = beats;
+    time_signature.beatType   = beat_type;
     time_signature.isImplicit = is_implicit;
-    time_signature.display = mx::api::Bool::unspecified;
+    time_signature.display    = mx::api::Bool::unspecified;
     return time_signature;
 }
 
-[[nodiscard]] int nominal_measure_length(
-    const TimeSignature<Tick>& time_signature, const int tpq
-) {
+[[nodiscard]] int nominal_measure_length(const TimeSignature<Tick>& time_signature, const int tpq) {
     return nominal_measure_length(
-        make_time_signature_data(
-            time_signature.numerator,
-            time_signature.denominator,
-            false
-        ),
-        tpq
+        make_time_signature_data(time_signature.numerator, time_signature.denominator, false), tpq
     );
 }
 
@@ -461,7 +452,7 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
 [[nodiscard]] std::vector<T> canonicalize_musicxml_global_events(
     std::vector<T> events, TimeOf&& time_of, ValueEquals&& value_equals, WindowAt&& window_at
 ) {
-    std::stable_sort(events.begin(), events.end(), [&time_of](const auto& lhs, const auto& rhs) {
+    gfx::timsort(events.begin(), events.end(), [&time_of](const auto& lhs, const auto& rhs) {
         return time_of(lhs) < time_of(rhs);
     });
 
@@ -518,9 +509,9 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
 }
 
 [[nodiscard]] std::vector<AbsoluteKeySignature> canonicalize_absolute_keys(
-    std::vector<AbsoluteKeySignature> keys,
+    std::vector<AbsoluteKeySignature>       keys,
     const std::vector<TimeSignature<Tick>>& time_signatures,
-    const int tpq
+    const int                               tpq
 ) {
     return canonicalize_musicxml_global_events(
         std::move(keys),
@@ -530,15 +521,15 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
         },
         [&time_signatures, tpq](const auto& event) {
             return active_measure_length_at_time(time_signatures, tpq, event.tick_time)
-                * kGlobalEventDuplicateWindowInMeasures;
+                   * kGlobalEventDuplicateWindowInMeasures;
         }
     );
 }
 
 [[nodiscard]] std::vector<AbsoluteTempo> canonicalize_absolute_tempos(
-    std::vector<AbsoluteTempo> tempos,
+    std::vector<AbsoluteTempo>              tempos,
     const std::vector<TimeSignature<Tick>>& time_signatures,
-    const int tpq
+    const int                               tpq
 ) {
     return canonicalize_musicxml_global_events(
         std::move(tempos),
@@ -546,7 +537,7 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
         [](const auto& lhs, const auto& rhs) { return lhs.mspq == rhs.mspq; },
         [&time_signatures, tpq](const auto& event) {
             return active_measure_length_at_time(time_signatures, tpq, event.tick_time)
-                * kGlobalEventDuplicateWindowInMeasures;
+                   * kGlobalEventDuplicateWindowInMeasures;
         }
     );
 }
@@ -555,7 +546,8 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
     const Score<Tick>& score
 ) {
     auto globals = CanonicalMusicXmlGlobals{};
-    globals.time_signatures = canonicalize_time_signatures(score.time_signatures->collect(), score.ticks_per_quarter);
+    globals.time_signatures
+        = canonicalize_time_signatures(score.time_signatures->collect(), score.ticks_per_quarter);
     globals.key_signatures = canonicalize_musicxml_global_events(
         score.key_signatures->collect(),
         [](const auto& event) { return event.time; },
@@ -564,11 +556,9 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
         },
         [&globals, &score](const auto& event) {
             return active_measure_length_at_time(
-                       globals.time_signatures,
-                       score.ticks_per_quarter,
-                       event.time
+                       globals.time_signatures, score.ticks_per_quarter, event.time
                    )
-                * kGlobalEventDuplicateWindowInMeasures;
+                   * kGlobalEventDuplicateWindowInMeasures;
         }
     );
     globals.tempos = canonicalize_musicxml_global_events(
@@ -577,19 +567,25 @@ template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
         [](const auto& lhs, const auto& rhs) { return lhs.mspq == rhs.mspq; },
         [&globals, &score](const auto& event) {
             return active_measure_length_at_time(
-                       globals.time_signatures,
-                       score.ticks_per_quarter,
-                       event.time
+                       globals.time_signatures, score.ticks_per_quarter, event.time
                    )
-                * kGlobalEventDuplicateWindowInMeasures;
+                   * kGlobalEventDuplicateWindowInMeasures;
         }
     );
 
     globals.max_event_time = score.end();
-    for (const auto& tempo : globals.tempos) { globals.max_event_time = std::max(globals.max_event_time, tempo.time); }
-    for (const auto& key : globals.key_signatures) { globals.max_event_time = std::max(globals.max_event_time, key.time); }
-    for (const auto& ts : globals.time_signatures) { globals.max_event_time = std::max(globals.max_event_time, ts.time); }
-    for (const auto& marker : *score.markers) { globals.max_event_time = std::max(globals.max_event_time, marker.time); }
+    for (const auto& tempo : globals.tempos) {
+        globals.max_event_time = std::max(globals.max_event_time, tempo.time);
+    }
+    for (const auto& key : globals.key_signatures) {
+        globals.max_event_time = std::max(globals.max_event_time, key.time);
+    }
+    for (const auto& ts : globals.time_signatures) {
+        globals.max_event_time = std::max(globals.max_event_time, ts.time);
+    }
+    for (const auto& marker : *score.markers) {
+        globals.max_event_time = std::max(globals.max_event_time, marker.time);
+    }
 
     return globals;
 }
@@ -602,81 +598,81 @@ int traverse_measure_notes(
     const int                        absolute_measure_start,
     Callback&&                       callback
 ) {
-    const auto& choices = measure.getMusicDataGroup()->getMusicDataChoiceSet();
+    const auto& choices  = measure.getMusicDataGroup()->getMusicDataChoiceSet();
     int         max_tick = 0;
 
     for (auto iter = choices.cbegin(); iter != choices.cend(); ++iter) {
         const auto& choice = **iter;
         switch (choice.getChoice()) {
-            case mx::core::MusicDataChoice::Choice::properties: {
-                const auto& properties = *choice.getProperties();
-                if (properties.getHasDivisions()) {
-                    const auto divisions = properties.getDivisions()->getValue().getValue();
-                    cursor.ticksPerQuarter = static_cast<int>(std::ceil(divisions - 0.5));
-                }
-                break;
+        case mx::core::MusicDataChoice::Choice::properties: {
+            const auto& properties = *choice.getProperties();
+            if (properties.getHasDivisions()) {
+                const auto divisions   = properties.getDivisions()->getValue().getValue();
+                cursor.ticksPerQuarter = static_cast<int>(std::ceil(divisions - 0.5));
             }
-            case mx::core::MusicDataChoice::Choice::backup: {
-                if (!cursor.isBackupInProgress) { ++cursor.voiceIndex; }
-                cursor.isBackupInProgress = true;
-                const int amount = cursor.convertDurationToGlobalTickScale(*choice.getBackup()->getDuration());
-                cursor.tickTimePosition -= amount;
-                if (cursor.tickTimePosition < 0) { cursor.tickTimePosition = 0; }
-                break;
+            break;
+        }
+        case mx::core::MusicDataChoice::Choice::backup: {
+            if (!cursor.isBackupInProgress) { ++cursor.voiceIndex; }
+            cursor.isBackupInProgress = true;
+            const int amount
+                = cursor.convertDurationToGlobalTickScale(*choice.getBackup()->getDuration());
+            cursor.tickTimePosition -= amount;
+            if (cursor.tickTimePosition < 0) { cursor.tickTimePosition = 0; }
+            break;
+        }
+        case mx::core::MusicDataChoice::Choice::forward: {
+            cursor.isBackupInProgress = false;
+            const int amount
+                = cursor.convertDurationToGlobalTickScale(*choice.getForward()->getDuration());
+            cursor.tickTimePosition += amount;
+            max_tick = std::max(max_tick, cursor.tickTimePosition);
+            break;
+        }
+        case mx::core::MusicDataChoice::Choice::note: {
+            cursor.isBackupInProgress = false;
+            const auto& note          = *choice.getNote();
+
+            bool is_next_note_part_of_chord = false;
+            auto peek                       = iter + 1;
+            while (peek != choices.cend()
+                   && (*peek)->getChoice() != mx::core::MusicDataChoice::Choice::note) {
+                ++peek;
             }
-            case mx::core::MusicDataChoice::Choice::forward: {
-                cursor.isBackupInProgress = false;
-                const int amount = cursor.convertDurationToGlobalTickScale(*choice.getForward()->getDuration());
-                cursor.tickTimePosition += amount;
-                max_tick = std::max(max_tick, cursor.tickTimePosition);
-                break;
+            if (peek != choices.cend()) {
+                mx::impl::NoteReader next_reader(*(*peek)->getNote());
+                is_next_note_part_of_chord = next_reader.getIsChord();
             }
-            case mx::core::MusicDataChoice::Choice::note: {
-                cursor.isBackupInProgress = false;
-                const auto& note = *choice.getNote();
 
-                bool is_next_note_part_of_chord = false;
-                auto peek = iter + 1;
-                while (peek != choices.cend()
-                       && (*peek)->getChoice() != mx::core::MusicDataChoice::Choice::note) {
-                    ++peek;
-                }
-                if (peek != choices.cend()) {
-                    mx::impl::NoteReader next_reader(*(*peek)->getNote());
-                    is_next_note_part_of_chord = next_reader.getIsChord();
-                }
+            mx::impl::NoteReader    note_reader(note);
+            mx::impl::NoteFunctions note_functions(note, cursor);
+            auto                    note_data = note_functions.parseNote();
+            note_data.isChord                 = note_data.isChord || is_next_note_part_of_chord;
 
-                mx::impl::NoteReader  note_reader(note);
-                mx::impl::NoteFunctions note_functions(note, cursor);
-                auto                  note_data = note_functions.parseNote();
-                note_data.isChord = note_data.isChord || is_next_note_part_of_chord;
+            int staff_index = note_reader.getStaffNumber() - 1;
+            if (staff_index < 0) { staff_index = 0; }
+            cursor.staffIndex = staff_index;
 
-                int staff_index = note_reader.getStaffNumber() - 1;
-                if (staff_index < 0) { staff_index = 0; }
-                cursor.staffIndex = staff_index;
+            const int absolute_time = absolute_measure_start + note_data.tickTimePosition;
+            callback(note_data, choice.getNote(), measure_index, staff_index, absolute_time);
 
-                const int absolute_time = absolute_measure_start + note_data.tickTimePosition;
-                callback(note_data, choice.getNote(), measure_index, staff_index, absolute_time);
-
-                if (!note_data.isChord || !is_next_note_part_of_chord) {
-                    cursor.tickTimePosition += note_data.durationData.durationTimeTicks;
-                }
-                max_tick = std::max(
-                    max_tick,
-                    note_data.tickTimePosition + note_data.durationData.durationTimeTicks
-                );
-                break;
+            if (!note_data.isChord || !is_next_note_part_of_chord) {
+                cursor.tickTimePosition += note_data.durationData.durationTimeTicks;
             }
-            case mx::core::MusicDataChoice::Choice::direction:
-            case mx::core::MusicDataChoice::Choice::harmony:
-            case mx::core::MusicDataChoice::Choice::figuredBass:
-            case mx::core::MusicDataChoice::Choice::print:
-            case mx::core::MusicDataChoice::Choice::sound:
-            case mx::core::MusicDataChoice::Choice::barline:
-            case mx::core::MusicDataChoice::Choice::grouping:
-            case mx::core::MusicDataChoice::Choice::link:
-            case mx::core::MusicDataChoice::Choice::bookmark:
-                break;
+            max_tick = std::max(
+                max_tick, note_data.tickTimePosition + note_data.durationData.durationTimeTicks
+            );
+            break;
+        }
+        case mx::core::MusicDataChoice::Choice::direction:
+        case mx::core::MusicDataChoice::Choice::harmony:
+        case mx::core::MusicDataChoice::Choice::figuredBass:
+        case mx::core::MusicDataChoice::Choice::print:
+        case mx::core::MusicDataChoice::Choice::sound:
+        case mx::core::MusicDataChoice::Choice::barline:
+        case mx::core::MusicDataChoice::Choice::grouping:
+        case mx::core::MusicDataChoice::Choice::link:
+        case mx::core::MusicDataChoice::Choice::bookmark: break;
         }
     }
 
@@ -692,8 +688,9 @@ int traverse_measure_notes(
     return kDefaultVelocity;
 }
 
-[[nodiscard]] std::vector<std::pair<std::string, std::string>>
-collect_note_lyrics(const mx::core::Note& note) {
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> collect_note_lyrics(
+    const mx::core::Note& note
+) {
     std::vector<std::pair<std::string, std::string>> lyrics;
     lyrics.reserve(note.getLyricSet().size());
     int lyric_index = 0;
@@ -710,14 +707,15 @@ collect_note_lyrics(const mx::core::Note& note) {
         std::string lyric_key;
         if (const auto attributes = lyric->getAttributes(); attributes && attributes->hasNumber) {
             lyric_key = fmt::format("number:{}", attributes->number.getValue());
-        } else if (const auto attributes = lyric->getAttributes(); attributes && attributes->hasName) {
+        } else if (
+            const auto attributes = lyric->getAttributes(); attributes && attributes->hasName
+        ) {
             lyric_key = fmt::format("name:{}", attributes->name.getValue());
         } else {
             lyric_key = fmt::format("index:{}", lyric_index);
         }
         lyrics.emplace_back(
-            std::move(lyric_key),
-            normalize_musicxml_text(text->getValue().getValue())
+            std::move(lyric_key), normalize_musicxml_text(text->getValue().getValue())
         );
         ++lyric_index;
     }
@@ -729,11 +727,9 @@ void merge_lyrics_by_key(
     const std::vector<std::pair<std::string, std::string>>& source
 ) {
     for (const auto& [key, text] : source) {
-        const auto existing = std::find_if(
-            target.begin(),
-            target.end(),
-            [&key](const auto& item) { return item.first == key; }
-        );
+        const auto existing = std::find_if(target.begin(), target.end(), [&key](const auto& item) {
+            return item.first == key;
+        });
         if (existing == target.end()) {
             target.emplace_back(key, text);
         } else {
@@ -752,29 +748,28 @@ void append_merged_lyrics(
 }
 
 TrackNative<Tick> import_musicxml_track_tick(
-    const PartData&                part_data,
-    const mx::core::PartwisePart&  core_part,
-    const int                      global_tpq,
-    std::vector<AbsoluteTempo>&    tempos_out,
+    const PartData&                    part_data,
+    const mx::core::PartwisePart&      core_part,
+    const int                          global_tpq,
+    std::vector<AbsoluteTempo>&        tempos_out,
     std::vector<AbsoluteKeySignature>& keys_out,
-    std::vector<TimeSignature<Tick>>& time_signatures_out
+    std::vector<TimeSignature<Tick>>&  time_signatures_out
 ) {
     TrackNative<Tick> tick_track{
         normalize_musicxml_text(
             !part_data.displayName.empty() ? part_data.displayName : part_data.name
         ),
-        static_cast<u8>(
-            std::clamp(part_data.instrumentData.midiData.program - 1, 0, 127)
-        ),
+        static_cast<u8>(std::clamp(part_data.instrumentData.midiData.program - 1, 0, 127)),
         part_data.instrumentData.midiData.channel == kDrumMusicXmlChannel
     };
 
-    const int num_staves = std::max(1, part_data.getNumStaves());
+    const int               num_staves = std::max(1, part_data.getNumStaves());
     mx::impl::MeasureCursor cursor{num_staves, global_tpq};
     cursor.partIndex = 0;
 
-    std::map<TieKey, ActiveTie> active_ties;
-    int                         absolute_measure_start = 0;
+    dense_map<TieKey, ActiveTie, TieKeyHash> active_ties;
+    active_ties.reserve(static_cast<size_t>(num_staves) * 4U);
+    int absolute_measure_start = 0;
 
     const auto& measures = core_part.getPartwiseMeasureSet();
     for (size_t measure_index = 0; measure_index < measures.size(); ++measure_index) {
@@ -794,7 +789,9 @@ TrackNative<Tick> import_musicxml_track_tick(
             const auto tonality = tonality_from_mode(key_data.mode);
             if (!tonality.has_value()) { continue; }
             keys_out.push_back(
-                {absolute_measure_start + key_data.tickTimePosition, static_cast<i8>(key_data.fifths), *tonality}
+                {absolute_measure_start + key_data.tickTimePosition,
+                 static_cast<i8>(key_data.fifths),
+                 *tonality}
             );
         }
 
@@ -803,14 +800,17 @@ TrackNative<Tick> import_musicxml_track_tick(
                 const auto tonality = tonality_from_mode(key_data.mode);
                 if (!tonality.has_value()) { continue; }
                 keys_out.push_back(
-                    {absolute_measure_start + key_data.tickTimePosition, static_cast<i8>(key_data.fifths), *tonality}
+                    {absolute_measure_start + key_data.tickTimePosition,
+                     static_cast<i8>(key_data.fifths),
+                     *tonality}
                 );
             }
             for (const auto& direction : staff.directions) {
                 for (const auto& tempo_data : direction.tempos) {
                     try {
                         tempos_out.push_back(
-                            {absolute_measure_start + direction.tickTimePosition, mspq_from_tempo_data(tempo_data)}
+                            {absolute_measure_start + direction.tickTimePosition,
+                             mspq_from_tempo_data(tempo_data)}
                         );
                     } catch (const std::runtime_error&) {
                         // Unsupported tempo markings are ignored in v1.
@@ -819,23 +819,23 @@ TrackNative<Tick> import_musicxml_track_tick(
             }
         }
 
-        const auto& core_measure = *measures.at(measure_index);
+        const auto& core_measure   = *measures.at(measure_index);
         const int   consumed_ticks = traverse_measure_notes(
             core_measure,
             cursor,
             static_cast<int>(measure_index),
             absolute_measure_start,
-            [&](const NoteData& note_data,
+            [&](const NoteData&          note_data,
                 const mx::core::NotePtr& core_note,
                 const int,
                 const int staff_index,
                 const int absolute_time) {
                 if (note_data.isRest || note_data.durationData.durationTimeTicks <= 0) { return; }
 
-                const auto midi_pitch = midi_pitch_from_musicxml_pitch(note_data.pitchData);
-                const auto velocity = velocity_from_core_note(*core_note);
+                const auto   midi_pitch = midi_pitch_from_musicxml_pitch(note_data.pitchData);
+                const auto   velocity   = velocity_from_core_note(*core_note);
                 const TieKey tie_key{staff_index, note_data.userRequestedVoiceNumber, midi_pitch};
-                auto note_lyrics = collect_note_lyrics(*core_note);
+                auto         note_lyrics = collect_note_lyrics(*core_note);
 
                 if (note_data.isTieStop) {
                     auto active = active_ties.find(tie_key);
@@ -851,9 +851,7 @@ TrackNative<Tick> import_musicxml_track_tick(
                                     static_cast<i8>(active->second.velocity)
                                 );
                                 append_merged_lyrics(
-                                    active->second.lyrics,
-                                    active->second.start,
-                                    tick_track.lyrics
+                                    active->second.lyrics, active->second.start, tick_track.lyrics
                                 );
                                 active_ties.erase(active);
                             }
@@ -881,13 +879,12 @@ TrackNative<Tick> import_musicxml_track_tick(
                         note_lyrics = std::move(merged_lyrics);
                         active_ties.erase(active);
                     }
-                    active_ties[tie_key] = {
-                        absolute_time,
-                        note_data.durationData.durationTimeTicks,
-                        static_cast<i8>(midi_pitch),
-                        static_cast<i8>(velocity),
-                        std::move(note_lyrics)
-                    };
+                    active_ties[tie_key]
+                        = {absolute_time,
+                           note_data.durationData.durationTimeTicks,
+                           static_cast<i8>(midi_pitch),
+                           static_cast<i8>(velocity),
+                           std::move(note_lyrics)};
                     return;
                 }
 
@@ -909,18 +906,15 @@ TrackNative<Tick> import_musicxml_track_tick(
         );
 
         const int nominal_ticks = nominal_measure_length(measure_data.timeSignature, global_tpq);
-        const int measure_ticks = measure_data.implicit == mx::api::Bool::yes
-            ? std::max(consumed_ticks, 0)
-            : std::max(consumed_ticks, nominal_ticks);
+        const int measure_ticks = measure_data.implicit == mx::api::Bool::yes ?
+                                      std::max(consumed_ticks, 0) :
+                                      std::max(consumed_ticks, nominal_ticks);
         absolute_measure_start += std::max(measure_ticks, 0);
     }
 
     for (const auto& [_, active_tie] : active_ties) {
         tick_track.notes.emplace_back(
-            active_tie.start,
-            active_tie.duration,
-            active_tie.pitch,
-            active_tie.velocity
+            active_tie.start, active_tie.duration, active_tie.pitch, active_tie.velocity
         );
         append_merged_lyrics(active_tie.lyrics, active_tie.start, tick_track.lyrics);
     }
@@ -930,10 +924,10 @@ TrackNative<Tick> import_musicxml_track_tick(
     };
     auto sort_note = [](const auto& lhs, const auto& rhs) {
         return std::tie(lhs.time, lhs.pitch, lhs.duration, lhs.velocity)
-            < std::tie(rhs.time, rhs.pitch, rhs.duration, rhs.velocity);
+               < std::tie(rhs.time, rhs.pitch, rhs.duration, rhs.velocity);
     };
-    std::sort(tick_track.notes.begin(), tick_track.notes.end(), sort_note);
-    std::sort(tick_track.lyrics.begin(), tick_track.lyrics.end(), sort_text);
+    pdqsort_branchless(tick_track.notes.begin(), tick_track.notes.end(), sort_note);
+    pdqsort_branchless(tick_track.lyrics.begin(), tick_track.lyrics.end(), sort_text);
 
     return tick_track;
 }
@@ -948,12 +942,7 @@ TrackNative<T> import_musicxml_track(
     std::vector<TimeSignature<Tick>>&  time_signatures_out
 ) {
     auto tick_track = import_musicxml_track_tick(
-        part_data,
-        core_part,
-        global_tpq,
-        tempos_out,
-        keys_out,
-        time_signatures_out
+        part_data, core_part, global_tpq, tempos_out, keys_out, time_signatures_out
     );
 
     if constexpr (std::is_same_v<T, Tick>) {
@@ -968,14 +957,14 @@ TrackNative<T> import_musicxml_track(
 
 Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     const auto parsed = parse_musicxml_document(bytes);
-    const int  tpq = sanitize_musicxml_tpq(parsed.score_data.ticksPerQuarter);
+    const int  tpq    = sanitize_musicxml_tpq(parsed.score_data.ticksPerQuarter);
 
-    ScoreNative<Tick> native_score(tpq);
+    ScoreNative<Tick>                 native_score(tpq);
     std::vector<AbsoluteTempo>        tempos;
     std::vector<AbsoluteKeySignature> keys;
     std::vector<TimeSignature<Tick>>  time_signatures;
 
-    const auto& parts = parsed.score_data.parts;
+    const auto& parts      = parsed.score_data.parts;
     const auto& core_parts = parsed.score_partwise->getPartwisePartSet();
     if (parts.size() != core_parts.size()) {
         throw std::runtime_error("MusicXML part reconciliation failed");
@@ -983,17 +972,14 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
     native_score.tracks.reserve(parts.size());
     for (size_t i = 0; i < parts.size(); ++i) {
-        native_score.tracks.emplace_back(import_musicxml_track<Tick>(
-            parts.at(i),
-            *core_parts.at(i),
-            tpq,
-            tempos,
-            keys,
-            time_signatures
-        ));
+        native_score.tracks.emplace_back(
+            import_musicxml_track<Tick>(
+                parts.at(i), *core_parts.at(i), tpq, tempos, keys, time_signatures
+            )
+        );
     }
 
-    time_signatures = canonicalize_time_signatures(std::move(time_signatures), tpq);
+    time_signatures              = canonicalize_time_signatures(std::move(time_signatures), tpq);
     native_score.time_signatures = time_signatures;
 
     keys = canonicalize_absolute_keys(keys, time_signatures, tpq);
@@ -1014,7 +1000,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 [[nodiscard]] std::optional<std::pair<DurationName, int>> find_duration_name_and_dots(
     const int duration_ticks, const int tpq
 ) {
-    using candidate = std::pair<DurationName, long double>;
+    using candidate                                        = std::pair<DurationName, long double>;
     static constexpr std::array<candidate, 14> base_values = {
         candidate{DurationName::maxima, 32.0L},
         candidate{DurationName::longa, 16.0L},
@@ -1038,8 +1024,8 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
     for (const auto& [name, quarter_value] : base_values) {
         const long double base_ticks = quarter_value * static_cast<long double>(tpq);
-        long double       total = base_ticks;
-        long double       add = base_ticks / 2.0L;
+        long double       total      = base_ticks;
+        long double       add        = base_ticks / 2.0L;
         if (equals(total, static_cast<long double>(duration_ticks))) { return {{name, 0}}; }
         for (int dots = 1; dots <= kMaxDotCount; ++dots) {
             total += add;
@@ -1051,24 +1037,21 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     return std::nullopt;
 }
 
-[[nodiscard]] DurationName measure_placeholder_duration_name() {
-    return DurationName::quarter;
-}
+[[nodiscard]] DurationName measure_placeholder_duration_name() { return DurationName::quarter; }
 
 [[nodiscard]] std::vector<MeasureLayout> build_measure_layouts(
     const CanonicalMusicXmlGlobals& globals, const int tpq
 ) {
-    const auto& time_signatures = globals.time_signatures;
-    auto current_time_signature = TimeSignature<Tick>{0, 4, 4};
-    size_t time_signature_index = 0;
+    const auto& time_signatures        = globals.time_signatures;
+    auto        current_time_signature = TimeSignature<Tick>{0, 4, 4};
+    size_t      time_signature_index   = 0;
 
     std::vector<MeasureLayout> measures;
-    int measure_start = 0;
+    int                        measure_start = 0;
     if (!time_signatures.empty() && time_signatures.front().time > 0) {
-        measures.push_back(MeasureLayout{
-            .start_tick = 0,
-            .length = std::max(1, time_signatures.front().time)
-        });
+        measures.push_back(
+            MeasureLayout{.start_tick = 0, .length = std::max(1, time_signatures.front().time)}
+        );
         measure_start = time_signatures.front().time;
     }
 
@@ -1080,17 +1063,18 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         }
 
         const int nominal_length = nominal_measure_length(current_time_signature, tpq);
-        int measure_length = nominal_length;
+        int       measure_length = nominal_length;
         if (time_signature_index < time_signatures.size()) {
             const int next_change_time = time_signatures[time_signature_index].time;
-            if (next_change_time > measure_start && next_change_time < measure_start + nominal_length) {
+            if (next_change_time > measure_start
+                && next_change_time < measure_start + nominal_length) {
                 measure_length = next_change_time - measure_start;
             }
         }
 
-        auto measure = MeasureLayout{};
+        auto measure       = MeasureLayout{};
         measure.start_tick = measure_start;
-        measure.length = std::max(1, measure_length);
+        measure.length     = std::max(1, measure_length);
         measures.push_back(measure);
         measure_start += measure.length;
     }
@@ -1116,23 +1100,24 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     std::vector<ChordCluster> clusters;
     clusters.reserve(track.notes->size());
 
-    std::map<std::pair<int, int>, size_t> cluster_lookup;
+    dense_map<std::pair<int, int>, size_t> cluster_lookup;
+    cluster_lookup.reserve(track.notes->size());
     for (size_t i = 0; i < track.notes->size(); ++i) {
         const auto& note = track.notes->at(i);
-        const auto  key = std::pair{note.time, note.time + note.duration};
+        const auto  key  = std::pair{note.time, note.time + note.duration};
         if (auto iter = cluster_lookup.find(key); iter != cluster_lookup.end()) {
             clusters[iter->second].note_indices.push_back(i);
         } else {
-            auto cluster = ChordCluster{};
+            auto cluster  = ChordCluster{};
             cluster.start = note.time;
-            cluster.end = note.time + note.duration;
+            cluster.end   = note.time + note.duration;
             cluster.note_indices.push_back(i);
             cluster_lookup.emplace(key, clusters.size());
             clusters.push_back(std::move(cluster));
         }
     }
 
-    std::sort(clusters.begin(), clusters.end(), [](const auto& lhs, const auto& rhs) {
+    pdqsort_branchless(clusters.begin(), clusters.end(), [](const auto& lhs, const auto& rhs) {
         return std::tie(lhs.start, lhs.end) < std::tie(rhs.start, rhs.end);
     });
 
@@ -1141,9 +1126,9 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         auto assigned = false;
         for (size_t voice = 0; voice < voice_end_times.size(); ++voice) {
             if (voice_end_times[voice] <= cluster.start) {
-                cluster.voice = static_cast<int>(voice);
+                cluster.voice          = static_cast<int>(voice);
                 voice_end_times[voice] = cluster.end;
-                assigned = true;
+                assigned               = true;
                 break;
             }
         }
@@ -1157,12 +1142,10 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 }
 
 [[nodiscard]] std::vector<SegmentInfo> split_track_into_segments(
-    const Track<Tick>&               track,
-    const std::vector<MeasureLayout>& measures,
-    const int                       tpq
+    const Track<Tick>& track, const std::vector<MeasureLayout>& measures, const int tpq
 ) {
-    auto clusters = assign_cluster_voices(track);
-    std::unordered_map<size_t, int> note_to_voice;
+    auto                   clusters = assign_cluster_voices(track);
+    dense_map<size_t, int> note_to_voice;
     note_to_voice.reserve(track.notes->size());
     for (const auto& cluster : clusters) {
         for (const auto index : cluster.note_indices) {
@@ -1171,84 +1154,99 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     }
 
     std::vector<SegmentInfo> segments;
+    segments.reserve(track.notes->size());
 
     for (size_t note_index = 0; note_index < track.notes->size(); ++note_index) {
         const auto& note = track.notes->at(note_index);
         if (note.duration <= 0 || note.velocity <= 0) { continue; }
 
-        int start = note.time;
-        const int end = note.time + note.duration;
-        bool first_segment = true;
+        int       start         = note.time;
+        const int end           = note.time + note.duration;
+        bool      first_segment = true;
         while (start < end) {
-            const auto measure_index = find_measure_index(measures, start);
-            const auto& measure = measures.at(measure_index);
-            const int segment_end = std::min(end, measure.start_tick + measure.length);
-            const int segment_duration = segment_end - start;
-            const auto duration_info = find_duration_name_and_dots(segment_duration, tpq);
+            const auto  measure_index    = find_measure_index(measures, start);
+            const auto& measure          = measures.at(measure_index);
+            const int   segment_end      = std::min(end, measure.start_tick + measure.length);
+            const int   segment_duration = segment_end - start;
+            const auto  duration_info    = find_duration_name_and_dots(segment_duration, tpq);
 
-            auto segment = SegmentInfo{};
+            auto segment          = SegmentInfo{};
             segment.measure_index = static_cast<int>(measure_index);
-            segment.voice = note_to_voice.at(note_index);
-            segment.abs_start = start;
-            segment.local_start = start - measure.start_tick;
-            segment.duration = segment_duration;
-            segment.pitch = note.pitch;
-            segment.velocity = note.velocity;
-            segment.tie_stop = !first_segment;
-            segment.tie_start = segment_end < end;
+            segment.voice         = note_to_voice.at(note_index);
+            segment.abs_start     = start;
+            segment.local_start   = start - measure.start_tick;
+            segment.duration      = segment_duration;
+            segment.pitch         = note.pitch;
+            segment.velocity      = note.velocity;
+            segment.tie_stop      = !first_segment;
+            segment.tie_start     = segment_end < end;
             if (duration_info.has_value()) {
                 segment.duration_name = duration_info->first;
                 segment.duration_dots = duration_info->second;
             } else {
-                segment.duration_name = measure_placeholder_duration_name();
-                segment.duration_dots = 0;
+                segment.duration_name    = measure_placeholder_duration_name();
+                segment.duration_dots    = 0;
                 segment.needs_type_patch = true;
             }
 
             segments.push_back(segment);
-            start = segment_end;
+            start         = segment_end;
             first_segment = false;
         }
     }
 
-    std::sort(segments.begin(), segments.end(), [](const auto& lhs, const auto& rhs) {
-        return std::tie(lhs.measure_index, lhs.voice, lhs.local_start, lhs.duration, lhs.pitch, lhs.velocity)
-            < std::tie(rhs.measure_index, rhs.voice, rhs.local_start, rhs.duration, rhs.pitch, rhs.velocity);
+    pdqsort_branchless(segments.begin(), segments.end(), [](const auto& lhs, const auto& rhs) {
+        return std::tie(
+                   lhs.measure_index,
+                   lhs.voice,
+                   lhs.local_start,
+                   lhs.duration,
+                   lhs.pitch,
+                   lhs.velocity
+               )
+               < std::tie(
+                   rhs.measure_index,
+                   rhs.voice,
+                   rhs.local_start,
+                   rhs.duration,
+                   rhs.pitch,
+                   rhs.velocity
+               );
     });
 
-    int current_group = -1;
+    int                       current_group = -1;
     std::tuple<int, int, int> previous_key{-1, -1, -1};
     for (auto& segment : segments) {
         const auto key = std::tuple{segment.measure_index, segment.voice, segment.local_start};
         if (key != previous_key) { ++current_group; }
         segment.chord_group = current_group;
-        previous_key = key;
+        previous_key        = key;
     }
 
     return segments;
 }
 
-[[nodiscard]] std::map<int, std::vector<std::string>> group_lyrics_by_time(const Track<Tick>& track) {
-    std::map<int, std::vector<std::string>> lyrics_by_time;
+[[nodiscard]] LyricsByTime group_lyrics_by_time(const Track<Tick>& track) {
+    LyricsByTime lyrics_by_time;
+    lyrics_by_time.reserve(track.lyrics->size());
     for (const auto& lyric : *track.lyrics) { lyrics_by_time[lyric.time].push_back(lyric.text); }
     return lyrics_by_time;
 }
 
 [[nodiscard]] int export_channel_for_track(const bool is_drum, const int non_drum_index) {
     if (is_drum) { return kDrumMusicXmlChannel; }
-    static constexpr std::array<int, 15> channels = {
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16
-    };
+    static constexpr std::array<int, 15> channels
+        = {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16};
     return channels[static_cast<size_t>(non_drum_index % static_cast<int>(channels.size()))];
 }
 
 [[nodiscard]] ScoreData export_score_to_musicxml_data(
-    const Score<Tick>& score,
-    const CanonicalMusicXmlGlobals& globals,
-    const std::vector<MeasureLayout>&                                measures,
-    std::vector<std::map<int, std::vector<std::string>>>&           part_lyrics_by_time,
-    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup,
-    std::vector<std::deque<std::string>>&                           tempo_strings_by_measure
+    const Score<Tick>&                    score,
+    const CanonicalMusicXmlGlobals&       globals,
+    const std::vector<MeasureLayout>&     measures,
+    std::vector<LyricsByTime>&            part_lyrics_by_time,
+    std::vector<OutputPatchLookup>&       part_patch_lookup,
+    std::vector<std::deque<std::string>>& tempo_strings_by_measure
 ) {
     ScoreData score_data{};
     score_data.musicXmlVersion = mx::api::MusicXmlVersion::ThreePointZero;
@@ -1264,21 +1262,21 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     {
         const auto& time_signatures = globals.time_signatures;
 
-        size_t ts_index = 0;
+        size_t              ts_index = 0;
         TimeSignature<Tick> current_ts{0, 4, 4};
-        bool current_explicit = false;
+        bool                current_explicit = false;
         for (size_t measure_index = 0; measure_index < measures.size(); ++measure_index) {
             current_explicit = false;
             if (ts_index < time_signatures.size()
                 && time_signatures[ts_index].time == measures[measure_index].start_tick) {
-                current_ts = time_signatures[ts_index];
+                current_ts       = time_signatures[ts_index];
                 current_explicit = true;
                 ++ts_index;
             }
-            auto time_signature = mx::api::TimeSignatureData{};
-            time_signature.beats = current_ts.numerator;
-            time_signature.beatType = current_ts.denominator;
-            time_signature.isImplicit = !current_explicit;
+            auto time_signature                    = mx::api::TimeSignatureData{};
+            time_signature.beats                   = current_ts.numerator;
+            time_signature.beatType                = current_ts.denominator;
+            time_signature.isImplicit              = !current_explicit;
             measure_time_signatures[measure_index] = time_signature;
         }
     }
@@ -1286,24 +1284,25 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     std::vector<std::vector<mx::api::KeyData>> measure_keys(measures.size());
     for (const auto& key_signature : globals.key_signatures) {
         const auto measure_index = find_measure_index(measures, key_signature.time);
-        auto       key_data = mx::api::KeyData{};
-        key_data.fifths = key_signature.key;
-        key_data.mode = key_signature.tonality == 1 ? mx::api::KeyMode::minor : mx::api::KeyMode::major;
+        auto       key_data      = mx::api::KeyData{};
+        key_data.fifths          = key_signature.key;
+        key_data.mode
+            = key_signature.tonality == 1 ? mx::api::KeyMode::minor : mx::api::KeyMode::major;
         key_data.tickTimePosition = key_signature.time - measures[measure_index].start_tick;
         measure_keys[measure_index].push_back(std::move(key_data));
     }
 
     std::vector<std::vector<mx::api::DirectionData>> measure_directions(measures.size());
     for (const auto& tempo : globals.tempos) {
-        const auto measure_index = find_measure_index(measures, tempo.time);
-        auto       direction = mx::api::DirectionData{};
-        direction.tickTimePosition = tempo.time - measures[measure_index].start_tick;
+        const auto measure_index        = find_measure_index(measures, tempo.time);
+        auto       direction            = mx::api::DirectionData{};
+        direction.tickTimePosition      = tempo.time - measures[measure_index].start_tick;
         direction.isStaffValueSpecified = false;
 
-        auto tempo_data = mx::api::TempoData{};
-        tempo_data.tempoType = mx::api::TempoType::beatsPerMinute;
-        tempo_data.beatsPerMinute.durationName = DurationName::quarter;
-        tempo_data.beatsPerMinute.dots = 0;
+        auto tempo_data                          = mx::api::TempoData{};
+        tempo_data.tempoType                     = mx::api::TempoType::beatsPerMinute;
+        tempo_data.beatsPerMinute.durationName   = DurationName::quarter;
+        tempo_data.beatsPerMinute.dots           = 0;
         tempo_data.beatsPerMinute.beatsPerMinute = static_cast<int>(std::lround(tempo.qpm()));
         direction.tempos.push_back(std::move(tempo_data));
         measure_directions[measure_index].push_back(std::move(direction));
@@ -1312,13 +1311,13 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
     int non_drum_index = 0;
     for (size_t track_index = 0; track_index < score.tracks->size(); ++track_index) {
-        const auto& track = *score.tracks->at(track_index);
-        auto        part = PartData{};
-        part.uniqueId = fmt::format("P{}", track_index + 1);
+        const auto& track            = *score.tracks->at(track_index);
+        auto        part             = PartData{};
+        part.uniqueId                = fmt::format("P{}", track_index + 1);
         part.instrumentData.uniqueId = fmt::format("{}-I1", part.uniqueId);
         part.name = track.name.empty() ? fmt::format("Track {}", track_index + 1) : track.name;
-        part.displayName = part.name;
-        part.instrumentData.name = part.name;
+        part.displayName                     = part.name;
+        part.instrumentData.name             = part.name;
         part.instrumentData.midiData.program = static_cast<int>(track.program) + 1;
         part.instrumentData.midiData.channel
             = export_channel_for_track(track.is_drum, non_drum_index);
@@ -1326,16 +1325,14 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
         part.measures.resize(measures.size());
         for (size_t measure_index = 0; measure_index < measures.size(); ++measure_index) {
-            auto& measure = part.measures[measure_index];
+            auto& measure         = part.measures[measure_index];
             measure.timeSignature = measure_time_signatures[measure_index];
-            const int nominal_length = nominal_measure_length(
-                measure.timeSignature,
-                score.ticks_per_quarter
-            );
-            measure.implicit = measures[measure_index].length < nominal_length
-                ? mx::api::Bool::yes
-                : mx::api::Bool::no;
-            measure.keys = measure_keys[measure_index];
+            const int nominal_length
+                = nominal_measure_length(measure.timeSignature, score.ticks_per_quarter);
+            measure.implicit = measures[measure_index].length < nominal_length ?
+                                   mx::api::Bool::yes :
+                                   mx::api::Bool::no;
+            measure.keys     = measure_keys[measure_index];
             measure.staves.emplace_back(mx::api::StaffData{});
             measure.staves.front().directions = measure_directions[measure_index];
         }
@@ -1343,21 +1340,22 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         auto segments = split_track_into_segments(track, measures, score.ticks_per_quarter);
         std::vector<std::vector<TrackMeasureNote>> grouped_segments(measures.size());
         grouped_segments.reserve(measures.size());
-        std::map<OutputPatchKey, std::deque<OutputPatchInfo>> patch_lookup;
+        OutputPatchLookup patch_lookup;
+        patch_lookup.reserve(segments.size());
         for (const auto& segment : segments) {
-            auto note_data = TrackMeasureNote{};
-            note_data.voice = segment.voice;
-            note_data.chord_group = segment.chord_group;
-            note_data.abs_time = segment.abs_start;
-            note_data.local_time = segment.local_start;
-            note_data.duration = segment.duration;
-            note_data.pitch = segment.pitch;
-            note_data.velocity = segment.velocity;
-            note_data.tie_start = segment.tie_start;
-            note_data.tie_stop = segment.tie_stop;
+            auto note_data             = TrackMeasureNote{};
+            note_data.voice            = segment.voice;
+            note_data.chord_group      = segment.chord_group;
+            note_data.abs_time         = segment.abs_start;
+            note_data.local_time       = segment.local_start;
+            note_data.duration         = segment.duration;
+            note_data.pitch            = segment.pitch;
+            note_data.velocity         = segment.velocity;
+            note_data.tie_start        = segment.tie_start;
+            note_data.tie_stop         = segment.tie_stop;
             note_data.needs_type_patch = segment.needs_type_patch;
-            note_data.duration_name = segment.duration_name;
-            note_data.duration_dots = segment.duration_dots;
+            note_data.duration_name    = segment.duration_name;
+            note_data.duration_dots    = segment.duration_dots;
             grouped_segments[segment.measure_index].push_back(std::move(note_data));
 
             auto patch_info = OutputPatchInfo{
@@ -1382,38 +1380,41 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         for (size_t measure_index = 0; measure_index < grouped_segments.size(); ++measure_index) {
             auto& staff = part.measures[measure_index].staves.front();
             auto& notes = grouped_segments[measure_index];
-            std::sort(notes.begin(), notes.end(), [](const auto& lhs, const auto& rhs) {
+            pdqsort_branchless(notes.begin(), notes.end(), [](const auto& lhs, const auto& rhs) {
                 return std::tie(lhs.voice, lhs.local_time, lhs.duration, lhs.chord_group, lhs.pitch)
-                    < std::tie(rhs.voice, rhs.local_time, rhs.duration, rhs.chord_group, rhs.pitch);
+                       < std::tie(
+                           rhs.voice, rhs.local_time, rhs.duration, rhs.chord_group, rhs.pitch
+                       );
             });
 
             std::map<int, mx::api::VoiceData> voices;
-            int current_group = -1;
-            int group_size = 0;
+            int                               current_group = -1;
+            int                               group_size    = 0;
             for (size_t index = 0; index < notes.size(); ++index) {
                 if (notes[index].chord_group != current_group) {
                     current_group = notes[index].chord_group;
-                    group_size = 0;
+                    group_size    = 0;
                     for (size_t look_ahead = index;
-                         look_ahead < notes.size() && notes[look_ahead].chord_group == current_group;
+                         look_ahead < notes.size()
+                         && notes[look_ahead].chord_group == current_group;
                          ++look_ahead) {
                         ++group_size;
                     }
                 }
 
-                auto note = NoteData{};
+                auto note             = NoteData{};
                 note.tickTimePosition = notes[index].local_time;
-                note.pitchData = pitch_data_from_midi_pitch(notes[index].pitch);
-                note.durationData.durationTimeTicks = notes[index].duration;
-                note.durationData.durationName = notes[index].duration_name;
-                note.durationData.durationDots = notes[index].duration_dots;
+                note.pitchData        = pitch_data_from_midi_pitch(notes[index].pitch);
+                note.durationData.durationTimeTicks           = notes[index].duration;
+                note.durationData.durationName                = notes[index].duration_name;
+                note.durationData.durationDots                = notes[index].duration_dots;
                 note.durationData.timeModificationActualNotes = 1;
                 note.durationData.timeModificationNormalNotes = 1;
-                note.noteType = mx::api::NoteType::normal;
-                note.isChord = group_size > 1;
-                note.isTieStart = notes[index].tie_start;
-                note.isTieStop = notes[index].tie_stop;
-                note.userRequestedVoiceNumber = notes[index].voice + 1;
+                note.noteType                                 = mx::api::NoteType::normal;
+                note.isChord                                  = group_size > 1;
+                note.isTieStart                               = notes[index].tie_start;
+                note.isTieStop                                = notes[index].tie_stop;
+                note.userRequestedVoiceNumber                 = notes[index].voice + 1;
 
                 voices[notes[index].voice].notes.push_back(std::move(note));
             }
@@ -1430,19 +1431,15 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
 void add_lyric_to_note(mx::core::Note& note, const std::string& text) {
     auto lyric = mx::core::makeLyric();
-    lyric->getLyricTextChoice()->setChoice(
-        mx::core::LyricTextChoice::Choice::syllabicTextGroup
+    lyric->getLyricTextChoice()->setChoice(mx::core::LyricTextChoice::Choice::syllabicTextGroup);
+    lyric->getLyricTextChoice()->getSyllabicTextGroup()->getText()->setValue(
+        mx::core::XsString{text}
     );
-    lyric->getLyricTextChoice()
-        ->getSyllabicTextGroup()
-        ->getText()
-        ->setValue(mx::core::XsString{text});
     note.addLyric(std::move(lyric));
 }
 
 void patch_measure_tempo_strings(
-    mx::core::PartwiseMeasure& measure,
-    std::deque<std::string>    tempo_strings
+    mx::core::PartwiseMeasure& measure, std::deque<std::string> tempo_strings
 ) {
     if (tempo_strings.empty()) { return; }
 
@@ -1468,7 +1465,7 @@ void patch_measure_tempo_strings(
             const auto beat_choice = metronome->getBeatUnitPerOrNoteRelationNoteChoice();
             if (!beat_choice
                 || beat_choice->getChoice()
-                    != mx::core::BeatUnitPerOrNoteRelationNoteChoice::Choice::beatUnitPer) {
+                       != mx::core::BeatUnitPerOrNoteRelationNoteChoice::Choice::beatUnitPer) {
                 continue;
             }
 
@@ -1478,7 +1475,7 @@ void patch_measure_tempo_strings(
             const auto per_minute_choice = beat_unit_per->getPerMinuteOrBeatUnitChoice();
             if (!per_minute_choice
                 || per_minute_choice->getChoice()
-                    != mx::core::PerMinuteOrBeatUnitChoice::Choice::perMinute) {
+                       != mx::core::PerMinuteOrBeatUnitChoice::Choice::perMinute) {
                 continue;
             }
 
@@ -1492,12 +1489,12 @@ void patch_measure_tempo_strings(
 }
 
 void patch_exported_partwise_score(
-    mx::core::ScorePartwise&                                     score_partwise,
-    const std::vector<MeasureLayout>&                            measure_layouts,
-    const std::vector<std::map<int, std::vector<std::string>>>&  part_lyrics_by_time,
-    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup,
-    const std::vector<std::deque<std::string>>&                  tempo_strings_by_measure,
-    const int                                                    global_tpq
+    mx::core::ScorePartwise&                    score_partwise,
+    const std::vector<MeasureLayout>&           measure_layouts,
+    const std::vector<LyricsByTime>&            part_lyrics_by_time,
+    std::vector<OutputPatchLookup>&             part_patch_lookup,
+    const std::vector<std::deque<std::string>>& tempo_strings_by_measure,
+    const int                                   global_tpq
 ) {
     const auto& parts = score_partwise.getPartwisePartSet();
     if (parts.size() != part_patch_lookup.size()) {
@@ -1505,9 +1502,9 @@ void patch_exported_partwise_score(
     }
 
     for (size_t part_index = 0; part_index < parts.size(); ++part_index) {
-        auto&               core_part = *parts.at(part_index);
-        auto&               patch_lookup = part_patch_lookup.at(part_index);
-        auto                remaining_lyrics = part_lyrics_by_time.at(part_index);
+        auto&                   core_part        = *parts.at(part_index);
+        auto&                   patch_lookup     = part_patch_lookup.at(part_index);
+        auto                    remaining_lyrics = part_lyrics_by_time.at(part_index);
         mx::impl::MeasureCursor cursor{1, global_tpq};
 
         const auto& core_measures = core_part.getPartwiseMeasureSet();
@@ -1515,8 +1512,7 @@ void patch_exported_partwise_score(
             cursor.reset();
             cursor.measureIndex = static_cast<int>(measure_index);
             patch_measure_tempo_strings(
-                *core_measures.at(measure_index),
-                tempo_strings_by_measure.at(measure_index)
+                *core_measures.at(measure_index), tempo_strings_by_measure.at(measure_index)
             );
 
             traverse_measure_notes(
@@ -1524,9 +1520,9 @@ void patch_exported_partwise_score(
                 cursor,
                 static_cast<int>(measure_index),
                 measure_layouts.at(measure_index).start_tick,
-                [&](const NoteData& note_data,
+                [&](const NoteData&          note_data,
                     const mx::core::NotePtr& core_note_ptr,
-                    const int current_measure_index,
+                    const int                current_measure_index,
                     const int,
                     const int absolute_time) {
                     if (note_data.isRest) { return; }
@@ -1555,10 +1551,10 @@ void patch_exported_partwise_score(
                     patch_iter->second.pop_front();
                     if (patch_iter->second.empty()) { patch_lookup.erase(patch_iter); }
 
-                    auto& core_note = *core_note_ptr;
-                    auto  attributes = core_note.getAttributes();
+                    auto& core_note         = *core_note_ptr;
+                    auto  attributes        = core_note.getAttributes();
                     attributes->hasDynamics = true;
-                    attributes->dynamics = mx::core::NonNegativeDecimal{
+                    attributes->dynamics    = mx::core::NonNegativeDecimal{
                         static_cast<long double>(std::clamp(expected.velocity, 0, 127))
                     };
 
@@ -1570,7 +1566,9 @@ void patch_exported_partwise_score(
 
                     if (auto lyric_iter = remaining_lyrics.find(absolute_time);
                         lyric_iter != remaining_lyrics.end()) {
-                        for (const auto& text : lyric_iter->second) { add_lyric_to_note(core_note, text); }
+                        for (const auto& text : lyric_iter->second) {
+                            add_lyric_to_note(core_note, text);
+                        }
                         remaining_lyrics.erase(lyric_iter);
                     }
                 }
@@ -1603,18 +1601,13 @@ vec<u8> dump_musicxml_score(const Score<T>& score) {
         }
     }();
 
-    const auto globals = canonicalize_score_globals_for_musicxml(tick_score);
+    const auto globals  = canonicalize_score_globals_for_musicxml(tick_score);
     const auto measures = build_measure_layouts(globals, tick_score.ticks_per_quarter);
-    std::vector<std::map<int, std::vector<std::string>>>               lyrics_by_time;
-    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>> patch_lookup;
-    std::vector<std::deque<std::string>>                               tempo_strings_by_measure;
-    auto score_data = export_score_to_musicxml_data(
-        tick_score,
-        globals,
-        measures,
-        lyrics_by_time,
-        patch_lookup,
-        tempo_strings_by_measure
+    std::vector<LyricsByTime>            lyrics_by_time;
+    std::vector<OutputPatchLookup>       patch_lookup;
+    std::vector<std::deque<std::string>> tempo_strings_by_measure;
+    auto                                 score_data = export_score_to_musicxml_data(
+        tick_score, globals, measures, lyrics_by_time, patch_lookup, tempo_strings_by_measure
     );
 
     mx::impl::ScoreWriter writer{score_data};
