@@ -163,6 +163,7 @@ struct ActiveTie {
     int       duration = 0;
     i8        pitch = 0;
     i8        velocity = 0;
+    std::vector<std::pair<std::string, std::string>> lyrics;
 };
 
 struct ChordCluster {
@@ -691,10 +692,11 @@ int traverse_measure_notes(
     return kDefaultVelocity;
 }
 
-template<typename LyricsOut>
-void collect_note_lyrics(
-    const mx::core::Note& note, const int absolute_time, LyricsOut& lyrics_out
-) {
+[[nodiscard]] std::vector<std::pair<std::string, std::string>>
+collect_note_lyrics(const mx::core::Note& note) {
+    std::vector<std::pair<std::string, std::string>> lyrics;
+    lyrics.reserve(note.getLyricSet().size());
+    int lyric_index = 0;
     for (const auto& lyric : note.getLyricSet()) {
         const auto text_choice = lyric->getLyricTextChoice();
         if (!text_choice) { continue; }
@@ -705,8 +707,48 @@ void collect_note_lyrics(
         if (!group) { continue; }
         const auto text = group->getText();
         if (!text) { continue; }
-        lyrics_out.emplace_back(absolute_time, normalize_musicxml_text(text->getValue().getValue()));
+        std::string lyric_key;
+        if (const auto attributes = lyric->getAttributes(); attributes && attributes->hasNumber) {
+            lyric_key = fmt::format("number:{}", attributes->number.getValue());
+        } else if (const auto attributes = lyric->getAttributes(); attributes && attributes->hasName) {
+            lyric_key = fmt::format("name:{}", attributes->name.getValue());
+        } else {
+            lyric_key = fmt::format("index:{}", lyric_index);
+        }
+        lyrics.emplace_back(
+            std::move(lyric_key),
+            normalize_musicxml_text(text->getValue().getValue())
+        );
+        ++lyric_index;
     }
+    return lyrics;
+}
+
+void merge_lyrics_by_key(
+    std::vector<std::pair<std::string, std::string>>&       target,
+    const std::vector<std::pair<std::string, std::string>>& source
+) {
+    for (const auto& [key, text] : source) {
+        const auto existing = std::find_if(
+            target.begin(),
+            target.end(),
+            [&key](const auto& item) { return item.first == key; }
+        );
+        if (existing == target.end()) {
+            target.emplace_back(key, text);
+        } else {
+            existing->second += text;
+        }
+    }
+}
+
+template<typename LyricsOut>
+void append_merged_lyrics(
+    const std::vector<std::pair<std::string, std::string>>& lyrics,
+    const int                                               absolute_time,
+    LyricsOut&                                              lyrics_out
+) {
+    for (const auto& [_, text] : lyrics) { lyrics_out.emplace_back(absolute_time, text); }
 }
 
 TrackNative<Tick> import_musicxml_track_tick(
@@ -793,34 +835,67 @@ TrackNative<Tick> import_musicxml_track_tick(
                 const auto midi_pitch = midi_pitch_from_musicxml_pitch(note_data.pitchData);
                 const auto velocity = velocity_from_core_note(*core_note);
                 const TieKey tie_key{staff_index, note_data.userRequestedVoiceNumber, midi_pitch};
-
-                collect_note_lyrics(*core_note, absolute_time, tick_track.lyrics);
+                auto note_lyrics = collect_note_lyrics(*core_note);
 
                 if (note_data.isTieStop) {
                     auto active = active_ties.find(tie_key);
-                    if (active != active_ties.end() && active->second.start + active->second.duration == absolute_time) {
-                        active->second.duration += note_data.durationData.durationTimeTicks;
-                        if (!note_data.isTieStart) {
-                            tick_track.notes.emplace_back(
-                                active->second.start,
-                                active->second.duration,
-                                static_cast<i8>(active->second.pitch),
-                                static_cast<i8>(active->second.velocity)
-                            );
+                    if (active != active_ties.end()) {
+                        if (active->second.start + active->second.duration == absolute_time) {
+                            active->second.duration += note_data.durationData.durationTimeTicks;
+                            merge_lyrics_by_key(active->second.lyrics, note_lyrics);
+                            if (!note_data.isTieStart) {
+                                tick_track.notes.emplace_back(
+                                    active->second.start,
+                                    active->second.duration,
+                                    static_cast<i8>(active->second.pitch),
+                                    static_cast<i8>(active->second.velocity)
+                                );
+                                append_merged_lyrics(
+                                    active->second.lyrics,
+                                    active->second.start,
+                                    tick_track.lyrics
+                                );
+                                active_ties.erase(active);
+                            }
+                            return;
+                        }
+
+                        if (note_data.isTieStart) {
+                            auto merged_lyrics = active->second.lyrics;
+                            merge_lyrics_by_key(merged_lyrics, note_lyrics);
+                            note_lyrics = std::move(merged_lyrics);
+                            active_ties.erase(active);
+                        } else {
+                            auto merged_lyrics = active->second.lyrics;
+                            merge_lyrics_by_key(merged_lyrics, note_lyrics);
+                            note_lyrics = std::move(merged_lyrics);
                             active_ties.erase(active);
                         }
-                        return;
                     }
                 }
 
                 if (note_data.isTieStart) {
+                    if (auto active = active_ties.find(tie_key); active != active_ties.end()) {
+                        auto merged_lyrics = active->second.lyrics;
+                        merge_lyrics_by_key(merged_lyrics, note_lyrics);
+                        note_lyrics = std::move(merged_lyrics);
+                        active_ties.erase(active);
+                    }
                     active_ties[tie_key] = {
                         absolute_time,
                         note_data.durationData.durationTimeTicks,
                         static_cast<i8>(midi_pitch),
-                        static_cast<i8>(velocity)
+                        static_cast<i8>(velocity),
+                        std::move(note_lyrics)
                     };
                     return;
+                }
+
+                if (auto active = active_ties.find(tie_key); active != active_ties.end()) {
+                    auto merged_lyrics = active->second.lyrics;
+                    merge_lyrics_by_key(merged_lyrics, note_lyrics);
+                    note_lyrics = std::move(merged_lyrics);
+                    active_ties.erase(active);
                 }
 
                 tick_track.notes.emplace_back(
@@ -829,6 +904,7 @@ TrackNative<Tick> import_musicxml_track_tick(
                     static_cast<i8>(midi_pitch),
                     static_cast<i8>(velocity)
                 );
+                append_merged_lyrics(note_lyrics, absolute_time, tick_track.lyrics);
             }
         );
 
@@ -846,6 +922,7 @@ TrackNative<Tick> import_musicxml_track_tick(
             active_tie.pitch,
             active_tie.velocity
         );
+        append_merged_lyrics(active_tie.lyrics, active_tie.start, tick_track.lyrics);
     }
 
     auto sort_text = [](const auto& lhs, const auto& rhs) {

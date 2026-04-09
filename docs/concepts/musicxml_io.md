@@ -17,7 +17,7 @@ The MusicXML backend is built around four constraints:
 - Keep the implementation in the pure C++ core layer, with no nanobind or Python coupling.
 - Avoid a large fork of `mx`; prefer a thin Symusic-side adaptation layer.
 - Preserve semantic musical data first: note timing, duration, pitch, velocity, track metadata,
-  tempos, time signatures, key signatures, and onset-attached lyrics.
+  tempos, time signatures, key signatures, and note-attached lyric text.
 
 This immediately implies that the backend is not a generic engraving-preserving roundtrip engine.
 MusicXML can represent much more notation state than `Score` can store. The Symusic backend
@@ -32,7 +32,7 @@ The current backend maps between them with the following contract:
 - One MusicXML part becomes one `Track`.
 - Multiple staves and voices inside one part are flattened into that `Track`.
 - Tied fragments are merged into one `Note` whenever they form a continuous note in time.
-- Lyrics are only guaranteed when they can be attached to a note onset in the flattened model.
+- Lyrics on tied continuations are conservatively merged onto the surviving tie-chain onset.
 - Engraving-specific data such as layout, page geometry, many directions, ornaments, slurs, and
   other notation details are outside the v1 contract.
 
@@ -208,8 +208,9 @@ into one segment per covered measure and tied together.
 - marks the segment for a later patch if no standard type-and-dot spelling exists.
 
 This stage is where the exporter deliberately prefers note stability over notation cleverness.
-Symusic never splits notes just to preserve a lyric timestamp on a tied continuation. If a lyric has
-no stable note onset in the flattened model, the lyric is not guaranteed to roundtrip.
+Symusic never splits notes just to preserve a lyric timestamp on a tied continuation. Instead,
+continuation fragments are conservatively merged onto the surviving note onset, so lyric text is
+preserved even when the original fragmentation is not.
 
 ### 5. Build `ScoreData` for `mx::impl::ScoreWriter`
 
@@ -360,7 +361,7 @@ The current backend intentionally does not try to do all of the following:
 - preserve compressed `.mxl` containers,
 - preserve full engraving or layout state,
 - preserve arbitrary text directions or rich notation objects,
-- preserve lyrics that only exist on tied continuations with no stable onset anchor,
+- preserve the original timing and fragmentation of lyrics that were attached to tied continuations,
 - infer aesthetically optimal voice spelling or beaming,
 - act as a generic MusicXML editor.
 

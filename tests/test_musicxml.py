@@ -22,12 +22,6 @@ MX_EXPECTED_IMPORT_FAILURES = {
 }
 
 MX_LOSSY_ROUNDTRIP_CASES = {
-    # Lyrics attached to tied continuations or sustained-note interiors do not have a stable
-    # note-onset anchor in the flattened Score model, so v1 preserves note segmentation and drops
-    # those lyrics on export.
-    "foundsuite/An Chloe.xml": "lyric-only loss on non-onset continuation",
-    "foundsuite/Schubert_der_Mueller.xml": "lyric-only loss on tied continuation",
-    "lysuite/ly33i_Ties_NotEnded.xml": "lyric-only loss on non-onset continuation",
     # These samples still expose unresolved measure-layout canonicalization gaps.
     "foundsuite/PezR44Sco.xml": "measure-layout canonicalization shifts note starts",
     "mjbsuite/krz_v40.xml": "dense conflicting time-signature stream remains lossy",
@@ -285,7 +279,14 @@ def test_musicxml_roundtrip_preserves_notes_for_tie_attached_lyrics() -> None:
     ] == [
         (note.start, note.duration, note.pitch, note.velocity) for note in score.tracks[0].notes
     ]
-    assert len(reloaded.tracks[0].lyrics) < len(score.tracks[0].lyrics)
+    assert [(lyric.time, lyric.text) for lyric in score.tracks[0].lyrics] == [
+        (4, "AB"),
+        (12, "CDE"),
+    ]
+    assert [(lyric.time, lyric.text) for lyric in reloaded.tracks[0].lyrics] == [
+        (4, "AB"),
+        (12, "CDE"),
+    ]
 
 
 def test_musicxml_imports_drum_and_program_metadata() -> None:
