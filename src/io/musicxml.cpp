@@ -5,9 +5,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <deque>
 #include <functional>
 #include <limits>
@@ -38,9 +40,16 @@
 #include "mx/api/TempoData.h"
 #include "mx/core/Document.h"
 #include "mx/core/XsString.h"
+#include "mx/core/elements/BeatUnitPer.h"
+#include "mx/core/elements/BeatUnitPerOrNoteRelationNoteChoice.h"
+#include "mx/core/elements/Direction.h"
+#include "mx/core/elements/DirectionType.h"
 #include "mx/core/elements/Lyric.h"
 #include "mx/core/elements/LyricTextChoice.h"
+#include "mx/core/elements/Metronome.h"
 #include "mx/core/elements/Note.h"
+#include "mx/core/elements/PerMinute.h"
+#include "mx/core/elements/PerMinuteOrBeatUnitChoice.h"
 #include "mx/core/elements/Syllabic.h"
 #include "mx/core/elements/SyllabicTextGroup.h"
 #include "mx/core/elements/Text.h"
@@ -61,6 +70,7 @@ constexpr int kDefaultMusicXmlTpq = 480;
 constexpr int kDefaultVelocity = 64;
 constexpr int kDrumMusicXmlChannel = 10;
 constexpr int kMaxDotCount = 3;
+constexpr int kGlobalEventDuplicateWindowInMeasures = 2;
 
 using mx::api::DurationData;
 using mx::api::DurationName;
@@ -178,11 +188,57 @@ struct SegmentInfo {
     int          duration_dots = 0;
 };
 
+struct CanonicalMusicXmlGlobals {
+    std::vector<Tempo<Tick>>         tempos;
+    std::vector<TimeSignature<Tick>> time_signatures;
+    std::vector<KeySignature<Tick>>  key_signatures;
+    int                              max_event_time = 0;
+};
+
 [[nodiscard]] std::string_view to_string_view(const std::span<const u8> bytes) {
     return {
         reinterpret_cast<const char*>(bytes.data()),
         bytes.size()
     };
+}
+
+[[nodiscard]] std::string normalize_musicxml_text(std::string value) {
+    std::string normalized;
+    normalized.reserve(value.size());
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (value[i] == '\r') {
+            normalized.push_back('\n');
+            if (i + 1 < value.size() && value[i + 1] == '\n') { ++i; }
+        } else {
+            normalized.push_back(value[i]);
+        }
+    }
+    return normalized;
+}
+
+[[nodiscard]] bool parse_numeric_musicxml_text(
+    const std::string_view text, double& value_out
+) {
+    if (text.empty()) { return false; }
+
+    std::string buffer{text};
+    char*       end = nullptr;
+    const auto  parsed = std::strtod(buffer.c_str(), &end);
+    if (end == buffer.c_str() || end == nullptr) { return false; }
+    while (*end != '\0') {
+        if (!std::isspace(static_cast<unsigned char>(*end))) { return false; }
+        ++end;
+    }
+    value_out = parsed;
+    return std::isfinite(value_out) && value_out > 0.0;
+}
+
+[[nodiscard]] std::string format_musicxml_qpm(const double qpm) {
+    auto formatted = fmt::format("{:.9f}", qpm);
+    while (!formatted.empty() && formatted.back() == '0') { formatted.pop_back(); }
+    if (!formatted.empty() && formatted.back() == '.') { formatted.pop_back(); }
+    if (formatted.empty()) { return "0"; }
+    return formatted;
 }
 
 [[nodiscard]] int sanitize_musicxml_tpq(const int tpq) {
@@ -319,7 +375,7 @@ struct SegmentInfo {
                 );
             }
             break;
-        case mx::api::TempoType::tempoText:
+        case mx::api::TempoType::tempoText: {
             if (tempo_data.tempoText.playbackBeatsPerMinute.beatsPerMinute > 0) {
                 return Tempo<Tick>::qpm2mspq(
                     to_qpm(
@@ -331,7 +387,21 @@ struct SegmentInfo {
                     )
                 );
             }
+            double numeric_tempo_text = 0.0;
+            if (parse_numeric_musicxml_text(tempo_data.tempoText.tempoText, numeric_tempo_text)) {
+                const auto duration_name = tempo_data.beatsPerMinute.durationName
+                    == DurationName::unspecified
+                    ? DurationName::quarter
+                    : tempo_data.beatsPerMinute.durationName;
+                const auto dots = tempo_data.beatsPerMinute.dots < 0
+                    ? 0
+                    : tempo_data.beatsPerMinute.dots;
+                return Tempo<Tick>::qpm2mspq(
+                    to_qpm(duration_name, dots, 1) * numeric_tempo_text
+                );
+            }
             break;
+        }
         case mx::api::TempoType::metricModulation:
         case mx::api::TempoType::unspecified:
             break;
@@ -371,6 +441,156 @@ struct SegmentInfo {
     time_signature.isImplicit = is_implicit;
     time_signature.display = mx::api::Bool::unspecified;
     return time_signature;
+}
+
+[[nodiscard]] int nominal_measure_length(
+    const TimeSignature<Tick>& time_signature, const int tpq
+) {
+    return nominal_measure_length(
+        make_time_signature_data(
+            time_signature.numerator,
+            time_signature.denominator,
+            false
+        ),
+        tpq
+    );
+}
+
+template<typename T, typename TimeOf, typename ValueEquals, typename WindowAt>
+[[nodiscard]] std::vector<T> canonicalize_musicxml_global_events(
+    std::vector<T> events, TimeOf&& time_of, ValueEquals&& value_equals, WindowAt&& window_at
+) {
+    std::stable_sort(events.begin(), events.end(), [&time_of](const auto& lhs, const auto& rhs) {
+        return time_of(lhs) < time_of(rhs);
+    });
+
+    std::vector<T> canonical;
+    canonical.reserve(events.size());
+
+    for (const auto& event : events) {
+        if (canonical.empty()) {
+            canonical.push_back(event);
+            continue;
+        }
+
+        auto& last = canonical.back();
+        if (time_of(event) == time_of(last)) {
+            last = event;
+            continue;
+        }
+
+        if (value_equals(last, event) && time_of(event) - time_of(last) <= window_at(last)) {
+            last = event;
+            continue;
+        }
+
+        canonical.push_back(event);
+    }
+
+    return canonical;
+}
+
+[[nodiscard]] std::vector<TimeSignature<Tick>> canonicalize_time_signatures(
+    std::vector<TimeSignature<Tick>> time_signatures, const int tpq
+) {
+    return canonicalize_musicxml_global_events(
+        std::move(time_signatures),
+        [](const auto& event) { return event.time; },
+        [](const auto& lhs, const auto& rhs) {
+            return lhs.numerator == rhs.numerator && lhs.denominator == rhs.denominator;
+        },
+        [tpq](const auto& event) {
+            return nominal_measure_length(event, tpq) * kGlobalEventDuplicateWindowInMeasures;
+        }
+    );
+}
+
+[[nodiscard]] int active_measure_length_at_time(
+    const std::vector<TimeSignature<Tick>>& time_signatures, const int tpq, const int time
+) {
+    TimeSignature<Tick> active{0, 4, 4};
+    for (const auto& event : time_signatures) {
+        if (event.time > time) { break; }
+        active = event;
+    }
+    return nominal_measure_length(active, tpq);
+}
+
+[[nodiscard]] std::vector<AbsoluteKeySignature> canonicalize_absolute_keys(
+    std::vector<AbsoluteKeySignature> keys,
+    const std::vector<TimeSignature<Tick>>& time_signatures,
+    const int tpq
+) {
+    return canonicalize_musicxml_global_events(
+        std::move(keys),
+        [](const auto& event) { return event.tick_time; },
+        [](const auto& lhs, const auto& rhs) {
+            return lhs.key == rhs.key && lhs.tonality == rhs.tonality;
+        },
+        [&time_signatures, tpq](const auto& event) {
+            return active_measure_length_at_time(time_signatures, tpq, event.tick_time)
+                * kGlobalEventDuplicateWindowInMeasures;
+        }
+    );
+}
+
+[[nodiscard]] std::vector<AbsoluteTempo> canonicalize_absolute_tempos(
+    std::vector<AbsoluteTempo> tempos,
+    const std::vector<TimeSignature<Tick>>& time_signatures,
+    const int tpq
+) {
+    return canonicalize_musicxml_global_events(
+        std::move(tempos),
+        [](const auto& event) { return event.tick_time; },
+        [](const auto& lhs, const auto& rhs) { return lhs.mspq == rhs.mspq; },
+        [&time_signatures, tpq](const auto& event) {
+            return active_measure_length_at_time(time_signatures, tpq, event.tick_time)
+                * kGlobalEventDuplicateWindowInMeasures;
+        }
+    );
+}
+
+[[nodiscard]] CanonicalMusicXmlGlobals canonicalize_score_globals_for_musicxml(
+    const Score<Tick>& score
+) {
+    auto globals = CanonicalMusicXmlGlobals{};
+    globals.time_signatures = canonicalize_time_signatures(score.time_signatures->collect(), score.ticks_per_quarter);
+    globals.key_signatures = canonicalize_musicxml_global_events(
+        score.key_signatures->collect(),
+        [](const auto& event) { return event.time; },
+        [](const auto& lhs, const auto& rhs) {
+            return lhs.key == rhs.key && lhs.tonality == rhs.tonality;
+        },
+        [&globals, &score](const auto& event) {
+            return active_measure_length_at_time(
+                       globals.time_signatures,
+                       score.ticks_per_quarter,
+                       event.time
+                   )
+                * kGlobalEventDuplicateWindowInMeasures;
+        }
+    );
+    globals.tempos = canonicalize_musicxml_global_events(
+        score.tempos->collect(),
+        [](const auto& event) { return event.time; },
+        [](const auto& lhs, const auto& rhs) { return lhs.mspq == rhs.mspq; },
+        [&globals, &score](const auto& event) {
+            return active_measure_length_at_time(
+                       globals.time_signatures,
+                       score.ticks_per_quarter,
+                       event.time
+                   )
+                * kGlobalEventDuplicateWindowInMeasures;
+        }
+    );
+
+    globals.max_event_time = score.end();
+    for (const auto& tempo : globals.tempos) { globals.max_event_time = std::max(globals.max_event_time, tempo.time); }
+    for (const auto& key : globals.key_signatures) { globals.max_event_time = std::max(globals.max_event_time, key.time); }
+    for (const auto& ts : globals.time_signatures) { globals.max_event_time = std::max(globals.max_event_time, ts.time); }
+    for (const auto& marker : *score.markers) { globals.max_event_time = std::max(globals.max_event_time, marker.time); }
+
+    return globals;
 }
 
 template<typename Callback>
@@ -485,7 +705,7 @@ void collect_note_lyrics(
         if (!group) { continue; }
         const auto text = group->getText();
         if (!text) { continue; }
-        lyrics_out.emplace_back(absolute_time, text->getValue().getValue());
+        lyrics_out.emplace_back(absolute_time, normalize_musicxml_text(text->getValue().getValue()));
     }
 }
 
@@ -498,7 +718,9 @@ TrackNative<Tick> import_musicxml_track_tick(
     std::vector<TimeSignature<Tick>>& time_signatures_out
 ) {
     TrackNative<Tick> tick_track{
-        !part_data.displayName.empty() ? part_data.displayName : part_data.name,
+        normalize_musicxml_text(
+            !part_data.displayName.empty() ? part_data.displayName : part_data.name
+        ),
         static_cast<u8>(
             std::clamp(part_data.instrumentData.midiData.program - 1, 0, 127)
         ),
@@ -694,56 +916,16 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         ));
     }
 
-    std::sort(time_signatures.begin(), time_signatures.end(), [](const auto& lhs, const auto& rhs) {
-        return std::tie(lhs.time, lhs.numerator, lhs.denominator)
-            < std::tie(rhs.time, rhs.numerator, rhs.denominator);
-    });
-    time_signatures.erase(
-        std::unique(
-            time_signatures.begin(),
-            time_signatures.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs.time == rhs.time && lhs.numerator == rhs.numerator
-                    && lhs.denominator == rhs.denominator;
-            }
-        ),
-        time_signatures.end()
-    );
-    native_score.time_signatures = std::move(time_signatures);
+    time_signatures = canonicalize_time_signatures(std::move(time_signatures), tpq);
+    native_score.time_signatures = time_signatures;
 
-    std::sort(keys.begin(), keys.end(), [](const auto& lhs, const auto& rhs) {
-        return std::tie(lhs.tick_time, lhs.key, lhs.tonality)
-            < std::tie(rhs.tick_time, rhs.key, rhs.tonality);
-    });
-    keys.erase(
-        std::unique(
-            keys.begin(),
-            keys.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs.tick_time == rhs.tick_time && lhs.key == rhs.key
-                    && lhs.tonality == rhs.tonality;
-            }
-        ),
-        keys.end()
-    );
+    keys = canonicalize_absolute_keys(keys, time_signatures, tpq);
     native_score.key_signatures.reserve(keys.size());
     for (const auto& key : keys) {
         native_score.key_signatures.emplace_back(key.tick_time, key.key, key.tonality);
     }
 
-    std::sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
-        return std::tie(lhs.tick_time, lhs.mspq) < std::tie(rhs.tick_time, rhs.mspq);
-    });
-    tempos.erase(
-        std::unique(
-            tempos.begin(),
-            tempos.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs.tick_time == rhs.tick_time && lhs.mspq == rhs.mspq;
-            }
-        ),
-        tempos.end()
-    );
+    tempos = canonicalize_absolute_tempos(tempos, time_signatures, tpq);
     native_score.tempos.reserve(tempos.size());
     for (const auto& tempo : tempos) {
         native_score.tempos.emplace_back(tempo.tick_time, tempo.mspq);
@@ -796,42 +978,31 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     return DurationName::quarter;
 }
 
-[[nodiscard]] std::vector<MeasureLayout> build_measure_layouts(const Score<Tick>& score) {
-    std::vector<TimeSignature<Tick>> time_signatures = score.time_signatures->collect();
-    std::sort(time_signatures.begin(), time_signatures.end(), [](const auto& lhs, const auto& rhs) {
-        return std::tie(lhs.time, lhs.numerator, lhs.denominator)
-            < std::tie(rhs.time, rhs.numerator, rhs.denominator);
-    });
-
-    const auto max_event_time = [&]() {
-        int result = score.end();
-        for (const auto& tempo : *score.tempos) { result = std::max(result, tempo.time); }
-        for (const auto& key : *score.key_signatures) { result = std::max(result, key.time); }
-        for (const auto& ts : time_signatures) { result = std::max(result, ts.time); }
-        for (const auto& marker : *score.markers) { result = std::max(result, marker.time); }
-        return result;
-    }();
-
+[[nodiscard]] std::vector<MeasureLayout> build_measure_layouts(
+    const CanonicalMusicXmlGlobals& globals, const int tpq
+) {
+    const auto& time_signatures = globals.time_signatures;
     auto current_time_signature = TimeSignature<Tick>{0, 4, 4};
     size_t time_signature_index = 0;
 
     std::vector<MeasureLayout> measures;
     int measure_start = 0;
-    while (measure_start <= max_event_time || measures.empty()) {
+    if (!time_signatures.empty() && time_signatures.front().time > 0) {
+        measures.push_back(MeasureLayout{
+            .start_tick = 0,
+            .length = std::max(1, time_signatures.front().time)
+        });
+        measure_start = time_signatures.front().time;
+    }
+
+    while (measure_start <= globals.max_event_time || measures.empty()) {
         if (time_signature_index < time_signatures.size()
             && time_signatures[time_signature_index].time == measure_start) {
             current_time_signature = time_signatures[time_signature_index];
             ++time_signature_index;
         }
 
-        const int nominal_length = nominal_measure_length(
-            make_time_signature_data(
-                current_time_signature.numerator,
-                current_time_signature.denominator,
-                false
-            ),
-            score.ticks_per_quarter
-        );
+        const int nominal_length = nominal_measure_length(current_time_signature, tpq);
         int measure_length = nominal_length;
         if (time_signature_index < time_signatures.size()) {
             const int next_change_time = time_signatures[time_signature_index].time;
@@ -923,6 +1094,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     }
 
     std::vector<SegmentInfo> segments;
+
     for (size_t note_index = 0; note_index < track.notes->size(); ++note_index) {
         const auto& note = track.notes->at(note_index);
         if (note.duration <= 0 || note.velocity <= 0) { continue; }
@@ -995,26 +1167,25 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
 
 [[nodiscard]] ScoreData export_score_to_musicxml_data(
     const Score<Tick>& score,
-    std::vector<std::map<int, std::vector<std::string>>>& part_lyrics_by_time,
-    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup
+    const CanonicalMusicXmlGlobals& globals,
+    const std::vector<MeasureLayout>&                                measures,
+    std::vector<std::map<int, std::vector<std::string>>>&           part_lyrics_by_time,
+    std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup,
+    std::vector<std::deque<std::string>>&                           tempo_strings_by_measure
 ) {
     ScoreData score_data{};
     score_data.musicXmlVersion = mx::api::MusicXmlVersion::ThreePointZero;
     score_data.ticksPerQuarter = sanitize_musicxml_tpq(score.ticks_per_quarter);
 
-    const auto measures = build_measure_layouts(score);
     part_lyrics_by_time.clear();
     part_patch_lookup.clear();
+    tempo_strings_by_measure.assign(measures.size(), {});
     part_lyrics_by_time.reserve(score.tracks->size());
     part_patch_lookup.reserve(score.tracks->size());
 
     std::vector<mx::api::TimeSignatureData> measure_time_signatures(measures.size());
     {
-        std::vector<TimeSignature<Tick>> time_signatures = score.time_signatures->collect();
-        std::sort(time_signatures.begin(), time_signatures.end(), [](const auto& lhs, const auto& rhs) {
-            return std::tie(lhs.time, lhs.numerator, lhs.denominator)
-                < std::tie(rhs.time, rhs.numerator, rhs.denominator);
-        });
+        const auto& time_signatures = globals.time_signatures;
 
         size_t ts_index = 0;
         TimeSignature<Tick> current_ts{0, 4, 4};
@@ -1036,7 +1207,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     }
 
     std::vector<std::vector<mx::api::KeyData>> measure_keys(measures.size());
-    for (const auto& key_signature : *score.key_signatures) {
+    for (const auto& key_signature : globals.key_signatures) {
         const auto measure_index = find_measure_index(measures, key_signature.time);
         auto       key_data = mx::api::KeyData{};
         key_data.fifths = key_signature.key;
@@ -1046,7 +1217,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
     }
 
     std::vector<std::vector<mx::api::DirectionData>> measure_directions(measures.size());
-    for (const auto& tempo : *score.tempos) {
+    for (const auto& tempo : globals.tempos) {
         const auto measure_index = find_measure_index(measures, tempo.time);
         auto       direction = mx::api::DirectionData{};
         direction.tickTimePosition = tempo.time - measures[measure_index].start_tick;
@@ -1059,6 +1230,7 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         tempo_data.beatsPerMinute.beatsPerMinute = static_cast<int>(std::lround(tempo.qpm()));
         direction.tempos.push_back(std::move(tempo_data));
         measure_directions[measure_index].push_back(std::move(direction));
+        tempo_strings_by_measure[measure_index].push_back(format_musicxml_qpm(tempo.qpm()));
     }
 
     int non_drum_index = 0;
@@ -1079,6 +1251,13 @@ Score<Tick> import_musicxml_tick_score(const std::span<const u8> bytes) {
         for (size_t measure_index = 0; measure_index < measures.size(); ++measure_index) {
             auto& measure = part.measures[measure_index];
             measure.timeSignature = measure_time_signatures[measure_index];
+            const int nominal_length = nominal_measure_length(
+                measure.timeSignature,
+                score.ticks_per_quarter
+            );
+            measure.implicit = measures[measure_index].length < nominal_length
+                ? mx::api::Bool::yes
+                : mx::api::Bool::no;
             measure.keys = measure_keys[measure_index];
             measure.staves.emplace_back(mx::api::StaffData{});
             measure.staves.front().directions = measure_directions[measure_index];
@@ -1184,11 +1363,64 @@ void add_lyric_to_note(mx::core::Note& note, const std::string& text) {
     note.addLyric(std::move(lyric));
 }
 
+void patch_measure_tempo_strings(
+    mx::core::PartwiseMeasure& measure,
+    std::deque<std::string>    tempo_strings
+) {
+    if (tempo_strings.empty()) { return; }
+
+    const auto& choices = measure.getMusicDataGroup()->getMusicDataChoiceSet();
+    for (const auto& choice_ptr : choices) {
+        if (tempo_strings.empty()) { break; }
+
+        const auto& choice = *choice_ptr;
+        if (choice.getChoice() != mx::core::MusicDataChoice::Choice::direction) { continue; }
+        const auto direction = choice.getDirection();
+        if (!direction) { continue; }
+
+        for (const auto& direction_type : direction->getDirectionTypeSet()) {
+            if (tempo_strings.empty()) { break; }
+            if (!direction_type
+                || direction_type->getChoice() != mx::core::DirectionType::Choice::metronome) {
+                continue;
+            }
+
+            const auto metronome = direction_type->getMetronome();
+            if (!metronome) { continue; }
+
+            const auto beat_choice = metronome->getBeatUnitPerOrNoteRelationNoteChoice();
+            if (!beat_choice
+                || beat_choice->getChoice()
+                    != mx::core::BeatUnitPerOrNoteRelationNoteChoice::Choice::beatUnitPer) {
+                continue;
+            }
+
+            const auto beat_unit_per = beat_choice->getBeatUnitPer();
+            if (!beat_unit_per) { continue; }
+
+            const auto per_minute_choice = beat_unit_per->getPerMinuteOrBeatUnitChoice();
+            if (!per_minute_choice
+                || per_minute_choice->getChoice()
+                    != mx::core::PerMinuteOrBeatUnitChoice::Choice::perMinute) {
+                continue;
+            }
+
+            const auto per_minute = per_minute_choice->getPerMinute();
+            if (!per_minute) { continue; }
+
+            per_minute->setValue(mx::core::XsString{tempo_strings.front()});
+            tempo_strings.pop_front();
+        }
+    }
+}
+
 void patch_exported_partwise_score(
-    mx::core::ScorePartwise&                                 score_partwise,
-    const std::vector<std::map<int, std::vector<std::string>>>& part_lyrics_by_time,
+    mx::core::ScorePartwise&                                     score_partwise,
+    const std::vector<MeasureLayout>&                            measure_layouts,
+    const std::vector<std::map<int, std::vector<std::string>>>&  part_lyrics_by_time,
     std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>>& part_patch_lookup,
-    const int                                                global_tpq
+    const std::vector<std::deque<std::string>>&                  tempo_strings_by_measure,
+    const int                                                    global_tpq
 ) {
     const auto& parts = score_partwise.getPartwisePartSet();
     if (parts.size() != part_patch_lookup.size()) {
@@ -1200,19 +1432,21 @@ void patch_exported_partwise_score(
         auto&               patch_lookup = part_patch_lookup.at(part_index);
         auto                remaining_lyrics = part_lyrics_by_time.at(part_index);
         mx::impl::MeasureCursor cursor{1, global_tpq};
-        int absolute_measure_start = 0;
 
-        const auto& measures = core_part.getPartwiseMeasureSet();
-        for (size_t measure_index = 0; measure_index < measures.size(); ++measure_index) {
+        const auto& core_measures = core_part.getPartwiseMeasureSet();
+        for (size_t measure_index = 0; measure_index < core_measures.size(); ++measure_index) {
             cursor.reset();
             cursor.measureIndex = static_cast<int>(measure_index);
-            int last_measure_tick = 0;
+            patch_measure_tempo_strings(
+                *core_measures.at(measure_index),
+                tempo_strings_by_measure.at(measure_index)
+            );
 
-            last_measure_tick = traverse_measure_notes(
-                *measures.at(measure_index),
+            traverse_measure_notes(
+                *core_measures.at(measure_index),
                 cursor,
                 static_cast<int>(measure_index),
-                absolute_measure_start,
+                measure_layouts.at(measure_index).start_tick,
                 [&](const NoteData& note_data,
                     const mx::core::NotePtr& core_note_ptr,
                     const int current_measure_index,
@@ -1264,7 +1498,6 @@ void patch_exported_partwise_score(
                     }
                 }
             );
-            absolute_measure_start += last_measure_tick;
         }
 
         if (!patch_lookup.empty()) {
@@ -1293,16 +1526,28 @@ vec<u8> dump_musicxml_score(const Score<T>& score) {
         }
     }();
 
-    std::vector<std::map<int, std::vector<std::string>>>             lyrics_by_time;
+    const auto globals = canonicalize_score_globals_for_musicxml(tick_score);
+    const auto measures = build_measure_layouts(globals, tick_score.ticks_per_quarter);
+    std::vector<std::map<int, std::vector<std::string>>>               lyrics_by_time;
     std::vector<std::map<OutputPatchKey, std::deque<OutputPatchInfo>>> patch_lookup;
-    auto score_data = export_score_to_musicxml_data(tick_score, lyrics_by_time, patch_lookup);
+    std::vector<std::deque<std::string>>                               tempo_strings_by_measure;
+    auto score_data = export_score_to_musicxml_data(
+        tick_score,
+        globals,
+        measures,
+        lyrics_by_time,
+        patch_lookup,
+        tempo_strings_by_measure
+    );
 
     mx::impl::ScoreWriter writer{score_data};
     auto                  score_partwise = writer.getScorePartwise();
     patch_exported_partwise_score(
         *score_partwise,
+        measures,
         lyrics_by_time,
         patch_lookup,
+        tempo_strings_by_measure,
         score_data.ticksPerQuarter
     );
 

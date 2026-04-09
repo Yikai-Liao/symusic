@@ -29,6 +29,11 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 | Synthesizer | SoundFont 2/3 rendering and WAV dumping | Prestosynth, NumPy |
 | Documentation | Canonical versioned docs on Read the Docs; legacy mdBook kept as an archive | Sphinx, MyST, Read the Docs |
 
+MusicXML is now integrated through the same `Score` API as MIDI and ABC. The current contract is
+semantic `Score` interchange for plain `.xml` / `.musicxml` files: note timing, duration, pitch,
+velocity, tempo, time signatures, key signatures, and basic note-attached lyrics are preserved,
+while engraving-specific notation and compressed `.mxl` containers remain out of scope.
+
 ## Installation overview
 
 ```bash
@@ -75,6 +80,9 @@ libraries shared across MIR tooling:
 The end-to-end scripts live in [`symusic-benchmark`](https://github.com/Yikai-Liao/symusic-benchmark)
 and currently run on GitHub Actions M1 runners.
 
+For repository-local MusicXML parse/dump stress checks, use `scripts/musicxml_benchmark.py` after
+installing the package into a virtual environment.
+
 ![Benchmark comparison](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
 
 ## Motivation
@@ -88,7 +96,8 @@ Out of that need, we developed this library. It is written in C++, exposes a Pyt
 nanobind, and is over 100 times faster than mido. We parse MIDI files to `note level` (similar to
 [miditoolkit](https://github.com/YatingMusic/miditoolkit)) instead of `event level`
 ([mido](https://github.com/mido/mido)), which is more suitable for large-scale symbolic music
-preprocessing. ABC support is already integrated, while formats such as MusicXML remain future work.
+preprocessing. ABC support is already integrated, and MusicXML now shares the same `Score`-level
+import/export path for semantic symbolic-music interchange.
 
 We separated the `event-level` MIDI parsing code into a lightweight and efficient header-only C++ library [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) for those who only need to parse MIDI files to `event level` in C++.
 

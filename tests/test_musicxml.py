@@ -22,40 +22,16 @@ MX_EXPECTED_IMPORT_FAILURES = {
 }
 
 MX_LOSSY_ROUNDTRIP_CASES = {
-    "foundsuite/An Chloe.xml",
-    "foundsuite/O_Holy_Night-Adam-1871.xml",
-    "foundsuite/O_Holy_Night-Adam-1974.xml",
-    "foundsuite/PezR44Sco.xml",
-    "foundsuite/SCHUBERT An die Sonne.xml",
-    "foundsuite/Schubert_der_Mueller.xml",
-    "foundsuite/Silent_Night-Hartwig.xml",
-    "foundsuite/Silent_Night_Young_1.xml",
-    "lysuite/ly11d_TimeSignatures_CompoundMultiple.xml",
-    "lysuite/ly11f_TimeSignatures_SymbolMeaning.xml",
-    "lysuite/ly31a_Directions.xml",
-    "lysuite/ly31c_MetronomeMarks.xml",
-    "lysuite/ly32a_Notations.xml",
-    "lysuite/ly33i_Ties_NotEnded.xml",
-    "lysuite/ly41e_StaffGroups_InstrumentNames_Linebroken.xml",
-    "lysuite/ly61h_Lyrics_BeamsMelismata.xml",
-    "lysuite/ly71f_AllChordTypes.xml",
-    "lysuite/ly99b_Lyrics_BeamsMelismata_IgnoreBeams.xml",
-    "mjbsuite/freezing.old.xml",
-    "mjbsuite/krz_v40.xml",
-    "recsuite/BeetAnGeSample.xml",
-    "recsuite/Binchois.xml",
-    "recsuite/BrahWiMeSample.xml",
-    "recsuite/BrookeWestSample.xml",
-    "recsuite/DebuMandSample.xml",
-    "recsuite/Dichterliebe01.xml",
-    "recsuite/Echigo_Jishi.xml",
-    "recsuite/FaurReveSample.xml",
-    "recsuite/MahlFaGe4Sample.xml",
-    "recsuite/MozaChloSample.xml",
-    "recsuite/MozaChloSample2.xml",
-    "recsuite/MozaVeilSample.xml",
-    "recsuite/SchbAvMaSample.xml",
-    "recsuite/Telemann.xml",
+    # Lyrics attached to tied continuations or sustained-note interiors do not have a stable
+    # note-onset anchor in the flattened Score model, so v1 preserves note segmentation and drops
+    # those lyrics on export.
+    "foundsuite/An Chloe.xml": "lyric-only loss on non-onset continuation",
+    "foundsuite/Schubert_der_Mueller.xml": "lyric-only loss on tied continuation",
+    "lysuite/ly33i_Ties_NotEnded.xml": "lyric-only loss on non-onset continuation",
+    # These samples still expose unresolved measure-layout canonicalization gaps.
+    "foundsuite/PezR44Sco.xml": "measure-layout canonicalization shifts note starts",
+    "mjbsuite/krz_v40.xml": "dense conflicting time-signature stream remains lossy",
+    "recsuite/Binchois.xml": "leading implicit measure export still shifts note starts",
 }
 
 MX_IMPORTABLE_CASES = [
@@ -131,7 +107,7 @@ def test_musicxml_mx_corpus_expectation_sets_are_consistent() -> None:
     corpus = set(MX_CORPUS_CASES)
 
     assert set(MX_EXPECTED_IMPORT_FAILURES).issubset(corpus)
-    assert MX_LOSSY_ROUNDTRIP_CASES.issubset(corpus)
+    assert set(MX_LOSSY_ROUNDTRIP_CASES).issubset(corpus)
     assert set(MX_EXPECTED_IMPORT_FAILURES).isdisjoint(MX_LOSSY_ROUNDTRIP_CASES)
 
 
@@ -263,6 +239,23 @@ def test_musicxml_imports_tempos_from_external_samples(
         assert tempo.tempo == pytest.approx(expected_value)
 
 
+def test_musicxml_roundtrip_preserves_decimal_tempo_precision() -> None:
+    score = Score(sample_path("lysuite/ly31c_MetronomeMarks.xml"))
+    reloaded = Score.from_musicxml(score.dumps_musicxml())
+
+    assert [event.time for event in reloaded.tempos] == [event.time for event in score.tempos]
+    assert [event.tempo for event in reloaded.tempos] == pytest.approx(
+        [event.tempo for event in score.tempos]
+    )
+
+
+def test_musicxml_roundtrip_preserves_canonicalized_global_events_for_freezing_sample() -> None:
+    score = Score(sample_path("mjbsuite/freezing.old.xml"))
+    reloaded = Score.from_musicxml(score.dumps_musicxml())
+
+    assert musicxml_contract_snapshot(reloaded) == musicxml_contract_snapshot(score)
+
+
 def test_musicxml_imports_lyrics_from_external_sample() -> None:
     score = Score(sample_path("musuite/testLyricsVoice2a.xml"))
 
@@ -281,6 +274,18 @@ def test_musicxml_imports_lyrics_from_external_sample() -> None:
         (2, "voice"),
         (3, "2 !"),
     ]
+
+
+def test_musicxml_roundtrip_preserves_notes_for_tie_attached_lyrics() -> None:
+    score = Score(sample_path("lysuite/ly33i_Ties_NotEnded.xml"))
+    reloaded = Score.from_musicxml(score.dumps_musicxml())
+
+    assert [
+        (note.start, note.duration, note.pitch, note.velocity) for note in reloaded.tracks[0].notes
+    ] == [
+        (note.start, note.duration, note.pitch, note.velocity) for note in score.tracks[0].notes
+    ]
+    assert len(reloaded.tracks[0].lyrics) < len(score.tracks[0].lyrics)
 
 
 def test_musicxml_imports_drum_and_program_metadata() -> None:
