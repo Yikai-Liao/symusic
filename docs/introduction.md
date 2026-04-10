@@ -33,7 +33,9 @@ MusicXML is now integrated through the same `Score` API as MIDI and ABC. The cur
 semantic `Score` interchange for plain `.xml` / `.musicxml` files: note timing, duration, pitch,
 velocity, tempo, time signatures, key signatures, and lyric text are preserved, while
 engraving-specific notation and compressed `.mxl` containers remain out of scope. Tied-continuation
-lyric fragments may be merged onto the note onset. For the
+lyric fragments may be merged onto the note onset, exact lyric-note attachment is not preserved by
+the current data model, and default export rejects tracks whose overlaps would require heuristic
+voice reconstruction. For the
 internal import/export algorithm and its performance tradeoffs, see {doc}`concepts/musicxml_io`.
 
 ## Installation overview

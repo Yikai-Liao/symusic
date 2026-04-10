@@ -16,7 +16,7 @@ The MusicXML backend is built around four constraints:
 - Preserve the `Score` contract rather than the full MusicXML document model.
 - Keep the implementation in the pure C++ core layer, with no nanobind or Python coupling.
 - Prefer limited, targeted `mx` changes over a large invasive fork when the existing API cannot
-  carry required `symusic` semantics such as per-note velocity.
+  carry required `symusic` semantics such as per-note velocity, onset lyrics, and exact tempo text.
 - Preserve semantic musical data first: note timing, duration, pitch, velocity, track metadata,
   tempos, time signatures, key signatures, and lyric text/timing.
 
@@ -52,10 +52,12 @@ for the current contract because Symusic needs to:
 - deduplicate duplicated global events that often appear across staves or parts,
 - rebuild a measure layout from `Score` data before exporting,
 - split long notes back across measure boundaries with ties,
-- restore exact note velocity and decimal tempo strings after `mx::impl::ScoreWriter` generates the
-  structural MusicXML.
+- reject default export cases that would require heuristic voice reconstruction, and
+- carry exact note velocity, onset lyrics, and decimal tempo text through a small vendored `mx`
+  fork instead of post-processing the generated DOM.
 
-That is why the backend has both a model-building phase and a post-processing patch phase.
+That is why the backend has both a model-building phase and a small amount of `mx` compatibility
+work, even though the final export path no longer uses a Symusic-side DOM patch pass.
 
 ## End-to-end pipeline
 
@@ -71,8 +73,6 @@ The core path is:
 8. Canonicalize globals again, build measure layouts, split notes into exportable segments, and
    populate `mx::api::ScoreData`.
 9. Ask `mx::impl::ScoreWriter` to build a partwise MusicXML DOM.
-10. Patch the DOM to restore the exact semantic details that `ScoreWriter` cannot represent
-    directly.
 
 The implementation is organized around that split:
 
@@ -80,7 +80,6 @@ The implementation is organized around that split:
   `import_musicxml_track_tick`
 - normalization path: `canonicalize_*`, `build_measure_layouts`
 - export path: `split_track_into_segments`, `export_score_to_musicxml_data`
-- patch path: `patch_exported_partwise_score`
 
 ## Import algorithm
 
@@ -192,23 +191,23 @@ Maintainer direction:
 - future revisions should compare this behavior against peer libraries such as music21 and
   MuseScore before treating it as settled policy
 
-### 3. Assign voices greedily
+### 3. Reject default export cases that need heuristic voices
 
 `Track` has no explicit voice structure, but partwise MusicXML does. Symusic reconstructs voices
-from note overlaps.
+only for the trivial case where all simultaneous notes form chords with exactly matching
+`(start, end)` spans.
 
-The exporter first groups notes with the same `(start, end)` interval into chord clusters. It then
-assigns each cluster to the first voice whose previous cluster has already ended; otherwise it opens
-a new voice.
+The exporter first groups notes with the same `(start, end)` interval into chord clusters. If those
+clusters overlap in time, the track would need heuristic voice reconstruction, so default v1 export
+raises an explicit error instead of inventing a voice layout.
 
-This greedy allocator is intentionally simple:
+The supported default case is intentionally narrow:
 
 - it is deterministic,
-- it preserves non-overlap within each exported voice,
+- it preserves true chords,
 - it does not try to infer human engraving choices.
 
-The output is a valid MusicXML voice layout, not necessarily the same voice layout as the original
-document.
+When export succeeds, every emitted note goes through a single explicit voice stream.
 
 Maintainer direction:
 
@@ -232,8 +231,9 @@ into one segment per covered measure and tied together.
 - finds the containing measure,
 - cuts the note at the current measure end,
 - records tie start and tie stop flags,
-- tries to express the segment as a standard duration plus dots,
-- marks the segment for a later patch if no standard type-and-dot spelling exists.
+- uses a standard duration plus dots when one exists,
+- otherwise leaves the MusicXML `<duration>` as the authoritative spelling and omits `<type>` /
+  dot metadata instead of patching the written DOM afterwards.
 
 This stage is where the exporter deliberately prefers note stability over notation cleverness.
 Symusic never splits notes just to preserve a lyric timestamp on a tied continuation. Instead,
@@ -250,8 +250,9 @@ That includes:
 - one `PartData` per `Track`,
 - measure-level time signatures, keys, and tempo directions,
 - one synthesized staff per track in v1,
-- one exported voice stream per reconstructed voice,
-- auxiliary lookup tables for lyrics, note patches, and decimal tempo strings.
+- one exported voice stream per track in the default v1 mode,
+- note-level dynamics and onset lyrics carried directly in `mx::api::NoteData`, and
+- exact decimal tempo text carried directly in `mx::api::TempoData`.
 
 Maintainer direction:
 
@@ -261,43 +262,24 @@ Maintainer direction:
 - empty track names should remain empty rather than being rewritten to synthesized fallback names by
   default
 
-This function does not finish the job by itself. It prepares enough structure for `ScoreWriter` to
-emit a valid MusicXML DOM and enough side data for the later patch pass to restore semantic details.
+This function prepares enough structure for `ScoreWriter` to emit the final MusicXML directly. The
+remaining Symusic-specific detail lives in the `mx` fork rather than in a second DOM traversal.
 
-## Why the patch phase exists
+## Why the vendored `mx` fork still matters
 
-The patch phase is not an accident. It exists because `mx::impl::ScoreWriter` is a strong structural
-writer, but it does not preserve every detail Symusic cares about.
+The Symusic exporter no longer patches the written MusicXML tree after `ScoreWriter` runs.
+However, the vendored `mx` fork still matters because upstream `mx::api` did not expose enough
+note-level state for Symusic's contract.
 
-After `ScoreWriter` emits a `ScorePartwise` tree, `patch_exported_partwise_score(...)` traverses the
-generated notes again and restores:
+The local fork now teaches `mx::api::NoteData` / `mx::api::TempoData` and the corresponding writer
+code to carry:
 
 - exact note velocity via note dynamics attributes,
-- onset-attached lyrics,
-- removal of invalid note type / dot / time-modification fields for durations that were carried only
-  as raw tick lengths,
-- decimal tempo strings that would otherwise be rounded to integers.
+- onset-attached lyrics for the selected exported note, and
+- decimal tempo strings without integer rounding.
 
-### Why patch lookup uses semantic keys instead of insertion order
-
-During export, note order inside a simultaneous group is not semantically important. A C-major chord
-written as `C-E-G` or `G-E-C` is still the same simultaneity for the `Score` contract.
-
-`mx::impl::ScoreWriter` is free to emit same-time notes in an order that does not match Symusic's
-temporary vectors. If the patch phase depended on raw insertion order, it would be brittle and would
-break as soon as `mx` chose a different traversal order.
-
-That is why Symusic matches generated notes by a semantic key:
-
-- measure index
-- local time inside the measure
-- duration
-- pitch
-- voice
-
-The FIFO queue attached to each key is only a bookkeeping device for the rare case where multiple
-exported note segments share the same semantic key. It is not trying to encode a musically
-meaningful ordering of those notes.
+This keeps the final export path single-pass on the Symusic side: build `ScoreData`, ask
+`ScoreWriter` for a partwise DOM, serialize.
 
 ## Time complexity
 
@@ -336,19 +318,15 @@ The export path is more expensive because it reconstructs notation structure:
 
 - global-event canonicalization: `O(G log G)`
 - measure-layout construction: `O(M)`
-- chord clustering and voice assignment: `O(N log N + N * V)` in the current greedy allocator
+- chord clustering and overlap validation: `O(N log N)`
 - note segmentation and segment sorting: `O(S log S)`
-- patch lookup creation and patch traversal: `O(S log S)`
 - final XML serialization: `O(B)`
 
 So the practical export bound is:
 
 ```text
-O(B + G log G + M + N log N + N * V + S log S)
+O(B + G log G + M + N log N + S log S)
 ```
-
-`V` is usually small for real scores. Dense piano textures may increase it, but the current backend
-still behaves much closer to linearithmic than quadratic in typical music workloads.
 
 ## Constant-factor costs
 
@@ -357,19 +335,13 @@ The asymptotic bounds hide the real reason the MusicXML backend feels heavier th
 The main constant costs are:
 
 - `mx` builds a full MusicXML DOM on parse and on write.
-- Symusic traverses notes more than once: once to build its own model, again to patch the exported
-  DOM.
 - Export allocates several temporary structures:
   - measure layouts
   - chord clusters
   - note segments
   - lyric maps
-  - patch lookup maps
-  - tempo-string queues
-- Some of the patch bookkeeping uses `std::map`, which adds pointer-heavy tree overhead compared to
-  flat vectors or hash maps.
-- Lyrics and tempo patches duplicate small strings temporarily, which is cheap individually but
-  visible on very large corpora.
+- The vendored `mx` writer still builds a notation-oriented DOM even when Symusic only needs
+  semantic interchange.
 
 In other words, the backend is not expensive because of one pathological algorithm. It is expensive
 because MusicXML export is a multi-stage reconstruction pipeline with a DOM writer in the middle.
@@ -414,12 +386,10 @@ design:
 3. `import_musicxml_track_tick(...)`
 4. `canonicalize_*` helpers
 5. `build_measure_layouts(...)`
-6. `assign_cluster_voices(...)`
+6. `group_track_chords(...)`
 7. `split_track_into_segments(...)`
 8. `export_score_to_musicxml_data(...)`
-9. `patch_measure_tempo_strings(...)`
-10. `patch_exported_partwise_score(...)`
-11. `dump_musicxml_score(...)`
+9. `dump_musicxml_score(...)`
 
 Reading the file in that order is usually easier than reading it top to bottom and trying to infer
 the whole contract from local helper functions.
