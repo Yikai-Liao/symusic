@@ -56,7 +56,6 @@ add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
-include_directories(3rdparty/pyvec/include)
 include_directories(3rdparty/zpp_bits)
 include_directories(3rdparty)
 
@@ -67,8 +66,8 @@ foreach(src_file ${symusic_src})
 endforeach()
 
 add_library(symusic ${symusic_src})
-target_link_libraries(symusic PRIVATE fmt::fmt-header-only minimidi pyvec)
-target_link_libraries(symusic PUBLIC fluidlite)
+target_link_libraries(symusic PRIVATE minimidi)
+target_link_libraries(symusic PUBLIC fmt::fmt-header-only pyvec fluidlite)
 
 if(SYMUSIC_FAST_BUILD)
     message(STATUS "SYMUSIC_FAST_BUILD enabled: disabling LTO and using O1 optimizations")
