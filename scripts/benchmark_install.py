@@ -28,8 +28,8 @@ def bucket_step(command: str) -> str:
         return "python-core"
     if "CMakeFiles/symusic.dir/" in command or "libsymusic.a" in command:
         return "symusic-lib"
-    if "prestosynth" in command:
-        return "prestosynth"
+    if "fluidlite" in command:
+        return "fluidlite"
     if "nanobind-static" in command:
         return "nanobind-static"
     if "abcmidi" in command or "abc2midi" in command or "midi2abc" in command:

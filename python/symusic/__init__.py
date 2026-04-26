@@ -2,12 +2,14 @@ from .core import (
     dump_wav,
 )
 from .factory import (
+    ChorusWaveform,
     ControlChange,
     KeySignature,
     Note,
     Pedal,
     PitchBend,
     Score,
+    SynthInterpolation,
     Synthesizer,
     Tempo,
     TextMeta,
@@ -35,6 +37,8 @@ __all__ = [
     "TextMeta",
     "Track",
     "Score",
+    "SynthInterpolation",
+    "ChorusWaveform",
     "Synthesizer",
     "Soundfont",
     "BuiltInSF2",

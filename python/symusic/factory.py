@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import os.path
 from dataclasses import dataclass
+from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import core  # type: ignore
 from . import types as smt
@@ -24,6 +27,8 @@ __all__ = [
     "TextMeta",
     "Track",
     "Score",
+    "SynthInterpolation",
+    "ChorusWaveform",
     "Synthesizer",
 ]
 
@@ -602,41 +607,164 @@ class ScoreFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
 
-class SynthesizerFactory:
-    """Convenience layer over `symusic.core.Synthesizer` with sensible defaults.
+class SynthInterpolation(IntEnum):
+    none = 0
+    linear = 1
+    fourth_order = 4
+    default = 4
+    seventh_order = 7
+    highest = 7
 
-    This factory downloads a curated SF3 by default so users can audition MIDI
-    without hunting for a SoundFont. It forwards parameters to the underlying
-    engine and returns a ready-to-use synthesizer instance.
-    """
+
+class ChorusWaveform(IntEnum):
+    sine = 0
+    triangle = 1
+
+
+def _normalize_enum_token(value: str) -> str:
+    return value.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+class _SynthSettingsModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sf_path: Path | None = None
+    sample_rate: int = Field(default=44100, ge=22050, le=96000)
+    gain: float = Field(default=0.2, ge=0.0, le=10.0)
+    polyphony: int = Field(default=256, ge=16, le=4096)
+    interpolation: SynthInterpolation = SynthInterpolation.fourth_order
+    reverb: bool = True
+    reverb_roomsize: float = Field(default=0.2, ge=0.0)
+    reverb_damp: float = Field(default=0.0, ge=0.0)
+    reverb_width: float = Field(default=0.5, ge=0.0)
+    reverb_level: float = Field(default=0.9, ge=0.0, le=1.0)
+    chorus: bool = True
+    chorus_nr: int = Field(default=3, ge=0, le=99)
+    chorus_level: float = Field(default=2.0, ge=0.0, le=10.0)
+    chorus_speed: float = Field(default=0.3, ge=0.1, le=5.0)
+    chorus_depth: float = Field(default=8.0, ge=0.0, le=21.0)
+    chorus_waveform: ChorusWaveform = ChorusWaveform.sine
+
+    @field_validator("sf_path", mode="before")
+    @classmethod
+    def _validate_sf_path(cls, value: str | Path | None) -> Path | None:
+        if value is None:
+            return None
+        return Path(value)
+
+    @field_validator("interpolation", mode="before")
+    @classmethod
+    def _validate_interpolation(
+        cls,
+        value: str | int | SynthInterpolation,
+    ) -> SynthInterpolation:
+        if isinstance(value, SynthInterpolation):
+            return value
+        if isinstance(value, str):
+            normalized = _normalize_enum_token(value)
+            alias_map = {
+                "default": SynthInterpolation.fourth_order,
+                "4th_order": SynthInterpolation.fourth_order,
+                "fourth": SynthInterpolation.fourth_order,
+                "7th_order": SynthInterpolation.seventh_order,
+                "seventh": SynthInterpolation.seventh_order,
+            }
+            if normalized in alias_map:
+                return alias_map[normalized]
+            try:
+                return SynthInterpolation[normalized]
+            except KeyError as exc:
+                msg = f"Invalid interpolation: {value!r}"
+                raise ValueError(msg) from exc
+        try:
+            return SynthInterpolation(value)
+        except ValueError as exc:
+            msg = f"Invalid interpolation: {value!r}"
+            raise ValueError(msg) from exc
+
+    @field_validator("chorus_waveform", mode="before")
+    @classmethod
+    def _validate_chorus_waveform(
+        cls,
+        value: str | int | ChorusWaveform,
+    ) -> ChorusWaveform:
+        if isinstance(value, ChorusWaveform):
+            return value
+        if isinstance(value, str):
+            normalized = _normalize_enum_token(value)
+            try:
+                return ChorusWaveform[normalized]
+            except KeyError as exc:
+                msg = f"Invalid chorus_waveform: {value!r}"
+                raise ValueError(msg) from exc
+        try:
+            return ChorusWaveform(value)
+        except ValueError as exc:
+            msg = f"Invalid chorus_waveform: {value!r}"
+            raise ValueError(msg) from exc
+
+
+class SynthesizerFactory:
+    """Convenience layer over `symusic.core.Synthesizer` with validation."""
     def __call__(
         self,
         sf_path: str | Path | None = None,
         sample_rate: int = 44100,
-        quality: int = 0,
+        *,
+        gain: float = 0.2,
+        polyphony: int = 256,
+        interpolation: str | SynthInterpolation = SynthInterpolation.fourth_order,
+        reverb: bool = True,
+        reverb_roomsize: float = 0.2,
+        reverb_damp: float = 0.0,
+        reverb_width: float = 0.5,
+        reverb_level: float = 0.9,
+        chorus: bool = True,
+        chorus_nr: int = 3,
+        chorus_level: float = 2.0,
+        chorus_speed: float = 0.3,
+        chorus_depth: float = 8.0,
+        chorus_waveform: str | ChorusWaveform = ChorusWaveform.sine,
     ):
-        """Create a `symusic.core.Synthesizer`.
-
-        Parameters
-        ----------
-        sf_path : str | pathlib.Path | None, default None
-            Path to a `.sf2`/`.sf3` file. When ``None``, downloads
-            ``BuiltInSF3.MuseScoreGeneral`` to a user data directory.
-        sample_rate : int, default 44100
-            Output sample rate in Hz.
-        quality : int, default 0
-            Synthesis quality knob (0–6). Higher values improve fidelity at the
-            cost of performance.
-
-        Returns
-        -------
-        symusic.core.Synthesizer
-            A configured Prestosynth wrapper ready to render scores.
-        """
-        if sf_path is None:
-            sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
-        sf_path = str(sf_path)
-        return core.Synthesizer(sf_path, sample_rate, quality)
+        settings = _SynthSettingsModel(
+            sf_path=sf_path,
+            sample_rate=sample_rate,
+            gain=gain,
+            polyphony=polyphony,
+            interpolation=interpolation,
+            reverb=reverb,
+            reverb_roomsize=reverb_roomsize,
+            reverb_damp=reverb_damp,
+            reverb_width=reverb_width,
+            reverb_level=reverb_level,
+            chorus=chorus,
+            chorus_nr=chorus_nr,
+            chorus_level=chorus_level,
+            chorus_speed=chorus_speed,
+            chorus_depth=chorus_depth,
+            chorus_waveform=chorus_waveform,
+        )
+        resolved_sf_path = settings.sf_path
+        if resolved_sf_path is None:
+            resolved_sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
+        return core.Synthesizer(
+            str(resolved_sf_path),
+            settings.sample_rate,
+            gain=settings.gain,
+            polyphony=settings.polyphony,
+            interpolation=core.SynthInterpolation(settings.interpolation.value),
+            reverb=settings.reverb,
+            reverb_roomsize=settings.reverb_roomsize,
+            reverb_damp=settings.reverb_damp,
+            reverb_width=settings.reverb_width,
+            reverb_level=settings.reverb_level,
+            chorus=settings.chorus,
+            chorus_nr=settings.chorus_nr,
+            chorus_level=settings.chorus_level,
+            chorus_speed=settings.chorus_speed,
+            chorus_depth=settings.chorus_depth,
+            chorus_waveform=core.ChorusWaveform(settings.chorus_waveform.value),
+        )
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, core.Synthesizer)

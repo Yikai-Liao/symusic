@@ -10,7 +10,7 @@ stacks many MIR pipelines still rely on.
 
 The project builds on top of [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) for parsing,
 [zpp_bits](https://github.com/eyalz800/zpp_bits) for fast pickling, and
-[prestosynth](https://github.com/lzqlzzq/prestosynth) for SoundFont rendering.
+[FluidLite](https://github.com/divideconcept/FluidLite) for SoundFont rendering.
 
 The canonical documentation is hosted on Read the Docs at
 [symusic.readthedocs.io](https://symusic.readthedocs.io/en/stable/). The legacy GitHub Pages mdBook
@@ -108,7 +108,7 @@ even when the build is otherwise healthy.
 ## Acknowledgement
 
 * [minimidi](https://github.com/lzqlzzq/minimidi) : A fast and lightweight MIDI parsing library written in C++, which is the foundation of this project.
-* [prestosynth](https://github.com/lzqlzzq/prestosynth) : A fast SoundFont synthesizer written in C++, which powers Symusic's synthesis layer.
+* [FluidLite](https://github.com/divideconcept/FluidLite) : A lightweight SoundFont synthesizer that powers Symusic's synthesis layer.
 * [nanobind](https://github.com/wjakob/nanobind) : An efficient and lightweight library for binding C++ to Python.
 * [zpp_bits](https://github.com/eyalz800/zpp_bits) : A fast single-header serialization library used for pickle support.
 * [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) : Example code from the book "Modern C++ Programming Practice". We use [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) from it to shorten repetitive code.

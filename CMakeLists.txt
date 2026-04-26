@@ -47,11 +47,16 @@ endif()
 
 add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
-add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
+set(ENABLE_SF3 ON CACHE BOOL "" FORCE)
+set(STB_VORBIS ON CACHE BOOL "" FORCE)
+set(FLUIDLITE_BUILD_SHARED ON CACHE BOOL "" FORCE)
+set(FLUIDLITE_BUILD_STATIC OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rdparty/FluidLite EXCLUDE_FROM_ALL)
 add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
 
 include_directories(include)
 include_directories(3rdparty/pdqsort)
+include_directories(3rdparty/pyvec/include)
 include_directories(3rdparty/zpp_bits)
 include_directories(3rdparty)
 
@@ -62,10 +67,8 @@ foreach(src_file ${symusic_src})
 endforeach()
 
 add_library(symusic ${symusic_src})
-target_link_libraries(symusic fmt::fmt-header-only)
-target_link_libraries(symusic minimidi)
-target_link_libraries(symusic prestosynth)
-target_link_libraries(symusic pyvec)
+target_link_libraries(symusic PRIVATE fmt::fmt-header-only minimidi pyvec)
+target_link_libraries(symusic PUBLIC fluidlite)
 
 if(SYMUSIC_FAST_BUILD)
     message(STATUS "SYMUSIC_FAST_BUILD enabled: disabling LTO and using O1 optimizations")
@@ -126,8 +129,14 @@ if(BUILD_SYMUSIC_PY)
         py_src/utils/vector_bindings.h
     )
     target_link_libraries(core PRIVATE symusic)
+    if(APPLE)
+        set_target_properties(core PROPERTIES INSTALL_RPATH "@loader_path")
+    elseif(UNIX)
+        set_target_properties(core PROPERTIES INSTALL_RPATH "$ORIGIN")
+    endif()
 
-    install(TARGETS core LIBRARY DESTINATION symusic)
+    install(TARGETS core LIBRARY DESTINATION symusic RUNTIME DESTINATION symusic)
+    install(TARGETS fluidlite LIBRARY DESTINATION symusic RUNTIME DESTINATION symusic)
 
     nanobind_add_stub(
         symusic_core_stub
