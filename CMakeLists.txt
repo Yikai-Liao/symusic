@@ -188,6 +188,14 @@ if(BUILD_SYMUSIC_TEST)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/testcases"
                 "$<TARGET_FILE_DIR:symusic_test>/testcases"
     )
+    if(WIN32)
+        add_custom_command(
+            TARGET symusic_test POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:fluidlite>
+                    $<TARGET_FILE_DIR:symusic_test>
+        )
+    endif()
     include(CTest)
     include(Catch)
     enable_testing()

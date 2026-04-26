@@ -4,7 +4,7 @@ import os.path
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -88,7 +88,7 @@ class TimeUnitFactory:
     def second(self) -> core.Second:
         return self._second
 
-    def __call__(self, ttype: smt.TimeUnit | str) -> smt.TimeUnit:
+    def __call__(self, ttype: Union[smt.TimeUnit, str]) -> smt.TimeUnit:
         """Create a TimeUnit object from a str, e.g. 'tick', 'quarter', 'second'
         It is used to dispatch the correct TimeUnit object.
         However, it is recommended to use the `TimeUnit.tick`, `TimeUnit.quarter`, `TimeUnit.second`
@@ -136,7 +136,7 @@ class CoreClasses(Generic[T, Q, S]):
     def dispatch(
         self: CoreClasses[T, Q, S],
         ttype: smt.GeneralTimeUnit,
-    ) -> T | Q | S:
+    ) -> Union[T, Q, S]:
         """Dispatch the correct Core class according to the ttype."""
         if isinstance(ttype, core.Tick):
             return self.tick
@@ -344,8 +344,8 @@ class TempoFactory:
     def __call__(
         self,
         time: smt.TimeDtype,
-        qpm: float | None = None,
-        mspq: int | None = None,
+        qpm: Optional[float] = None,
+        mspq: Optional[int] = None,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Tempo:
         """:param time: the time of the tempo change, in the unit of `ttype`
@@ -525,9 +525,9 @@ class ScoreFactory:
 
     def __call__(
         self,
-        x: int | str | Path | smt.Score = 960,
+        x: Union[int, str, Path, smt.Score] = 960,
         ttype: smt.GeneralTimeUnit = "tick",
-        fmt: str | None = None,
+        fmt: Optional[str] = None,
         sanitize_data: bool = False,
     ) -> smt.Score:
         if isinstance(x, (str, Path)):
@@ -544,11 +544,11 @@ class ScoreFactory:
 
     def from_file(
         self,
-        path: str | Path,
+        path: Union[str, Path],
         ttype: smt.GeneralTimeUnit = "tick",
-        fmt: str | None = None,
+        fmt: Optional[str] = None,
         sanitize_data: bool = False,
-        format: str | None = None,
+        format: Optional[str] = None,
     ) -> smt.Score:
         if format is not None:
             if fmt is not None and fmt != format:
@@ -592,7 +592,7 @@ class ScoreFactory:
         self,
         other: smt.Score,
         ttype: smt.GeneralTimeUnit = "tick",
-        min_dur: int | None = None,
+        min_dur: Optional[int] = None,
     ) -> smt.Score:
         if other.ticks_per_quarter <= 0:
             msg = (
@@ -628,7 +628,7 @@ def _normalize_enum_token(value: str) -> str:
 class _SynthSettingsModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    sf_path: Path | None = None
+    sf_path: Optional[Path] = None
     sample_rate: int = Field(default=44100, ge=22050, le=96000)
     gain: float = Field(default=0.2, ge=0.0, le=10.0)
     polyphony: int = Field(default=256, ge=16, le=4096)
@@ -647,7 +647,10 @@ class _SynthSettingsModel(BaseModel):
 
     @field_validator("sf_path", mode="before")
     @classmethod
-    def _validate_sf_path(cls, value: str | Path | None) -> Path | None:
+    def _validate_sf_path(
+        cls,
+        value: Union[str, Path, None],
+    ) -> Optional[Path]:
         if value is None:
             return None
         return Path(value)
@@ -656,7 +659,7 @@ class _SynthSettingsModel(BaseModel):
     @classmethod
     def _validate_interpolation(
         cls,
-        value: str | int | SynthInterpolation,
+        value: Union[str, int, SynthInterpolation],
     ) -> SynthInterpolation:
         if isinstance(value, SynthInterpolation):
             return value
@@ -686,7 +689,7 @@ class _SynthSettingsModel(BaseModel):
     @classmethod
     def _validate_chorus_waveform(
         cls,
-        value: str | int | ChorusWaveform,
+        value: Union[str, int, ChorusWaveform],
     ) -> ChorusWaveform:
         if isinstance(value, ChorusWaveform):
             return value
@@ -708,12 +711,12 @@ class SynthesizerFactory:
     """Convenience layer over `symusic.core.Synthesizer` with validation."""
     def __call__(
         self,
-        sf_path: str | Path | None = None,
+        sf_path: Union[str, Path, None] = None,
         sample_rate: int = 44100,
         *,
         gain: float = 0.2,
         polyphony: int = 256,
-        interpolation: str | SynthInterpolation = SynthInterpolation.fourth_order,
+        interpolation: Union[str, SynthInterpolation] = SynthInterpolation.fourth_order,
         reverb: bool = True,
         reverb_roomsize: float = 0.2,
         reverb_damp: float = 0.0,
@@ -724,7 +727,7 @@ class SynthesizerFactory:
         chorus_level: float = 2.0,
         chorus_speed: float = 0.3,
         chorus_depth: float = 8.0,
-        chorus_waveform: str | ChorusWaveform = ChorusWaveform.sine,
+        chorus_waveform: Union[str, ChorusWaveform] = ChorusWaveform.sine,
     ):
         settings = _SynthSettingsModel(
             sf_path=sf_path,
