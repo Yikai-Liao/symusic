@@ -1,6 +1,7 @@
 #include "symusic/synth.h"
 
 #include "symusic/conversion.h"
+#include "symusic/ops.h"
 
 #include <algorithm>
 #include <cmath>
@@ -22,10 +23,11 @@ namespace symusic {
 namespace {
 
 constexpr int kMaxMidiChannels = 256;
+constexpr u16 kDrumChannel = 9;
 constexpr size_t kRenderChunkFrames = 1024;
 constexpr double kSilenceThreshold = 1e-5;
 constexpr double kMaxTailSeconds = 5.0;
-constexpr int kSustainPedalControl = 64;
+// Direct synth render intentionally ignores track.pedals and only consumes raw track.controls CC data.
 constexpr int kCenterPitchBend = 8192;
 
 template<typename T>
@@ -137,7 +139,7 @@ public:
 };
 
 enum class EventType : u8 {
-    bank_select = 0,
+    program_select = 0,
     control_change = 1,
     pitch_bend = 2,
     note_off = 3,
@@ -148,14 +150,42 @@ struct RenderEvent {
     Second::unit time;
     EventType    type;
     u16          channel;
+    u32          order;
     i32          a;
     i32          b;
 };
 
-struct ChannelState {
-    u8   program;
-    bool isDrum;
+struct TrackRoute {
+    u16 channel;
 };
+
+std::vector<TrackRoute> assign_track_routes(const Score<Second>& score) {
+    std::vector<TrackRoute> routes;
+    routes.reserve(score.tracks->size());
+
+    u16 nextMelodicChannel = 0;
+    for (size_t trackIndex = 0; trackIndex < score.tracks->size(); ++trackIndex) {
+        const auto& track = *score.tracks->at(trackIndex);
+
+        u16 channel = kDrumChannel;
+        if (!track.is_drum) {
+            while (nextMelodicChannel == kDrumChannel) {
+                ++nextMelodicChannel;
+            }
+            if (nextMelodicChannel >= kMaxMidiChannels) {
+                throw std::runtime_error(
+                    "FluidLite direct render reserves channel 9 for drum tracks, "
+                    "leaves at most 255 internal channels for non-drum tracks, "
+                    "and does not reuse channels"
+                );
+            }
+            channel = nextMelodicChannel++;
+        }
+        routes.push_back(TrackRoute{channel});
+    }
+
+    return routes;
+}
 
 bool render_event_less(const RenderEvent& lhs, const RenderEvent& rhs) {
     if (lhs.time != rhs.time) {
@@ -166,6 +196,9 @@ bool render_event_less(const RenderEvent& lhs, const RenderEvent& rhs) {
     }
     if (lhs.channel != rhs.channel) {
         return lhs.channel < rhs.channel;
+    }
+    if (lhs.order != rhs.order) {
+        return lhs.order < rhs.order;
     }
     if (lhs.a != rhs.a) {
         return lhs.a < rhs.a;
@@ -264,23 +297,22 @@ void render_frames(
 }
 
 void apply_event(
-    fluid_synth_t*              synth,
-    const unsigned int          soundfontId,
-    const std::vector<ChannelState>& channels,
-    const RenderEvent&          event
+    fluid_synth_t*     synth,
+    const unsigned int soundfontId,
+    const RenderEvent& event
 ) {
     const auto channel = static_cast<int>(event.channel);
     switch (event.type) {
-        case EventType::bank_select:
+        case EventType::program_select:
             check_fluid_call(
                 fluid_synth_program_select(
                     synth,
                     channel,
                     soundfontId,
                     static_cast<unsigned int>(event.a),
-                    channels[event.channel].program
+                    static_cast<unsigned int>(event.b)
                 ),
-                "FluidLite failed to apply bank routing"
+                "FluidLite failed to apply program routing"
             );
             return;
         case EventType::control_change:
@@ -312,22 +344,18 @@ void apply_event(
 }
 
 std::vector<RenderEvent> build_events(
-    const Score<Second>&        score,
-    std::vector<ChannelState>& channels
+    const Score<Second>&       score,
+    std::vector<TrackRoute>& routes
 ) {
     std::vector<RenderEvent> events;
-    channels.clear();
-    channels.reserve(score.tracks->size());
+    routes = assign_track_routes(score);
     events.reserve(score.note_num() * 2);
 
-    for (size_t trackIndex = 0; trackIndex < score.tracks->size(); ++trackIndex) {
-        if (trackIndex >= kMaxMidiChannels) {
-            throw std::runtime_error("FluidLite renderer supports at most 256 routed tracks");
-        }
+    u32 eventOrder = 0;
 
+    for (size_t trackIndex = 0; trackIndex < score.tracks->size(); ++trackIndex) {
         const auto& track = *score.tracks->at(trackIndex);
-        const auto  channel = static_cast<u16>(trackIndex);
-        channels.push_back(ChannelState{track.program, track.is_drum});
+        const auto channel = routes[trackIndex].channel;
 
         const auto banks = details::getBanks(track);
         for (const auto& bank : banks) {
@@ -336,12 +364,22 @@ std::vector<RenderEvent> build_events(
             }
             events.push_back(RenderEvent{
                 bank.time,
-                EventType::bank_select,
+                EventType::program_select,
                 channel,
+                eventOrder++,
                 static_cast<i32>(bank.bank),
-                0,
+                track.program,
             });
         }
+
+        events.push_back(RenderEvent{
+            0.0,
+            EventType::pitch_bend,
+            channel,
+            eventOrder++,
+            kCenterPitchBend,
+            0,
+        });
 
         for (const auto& control : *track.controls) {
             if (!track.is_drum && control->number == 0) {
@@ -351,6 +389,7 @@ std::vector<RenderEvent> build_events(
                 control->time,
                 EventType::control_change,
                 channel,
+                eventOrder++,
                 control->number,
                 control->value,
             });
@@ -363,24 +402,8 @@ std::vector<RenderEvent> build_events(
                 pitchBend->time,
                 EventType::pitch_bend,
                 channel,
+                eventOrder++,
                 pitchValue,
-                0,
-            });
-        }
-
-        for (const auto& pedal : *track.pedals) {
-            events.push_back(RenderEvent{
-                pedal->start(),
-                EventType::control_change,
-                channel,
-                kSustainPedalControl,
-                127,
-            });
-            events.push_back(RenderEvent{
-                pedal->end(),
-                EventType::control_change,
-                channel,
-                kSustainPedalControl,
                 0,
             });
         }
@@ -393,6 +416,7 @@ std::vector<RenderEvent> build_events(
                 note->start(),
                 EventType::note_on,
                 channel,
+                eventOrder++,
                 note->pitch,
                 note->velocity,
             });
@@ -400,13 +424,14 @@ std::vector<RenderEvent> build_events(
                 note->end(),
                 EventType::note_off,
                 channel,
+                eventOrder++,
                 note->pitch,
                 0,
             });
         }
     }
 
-    std::sort(events.begin(), events.end(), render_event_less);
+    pdqsort_branchless(events.begin(), events.end(), render_event_less);
     return events;
 }
 
@@ -687,32 +712,10 @@ public:
         }
         recreate_synth();
 
-        std::vector<ChannelState> channels;
-        const auto events = build_events(score, channels);
-        if (channels.empty()) {
+        std::vector<TrackRoute> routes;
+        const auto events = build_events(score, routes);
+        if (routes.empty()) {
             throw std::runtime_error("No valid tracks in the score");
-        }
-
-        for (size_t channel = 0; channel < channels.size(); ++channel) {
-            const auto initialBank = channels[channel].isDrum ? 128u : 0u;
-            check_fluid_call(
-                fluid_synth_program_select(
-                    synth.get(),
-                    static_cast<int>(channel),
-                    static_cast<unsigned int>(soundfontId),
-                    initialBank,
-                    channels[channel].program
-                ),
-                "Failed to initialize FluidLite program routing"
-            );
-            check_fluid_call(
-                fluid_synth_pitch_bend(
-                    synth.get(),
-                    static_cast<int>(channel),
-                    kCenterPitchBend
-                ),
-                "Failed to initialize FluidLite pitch bend"
-            );
         }
 
         std::vector<float> left;
@@ -727,7 +730,7 @@ public:
                 render_frames(synth.get(), targetFrame - currentFrame, left, right);
                 currentFrame = targetFrame;
             }
-            apply_event(synth.get(), soundfontId, channels, event);
+            apply_event(synth.get(), soundfontId, event);
         }
 
         const auto maxTailFrames = static_cast<u32>(std::llround(kMaxTailSeconds * sampleRate));
@@ -883,6 +886,16 @@ vec<BankSelect> getBanks(const Track<Second>& track) {
     }
     banks.push_back(BankSelect{std::numeric_limits<Second::unit>::max(), banks.back().bank});
     return banks;
+}
+
+std::vector<u16> route_track_channels(const Score<Second>& score) {
+    const auto routes = assign_track_routes(score);
+    std::vector<u16> channels;
+    channels.reserve(routes.size());
+    for (const auto& route : routes) {
+        channels.push_back(route.channel);
+    }
+    return channels;
 }
 
 }   // namespace details

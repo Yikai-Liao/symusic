@@ -5,6 +5,7 @@
 #include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
 
+#include <cstddef>
 #include <vector>
 
 #include <nanobind/ndarray.h>
@@ -18,13 +19,49 @@ namespace symusic {
 
 namespace {
 
+std::vector<float> copy_audio_1d(
+    const nb::ndarray<const f32, nb::ndim<1>, nb::device::cpu>& data
+) {
+    const auto frames = static_cast<size_t>(data.shape(0));
+    std::vector<float> contiguous(frames);
+    const auto stride = static_cast<std::ptrdiff_t>(data.stride(0));
+    const auto* base = data.data();
+    for (size_t frame = 0; frame < frames; ++frame) {
+        contiguous[frame] = *(base + static_cast<std::ptrdiff_t>(frame) * stride);
+    }
+    return contiguous;
+}
+
+std::vector<float> copy_audio_2d(
+    const nb::ndarray<const f32, nb::ndim<2>, nb::device::cpu>& data
+) {
+    const auto channels = static_cast<size_t>(data.shape(0));
+    const auto frames = static_cast<size_t>(data.shape(1));
+    std::vector<float> contiguous(channels * frames);
+
+    const auto rowStride = static_cast<std::ptrdiff_t>(data.stride(0));
+    const auto colStride = static_cast<std::ptrdiff_t>(data.stride(1));
+    const auto* base = data.data();
+    for (size_t channel = 0; channel < channels; ++channel) {
+        for (size_t frame = 0; frame < frames; ++frame) {
+            contiguous[channel * frames + frame] = *(
+                base
+                + static_cast<std::ptrdiff_t>(channel) * rowStride
+                + static_cast<std::ptrdiff_t>(frame) * colStride
+            );
+        }
+    }
+    return contiguous;
+}
+
 void dump_wav_1d(
     const std::filesystem::path& path,
     const nb::ndarray<const f32, nb::ndim<1>, nb::device::cpu>& data,
     const i32                    sampleRate,
     const bool                   useInt16
 ) {
-    write_wav(path, data.data(), 1, data.shape(0), sampleRate, useInt16);
+    const auto contiguous = copy_audio_1d(data);
+    write_wav(path, contiguous.data(), 1, contiguous.size(), sampleRate, useInt16);
 }
 
 void dump_wav_2d(
@@ -35,17 +72,7 @@ void dump_wav_2d(
 ) {
     const auto channels = static_cast<size_t>(data.shape(0));
     const auto frames = static_cast<size_t>(data.shape(1));
-    std::vector<float> contiguous(channels * frames);
-
-    const auto rowStride = static_cast<size_t>(data.stride(0) / static_cast<int64_t>(sizeof(float)));
-    const auto colStride = static_cast<size_t>(data.stride(1) / static_cast<int64_t>(sizeof(float)));
-    const auto* base = data.data();
-    for (size_t channel = 0; channel < channels; ++channel) {
-        for (size_t frame = 0; frame < frames; ++frame) {
-            contiguous[channel * frames + frame] = base[channel * rowStride + frame * colStride];
-        }
-    }
-
+    const auto contiguous = copy_audio_2d(data);
     write_wav(path, contiguous.data(), channels, frames, sampleRate, useInt16);
 }
 

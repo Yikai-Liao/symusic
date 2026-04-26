@@ -6,9 +6,10 @@
 #include "symusic/score.h"
 
 #include <filesystem>
-#include <mutex>
 #include <memory>
+#include <mutex>
 #include <tuple>
+#include <vector>
 
 namespace symusic {
 
@@ -117,6 +118,7 @@ struct BankSelect {
 };
 
 vec<BankSelect> getBanks(const Track<Second>& track);
+std::vector<u16> route_track_channels(const Score<Second>& score);
 
 }   // namespace details
 
