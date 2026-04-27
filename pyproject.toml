@@ -50,8 +50,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "pySmartDL",
-    "platformdirs",
-    "pydantic>=2,<3"
+    "platformdirs"
 ]
 
 dynamic = ["version"]

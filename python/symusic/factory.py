@@ -3,10 +3,9 @@ from __future__ import annotations
 import os.path
 from dataclasses import dataclass
 from enum import IntEnum
+from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import core  # type: ignore
 from . import types as smt
@@ -625,86 +624,138 @@ def _normalize_enum_token(value: str) -> str:
     return value.strip().lower().replace("-", "_").replace(" ", "_")
 
 
-class _SynthSettingsModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    sf_path: Optional[Path] = None
-    sample_rate: int = Field(default=44100, ge=22050, le=96000)
-    gain: float = Field(default=0.2, ge=0.0, le=10.0)
-    polyphony: int = Field(default=256, ge=16, le=4096)
-    interpolation: SynthInterpolation = SynthInterpolation.fourth_order
-    reverb: bool = True
-    reverb_roomsize: float = Field(default=0.2, ge=0.0)
-    reverb_damp: float = Field(default=0.0, ge=0.0)
-    reverb_width: float = Field(default=0.5, ge=0.0)
-    reverb_level: float = Field(default=0.9, ge=0.0, le=1.0)
-    chorus: bool = True
-    chorus_nr: int = Field(default=3, ge=0, le=99)
-    chorus_level: float = Field(default=2.0, ge=0.0, le=10.0)
-    chorus_speed: float = Field(default=0.3, ge=0.1, le=5.0)
-    chorus_depth: float = Field(default=8.0, ge=0.0, le=21.0)
-    chorus_waveform: ChorusWaveform = ChorusWaveform.sine
-
-    @field_validator("sf_path", mode="before")
-    @classmethod
-    def _validate_sf_path(
-        cls,
-        value: Union[str, Path, None],
-    ) -> Optional[Path]:
-        if value is None:
-            return None
+def _validate_path(
+    name: str,
+    value: Union[str, Path, None],
+) -> Optional[Path]:
+    if value is None:
+        return None
+    if isinstance(value, (str, Path)):
         return Path(value)
+    raise TypeError(f"{name} must be a str, Path, or None, got {type(value).__name__}")
 
-    @field_validator("interpolation", mode="before")
-    @classmethod
-    def _validate_interpolation(
-        cls,
-        value: Union[str, int, SynthInterpolation],
-    ) -> SynthInterpolation:
-        if isinstance(value, SynthInterpolation):
-            return value
-        if isinstance(value, str):
-            normalized = _normalize_enum_token(value)
-            alias_map = {
-                "default": SynthInterpolation.fourth_order,
-                "4th_order": SynthInterpolation.fourth_order,
-                "fourth": SynthInterpolation.fourth_order,
-                "7th_order": SynthInterpolation.seventh_order,
-                "seventh": SynthInterpolation.seventh_order,
-            }
-            if normalized in alias_map:
-                return alias_map[normalized]
-            try:
-                return SynthInterpolation[normalized]
-            except KeyError as exc:
-                msg = f"Invalid interpolation: {value!r}"
-                raise ValueError(msg) from exc
+
+def _validate_int(
+    name: str,
+    value: int,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    if value < minimum or value > maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}, got {value}")
+    return value
+
+
+def _validate_real(
+    name: str,
+    value: float,
+    *,
+    minimum: float,
+    maximum: Optional[float] = None,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
+    normalized = float(value)
+    if normalized < minimum:
+        raise ValueError(f"{name} must be greater than or equal to {minimum}, got {value}")
+    if maximum is not None and normalized > maximum:
+        raise ValueError(f"{name} must be less than or equal to {maximum}, got {value}")
+    return normalized
+
+
+def _validate_bool(name: str, value: bool) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a bool, got {type(value).__name__}")
+    return value
+
+
+def _validate_interpolation(
+    value: Union[str, int, SynthInterpolation],
+) -> SynthInterpolation:
+    if isinstance(value, SynthInterpolation):
+        return value
+    if isinstance(value, str):
+        normalized = _normalize_enum_token(value)
+        alias_map = {
+            "default": SynthInterpolation.fourth_order,
+            "4th_order": SynthInterpolation.fourth_order,
+            "fourth": SynthInterpolation.fourth_order,
+            "7th_order": SynthInterpolation.seventh_order,
+            "seventh": SynthInterpolation.seventh_order,
+        }
+        if normalized in alias_map:
+            return alias_map[normalized]
         try:
-            return SynthInterpolation(value)
-        except ValueError as exc:
+            return SynthInterpolation[normalized]
+        except KeyError as exc:
             msg = f"Invalid interpolation: {value!r}"
             raise ValueError(msg) from exc
+    try:
+        return SynthInterpolation(value)
+    except ValueError as exc:
+        msg = f"Invalid interpolation: {value!r}"
+        raise ValueError(msg) from exc
 
-    @field_validator("chorus_waveform", mode="before")
-    @classmethod
-    def _validate_chorus_waveform(
-        cls,
-        value: Union[str, int, ChorusWaveform],
-    ) -> ChorusWaveform:
-        if isinstance(value, ChorusWaveform):
-            return value
-        if isinstance(value, str):
-            normalized = _normalize_enum_token(value)
-            try:
-                return ChorusWaveform[normalized]
-            except KeyError as exc:
-                msg = f"Invalid chorus_waveform: {value!r}"
-                raise ValueError(msg) from exc
+
+def _validate_chorus_waveform(
+    value: Union[str, int, ChorusWaveform],
+) -> ChorusWaveform:
+    if isinstance(value, ChorusWaveform):
+        return value
+    if isinstance(value, str):
+        normalized = _normalize_enum_token(value)
         try:
-            return ChorusWaveform(value)
-        except ValueError as exc:
+            return ChorusWaveform[normalized]
+        except KeyError as exc:
             msg = f"Invalid chorus_waveform: {value!r}"
             raise ValueError(msg) from exc
+    try:
+        return ChorusWaveform(value)
+    except ValueError as exc:
+        msg = f"Invalid chorus_waveform: {value!r}"
+        raise ValueError(msg) from exc
+
+
+class _SynthSettingsModel:
+    def __init__(
+        self,
+        sf_path: Union[str, Path, None] = None,
+        sample_rate: int = 44100,
+        *,
+        gain: float = 0.2,
+        polyphony: int = 256,
+        interpolation: Union[str, int, SynthInterpolation] = SynthInterpolation.fourth_order,
+        reverb: bool = True,
+        reverb_roomsize: float = 0.2,
+        reverb_damp: float = 0.0,
+        reverb_width: float = 0.5,
+        reverb_level: float = 0.9,
+        chorus: bool = True,
+        chorus_nr: int = 3,
+        chorus_level: float = 2.0,
+        chorus_speed: float = 0.3,
+        chorus_depth: float = 8.0,
+        chorus_waveform: Union[str, int, ChorusWaveform] = ChorusWaveform.sine,
+    ) -> None:
+        self.sf_path = _validate_path("sf_path", sf_path)
+        self.sample_rate = _validate_int("sample_rate", sample_rate, minimum=22050, maximum=96000)
+        self.gain = _validate_real("gain", gain, minimum=0.0, maximum=10.0)
+        self.polyphony = _validate_int("polyphony", polyphony, minimum=16, maximum=4096)
+        self.interpolation = _validate_interpolation(interpolation)
+        self.reverb = _validate_bool("reverb", reverb)
+        self.reverb_roomsize = _validate_real("reverb_roomsize", reverb_roomsize, minimum=0.0)
+        self.reverb_damp = _validate_real("reverb_damp", reverb_damp, minimum=0.0)
+        self.reverb_width = _validate_real("reverb_width", reverb_width, minimum=0.0)
+        self.reverb_level = _validate_real("reverb_level", reverb_level, minimum=0.0, maximum=1.0)
+        self.chorus = _validate_bool("chorus", chorus)
+        self.chorus_nr = _validate_int("chorus_nr", chorus_nr, minimum=0, maximum=99)
+        self.chorus_level = _validate_real("chorus_level", chorus_level, minimum=0.0, maximum=10.0)
+        self.chorus_speed = _validate_real("chorus_speed", chorus_speed, minimum=0.1, maximum=5.0)
+        self.chorus_depth = _validate_real("chorus_depth", chorus_depth, minimum=0.0, maximum=21.0)
+        self.chorus_waveform = _validate_chorus_waveform(chorus_waveform)
 
 
 class SynthesizerFactory:

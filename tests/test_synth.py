@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
 
 from symusic import (
     BuiltInSF3,
@@ -85,13 +84,13 @@ def test_private_settings_model_normalizes_enums():
 
 
 def test_private_settings_model_reports_clear_errors():
-    with pytest.raises(ValidationError, match="sample_rate"):
+    with pytest.raises(ValueError, match="sample_rate must be between 22050 and 96000"):
         _SynthSettingsModel(sample_rate=1000)
 
-    with pytest.raises(ValidationError, match="interpolation"):
+    with pytest.raises(ValueError, match="Invalid interpolation"):
         _SynthSettingsModel(interpolation="bad-mode")
 
-    with pytest.raises(ValidationError, match="chorus_waveform"):
+    with pytest.raises(ValueError, match="Invalid chorus_waveform"):
         _SynthSettingsModel(chorus_waveform="square")
 
 
