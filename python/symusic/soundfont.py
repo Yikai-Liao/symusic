@@ -3,7 +3,7 @@ from hashlib import sha384
 from pathlib import Path
 
 from platformdirs import user_data_path
-from pySmartDL import SmartDL
+from pypdl import Pypdl
 
 
 @dataclass(frozen=True)
@@ -56,6 +56,13 @@ class Soundfont:
         with path.open("rb") as f:
             return sha384(f.read()).hexdigest() == self.hash_
 
+    def _download_error(self, path: Path) -> str:
+        return (
+            f"Failed to download {self.name} to {path}. "
+            f"You could try to download it manually from {self.url}, "
+            "and pass the path to the synthesizer."
+        )
+
     def download(self) -> None:
         """Download the SoundFont file and verify its integrity.
 
@@ -68,19 +75,22 @@ class Soundfont:
         # Create directory if not exists
         path.parent.mkdir(parents=True, exist_ok=True)
         # Download
-        dl = SmartDL(self.url, str(path), threads=8)
-        dl.add_hash_verification("sha384", self.hash_)
-        dl.start()
-        # Check if download is successful
-        if not dl.isSuccessful():
-            msg = (
-                f"Failed to download {self.name} to {self.path}. "
-                f"You could try to download it manually from {self.url}, "
-                "and pass the path to the synthesizer."
+        try:
+            Pypdl().start(
+                url=self.url,
+                file_path=str(path),
+                multisegment=False,
+                retries=3,
+                display=False,
             )
-            raise ConnectionError(
-                msg,
-            )
+        except Exception as exc:
+            if path.exists():
+                path.unlink()
+            raise ConnectionError(self._download_error(path)) from exc
+
+        if not self.exists():
+            path.unlink(missing_ok=True)
+            raise ConnectionError(self._download_error(path))
 
 
 class BuiltInSF3:
