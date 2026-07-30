@@ -1,0 +1,935 @@
+# Auto-generated pattern: declare shared members on the generic base classes
+# so `Score`/`Track`/... (the public generic types) resolve them, instead of
+# the members living only on the concrete <X>Tick/<X>Quarter/<X>Second leaves.
+
+symusic\.core\.Score$:
+    class Score(Generic[TimeUnitT]):
+        """
+        Score[TimeUnitT](tpq: int = 480)
+        Container for a full MIDI score consisting of named tracks, tempo/key/time metadata, and helper
+        methods for serialization and transformations. This variant stores timestamps as floating-point seconds aligned with the tempo map.
+        Parameters
+        ----------
+        tpq:
+            Reference ticks-per-quarter retained for precise conversion back to tick or beat timelines.
+        Note
+        ----
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        - Score objects expose Pythonic semantics such as slicing, repr/eq, and pickling.
+        - ``tpq`` travels with the tempo map so conversions remain lossless.
+        Examples
+        --------
+        .. code-block:: python
+            from symusic import Score[TimeUnitT]
+            score = Score[TimeUnitT](960)
+            dump_path = "example.mid"
+            score.dump_midi(dump_path)
+        """
+        @overload
+        def __init__(self, tpq: int, /) -> None:
+            """Create an empty score with the provided ticks-per-quarter resolution."""
+        @overload
+        def __init__(self, other: Score[TimeUnitT], /) -> None:
+            """Clone another score, deep-copying its tracks and events."""
+        @overload
+        def __init__(self, path: pathlib.Path, /) -> None:
+            """
+            Load a MIDI file from disk into a score. Accepts strings or ``pathlib.Path`` objects pointing to a
+            ``.mid``/``.midi`` file.
+            """
+        def copy(self, deep: bool = True, /) -> Score[TimeUnitT]:
+            """Return a shallow or deep copy depending on *deep*."""
+        def __copy__(self, /) -> Score[TimeUnitT]:
+            """Return a shallow copy of the score."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> Score[TimeUnitT]:
+            """Create a deep copy suitable for Python's copy module."""
+        def __repr__(self, /) -> str:
+            """Generate a textual summary of the score."""
+        @overload
+        def __eq__(self, other: Score[TimeUnitT], /) -> bool:
+            """Scores compare equal when their handles or contents match."""
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: Score[TimeUnitT], /) -> bool:
+            """Scores compare equal when their handles or contents match."""
+        @overload
+        def __ne__(self, other: object, /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the score into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> Score[TimeUnitT]:
+            """Rehydrate the score from serialized ZPP bytes."""
+        @staticmethod
+        def from_file(path: str | os.PathLike, format: str | None = None, sanitize_data: bool = False) -> Score[TimeUnitT]:
+            """
+            Read a score from disk by auto-detecting a MIDI or ABC file. Use ``format`` (``"midi"`` or
+            ``"abc"``) when the extension is ambiguous.
+            """
+        @staticmethod
+        def from_midi(data: bytes, sanitize_data: bool = False) -> Score[TimeUnitT]:
+            """
+            Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controller/pitch values are
+            clamped into the MIDI-safe range.
+            """
+        @staticmethod
+        def from_abc(abc: str) -> Score[TimeUnitT]:
+            """
+            Parse an ABC notation string into a score. Requires the ``SYMUSIC_ABC2MIDI`` environment variable
+            to point to the abc2midi executable.
+            """
+        def dump_midi(self, path: str | os.PathLike) -> None:
+            """
+            Write the score to a MIDI file using the current ticks-per-quarter resolution.
+            """
+        def dumps_midi(self) -> bytes:
+            """Serialize the score into MIDI bytes for in-memory workflows."""
+        def dump_abc(self, path: str | os.PathLike, warn: bool = False) -> None:
+            """
+            Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up automatically.
+            """
+        def dumps_abc(self, warn: bool = False) -> str:
+            """
+            Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.
+            """
+        def get_beats(self, start_time: float = 0.0) -> NDArray[numpy.float32]:
+            """
+            Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
+            PrettyMIDI heuristic of grouping every three denominator notes into one beat.
+            """
+        def get_downbeats(self, start_time: float = 0.0) -> NDArray[numpy.float32]:
+            """
+            Return downbeat locations as a NumPy array in the score's current time unit. When no time
+            signature is available at *start_time*, a 4/4 sentinel is assumed.
+            """
+        @property
+        def ticks_per_quarter(self) -> int:
+            """Ticks per quarter note"""
+        @ticks_per_quarter.setter
+        def ticks_per_quarter(self, arg: int, /) -> None: ...
+        @property
+        def tpq(self) -> int:
+            """Alias of ticks_per_quarter"""
+        @tpq.setter
+        def tpq(self, arg: int, /) -> None: ...
+        @property
+        def tracks(self) -> list[Track[TimeUnitT]]:
+            """List of tracks"""
+        @tracks.setter
+        def tracks(self, arg: list[Track[TimeUnitT]], /) -> None: ...
+        @property
+        def time_signatures(self) -> list[TimeSignature[TimeUnitT]]:
+            """List of time signature events"""
+        @time_signatures.setter
+        def time_signatures(self, arg: list[TimeSignature[TimeUnitT]], /) -> None: ...
+        @property
+        def key_signatures(self) -> list[KeySignature[TimeUnitT]]:
+            """List of key signature events"""
+        @key_signatures.setter
+        def key_signatures(self, arg: list[KeySignature[TimeUnitT]], /) -> None: ...
+        @property
+        def tempos(self) -> list[Tempo[TimeUnitT]]:
+            """List of tempo events"""
+        @tempos.setter
+        def tempos(self, arg: list[Tempo[TimeUnitT]], /) -> None: ...
+        @property
+        def markers(self) -> list[TextMeta[TimeUnitT]]:
+            """List of text/marker events"""
+        @markers.setter
+        def markers(self, arg: list[TextMeta[TimeUnitT]], /) -> None: ...
+        @property
+        def ttype(self) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def __use_count(self) -> int:
+            """
+            Return the reference count of the shared score pointer for debugging aliasing.
+            """
+        def to(self, ttype: object, min_dur: object | None = None) -> object:
+            """
+            Convert the score to another time unit (Tick, Quarter, TimeUnitT). ``ttype`` may be a class object or
+            ``"tick"/"quarter"/"second"``. ``min_dur`` snaps durations when downsampling.
+            """
+        def resample(self, tpq: int, min_dur: float | None = None) -> ScoreTick:
+            """
+            Resample the score to a new ticks-per-quarter resolution. ``min_dur`` controls rounding behaviour
+            when reducing resolution.
+            """
+        def sort(self, reverse: bool = False, inplace: bool = True) -> Score[TimeUnitT]:
+            """
+            Sort tracks chronologically. When *inplace* is False the operation occurs on a copy.
+            """
+        def clip(self, start: float, end: float, clip_end: bool = False, inplace: bool = False) -> Score[TimeUnitT]:
+            """
+            Clip the score to [start, end). When *inplace* is False returns a new score.
+            """
+        def shift_time(self, offset: float, inplace: bool = False) -> Score[TimeUnitT]:
+            """
+            Shift every event timestamp by *offset*. When *inplace* is False operate on a copy.
+            """
+        def shift_pitch(self, offset: int, inplace: bool = False) -> Score[TimeUnitT]:
+            """
+            Shift every note by *offset* semitones. When *inplace* is False operate on a copy.
+            """
+        def shift_velocity(self, offset: int, inplace: bool = False) -> Score[TimeUnitT]:
+            """
+            Shift every note velocity by *offset*. When *inplace* is False operate on a copy.
+            """
+        def start(self) -> float:
+            """Return the earliest timestamp across all tracks."""
+        def end(self) -> float:
+            """Return the exclusive end timestamp across all tracks."""
+        def note_num(self) -> int:
+            """Return the total number of notes across all tracks."""
+        def empty(self) -> bool:
+            """Return True when the score contains no notes."""
+        def adjust_time(self, original_times: Sequence[float], new_times: Sequence[float], inplace: bool = False) -> Score[TimeUnitT]:
+            """
+            Remap timestamps across all tracks using aligned original/new time arrays. Operates in place unless specified.
+            """
+
+symusic\.core\.Track$:
+    class Track(Generic[TimeUnitT]):
+        r"""
+        Track[TimeUnitT](name: str = "", program: int = 0, is_drum: bool = False)
+        ====================================================================
+        Container for per-channel events (notes, controllers, pedals, pitch bends, metadata) tied to a MIDI
+        program. Tracks emulate Python lists: copy, compare, repr, and pickling propagate through the shared
+        pointer. This variant stores timestamps as floating-point seconds aligned with the tempo map.
+        Parameters
+        ----------
+        name:
+            Human-friendly identifier used when printing or exporting.
+        program:
+            MIDI program number (0-127). Defaults to acoustic grand piano.
+        is_drum:
+            Flag drum/percussion channels. Useful when writing to SMF channel 10.
+        Note
+        ----
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        - Durations and controller timestamps share the same second units
+        Examples
+        --------
+        .. code-block:: python
+            from symusic import Track[TimeUnitT], Note[TimeUnitT]
+            track = Track[TimeUnitT](name=\"Piano\")
+            track.notes.append(Note[TimeUnitT](0, 120, 60, 90))
+        """
+        @overload
+        def __init__(self, /) -> None:
+            """Create an empty track bound to the current time unit."""
+        @overload
+        def __init__(self, name: str = '', program: int = 0, is_drum: bool = False, /) -> None:
+            """
+            Create a track with a friendly name, MIDI program, and optional drum flag.
+            Parameters mirror the attributes displayed on :class:`symusic.Track`.
+            """
+        @overload
+        def __init__(self, other: Track[TimeUnitT], /) -> None:
+            """Clone another track, deep-copying its events."""
+        def copy(self, deep: bool = True, /) -> Track[TimeUnitT]:
+            """Return a shallow or deep copy depending on *deep*."""
+        def __copy__(self, /) -> Track[TimeUnitT]:
+            """Return a shallow copy of the track."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> Track[TimeUnitT]:
+            """Create a deep copy suitable for Python's copy module."""
+        def __repr__(self, /) -> str:
+            """Generate a textual summary of the track for debugging."""
+        def __getstate__(self, /) -> bytes:
+            """Serialize the track into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> Track[TimeUnitT]:
+            """Rehydrate a track from serialized ZPP bytes."""
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def __use_count(self, /) -> int:
+            """Return the reference count of the shared track pointer."""
+        @property
+        def notes(self, /) -> list[Note[TimeUnitT]]:
+            """List of Note events on this track"""
+        @notes.setter
+        def notes(self, value: list[Note[TimeUnitT]], /) -> None: ...
+        @property
+        def controls(self, /) -> list[ControlChange[TimeUnitT]]:
+            """List of ControlChange events"""
+        @controls.setter
+        def controls(self, value: list[ControlChange[TimeUnitT]], /) -> None: ...
+        @property
+        def pedals(self, /) -> list[Pedal[TimeUnitT]]:
+            """List of Pedal events"""
+        @pedals.setter
+        def pedals(self, value: list[Pedal[TimeUnitT]], /) -> None: ...
+        @property
+        def pitch_bends(self, /) -> list[PitchBend[TimeUnitT]]:
+            """List of PitchBend events"""
+        @pitch_bends.setter
+        def pitch_bends(self, value: list[PitchBend[TimeUnitT]], /) -> None: ...
+        @property
+        def lyrics(self, /) -> list[TextMeta[TimeUnitT]]:
+            """List of TextMeta events (lyrics/markers)"""
+        @lyrics.setter
+        def lyrics(self, value: list[TextMeta[TimeUnitT]], /) -> None: ...
+        @property
+        def is_drum(self, /) -> bool:
+            """Flag drum/percussion channel (GM channel 10)"""
+        @is_drum.setter
+        def is_drum(self, value: bool, /) -> None: ...
+        @property
+        def program(self, /) -> int:
+            """MIDI program number (0–127)"""
+        @program.setter
+        def program(self, value: int, /) -> None: ...
+        @property
+        def name(self, /) -> str:
+            """Human-friendly track name"""
+        @name.setter
+        def name(self, value: str, /) -> None: ...
+        @overload
+        def __eq__(self, other: Track[TimeUnitT], /) -> bool:
+            """Tracks compare equal when their shared pointers or values match."""
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: Track[TimeUnitT], /) -> bool:
+            """Tracks compare equal when their shared pointers or values match."""
+        @overload
+        def __ne__(self, other: object, /) -> bool: ...
+        def end(self, /) -> float:
+            """Return the exclusive end of the track."""
+        def start(self, /) -> float:
+            """Return the earliest event time (or max if empty)."""
+        def note_num(self, /) -> int:
+            """Return the number of notes on the track."""
+        def empty(self, /) -> bool:
+            """Return True when the track has no notes."""
+        def clip(self, start: float, end: float, clip_end: bool = False, inplace: bool = False) -> Track[TimeUnitT]:
+            """
+            Return a track clipped to [start, end). When ``inplace`` is False operate on a deep copy.
+            """
+        def trim(self, start: float, end: float, min_overlap: float = 0, start_mode: str = 'remove', end_mode: str = 'remove', inplace: bool = False) -> Track[TimeUnitT]:
+            """
+            Trim notes to fall within [start, end) using overlap/window strategies. Optionally mutate in place.
+            """
+        def sort(self, reverse: bool = False, inplace: bool = True) -> Track[TimeUnitT]:
+            """
+            Sort notes chronologically. When *inplace* is False the result is a cloned track.
+            """
+        def adjust_time(self, original_times: Iterable[float], new_times: Iterable[float], inplace: bool = False) -> Track[TimeUnitT]:
+            """Remap timestamps using two aligned lists of original/new time values."""
+        def shift_time(self, offset: float, inplace: bool = False) -> Track[TimeUnitT]:
+            """
+            Shift every timestamp by *offset*. Operates in place unless *inplace* is False.
+            """
+        def shift_pitch(self, offset: int, inplace: bool = False) -> Track[TimeUnitT]:
+            """
+            Shift every note's pitch by *offset*. Operates in place unless *inplace* is False.
+            """
+        def shift_velocity(self, offset: int, inplace: bool = False) -> Track[TimeUnitT]:
+            """
+            Shift every note's velocity by *offset*. Operates in place unless *inplace* is False.
+            """
+
+symusic\.core\.Note$:
+    class Note(Generic[TimeUnitT]):
+        """
+        Note[TimeUnitT](time: float, duration: float, pitch: int, velocity: int = 0)
+        Pitched event anchored to a second timestamp with editable duration and velocity.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        - Durations use the same second units
+        """
+        @overload
+        def __init__(self, other: Note[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, duration: float, pitch: int, velocity: int = 0) -> None:
+            """Create a note event from timing, duration, pitch, and velocity values."""
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> Note[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> Note[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> Note[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> Note[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: Note[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: Note[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: Note[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> Note[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def start(self) -> float: ...
+        @start.setter
+        def start(self, arg: float, /) -> None: ...
+        @property
+        def duration(self) -> float: ...
+        @duration.setter
+        def duration(self, arg: float, /) -> None: ...
+        @property
+        def pitch(self) -> int: ...
+        @pitch.setter
+        def pitch(self, arg: int, /) -> None: ...
+        @property
+        def velocity(self) -> int: ...
+        @velocity.setter
+        def velocity(self, arg: int, /) -> None: ...
+        @property
+        def end(self) -> float:
+            """
+            Read or set the exclusive end time. Setting the value adjusts the duration.
+            """
+        @end.setter
+        def end(self, arg: float, /) -> None: ...
+        def empty(self) -> bool:
+            """Return True when the note duration is zero."""
+        def ent_time(self) -> float:
+            """
+            Read or set the exclusive end time. Setting the value adjusts the duration.
+            """
+        def shift_pitch(self, offset: int, inplace: bool = False) -> Note[TimeUnitT]:
+            """
+            Shift the MIDI pitch by *offset*. Returns a new note unless *inplace* is True.
+            """
+        def shift_velocity(self, offset: int, inplace: bool = False) -> Note[TimeUnitT]:
+            """
+            Offset the MIDI velocity by *offset*. Returns a new note unless *inplace* is True.
+            """
+
+symusic\.core\.KeySignature$:
+    class KeySignature(Generic[TimeUnitT]):
+        """
+        KeySignature[TimeUnitT](time: float, key: int, tonality: int)
+        Key signature change scheduled on the second timeline. ``key`` is the number of sharps/flats relative to C and ``tonality`` is ``0`` for major, ``1`` for minor.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: KeySignature[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, key: int, tonality: int) -> None:
+            """
+            Create a key signature event with *time*, *key* offset, and *tonality* (major/minor).
+            """
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> KeySignature[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> KeySignature[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> KeySignature[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> KeySignature[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: KeySignature[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: KeySignature[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: KeySignature[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> KeySignature[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def key(self) -> int: ...
+        @key.setter
+        def key(self, arg: int, /) -> None: ...
+        @property
+        def tonality(self) -> int: ...
+        @tonality.setter
+        def tonality(self, arg: int, /) -> None: ...
+
+symusic\.core\.TimeSignature$:
+    class TimeSignature(Generic[TimeUnitT]):
+        """
+        TimeSignature[TimeUnitT](time: float, numerator: int, denominator: int)
+        Meter change storing beats-per-bar and subdivision (e.g., ``3/4``) on the second timeline. The denominator must be a power of two because it represents note lengths.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: TimeSignature[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, numerator: int, denominator: int) -> None:
+            """
+            Create a time signature event with *time*, *numerator*, and *denominator*.
+            """
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> TimeSignature[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> TimeSignature[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> TimeSignature[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> TimeSignature[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: TimeSignature[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: TimeSignature[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: TimeSignature[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> TimeSignature[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def numerator(self) -> int: ...
+        @numerator.setter
+        def numerator(self, arg: int, /) -> None: ...
+        @property
+        def denominator(self) -> int: ...
+        @denominator.setter
+        def denominator(self, arg: int, /) -> None: ...
+
+symusic\.core\.Tempo$:
+    class Tempo(Generic[TimeUnitT]):
+        """
+        Tempo[TimeUnitT](time: float, mspq: int)
+        Tempo change stored as microseconds-per-quarter note at a second timestamp. The ``qpm`` property mirrors beats-per-minute and mutating it updates ``mspq`` accordingly.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: Tempo[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, qpm: float | None = None, mspq: int | None = None) -> None:
+            """
+            Create a tempo event at *time*. Provide either *qpm* (preferred) or *mspq*.
+            """
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> Tempo[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> Tempo[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> Tempo[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> Tempo[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: Tempo[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: Tempo[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: Tempo[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> Tempo[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def mspq(self) -> int: ...
+        @mspq.setter
+        def mspq(self, arg: int, /) -> None: ...
+        @property
+        def tempo(self) -> float:
+            """
+            Read or set the tempo in quarter-notes per minute. Setting recalculates the stored MSPQ value.
+            """
+        @tempo.setter
+        def tempo(self, arg: float, /) -> None: ...
+        @property
+        def qpm(self) -> float:
+            """
+            Read or set the tempo in quarter-notes per minute. Setting recalculates the stored MSPQ value.
+            """
+        @qpm.setter
+        def qpm(self, arg: float, /) -> None: ...
+
+symusic\.core\.ControlChange$:
+    class ControlChange(Generic[TimeUnitT]):
+        """
+        ControlChange[TimeUnitT](time: float, number: int, value: int)
+        Standard MIDI controller event carrying a controller number/value pair on the second timeline.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: ControlChange[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, number: int, value: int) -> None:
+            """
+            Create a control change event with controller *number*/*value* emitted at *time*.
+            """
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> ControlChange[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> ControlChange[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> ControlChange[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> ControlChange[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: ControlChange[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: ControlChange[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: ControlChange[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> ControlChange[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def number(self) -> int: ...
+        @number.setter
+        def number(self, arg: int, /) -> None: ...
+        @property
+        def value(self) -> int: ...
+        @value.setter
+        def value(self, arg: int, /) -> None: ...
+
+symusic\.core\.Pedal$:
+    class Pedal(Generic[TimeUnitT]):
+        """
+        Pedal[TimeUnitT](time: float, duration: float)
+        Sustain or soft pedal gesture represented as a timed range on the second timeline.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        - Durations use the same second units
+        """
+        @overload
+        def __init__(self, other: Pedal[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, duration: float) -> None:
+            """Create a sustain/soft pedal event given *time* and *duration*."""
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> Pedal[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> Pedal[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> Pedal[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> Pedal[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: Pedal[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: Pedal[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: Pedal[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> Pedal[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def start(self) -> float: ...
+        @start.setter
+        def start(self, arg: float, /) -> None: ...
+        @property
+        def duration(self) -> float: ...
+        @duration.setter
+        def duration(self, arg: float, /) -> None: ...
+        @property
+        def end(self) -> float: ...
+        @end.setter
+        def end(self, arg: float, /) -> None: ...
+
+symusic\.core\.PitchBend$:
+    class PitchBend(Generic[TimeUnitT]):
+        """
+        PitchBend[TimeUnitT](time: float, value: int)
+        Pitch-bend wheel value applied on the second timeline. The raw 14-bit value matches the MIDI encoding.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: PitchBend[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, value: int) -> None:
+            """Create a pitch bend event with the raw wheel *value*."""
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> PitchBend[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> PitchBend[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> PitchBend[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> PitchBend[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: PitchBend[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: PitchBend[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: PitchBend[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> PitchBend[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def value(self) -> int: ...
+        @value.setter
+        def value(self, arg: int, /) -> None: ...
+
+symusic\.core\.TextMeta$:
+    class TextMeta(Generic[TimeUnitT]):
+        """
+        TextMeta[TimeUnitT](time: float, text: str)
+        Free-form metadata event used for lyrics, markers, or comments on the second timeline.
+        - Time values are 32-bit floats measured in seconds.
+        - Optimized for audio alignment, wall-clock automation, or duration-based editing
+        """
+        @overload
+        def __init__(self, other: TextMeta[TimeUnitT], /) -> None:
+            """Copy an existing event into this shared pointer wrapper."""
+        @overload
+        def __init__(self, time: float, text: str) -> None:
+            """Create a text metadata event with arbitrary UTF-8 text."""
+        @property
+        def time(self, /) -> float:
+            """Event timestamp in chosen time unit"""
+        @time.setter
+        def time(self, value: float, /) -> None: ...
+        @property
+        def ttype(self, /) -> TimeUnitT:
+            """Time unit type — Tick/Quarter/TimeUnitT"""
+        def shift_time(self, offset: float, inplace: bool = False) -> TextMeta[TimeUnitT]:
+            """
+            Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.
+            """
+        def copy(self, deep: bool = True, /) -> TextMeta[TimeUnitT]:
+            """
+            Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.
+            """
+        def __copy__(self, /) -> TextMeta[TimeUnitT]:
+            """Return a shallow copy of the event."""
+        def __deepcopy__(self, memo: object, _nil: object, /) -> TextMeta[TimeUnitT]:
+            """
+            Create a deep copy of the event suitable for Python's copy module helpers.
+            """
+        def __repr__(self, /) -> str:
+            """Serialize the event into its human-friendly textual form."""
+        @overload
+        def __eq__(self, other: TextMeta[TimeUnitT], /) -> bool:
+            """
+            Events compare equal when they refer to the same pointer or when their values match.
+            """
+        @overload
+        def __eq__(self, other: object, /) -> bool: ...
+        @overload
+        def __ne__(self, other: TextMeta[TimeUnitT], /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, other: object, /) -> bool:
+            """Events compare not-equal when their value representation differs."""
+        @overload
+        def __ne__(self, arg: TextMeta[TimeUnitT], /) -> bool: ...
+        def __getstate__(self, /) -> bytes:
+            """Serialize the event into ZPP bytes for pickling."""
+        def __setstate__(self, state: bytes, /) -> TextMeta[TimeUnitT]:
+            """Rehydrate the event from pickled ZPP bytes."""
+        def __use_count(self, /) -> int:
+            """
+            Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.
+            """
+        @property
+        def text(self) -> str: ...
+        @text.setter
+        def text(self, arg: str, /) -> None: ...

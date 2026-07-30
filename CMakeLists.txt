@@ -135,6 +135,7 @@ if(BUILD_SYMUSIC_PY)
         MODULE symusic.core
         OUTPUT symusic/core.pyi
         MARKER_FILE symusic/py.typed
+        PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/py_src/core_stub_pattern.txt
         PYTHON_PATH "."
     )
 #   install abc2midi and midi2abc
