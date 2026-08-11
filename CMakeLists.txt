@@ -130,13 +130,26 @@ if(BUILD_SYMUSIC_PY)
     install(TARGETS core LIBRARY DESTINATION symusic)
 
     nanobind_add_stub(
-        symusic_core_stub
+        symusic_core_stub_raw
         INSTALL_TIME
         MODULE symusic.core
-        OUTPUT symusic/core.pyi
+        OUTPUT symusic/core.raw.pyi
         MARKER_FILE symusic/py.typed
         PYTHON_PATH "."
     )
+    install(CODE "
+        execute_process(
+            COMMAND \"${Python_EXECUTABLE}\"
+                    \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/lift_generic_stubs.py\"
+                    \"\${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi\"
+                    \"\${CMAKE_INSTALL_PREFIX}/symusic/core.pyi\"
+            RESULT_VARIABLE STUB_LIFT_RESULT
+        )
+        if(NOT STUB_LIFT_RESULT EQUAL 0)
+            message(FATAL_ERROR \"Failed to generate generic symusic stubs\")
+        endif()
+        file(REMOVE \"\${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi\")
+    ")
 #   install abc2midi and midi2abc
     add_subdirectory(cmake/abcmidi ${CMAKE_CURRENT_BINARY_DIR}/abcmidi)
     install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
