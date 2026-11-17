@@ -16,10 +16,6 @@ Workarounds and unsupported configurations with current toolchains.
 - **ty.** `ty check` on the installed package reports about 290 diagnostics, mostly generated-stub overrides and NumPy method names shadowed by the containers. Decide whether ty replaces the mypy checks in `tests/typecheck`, fix the stubs, then add it to CI.
 - **Markdown code blocks.** Ruff can format Python blocks in Markdown; the `lint` lane does not check them yet.
 
-## Merge checks
-
-- **Require CI before merging.** Configure a GitHub branch protection rule or ruleset requiring `ci-ok`; the workflow reports the result but cannot enforce merge restrictions by itself.
-
 ## Memory safety
 
 Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which is undefined behavior in C++. The policy for invalid times (throw, skip or clamp) is not yet defined; decide it once and apply it at every site below.
@@ -36,3 +32,4 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 - **Python references into containers.** No test checks that a reference such as `note = notes[1]` stays valid after the element or its container is modified or removed.
 - **Resample through Python.** Rounding on downsampling and upsampling is tested only in C++ (`tests/cpp/test_conversion.hpp`).
 - **Boundary inputs.** The memory-safety items above need regression tests for negative times and durations, large ticks and offsets, extreme tempos, malformed MIDI durations and `None` elements.
+
