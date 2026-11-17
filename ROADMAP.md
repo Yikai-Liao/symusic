@@ -8,6 +8,7 @@ Workarounds and unsupported configurations with current toolchains.
 
 - **CMake 4.** `CMAKE_POLICY_VERSION_MINIMUM` in `CMakeLists.txt` and `pyproject.toml` exists because CMake 4 rejects projects declaring a minimum below 3.5. The direct submodules all declare 3.8 or later; the remaining offender is `gcem` (3.1) nested in `prestosynth`, whose upstream has since updated `gcem` and `libsamplerate`. Updating `prestosynth` should let the setting go.
 - **Free-threaded Python.** Importing the extension on `3.13t`/`3.14t` re-enables the GIL with a `RuntimeWarning`. Supporting it requires declaring free-threading support in the module and auditing shared state.
+- **nanobind release pin.** The reviewed upstream commit `942e75d` adds a missing `<cstdio>` include needed by limited-API builds with Linux libc++. It follows v3.1.0 and reports 3.2.0-dev1; replace this temporary commit pin with the next release tag containing the fix.
 - **Cross-compiled wheels.** Prioritize macOS 13+ (arm64 and x86_64) and Linux ARM64 with [xclang](https://github.com/clice-io/xclang). The optional [cross-validation workflow](docs/development/ci.md#cross-compilation-experiment) also tests Windows MSVC targets using Microsoft's SDK. Python wheels still need target Python headers/libraries, a host-side stub-generation plan, wheel repair and installed-package tests. Keep native packaging until these contracts are verified.
 
 ## Static analysis
