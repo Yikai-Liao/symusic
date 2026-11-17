@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/symusic)](https://pypi.org/project/symusic/)
 [![Downloads](https://static.pepy.tech/badge/symusic)](https://pepy.tech/project/symusic)
-[![Tests](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml/badge.svg)](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml)
+[![CI](https://github.com/Yikai-Liao/symusic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Yikai-Liao/symusic/actions/workflows/ci.yml)
 [![Docs](https://readthedocs.org/projects/symusic/badge/?version=stable)](https://symusic.readthedocs.io/en/stable/)
 [![codecov](https://codecov.io/gh/Yikai-Liao/symusic/branch/main/graph/badge.svg)](https://codecov.io/gh/Yikai-Liao/symusic)
 

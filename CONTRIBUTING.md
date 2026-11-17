@@ -4,15 +4,17 @@ Bug reports with a failing file or snippet, fixes and new features are welcome. 
 
 ## Set up
 
-Clone with submodules and work inside a virtual environment, never the system Python:
+Clone with submodules and work inside a virtual environment, never the system Python. The project uses [uv](https://docs.astral.sh/uv/) for environments and tools; plain `pip` inside a venv works too.
 
 ```sh
 git clone --recursive https://github.com/Yikai-Liao/symusic
 cd symusic                      # or: git submodule update --init --recursive --depth 1
-python -m venv .venv && source .venv/bin/activate
-pip install ".[test]" -r docs/requirements.txt
-./scripts/install_git_hooks.sh  # pre-commit hooks, run through uvx
+uv venv -p 3.12 && source .venv/bin/activate
+uv pip install ".[test]" -r docs/requirements.txt
+uv tool install prek && prek install   # git hooks from prek.toml
 ```
+
+The hooks format C++ with [clice](https://github.com/clice-io/clice), which must be on `PATH`: download a release, or on Linux x86_64 run `.github/scripts/install_clice.sh` and add the directory it prints to `PATH`.
 
 Use a regular CPython build. Free-threaded builds (`3.13t`, `3.14t`) are not supported yet: importing the extension emits a GIL `RuntimeWarning`, which pytest turns into an error. The compiler must support C++20 (GCC 11+, Clang 15+ or MSVC 2022). On Windows, run from a Visual Studio Developer shell so `pip install .` uses Ninja and MSVC.
 
@@ -37,7 +39,8 @@ Run the checks for every area you touched:
 | Binding (`py_src/`) or package (`python/`) | Reinstall, then `pytest -n auto tests` |
 | Typing or stubs | Reinstall, then `pytest tests/typecheck` |
 | Documentation | `python -m sphinx -b html docs docs/_build/html` with the package installed |
-| Formatting | `pre-commit run --all-files` |
+| Formatting and lint | `prek run --all-files` |
+| CI workflows or scripts | `pytest .github/scripts`; see [CI](docs/development/ci.md) |
 
 C++ tests use Catch2 and run from any build directory outside the source tree:
 
@@ -47,7 +50,14 @@ cmake --build ../symusic-build -j
 ctest --test-dir ../symusic-build --output-on-failure
 ```
 
-Report which commands you ran and what you left to CI.
+`clice lint` runs clang-tidy (checks in `.clang-tidy`) and needs a compilation database in `build/`, the one in-tree build directory, which Git ignores:
+
+```sh
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_SYMUSIC_TEST=ON -DBUILD_SYMUSIC_PY=ON -DBUILD_SYMUSIC_EXAMPLE=ON
+clice lint
+```
+
+It is not yet a CI gate; do not add findings in code you touch. Report which commands you ran and what you left to CI.
 
 ### Tests
 
@@ -55,7 +65,7 @@ Test public behavior, the [contracts](docs/design/architecture.md#contracts), hi
 
 ### Code and comments
 
-Formatters own style: `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. Use the project aliases (`i32`, `vec`, `shared`, `pyvec`) in the core. Comments explain invariants, units, ownership and non-obvious choices; they do not narrate history or keep commented-out code. Write all code, comments, logs and documentation in English.
+Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Use the project aliases (`i32`, `vec`, `shared`, `pyvec`) in the core. Comments explain invariants, units, ownership and non-obvious choices; they do not narrate history or keep commented-out code. Write all code, comments, logs and documentation in English.
 
 ### Dependencies
 
@@ -88,6 +98,7 @@ Titles follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0
 | `test` | Tests only |
 | `ci` | Workflows or CI scripts |
 | `build` | Build system, packaging or dependencies |
+| `style` | Formatting only |
 | `chore`, `revert` | Other maintenance or a revert |
 
 Optional scopes: `core`, `io`, `abc`, `binding`, `typing`, `synth`, `pianoroll`, `docs`, `deps`. Keep behavior changes, refactors and performance changes in separate pull requests. Describe user-visible changes in the pull request; release notes are written from merged pull requests.
@@ -99,5 +110,5 @@ AI assistance is welcome, and a person stays accountable for the whole change. R
 ## Releasing
 
 1. Set `__version__` in `python/symusic/__init__.py`; the build reads the version from there.
-2. Publish a GitHub release with a `vX.Y.Z` tag and notes generated from merged pull requests.
-3. Publishing runs `.github/workflows/wheel.yml`, which builds the wheels and the sdist and uploads them to PyPI.
+2. Run the **Wheels** workflow manually on that commit and wait for it to pass. Pull requests build only one wheel, so this is the first run on every platform.
+3. Publish a GitHub release with a `vX.Y.Z` tag and notes generated from merged pull requests. Publishing runs `.github/workflows/release.yml`, which builds the wheels and the sdist again and uploads them to PyPI.

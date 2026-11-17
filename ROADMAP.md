@@ -7,11 +7,17 @@ Planned work and accepted debt. Remove an item when the change that resolves it 
 CI has failed on `main` since the runner images moved to newer toolchains (observed November 2026). Each item below was diagnosed but not fixed.
 
 - **Clang 21 / AppleClang 21.** `src/io/zpp.cpp` fails to compile: with C++26 structured-binding packs, the pinned `zpp_bits` tries to decompose `Note` and other events whose base class `TimeStamp` also has members. Upstream fixed this in `zpp_bits` v4.7.7 (commit `0f35eab`, "Fix inspection_guarded to exclude types with explicit serializers"). A local GCC 14 build and C++ tests pass with v4.7.7, fmt 12.2.1, Catch2 v3.16.1 and nanobench v4.6.0.
-- **CMake 4.** `CMAKE_POLICY_VERSION_MINIMUM` in `CMakeLists.txt`, `pyproject.toml` and `tests.yml` exists because CMake 4 rejects projects declaring a minimum below 3.5. The direct submodules all declare 3.8 or later; the remaining offender is `gcem` (3.1) nested in `prestosynth`, whose upstream has since updated `gcem` and `libsamplerate`. Updating `prestosynth` should let the setting go. On Windows, PowerShell splits the unquoted `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` at the dot; CMake then rejects `"3"`, and `check_ipo_supported` fails because CMP0069 is unset.
-- **Python 3.9.** `ubuntu-latest` (Ubuntu 26.04) no longer provides Python 3.9, and 3.9 is past end of life. Decide whether to raise `requires-python` or to test 3.9 on an older image.
+- **CMake 4.** `CMAKE_POLICY_VERSION_MINIMUM` in `CMakeLists.txt` and `pyproject.toml` exists because CMake 4 rejects projects declaring a minimum below 3.5. The direct submodules all declare 3.8 or later; the remaining offender is `gcem` (3.1) nested in `prestosynth`, whose upstream has since updated `gcem` and `libsamplerate`. Updating `prestosynth` should let the setting go.
+- **Python 3.9.** 3.9 is past end of life; CI still tests it through a uv-managed interpreter. Decide when to raise `requires-python`.
 - **nanobind 3.** The pinned v2.12.0 is one major version behind (3.1.0). Upgrading affects stub generation and `scripts/lift_generic_stubs.py`.
 - **abcmidi.** Upstream has newer `abc2midi` releases (5.14) that change conversion output; updating needs the ABC tests re-baselined.
 - **Free-threaded Python.** Importing the extension on `3.13t`/`3.14t` re-enables the GIL with a `RuntimeWarning`. Supporting it requires declaring free-threading support in the module and auditing shared state.
+
+## Static analysis
+
+- **clice lint as a gate.** `clice lint` reports about 130 findings: roughly 47 are `zpp_bits` compile errors under Clang 21 (see above), and most of the rest are in `examples/`, `py_src/` and `tests/cpp/`, where use-after-move findings in tests are intentional. Fix or suppress them, then run `clice lint` in the `lint` lane.
+- **ty.** `ty check` on the installed package reports about 290 diagnostics, mostly generated-stub overrides and NumPy method names shadowed by the containers. Decide whether ty replaces the mypy checks in `tests/typecheck`, fix the stubs, then add it to CI.
+- **Markdown code blocks.** Ruff can format Python blocks in Markdown; the `lint` lane does not check them yet.
 
 ## Memory safety
 

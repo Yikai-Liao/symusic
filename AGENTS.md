@@ -16,6 +16,7 @@ Batch the reads for your task in one step. Each link points to a section; read t
 | Add or update a dependency | [Dependencies](CONTRIBUTING.md#dependencies) |
 | Edit documentation or docstrings | [Documentation](CONTRIBUTING.md#documentation) |
 | Work on known debt or plan work | [Roadmap](ROADMAP.md) |
+| Change CI, or add a top-level file or directory | [CI](docs/development/ci.md) |
 | Commit, open a PR or release | [Commits and pull requests](CONTRIBUTING.md#commits-and-pull-requests), [releasing](CONTRIBUTING.md#releasing) |
 
 The [documentation index](docs/README.md) covers user-facing topics.
@@ -26,16 +27,16 @@ Run from the repository root inside a virtual environment:
 
 ```sh
 git submodule update --init --recursive --depth 1     # once per clone or worktree
-pip install ".[test]" -C cmake.define.SYMUSIC_FAST_BUILD=ON
+uv pip install ".[test]" -C cmake.define.SYMUSIC_FAST_BUILD=ON
 pytest -n auto tests
 cmake -S . -B ../symusic-build -DBUILD_SYMUSIC_TEST=ON -DCMAKE_BUILD_TYPE=Debug \
   && cmake --build ../symusic-build -j && ctest --test-dir ../symusic-build --output-on-failure
-pre-commit run --all-files
+prek run --all-files                                   # needs clice on PATH
 ```
 
-- Reinstall with `pip install .` after any change to `src/`, `include/`, `py_src/`, `python/` or `scripts/lift_generic_stubs.py`; tests import the installed package and its generated `core.pyi`.
+- Reinstall after any change to `src/`, `include/`, `py_src/`, `python/` or `scripts/lift_generic_stubs.py`; tests import the installed package and its generated `core.pyi`.
 - Use a regular CPython. Free-threaded builds (`3.13t`, `3.14t`) fail `tests/test_abc.py` with a GIL `RuntimeWarning` that pytest turns into an error; `uv venv` may pick one by default, so pass `-p 3.12`.
-- Keep build directories outside the source tree.
+- Keep build directories outside the source tree; only `build/`, used by `clice lint`, lives inside it.
 
 ## Always preserve
 
