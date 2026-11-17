@@ -1,0 +1,83 @@
+name: Cross validation
+
+# Experiment: Linux builds the binaries; native runners execute them.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - id: targets
+        run: |
+          echo 'matrix={"include":[{"target":"aarch64-apple-darwin","runner":"macos-15"},{"target":"x86_64-apple-darwin","runner":"macos-15-intel"},{"target":"aarch64-unknown-linux-gnu","runner":"ubuntu-24.04-arm"},{"target":"aarch64-unknown-linux-musl","runner":"ubuntu-24.04-arm"},{"target":"x86_64-pc-windows-msvc","runner":"windows-2022"},{"target":"aarch64-pc-windows-msvc","runner":"windows-11-arm"}]}' >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install xclang
+        id: compiler
+        run: echo "root=$(bash .github/scripts/install_xclang.sh "$RUNNER_TEMP/toolchain")" >> "$GITHUB_OUTPUT"
+      - name: Fetch vendor SDK
+        env:
+          XCLANG: ${{ steps.compiler.outputs.root }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            *apple-darwin) "$XCLANG/bin/xclang" sdk fetch macos --accept-license --preset macos-15 ;;
+            *pc-windows-msvc) "$XCLANG/bin/xclang" sdk fetch windows --accept-license --preset windows-2022 --arch x86_64,aarch64 ;;
+          esac
+      - name: Configure
+        env:
+          XCLANG: ${{ steps.compiler.outputs.root }}
+          TARGET: ${{ matrix.target }}
+        run: >-
+          cmake -S . -B "$RUNNER_TEMP/build"
+          --toolchain "$XCLANG/lib/cmake/xclang/toolchain.cmake"
+          -DXCLANG_TARGET="$TARGET" -DSYMUSIC_BUILD_TESTS=ON
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+      - name: Build test executable
+        run: cmake --build "$RUNNER_TEMP/build" --target symusic_test --parallel 2
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cross-${{ matrix.target }}
+          path: ${{ runner.temp }}/build/symusic_test*
+          if-no-files-found: error
+
+  test:
+    needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    name: native (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: cross-${{ matrix.target }}
+          path: ${{ runner.temp }}/cross-test
+      - name: Run C++ tests on the target
+        working-directory: tests
+        run: |
+          binary="$RUNNER_TEMP/cross-test/symusic_test"
+          if [ "$RUNNER_OS" = Windows ]; then binary="$binary.exe"; fi
+          chmod +x "$binary"
+          "$binary" --reporter compact

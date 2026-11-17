@@ -1,17 +1,18 @@
 # Continuous integration
 
-CI runs on GitHub Actions. Every pull request reports one required check, `ci-ok`, which passes when every lane the change selected has passed. Lanes the change did not select are skipped and count as passed.
+CI runs on GitHub Actions. Every pull request reports an aggregate check, `ci-ok`, which passes when every lane the change selected has passed. Lanes the change did not select are skipped and count as passed. Configure `ci-ok` as a required status check in GitHub branch protection to enforce it before merging; the workflow alone does not enforce that rule.
 
 ## Workflows
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `ci.yml` | Pull requests, pushes to `main`, manual | Lint, tests, docs and a wheel smoke build, routed by changed paths |
-| `pr-title.yml` | Pull requests | Checks the title against the [commit convention](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#commits-and-pull-requests) |
+| `ci.yml` | Pull requests, pushes to `main`, weekly, manual | Small daily checks; the compatibility matrix runs weekly or on request |
+| `pr-title.yml` | Pull requests | Checks the title against the [commit convention](../CONTRIBUTING.md#commits-and-pull-requests) |
 | `wheels.yml` | Manual, called by the other workflows | Builds and tests every wheel and the sdist with cibuildwheel |
 | `release.yml` | GitHub release published | Runs the full wheel build and uploads to PyPI |
+| `cross-validation.yml` | Manual Wheels run with `cross_validation` enabled | Experimental xclang builds on Linux, executed on native target runners |
 
-cibuildwheel reads its configuration from `[tool.cibuildwheel]` in `pyproject.toml`; the workflow only picks the runner and architecture.
+cibuildwheel reads its configuration from `[tool.cibuildwheel]` in `pyproject.toml`; the workflow picks the runner, architecture and libc.
 
 ## Lanes
 
@@ -20,12 +21,20 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 | Lane | Selected by | Runs |
 |---|---|---|
 | `lint` | Always | `prek run --all-files` (whitespace, YAML/TOML, Ruff, clice format), action pin check, CI script tests |
-| `python` | Core, binding, package, tests, build files | `pytest` on Linux (CPython 3.10 and 3.14, PyPy 3.11), macOS and Windows; Python coverage from Linux 3.14 |
-| `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, macOS and Windows; C++ coverage from Linux |
-| `docs` | `docs/`, core, binding, package | Sphinx with warnings as errors |
-| `wheels` | Core, binding, build and packaging files | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
+| `python` | Core, binding, package, tests, build files | `pytest` on Linux CPython 3.12, with Python coverage |
+| `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, with C++ coverage |
+| `docs` | `docs/`, `CONTRIBUTING.md`, `ROADMAP.md`, binding, package, build files | Sphinx HTML with warnings as errors |
+| `wheels` | Build, packaging, dependency and CI configuration | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
 
-Changes to `.github/workflows/` or `.github/scripts/` select every lane. Markdown files outside `docs/` select only `lint`. When you add a top-level file or directory, add a rule to `ci_changes.py`; a test fails until every tracked file matches one.
+Changes to `.github/workflows/` or `.github/scripts/` select every lane. Root Markdown files included in the website select `docs`; other Markdown files outside `docs/` select only `lint`. Renames select both the old and new paths' lanes. When you add a top-level file or directory, add a rule to `ci_changes.py`; a test fails until every tracked file matches one.
+
+Ordinary core changes select the Python and C++ lanes without rebuilding documentation or running Docker packaging tests. Binding changes also select docs because the API reference imports the extension. Matrices and path routing both live in `ci_changes.py`.
+
+The C++ lane also compiles examples when their sources or shared CMake configuration change. Full runs compile them on every selected platform; ordinary core PRs keep them off.
+
+## Compatibility checks
+
+Every Monday at 08:00 UTC, or when a manual run enables `compatibility`, CI selects all lanes and adds Linux CPython 3.10/3.15 and PyPy 3.11, macOS and Windows CPython 3.15, and C++ tests on macOS and Windows. The baseline Linux 3.12 checks remain, with coverage collected only there. External linkcheck runs in this mode; network failures do not delay ordinary PRs.
 
 ## Reproduce locally
 
@@ -33,14 +42,27 @@ Changes to `.github/workflows/` or `.github/scripts/` select every lane. Markdow
 uvx prek run --all-files                       # lint lane; needs clice on PATH
 pytest .github/scripts                          # CI script tests
 python .github/scripts/ci_changes.py origin/main  # lanes for your branch
+python .github/scripts/ci_changes.py --compatibility  # full matrices
 ```
 
-The test lanes use the commands in [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#validate). `.github/scripts/install_clice.sh` installs the clice release CI uses on Linux x86_64.
+The test lanes use the commands in [CONTRIBUTING.md](../CONTRIBUTING.md#validate). `.github/scripts/install_clice.sh` installs the clice release CI uses on Linux x86_64.
 
 ## Before a release
 
-Pull requests build a single wheel, so the [release steps](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#releasing) start with a manual full **Wheels** run.
+Packaging changes build a single wheel in PRs, so the [release steps](../CONTRIBUTING.md#releasing) start with a manual full **Wheels** run and a manual **CI** run with `compatibility` enabled.
+
+The full build keeps every interpreter for one platform in the same job. It builds separate wheels for CPython 3.10/3.11 and supported PyPy targets, then builds one `cp312-abi3` wheel and reuses it for tests on 3.13, 3.14 and 3.15. Splitting those interpreters into separate jobs would lose reuse.
+
+Linux and macOS wheel jobs use ccache for both C and C++. The core library, synthesizer and ABC converter objects can be reused across Python builds when their inputs match; binding objects are recompiled when their Python headers or flags differ. Linux installs a checksum-pinned static ccache binary inside each wheel container; macOS uses Homebrew. The cache lives only for that container or runner, so it never crosses OS, architecture, libc or job boundaries. Build isolation can discard CMake's object directory, which is why a compiler cache is used instead of sharing an unchecked build tree. Cache statistics are printed before wheel tests.
+
+The Python test lane keys its uv dependency cache on the root `pyproject.toml`, OS and interpreter, so unrelated vendored documentation changes do not discard source-built PyPy dependencies.
+
+## Cross-compilation experiment
+
+A manual **Wheels** run with `cross_validation` enabled skips packaging and calls `cross-validation.yml`. Linux x64 builds the full C++ test executable for macOS 13+ (arm64 and x86_64), Linux ARM64 (glibc and static musl), and Windows (MSVC ABI, x64 and ARM64). Native GitHub runners then run each artifact against the test fixtures. The checksum-pinned xclang installer and vendor SDK presets make the build reproducible; SDK downloads require the maintainer's accepted Apple and Microsoft licenses. SDKs are never uploaded as artifacts.
+
+This experiment validates the C++ core and target runtime only. Release wheels retain native builders until target Python headers/libraries, stub generation, wheel repair and installed-package tests also pass.
 
 ## Pinning
 
-Third-party actions are pinned to a full commit SHA with the version in a comment; `actions/*` may use a major tag. `check_action_pins.py` enforces this. Dependabot updates actions weekly; submodules follow release tags and are updated by hand (see [Dependencies](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#dependencies)). The clice version and checksum live in `install_clice.sh`, and prek's version in `ci.yml`.
+Third-party actions are pinned to a full commit SHA with the version in a comment; `actions/*` may use a major tag. `check_action_pins.py` enforces this. Dependabot updates actions weekly; submodules follow release tags and are updated by hand (see [Dependencies](../CONTRIBUTING.md#dependencies)). The clice and Linux ccache versions and checksums live in their installer scripts, and prek's version in `ci.yml`.

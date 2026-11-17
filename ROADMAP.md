@@ -8,12 +8,17 @@ Workarounds and unsupported configurations with current toolchains.
 
 - **CMake 4.** `CMAKE_POLICY_VERSION_MINIMUM` in `CMakeLists.txt` and `pyproject.toml` exists because CMake 4 rejects projects declaring a minimum below 3.5. The direct submodules all declare 3.8 or later; the remaining offender is `gcem` (3.1) nested in `prestosynth`, whose upstream has since updated `gcem` and `libsamplerate`. Updating `prestosynth` should let the setting go.
 - **Free-threaded Python.** Importing the extension on `3.13t`/`3.14t` re-enables the GIL with a `RuntimeWarning`. Supporting it requires declaring free-threading support in the module and auditing shared state.
+- **Cross-compiled wheels.** Prioritize macOS 13+ (arm64 and x86_64) and Linux ARM64 with [xclang](https://github.com/clice-io/xclang). The optional [cross-validation workflow](docs/development/ci.md#cross-compilation-experiment) also tests Windows MSVC targets using Microsoft's SDK. Python wheels still need target Python headers/libraries, a host-side stub-generation plan, wheel repair and installed-package tests. Keep native packaging until these contracts are verified.
 
 ## Static analysis
 
-- **clice lint as a gate.** `clice lint` reports about 130 findings: roughly 47 are `zpp_bits` compile errors under Clang 21 (see above), and most of the rest are in `examples/`, `py_src/` and `tests/cpp/`, where use-after-move findings in tests are intentional. Fix or suppress them, then run `clice lint` in the `lint` lane.
+- **clice lint as a gate.** Re-run `clice lint` after the `zpp_bits` serializer fix and triage the remaining findings in `examples/`, `py_src/` and `tests/cpp/`; use-after-move findings in tests may be intentional. Fix or suppress them, then run `clice lint` in the `lint` lane.
 - **ty.** `ty check` on the installed package reports about 290 diagnostics, mostly generated-stub overrides and NumPy method names shadowed by the containers. Decide whether ty replaces the mypy checks in `tests/typecheck`, fix the stubs, then add it to CI.
 - **Markdown code blocks.** Ruff can format Python blocks in Markdown; the `lint` lane does not check them yet.
+
+## Merge checks
+
+- **Require CI before merging.** Configure a GitHub branch protection rule or ruleset requiring `ci-ok`; the workflow reports the result but cannot enforce merge restrictions by itself.
 
 ## Memory safety
 

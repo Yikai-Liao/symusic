@@ -6,6 +6,11 @@ name: Wheels
 
 on:
   workflow_dispatch:
+    inputs:
+      cross_validation:
+        description: Run the temporary cross-build experiment on native runners
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       smoke:
@@ -29,7 +34,7 @@ jobs:
           CIBW_BUILD: cp312-manylinux_x86_64 cp315-manylinux_x86_64
 
   wheels:
-    if: ${{ !inputs.smoke }}
+    if: ${{ !inputs.smoke && !inputs.cross_validation }}
     name: wheels (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -59,6 +64,14 @@ jobs:
           CIBW_ARCHS: ${{ matrix.archs || 'native' }}
           # Splits Linux by libc into parallel jobs; empty elsewhere.
           CIBW_SKIP: ${{ matrix.skip }}
+          # Keep one cache per container/runner across the Python builds.
+          # ccache checks source, headers and compiler flags; Python-dependent
+          # objects miss automatically when the interpreter changes.
+          CIBW_BEFORE_ALL_LINUX: bash {project}/.github/scripts/install_ccache.sh /usr/local
+          CIBW_BEFORE_ALL_MACOS: brew install ccache
+          CIBW_CONFIG_SETTINGS: ${{ runner.os != 'Windows' && 'cmake.define.CMAKE_C_COMPILER_LAUNCHER=ccache cmake.define.CMAKE_CXX_COMPILER_LAUNCHER=ccache' || '' }}
+          CIBW_BEFORE_TEST_LINUX: ccache --show-stats
+          CIBW_BEFORE_TEST_MACOS: ccache --show-stats
       - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform }}
@@ -66,7 +79,7 @@ jobs:
           if-no-files-found: error
 
   sdist:
-    if: ${{ !inputs.smoke }}
+    if: ${{ !inputs.smoke && !inputs.cross_validation }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -79,3 +92,7 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
           if-no-files-found: error
+
+  cross-validation:
+    if: ${{ inputs.cross_validation }}
+    uses: ./.github/workflows/cross-validation.yml
