@@ -62,6 +62,6 @@ api/core/index
 
 design/architecture
 development/ci
-Contributing guide <https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md>
-Roadmap <https://github.com/Yikai-Liao/symusic/blob/main/ROADMAP.md>
+CONTRIBUTING
+ROADMAP
 ```

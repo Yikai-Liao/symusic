@@ -1,6 +1,6 @@
 name: CI
 
-# One required check, `ci-ok`, gates merges. The `changes` job selects lanes
+# The aggregate check is `ci-ok`. The `changes` job selects lanes
 # from the changed paths (.github/scripts/ci_changes.py); pushes to main and
 # manual runs select every lane. See docs/development/ci.md.
 
@@ -9,6 +9,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      compatibility:
+        description: Run the full interpreter and operating-system matrix
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 8 * * 1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -29,6 +36,8 @@ jobs:
       cpp: ${{ steps.select.outputs.cpp }}
       docs: ${{ steps.select.outputs.docs }}
       wheels: ${{ steps.select.outputs.wheels }}
+      python_matrix: ${{ steps.select.outputs.python_matrix }}
+      cpp_matrix: ${{ steps.select.outputs.cpp_matrix }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,7 +45,11 @@ jobs:
       - id: select
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
-        run: python3 .github/scripts/ci_changes.py "$BASE_REF" | tee -a "$GITHUB_OUTPUT"
+          COMPATIBILITY: ${{ github.event_name == 'schedule' || inputs.compatibility == true }}
+        run: |
+          args=("$BASE_REF")
+          if [ "$COMPATIBILITY" = true ]; then args+=(--compatibility); fi
+          python3 .github/scripts/ci_changes.py "${args[@]}" | tee -a "$GITHUB_OUTPUT"
 
   lint:
     runs-on: ubuntu-latest
@@ -61,13 +74,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, python: "3.10" }
-          - { os: ubuntu-latest, python: "3.14", coverage: true }
-          - { os: ubuntu-latest, python: "pypy3.11" }
-          - { os: macos-latest, python: "3.14" }
-          - { os: windows-latest, python: "3.14" }
+      matrix: ${{ fromJSON(needs.changes.outputs.python_matrix) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -81,6 +88,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           activate-environment: true
+          # Keep source-built PyPy dependencies across unrelated submodule
+          # and documentation changes. setup-uv also keys by OS and Python.
+          cache-dependency-glob: pyproject.toml
       - name: Install
         run: uv pip install ".[test]" --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Test
@@ -100,11 +110,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, coverage: true }
-          - { os: macos-latest }
-          - { os: windows-latest }
+      matrix: ${{ fromJSON(needs.changes.outputs.cpp_matrix) }}
     defaults:
       run:
         shell: bash
@@ -121,9 +127,10 @@ jobs:
         if: matrix.coverage
       - name: Configure
         run: >-
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_SYMUSIC_TEST=ON -DENABLE_LTO=OFF
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_ENABLE_LTO=OFF
+          -DSYMUSIC_BUILD_EXAMPLES=${{ matrix.examples && 'ON' || 'OFF' }}
           ${{ runner.os == 'Windows' && '-G Ninja' || '' }}
-          ${{ matrix.coverage && '-DENABLE_COVERAGE=ON' || '' }}
+          ${{ matrix.coverage && '-DSYMUSIC_ENABLE_COVERAGE=ON' || '' }}
       - name: Build
         run: cmake --build build --config Debug --parallel
       - name: Test
@@ -157,6 +164,9 @@ jobs:
         run: uv pip install -r docs/requirements.txt . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Build (warnings are errors)
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+      - name: Check links
+        if: github.event_name == 'schedule' || inputs.compatibility == true
+        run: python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck
 
   wheels:
     needs: changes

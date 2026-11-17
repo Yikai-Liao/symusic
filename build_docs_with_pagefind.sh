@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Activate virtual environment (.venv only)
 if [ -d ".venv" ]; then
@@ -12,7 +13,7 @@ rm -rf docs/_build
 
 # Build Sphinx documentation
 echo "Building Sphinx documentation..."
-sphinx-build -b html docs docs/_build/html
+python -m sphinx -W --keep-going -b html docs docs/_build/html
 
 # Run Pagefind indexing
 echo "Indexing with Pagefind..."

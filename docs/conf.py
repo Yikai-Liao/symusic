@@ -90,7 +90,6 @@ nitpicky = False
 # Suppress known warnings from nanobind typing placeholder classes and
 # Sphinx extension internals that are noisy during local previews.
 suppress_warnings = [
-    "docutils",
     "autodoc.duplicate_object",
     "autosummary",
     "ref.python",
@@ -108,6 +107,11 @@ nitpick_ignore_regex = [
     (r"py:.*", r"nanobind\..*"),
     (r"py:.*", r"typing\..*"),
 ]
+
+linkcheck_timeout = 15
+linkcheck_retries = 2
+linkcheck_rate_limit_timeout = 30
+linkcheck_report_timeouts_as_broken = True
 
 # Napoleon settings
 napoleon_use_param = True

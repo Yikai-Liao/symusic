@@ -14,3 +14,4 @@ build:
       - SITE_DIR="${READTHEDOCS_OUTPUT:-docs/_build}/html" && npx pagefind --site "$SITE_DIR" --output-subdir _pagefind
 sphinx:
   configuration: docs/conf.py
+  fail_on_warning: true
