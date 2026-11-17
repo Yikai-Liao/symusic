@@ -64,7 +64,10 @@ def test_core_lto(tmp_path: Path) -> None:
     assert all("-flto" not in command for command in commands_for(root / "src"))
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Uses the Linux host compiler")
+@pytest.mark.skipif(
+    sys.platform != "linux" or shutil.which("cmake") is None,
+    reason="Compile-command checks run on Linux with CMake installed",
+)
 def test_cross_stub(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[2]
     command = [
