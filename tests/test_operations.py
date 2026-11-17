@@ -13,7 +13,7 @@ import pytest
 from symusic import Note, Score, Tempo, TimeSignature, Track
 
 
-@pytest.fixture()
+@pytest.fixture
 def complex_score():
     """Create a more complex score for testing."""
     score = Score(480)  # 480 ticks per quarter

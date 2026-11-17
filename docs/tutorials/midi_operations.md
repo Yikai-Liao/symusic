@@ -37,7 +37,9 @@ print(f"Score duration (ticks): {score_tick.end() - score_tick.start()}")
 # Access tracks
 print("\nTracks:")
 for i, track in enumerate(score_tick.tracks):
-    print(f"  Track {i}: Name='{track.name}', Program={track.program}, IsDrum={track.is_drum}, Notes={track.note_num()}")
+    print(
+        f"  Track {i}: Name='{track.name}', Program={track.program}, IsDrum={track.is_drum}, Notes={track.note_num()}"
+    )
 
 # Access global events (e.g., tempos)
 print("\nTempo Changes:")
@@ -48,7 +50,9 @@ for tempo in score_tick.tempos:
 first_track = score_tick.tracks[0]
 print("\nFirst 5 notes of Track 0:")
 for note in first_track.notes[:5]:
-    print(f"  Time={note.time}, Dur={note.duration}, Pitch={note.pitch}, Vel={note.velocity}")
+    print(
+        f"  Time={note.time}, Dur={note.duration}, Pitch={note.pitch}, Vel={note.velocity}"
+    )
 ```
 
 ## Modifying MIDI Data
@@ -82,7 +86,7 @@ from symusic import Tempo
 
 # Change the tempo at the beginning
 if score_tick.tempos:
-    score_tick.tempos[0].qpm = 100.0 # Set first tempo to 100 BPM
+    score_tick.tempos[0].qpm = 100.0  # Set first tempo to 100 BPM
 else:
     # Add a tempo event if none exist
     score_tick.tempos.append(Tempo(time=0, qpm=100.0))
@@ -103,7 +107,7 @@ if score_tick.tracks:
 
 # Remove drum tracks (creates a new list)
 non_drum_tracks = [track for track in score_tick.tracks if not track.is_drum]
-score_tick.tracks = non_drum_tracks # Replace the track list
+score_tick.tracks = non_drum_tracks  # Replace the track list
 ```
 
 ## Saving MIDI Files
@@ -131,19 +135,21 @@ import multiprocessing as mp
 from pathlib import Path
 from symusic import Score
 
+
 def process_midi(midi_path: Path, output_dir: Path):
     try:
         score = Score(midi_path)
         # Example: Keep only piano tracks (program 0)
         piano_tracks = [t for t in score.tracks if t.program == 0 and not t.is_drum]
         if not piano_tracks:
-            return # Skip if no piano tracks
+            return  # Skip if no piano tracks
 
         score.tracks = piano_tracks
         score.dump_midi(output_dir / midi_path.name)
         print(f"Processed: {midi_path.name}")
     except Exception as e:
         print(f"Error processing {midi_path.name}: {e}")
+
 
 if __name__ == "__main__":
     input_directory = Path("path/to/midi/collection")

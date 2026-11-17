@@ -13,18 +13,18 @@ if TYPE_CHECKING:
     from numpy import ndarray
 
 __all__ = [
-    "TimeUnit",
-    "Note",
-    "KeySignature",
-    "TimeSignature",
     "ControlChange",
-    "Tempo",
+    "KeySignature",
+    "Note",
     "Pedal",
     "PitchBend",
-    "TextMeta",
-    "Track",
     "Score",
     "Synthesizer",
+    "Tempo",
+    "TextMeta",
+    "TimeSignature",
+    "TimeUnit",
+    "Track",
 ]
 
 _HERE = Path(__file__).parent
@@ -66,6 +66,7 @@ class TimeUnitFactory:
     `__call__` helper so downstream APIs can accept flexible values without
     duplicating validation logic.
     """
+
     def __init__(self) -> None:
         self._tick = core.Tick()
         self._quarter = core.Quarter()
@@ -124,6 +125,7 @@ class CoreClasses(Generic[T, Q, S]):
     the requested time unit exactly once and reuse the same logic for constructors,
     numpy helpers, and isinstance checks.
     """
+
     tick: T
     quarter: Q
     second: S
@@ -164,6 +166,7 @@ class NoteFactory:
     `NoteSecond` depending on the requested time unit, which mirrors the templated
     C++ API while remaining ergonomic for Python callers.
     """
+
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
     __core_lists = CoreClasses(
         core.NoteTickList,
@@ -214,6 +217,7 @@ class NoteFactory:
 @dataclass(frozen=True)
 class KeySignatureFactory:
     """Factory responsible for key signature events and their typed vectors."""
+
     __core_classes = CoreClasses(
         core.KeySignatureTick,
         core.KeySignatureQuarter,
@@ -251,6 +255,7 @@ class KeySignatureFactory:
 @dataclass(frozen=True)
 class TimeSignatureFactory:
     """Factory wrapper for the meter-change events exposed by `symusic.core`."""
+
     __core_classes = CoreClasses(
         core.TimeSignatureTick,
         core.TimeSignatureQuarter,
@@ -292,6 +297,7 @@ class TimeSignatureFactory:
 @dataclass(frozen=True)
 class ControlChangeFactory:
     """Produces controller events mapped to the requested time domain."""
+
     __core_classes = CoreClasses(
         core.ControlChangeTick,
         core.ControlChangeQuarter,
@@ -329,6 +335,7 @@ class ControlChangeFactory:
 @dataclass(frozen=True)
 class TempoFactory:
     """Creates tempo-change events, handling either QPM or raw MSPQ inputs."""
+
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
     __core_lists = CoreClasses(
         core.TempoTickList,
@@ -367,6 +374,7 @@ class TempoFactory:
 @dataclass(frozen=True)
 class PedalFactory:
     """Creates sustain/soft-pedal envelopes tied to the requested time resolution."""
+
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
     __core_lists = CoreClasses(
         core.PedalTickList,
@@ -398,6 +406,7 @@ class PedalFactory:
 @dataclass(frozen=True)
 class PitchBendFactory:
     """Constructs wheel-based pitch bend events."""
+
     __core_classes = CoreClasses(
         core.PitchBendTick,
         core.PitchBendQuarter,
@@ -433,6 +442,7 @@ class PitchBendFactory:
 @dataclass(frozen=True)
 class TextMetaFactory:
     """Factory for textual metadata events such as lyrics or markers."""
+
     __core_classes = CoreClasses(
         core.TextMetaTick,
         core.TextMetaQuarter,
@@ -469,6 +479,7 @@ class TextMetaFactory:
 @dataclass(frozen=True)
 class TrackFactory:
     """Creates `symusic.core.Track*` objects pre-populated with optional event lists."""
+
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
     def __call__(
@@ -516,6 +527,7 @@ class ScoreFactory:
     forwards everything to the nanobind implementation while preserving the per
     time-unit specializations.
     """
+
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
 
     def __call__(
@@ -543,7 +555,7 @@ class ScoreFactory:
         ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
         sanitize_data: bool = False,
-        format: str | None = None,
+        format: str | None = None,  # noqa: A002  public keyword argument
     ) -> smt.Score:
         if format is not None:
             if fmt is not None and fmt != format:
@@ -609,6 +621,7 @@ class SynthesizerFactory:
     without hunting for a SoundFont. It forwards parameters to the underlying
     engine and returns a ready-to-use synthesizer instance.
     """
+
     def __call__(
         self,
         sf_path: str | Path | None = None,
@@ -625,7 +638,7 @@ class SynthesizerFactory:
         sample_rate : int, default 44100
             Output sample rate in Hz.
         quality : int, default 0
-            Synthesis quality knob (0–6). Higher values improve fidelity at the
+            Synthesis quality knob (0-6). Higher values improve fidelity at the
             cost of performance.
 
         Returns

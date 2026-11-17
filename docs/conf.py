@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import os
 import sys
-import types
 from datetime import datetime
 from pathlib import Path
+
+from sphinx.errors import PycodeError
+from sphinx.pycode import ModuleAnalyzer
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 EXTENSIONS_ROOT = Path(__file__).resolve().parent / "_ext"
 sys.path.insert(0, str(EXTENSIONS_ROOT))
-
-from sphinx.errors import PycodeError
-from sphinx.pycode import ModuleAnalyzer
 
 _original_get_module_source = ModuleAnalyzer.get_module_source
 
@@ -21,17 +20,15 @@ def _safe_get_module_source(modname: str):
     try:
         return _original_get_module_source(modname)
     except TypeError as exc:  # pragma: no cover - defensive guard for compiled modules
-        raise PycodeError(f"error importing {modname!r}", exc) from exc
+        msg = f"error importing {modname!r}"
+        raise PycodeError(msg, exc) from exc
 
 
 ModuleAnalyzer.get_module_source = staticmethod(_safe_get_module_source)
 
 
 # Try to import installed package first; fallback to local build artifact
-import importlib.util
-import glob
 
-import symusic.core as core_module  # type: ignore
 
 # Also add to python path for other imports (lower precedence than site-packages)
 sys.path.append(str(PROJECT_ROOT / "python"))
@@ -140,7 +137,7 @@ html_baseurl = os.environ.get(
 
 # Custom search page using Pagefind
 html_additional_pages = {
-    'search': 'search.html',  # relative to docs/_templates directory
+    "search": "search.html",  # relative to docs/_templates directory
 }
 
 # Tell Sphinx where the package is located without requiring an installed wheel.

@@ -124,11 +124,9 @@ def test_check_scores_equals(file_path: Path):
     assert score != score_copy
 
 
-def test_merge_tracks(
-    file_path: str | Path = MIDI_PATHS_ONE_TRACK[0],
-):
+def test_merge_tracks():
     # Load music file and only keep the first track
-    score = Score(file_path)
+    score = Score(MIDI_PATHS_ONE_TRACK[0])
     score.tracks = [score.tracks[0]]
 
     # Duplicate the track and merge it

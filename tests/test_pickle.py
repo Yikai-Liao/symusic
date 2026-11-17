@@ -71,7 +71,7 @@ def _build_score(ttype: str):
 
 
 def _assert_pickle_roundtrip(obj: object) -> object:
-    restored = pickle.loads(  # noqa: S301
+    restored = pickle.loads(
         pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL),
     )
     assert type(restored) is type(obj)

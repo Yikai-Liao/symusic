@@ -379,7 +379,7 @@ def lift_generic_stubs(source: str) -> str:
                 generated.extend(
                     textwrap.indent(
                         ast.unparse(
-                            _restricted_function(function, base, unit, add_overload)
+                            _restricted_function(function, base, unit, add_overload),
                         ),
                         "    ",
                     )
@@ -436,7 +436,7 @@ def lift_generic_stubs(source: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Lift nanobind specializations with restricted-self signatures."
+        description="Lift nanobind specializations with restricted-self signatures.",
     )
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)

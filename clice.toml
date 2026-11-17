@@ -1,0 +1,10 @@
+#:schema https://docs.clice.io/clice-config.schema.json
+
+# Third-party code and the abcmidi C wrappers: compiled for context only,
+# never indexed on their own, linted or formatted.
+[[rules]]
+patterns = ["3rdparty/**", "cmake/**", "include/argparse.h"]
+skip_function_body = true
+background_index = false
+lint = false
+format = false

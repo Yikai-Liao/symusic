@@ -1,8 +1,9 @@
-from sphinx.application import Sphinx
-from sphinx import addnodes
-from docutils import nodes
 import inspect
 import re
+
+from docutils import nodes
+from sphinx import addnodes
+from sphinx.application import Sphinx
 
 
 def _before_process_signature(app: Sphinx, obj, bound_method):
@@ -13,34 +14,34 @@ def _before_process_signature(app: Sphinx, obj, bound_method):
     # Only process classes
     if not isinstance(obj, type):
         return
-    
+
     # Create __annotations__ if it doesn't exist
-    if not hasattr(obj, '__annotations__'):
+    if not hasattr(obj, "__annotations__"):
         obj.__annotations__ = {}
-    
+
     # Scan all attributes for properties with type info
     for attr_name in dir(obj):
-        if attr_name.startswith('_'):
+        if attr_name.startswith("_"):
             continue
         try:
             attr = getattr(obj, attr_name)
             # Check if it's a property with fget containing type info
-            if isinstance(attr, property) and hasattr(attr, 'fget') and attr.fget:
-                fget_doc = getattr(attr.fget, '__doc__', '')
+            if isinstance(attr, property) and hasattr(attr, "fget") and attr.fget:
+                fget_doc = getattr(attr.fget, "__doc__", "")
                 if fget_doc:
                     # Extract type from "(self) -> Type" pattern
-                    match = re.match(r'^\(self\)\s*->\s*(.+?)(?:\n|$)', fget_doc)
+                    match = re.match(r"^\(self\)\s*->\s*(.+?)(?:\n|$)", fget_doc)
                     if match and attr_name not in obj.__annotations__:
                         type_str = match.group(1).strip()
-                        
+
                         # Try to resolve the type string to an actual type object
                         try:
                             # Get the module where the class is defined
                             module = inspect.getmodule(obj)
-                            if module and '.' in type_str:
+                            if module and "." in type_str:
                                 # Handle fully qualified names like "symusic.core.NoteTickList"
                                 # Extract just the class name and look it up in the same module
-                                class_name = type_str.split('.')[-1]
+                                class_name = type_str.split(".")[-1]
                                 if hasattr(module, class_name):
                                     type_obj = getattr(module, class_name)
                                     obj.__annotations__[attr_name] = type_obj
@@ -57,13 +58,20 @@ def _before_process_signature(app: Sphinx, obj, bound_method):
             continue
 
 
-def _process_signature(app: Sphinx, what: str, name: str, obj, options, signature, return_annotation):
+def _process_signature(
+    app: Sphinx, what: str, name: str, obj, options, signature, return_annotation
+):
     """Extract type annotations from nanobind properties and inject as return annotation."""
-    if what == "property" and isinstance(obj, property) and hasattr(obj, 'fget') and obj.fget:
-        fget_doc = getattr(obj.fget, '__doc__', '')
+    if (
+        what == "property"
+        and isinstance(obj, property)
+        and hasattr(obj, "fget")
+        and obj.fget
+    ):
+        fget_doc = getattr(obj.fget, "__doc__", "")
         if fget_doc:
             # Extract type from "(self) -> Type" pattern
-            match = re.match(r'^\(self\)\s*->\s*(.+?)(?:\n|$)', fget_doc)
+            match = re.match(r"^\(self\)\s*->\s*(.+?)(?:\n|$)", fget_doc)
             if match and not return_annotation:
                 return_annotation = match.group(1).strip()
                 return "", return_annotation
@@ -81,13 +89,15 @@ def _process_docstring(app: Sphinx, what: str, name: str, obj, options, lines):
 
     # If autodoc misclassifies nanobind callables as attributes, inject a signature line
     if what == "attribute":
-        is_callable = callable(obj) or type(obj).__name__.startswith("nb_") or hasattr(obj, "__call__")
+        is_callable = (
+            callable(obj) or type(obj).__name__.startswith("nb_") or callable(obj)
+        )
         if is_callable:
             try:
                 sig = inspect.signature(obj)
                 s = f"Signature: {name.split('.')[-1]}{sig}"
                 # Prepend signature if not already present
-                if not any("Signature:" in l for l in lines):
+                if not any("Signature:" in line for line in lines):
                     lines.insert(0, s)
             except Exception:
                 pass
@@ -97,24 +107,24 @@ def _doctree_read(app: Sphinx, doctree):
     """Post-process the doctree to add type annotations and clean up signatures."""
     # Find all attribute/property signature nodes
     for desc in doctree.traverse(addnodes.desc):
-        objtype = desc.get('objtype')
-        if objtype not in ('attribute', 'property'):
+        objtype = desc.get("objtype")
+        if objtype not in ("attribute", "property"):
             continue
-        
+
         # Get the full object name from signature
         obj_name = None
         module_name = None
         for desc_signature in desc.traverse(addnodes.desc_signature):
-            obj_name = desc_signature.get('fullname')
-            module_name = desc_signature.get('module')
+            obj_name = desc_signature.get("fullname")
+            module_name = desc_signature.get("module")
             break
-        
+
         # Try to extract type from the Python object for properties
         type_annotation = None
-        if objtype in ('property', 'attribute') and obj_name and module_name:
+        if objtype in ("property", "attribute") and obj_name and module_name:
             try:
                 # Parse class name and attribute name
-                parts = obj_name.rsplit('.', 1)
+                parts = obj_name.rsplit(".", 1)
                 if len(parts) == 2:
                     class_name, attr_name = parts
                     # Import the module and get the class
@@ -122,15 +132,21 @@ def _doctree_read(app: Sphinx, doctree):
                     cls = getattr(module, class_name, None)
                     if cls:
                         prop = getattr(cls, attr_name, None)
-                        if isinstance(prop, property) and hasattr(prop, 'fget') and prop.fget:
-                            fget_doc = getattr(prop.fget, '__doc__', '')
+                        if (
+                            isinstance(prop, property)
+                            and hasattr(prop, "fget")
+                            and prop.fget
+                        ):
+                            fget_doc = getattr(prop.fget, "__doc__", "")
                             if fget_doc:
-                                match = re.match(r'^\(self\)\s*->\s*(.+?)(?:\n|$)', fget_doc)
+                                match = re.match(
+                                    r"^\(self\)\s*->\s*(.+?)(?:\n|$)", fget_doc
+                                )
                                 if match:
                                     type_annotation = match.group(1).strip()
-            except Exception as e:
+            except Exception:
                 pass
-        
+
         # Find the signature node and add type annotation
         for desc_signature in desc.traverse(addnodes.desc_signature):
             # Find the name node (desc_name) to remove class prefix first
@@ -139,52 +155,61 @@ def _doctree_read(app: Sphinx, doctree):
                 for child in desc_name.traverse(nodes.Text):
                     text = str(child)
                     # Remove class prefix if present (e.g., "Class.attr" -> "attr")
-                    if '.' in text:
+                    if "." in text:
                         # Keep only the part after the last dot
-                        short_name = text.split('.')[-1]
+                        short_name = text.split(".")[-1]
                         # Replace the text node
                         child.parent.replace(child, nodes.Text(short_name))
                         break
-            
+
             # Add type annotation after name if found
             if type_annotation:
                 # Create type annotation nodes similar to how autodoc does it for dataclass
                 # Use the same structure as em.property with punctuation and type
-                type_container = nodes.emphasis(classes=['property'])
-                
+                type_container = nodes.emphasis(classes=["property"])
+
                 # Add colon with space wrapper
-                punct_colon = addnodes.desc_sig_punctuation(':', ':')
+                punct_colon = addnodes.desc_sig_punctuation(":", ":")
                 type_container += punct_colon
-                
+
                 # Add space
                 space = addnodes.desc_sig_space()
                 type_container += space
-                
+
                 # Add type as pending_xref for proper linking
                 # For complex types (like symusic.core.NoteTickList), just show as text
                 # pending_xref only works well for standard library types
-                if '.' in type_annotation and 'symusic' in type_annotation:
+                if "." in type_annotation and "symusic" in type_annotation:
                     # For symusic types, use literal text (links won't resolve properly)
-                    type_text = nodes.literal('', '', nodes.Text(type_annotation), classes=['xref', 'py', 'py-class'])
+                    type_text = nodes.literal(
+                        "",
+                        "",
+                        nodes.Text(type_annotation),
+                        classes=["xref", "py", "py-class"],
+                    )
                     type_container += type_text
                 else:
                     # For standard types, create proper cross-reference
                     type_ref = addnodes.pending_xref(
-                        '',
-                        refdomain='py',
-                        reftype='class',
+                        "",
+                        refdomain="py",
+                        reftype="class",
                         reftarget=type_annotation,
-                        refwarn=False  # Don't warn if not found
+                        refwarn=False,  # Don't warn if not found
                     )
-                    type_ref += nodes.literal('', type_annotation, classes=['xref', 'py', 'py-class'])
+                    type_ref += nodes.literal(
+                        "", type_annotation, classes=["xref", "py", "py-class"]
+                    )
                     type_container += type_ref
-                
+
                 # Append to signature
                 desc_signature += type_container
 
 
 def setup(app: Sphinx):
-    app.connect("autodoc-before-process-signature", _before_process_signature, priority=0)
+    app.connect(
+        "autodoc-before-process-signature", _before_process_signature, priority=0
+    )
     app.connect("autodoc-process-signature", _process_signature)
     app.connect("autodoc-process-docstring", _process_docstring)
     app.connect("doctree-read", _doctree_read)

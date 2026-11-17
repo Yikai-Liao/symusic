@@ -41,7 +41,7 @@ without sudo you can install the toolchain via conda and wire it in with `CC=...
 ```python
 from symusic import Score
 
-score = Score("example.mid")         # format auto-detected
+score = Score("example.mid")  # format auto-detected
 score_abc = Score("example.abc", fmt="abc")
 ```
 
@@ -53,7 +53,7 @@ from symusic import Score, TimeUnit
 
 score_tick = Score("example.mid", ttype="tick")
 score_quarter = Score("example.mid", ttype=TimeUnit.quarter)
-score_second = score_tick.to("second")          # convert after loading
+score_second = score_tick.to("second")  # convert after loading
 ```
 
 - `tick` retains the raw MIDI ticks (int32).
@@ -116,7 +116,9 @@ score = Score("example.mid")
 print(score.ticks_per_quarter)
 print(len(score.tracks))
 first_track = score.tracks[0]
-print(first_track.name, first_track.program, "drum" if first_track.is_drum else "melodic")
+print(
+    first_track.name, first_track.program, "drum" if first_track.is_drum else "melodic"
+)
 print(len(first_track.notes), len(first_track.controls))
 ```
 
@@ -150,8 +152,12 @@ This pattern avoids Python loops when batching features for machine-learning pip
 from symusic import Score
 
 score = Score("example.mid").resample(tpq=6, min_dur=1)
-roll = score.pianoroll(modes=["onset", "frame"], pitch_range=[0, 128], encode_velocity=True)
-track_roll = score.tracks[0].pianoroll(modes=["onset", "frame", "offset"], pitch_range=[24, 108])
+roll = score.pianoroll(
+    modes=["onset", "frame"], pitch_range=[0, 128], encode_velocity=True
+)
+track_roll = score.tracks[0].pianoroll(
+    modes=["onset", "frame", "offset"], pitch_range=[24, 108]
+)
 ```
 
 - Use `Score.resample(tpq, min_dur)` before converting to limit the time axis.
@@ -162,6 +168,7 @@ Visualization example:
 
 ```python
 from matplotlib import pyplot as plt
+
 plt.imshow(track_roll[0] + track_roll[1], aspect="auto")
 plt.show()
 ```

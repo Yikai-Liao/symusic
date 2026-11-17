@@ -1,0 +1,10 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-macro-parentheses,
+  clang-analyzer-*,
+  performance-*,
+  -performance-enum-size
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/(include/symusic|src|py_src|tests/cpp)/.*'

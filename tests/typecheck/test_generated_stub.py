@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import symusic.core as core
+from symusic import core
 
 TIME_UNITS = ("Tick", "Quarter", "Second")
 GENERIC_BASES = (
@@ -54,7 +54,7 @@ def test_generic_bases_contain_every_shared_specialization_member() -> None:
 
     for base in GENERIC_BASES:
         shared = set.intersection(
-            *(_method_names(classes[f"{base}{unit}"]) for unit in TIME_UNITS)
+            *(_method_names(classes[f"{base}{unit}"]) for unit in TIME_UNITS),
         )
         assert shared
         assert shared <= _method_names(classes[base]), base

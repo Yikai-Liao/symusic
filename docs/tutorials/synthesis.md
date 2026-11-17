@@ -16,7 +16,7 @@ score = Score("path/to/file.mid")
 synthesizer = Synthesizer(
     sf_path=BuiltInSF3.MuseScoreGeneral().path(download=True),
     sample_rate=44100,
-    quality=4 # Default quality setting
+    quality=4,  # Default quality setting
 )
 
 # Render the score to audio (returns an AudioData object)
@@ -34,9 +34,11 @@ Symusic provides several built-in SoundFonts that you can use without having to 
 from symusic import BuiltInSF3
 
 # Available built-in SoundFonts
-sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)  # MuseScore General (default)
-sf_path = BuiltInSF3.FluidR3Mono().path(download=True)       # FluidR3 Mono
-sf_path = BuiltInSF3.FluidR3().path(download=True)           # FluidR3 GM
+sf_path = BuiltInSF3.MuseScoreGeneral().path(
+    download=True
+)  # MuseScore General (default)
+sf_path = BuiltInSF3.FluidR3Mono().path(download=True)  # FluidR3 Mono
+sf_path = BuiltInSF3.FluidR3().path(download=True)  # FluidR3 GM
 ```
 
 The `path()` method will return the path to the SoundFont file, downloading it if necessary when the `download` parameter is set to `True`.
@@ -47,9 +49,9 @@ The `Synthesizer` constructor takes several parameters that control the quality 
 
 ```python
 synthesizer = Synthesizer(
-    sf_path,            # Path to the SoundFont file (string or Path)
-    sample_rate,        # Sample rate in Hz (default: 44100)
-    quality             # Synthesis quality (0-6, default: 0 in factory, 4 often good)
+    sf_path,  # Path to the SoundFont file (string or Path)
+    sample_rate,  # Sample rate in Hz (default: 44100)
+    quality,  # Synthesis quality (0-6, default: 0 in factory, 4 often good)
 )
 ```
 
@@ -68,6 +70,7 @@ num_frames = audio_data.frames
 
 # Access the raw audio data as a NumPy array
 import numpy as np
+
 np_array = np.array(audio_data)  # Shape: [frames, channels]
 
 # Manipulate the audio (example: amplify by 1.5)
@@ -169,7 +172,7 @@ audio_data = synthesizer.render(score, stereo=True)
 audio_array = np.array(audio_data)  # Shape: [frames, channels]
 
 # Example: Apply a low-pass filter (cutoff at 4000 Hz)
-b, a = signal.butter(4, 4000 / (audio_data.sample_rate / 2), 'low')
+b, a = signal.butter(4, 4000 / (audio_data.sample_rate / 2), "low")
 filtered_audio = signal.filtfilt(b, a, audio_array, axis=0)
 
 # Example: Normalize the audio
@@ -202,6 +205,7 @@ Synthesis can be CPU-intensive, especially with high-quality settings. Here are 
    ```python
    # Check if SoundFont exists before using it
    import os
+
    sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
    assert os.path.exists(sf_path), f"SoundFont not found at {sf_path}"
    ```

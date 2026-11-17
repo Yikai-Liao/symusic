@@ -11,14 +11,14 @@ def make_tick_score(
 ) -> Score:
     score = Score(480)
     track = Track("Beats", 0, False)
-    track.notes.append(Note(0, int(round(end_quarters * 480)), 60, 100))
+    track.notes.append(Note(0, round(end_quarters * 480), 60, 100))
     score.tracks.append(track)
 
     for quarter_time, qpm in tempos or []:
-        score.tempos.append(Tempo(int(round(quarter_time * 480)), qpm))
+        score.tempos.append(Tempo(round(quarter_time * 480), qpm))
     for quarter_time, numerator, denominator in time_signatures or []:
         score.time_signatures.append(
-            TimeSignature(int(round(quarter_time * 480)), numerator, denominator),
+            TimeSignature(round(quarter_time * 480), numerator, denominator),
         )
     return score
 

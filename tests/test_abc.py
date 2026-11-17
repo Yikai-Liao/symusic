@@ -48,7 +48,7 @@ def list_symusic_temp_dirs() -> set[Path]:
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def isolated_symusic_temp_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

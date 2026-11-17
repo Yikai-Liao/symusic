@@ -32,18 +32,22 @@ score_resampled = score.resample(tpq=6, min_dur=1)
 # This creates a 4D array: [modes, tracks, pitch, time]
 pianoroll = score_resampled.pianoroll(
     modes=["onset", "frame"],  # Type of information to include
-    pitch_range=[0, 128],      # Range of MIDI pitches (default: all 128)
-    encode_velocity=True       # If True, use velocity values; if False, use binary (0/1)
+    pitch_range=[0, 128],  # Range of MIDI pitches (default: all 128)
+    encode_velocity=True,  # If True, use velocity values; if False, use binary (0/1)
 )
 
 # Visualize the piano roll (combined onset and frame for the first track)
 plt.figure(figsize=(12, 6))
-plt.imshow(pianoroll[0, 0] + pianoroll[1, 0], origin='lower', aspect='auto',
-           extent=[0, pianoroll.shape[3], 0, 128])
-plt.title('Piano Roll (Track 0)')
-plt.xlabel('Time (in ticks)')
-plt.ylabel('Pitch (MIDI note number)')
-plt.colorbar(label='Velocity')
+plt.imshow(
+    pianoroll[0, 0] + pianoroll[1, 0],
+    origin="lower",
+    aspect="auto",
+    extent=[0, pianoroll.shape[3], 0, 128],
+)
+plt.title("Piano Roll (Track 0)")
+plt.xlabel("Time (in ticks)")
+plt.ylabel("Pitch (MIDI note number)")
+plt.colorbar(label="Velocity")
 plt.show()
 ```
 
@@ -60,14 +64,12 @@ You can specify one or more modes when creating a piano roll:
 ```python
 # Create a piano roll with all three modes
 pianoroll = score_resampled.pianoroll(
-    modes=["onset", "frame", "offset"],
-    pitch_range=[0, 128],
-    encode_velocity=True
+    modes=["onset", "frame", "offset"], pitch_range=[0, 128], encode_velocity=True
 )
 
 # Access each mode separately
-onset_roll = pianoroll[0]   # Shape: [tracks, pitch, time]
-frame_roll = pianoroll[1]   # Shape: [tracks, pitch, time]
+onset_roll = pianoroll[0]  # Shape: [tracks, pitch, time]
+frame_roll = pianoroll[1]  # Shape: [tracks, pitch, time]
 offset_roll = pianoroll[2]  # Shape: [tracks, pitch, time]
 ```
 
@@ -90,9 +92,7 @@ track = score_resampled.tracks[0]  # First track
 
 # Convert track to piano roll (creates a 3D array: [modes, pitch, time])
 track_pianoroll = track.pianoroll(
-    modes=["onset", "frame", "offset"],
-    pitch_range=[0, 128],
-    encode_velocity=True
+    modes=["onset", "frame", "offset"], pitch_range=[0, 128], encode_velocity=True
 )
 
 # The shape is different from score.pianoroll() - no track dimension
@@ -100,12 +100,16 @@ print(f"Track piano roll shape: {track_pianoroll.shape}")  # [3, 128, time_steps
 
 # Visualize the track's piano roll
 plt.figure(figsize=(12, 6))
-plt.imshow(track_pianoroll[1], origin='lower', aspect='auto',  # Show only the frame mode
-           extent=[0, track_pianoroll.shape[2], 0, 128])
-plt.title(f'Piano Roll - {track.name}')
-plt.xlabel('Time (in ticks)')
-plt.ylabel('Pitch (MIDI note number)')
-plt.colorbar(label='Velocity')
+plt.imshow(
+    track_pianoroll[1],
+    origin="lower",
+    aspect="auto",  # Show only the frame mode
+    extent=[0, track_pianoroll.shape[2], 0, 128],
+)
+plt.title(f"Piano Roll - {track.name}")
+plt.xlabel("Time (in ticks)")
+plt.ylabel("Pitch (MIDI note number)")
+plt.colorbar(label="Velocity")
 plt.show()
 ```
 
@@ -118,14 +122,14 @@ You can focus on a specific pitch range by specifying the `pitch_range` paramete
 piano_range_roll = track.pianoroll(
     modes=["onset", "frame"],
     pitch_range=[21, 109],  # MIDI notes 21-108 (standard piano)
-    encode_velocity=True
+    encode_velocity=True,
 )
 
 # Create a piano roll for just the bass range
 bass_range_roll = track.pianoroll(
     modes=["frame"],
     pitch_range=[24, 60],  # Low range
-    encode_velocity=False  # Binary (simpler visualization)
+    encode_velocity=False,  # Binary (simpler visualization)
 )
 ```
 
@@ -135,16 +139,10 @@ The `encode_velocity` parameter controls whether the piano roll contains velocit
 
 ```python
 # Velocity-encoded piano roll (values are actual velocities: 0-127)
-velocity_roll = track.pianoroll(
-    modes=["frame"],
-    encode_velocity=True
-)
+velocity_roll = track.pianoroll(modes=["frame"], encode_velocity=True)
 
 # Binary piano roll (values are just 0 or 1)
-binary_roll = track.pianoroll(
-    modes=["frame"],
-    encode_velocity=False
-)
+binary_roll = track.pianoroll(modes=["frame"], encode_velocity=False)
 ```
 
 Binary encoding is often simpler for visualization and certain types of processing, while velocity encoding preserves more musical information.
@@ -197,7 +195,9 @@ from symusic import Score
 # Load and prepare data
 score = Score("path/to/file.mid").resample(tpq=6, min_dur=1)
 track = score.tracks[0]
-pianoroll = track.pianoroll(modes=["onset", "frame"], pitch_range=[21, 109], encode_velocity=True)
+pianoroll = track.pianoroll(
+    modes=["onset", "frame"], pitch_range=[21, 109], encode_velocity=True
+)
 
 # Create a custom colormap for better visualization
 cmap = plt.cm.viridis
@@ -208,25 +208,25 @@ fig, axs = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 
 # Plot onset roll
 onset = pianoroll[0]
-im0 = axs[0].imshow(onset, origin='lower', aspect='auto', cmap=cmap, norm=norm)
-axs[0].set_title('Note Onsets')
-axs[0].set_ylabel('Pitch')
-fig.colorbar(im0, ax=axs[0], label='Velocity')
+im0 = axs[0].imshow(onset, origin="lower", aspect="auto", cmap=cmap, norm=norm)
+axs[0].set_title("Note Onsets")
+axs[0].set_ylabel("Pitch")
+fig.colorbar(im0, ax=axs[0], label="Velocity")
 
 # Plot frame roll
 frame = pianoroll[1]
-im1 = axs[1].imshow(frame, origin='lower', aspect='auto', cmap=cmap, norm=norm)
-axs[1].set_title('Note Frames')
-axs[1].set_ylabel('Pitch')
-fig.colorbar(im1, ax=axs[1], label='Velocity')
+im1 = axs[1].imshow(frame, origin="lower", aspect="auto", cmap=cmap, norm=norm)
+axs[1].set_title("Note Frames")
+axs[1].set_ylabel("Pitch")
+fig.colorbar(im1, ax=axs[1], label="Velocity")
 
 # Plot combined view (onset + frame)
 combined = np.maximum(onset * 0.7, frame)  # Emphasize onsets
-im2 = axs[2].imshow(combined, origin='lower', aspect='auto', cmap=cmap, norm=norm)
-axs[2].set_title('Combined View')
-axs[2].set_ylabel('Pitch')
-axs[2].set_xlabel('Time (ticks)')
-fig.colorbar(im2, ax=axs[2], label='Velocity')
+im2 = axs[2].imshow(combined, origin="lower", aspect="auto", cmap=cmap, norm=norm)
+axs[2].set_title("Combined View")
+axs[2].set_ylabel("Pitch")
+axs[2].set_xlabel("Time (ticks)")
+fig.colorbar(im2, ax=axs[2], label="Velocity")
 
 # Adjust layout and display
 plt.tight_layout()
@@ -269,8 +269,8 @@ Piano rolls can be memory-intensive for long pieces or high resolutions. Conside
 # Memory-efficient piano roll for a long piece
 efficient_roll = score.resample(tpq=4, min_dur=1).pianoroll(
     modes=["frame"],
-    pitch_range=[36, 96],     # Focus on middle pitch range
-    encode_velocity=False     # Binary encoding
+    pitch_range=[36, 96],  # Focus on middle pitch range
+    encode_velocity=False,  # Binary encoding
 )
 ```
 

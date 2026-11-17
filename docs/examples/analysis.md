@@ -39,7 +39,7 @@ else:
 ```python
 from symusic import Score
 
-score = Score("path/to/file.mid", ttype="second") # Load in seconds
+score = Score("path/to/file.mid", ttype="second")  # Load in seconds
 
 duration = score.end()
 num_notes = score.note_num()
@@ -72,7 +72,7 @@ if score.tempos:
         current_time = tempo.time
         duration_at_prev_tempo = current_time - last_time
         if i > 0:
-             weighted_tempo_sum += score_sec.tempos[i-1].qpm * duration_at_prev_tempo
+            weighted_tempo_sum += score_sec.tempos[i - 1].qpm * duration_at_prev_tempo
         last_time = current_time
     # Add contribution of last tempo
     if score_sec.tempos:

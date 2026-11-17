@@ -144,7 +144,7 @@ except RuntimeError:
 raise SystemExit(1)
 """
     result = subprocess.run(
-        [sys.executable, "-c", script],  # noqa: S603
+        [sys.executable, "-c", script],
         check=False,
         capture_output=True,
         text=True,

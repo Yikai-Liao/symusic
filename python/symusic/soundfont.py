@@ -15,12 +15,13 @@ class Soundfont:
     helpers so downstream code can obtain a valid path without duplicating
     download or integrity logic.
     """
+
     name: str
     """Local filename used when saving the SoundFont."""
-    
+
     url: str
     """Public URL from which the SoundFont can be downloaded."""
-    
+
     hash_: str
     """SHA-384 digest of the file used to verify integrity after download."""
 
@@ -89,6 +90,7 @@ class BuiltInSF3:
     Methods return a :class:`Soundfont` descriptor that can be used to download
     and verify the corresponding asset.
     """
+
     @staticmethod
     def MuseScoreGeneral() -> Soundfont:
         """MuseScore General (SF3) preset.
@@ -111,6 +113,7 @@ class BuiltInSF2:
     Methods return a :class:`Soundfont` descriptor that can be used to download
     and verify the corresponding asset.
     """
+
     @staticmethod
     def MuseScoreGeneral() -> Soundfont:
         """MuseScore General (SF2) preset.

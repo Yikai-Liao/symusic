@@ -1,22 +1,22 @@
-from typing import List, Protocol, TypeVar, Union
+from typing import TypeVar, Union
 
 from . import core
 
 __all__ = [
-    "TimeUnit",
-    "GeneralTimeUnit",
-    "TimeDtype",
-    "Note",
-    "KeySignature",
-    "TimeSignature",
     "ControlChange",
-    "Tempo",
+    "GeneralTimeUnit",
+    "KeySignature",
+    "Note",
     "Pedal",
     "PitchBend",
-    "TextMeta",
-    "Track",
-    "Score",
     "PyVec",
+    "Score",
+    "Tempo",
+    "TextMeta",
+    "TimeDtype",
+    "TimeSignature",
+    "TimeUnit",
+    "Track",
 ]
 
 TimeUnit = TypeVar("TimeUnit", core.Tick, core.Quarter, core.Second)
@@ -65,12 +65,12 @@ TextMetaList = Union[
 ]
 TrackList = Union[core.TrackTickList, core.TrackQuarterList, core.TrackSecondList]
 
-GeneralNoteList = Union[NoteList, List[core.Note]]
-GeneralKeySignatureList = Union[KeySignatureList, List[core.KeySignature]]
-GeneralTimeSignatureList = Union[TimeSignatureList, List[core.TimeSignature]]
-GeneralControlChangeList = Union[ControlChangeList, List[core.ControlChange]]
-GeneralTempoList = Union[TempoList, List[core.Tempo]]
-GeneralPedalList = Union[PedalList, List[core.Pedal]]
-GeneralPitchBendList = Union[PitchBendList, List[core.PitchBend]]
-GeneralTextMetaList = Union[TextMetaList, List[core.TextMeta]]
-GeneralTrackList = Union[TrackList, List[core.Track]]
+GeneralNoteList = Union[NoteList, list[core.Note]]
+GeneralKeySignatureList = Union[KeySignatureList, list[core.KeySignature]]
+GeneralTimeSignatureList = Union[TimeSignatureList, list[core.TimeSignature]]
+GeneralControlChangeList = Union[ControlChangeList, list[core.ControlChange]]
+GeneralTempoList = Union[TempoList, list[core.Tempo]]
+GeneralPedalList = Union[PedalList, list[core.Pedal]]
+GeneralPitchBendList = Union[PitchBendList, list[core.PitchBend]]
+GeneralTextMetaList = Union[TextMetaList, list[core.TextMeta]]
+GeneralTrackList = Union[TrackList, list[core.Track]]

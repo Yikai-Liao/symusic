@@ -13,7 +13,7 @@ import pytest
 from symusic import Note, Score, Track
 
 
-@pytest.fixture()
+@pytest.fixture
 def simple_track():
     """Create a simple track with a few notes for testing."""
     track = Track("Piano", 0, False)
@@ -28,7 +28,7 @@ def simple_track():
     return track
 
 
-@pytest.fixture()
+@pytest.fixture
 def simple_score(simple_track):
     """Create a simple score with one track."""
     score = Score(480)  # 480 ticks per quarter note

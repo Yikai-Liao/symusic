@@ -25,7 +25,8 @@ import multiprocessing as mp
 from pathlib import Path
 from symusic import Score
 import time
-import pickle # Symusic uses efficient pickling
+import pickle  # Symusic uses efficient pickling
+
 
 def worker_function(midi_path: Path) -> dict | None:
     """Loads a MIDI file and extracts some basic features."""
@@ -48,18 +49,19 @@ def worker_function(midi_path: Path) -> dict | None:
             "filename": midi_path.name,
             "num_notes": num_notes,
             "duration_sec": duration_seconds,
-            "avg_tempo": avg_tempo
+            "avg_tempo": avg_tempo,
         }
 
     except Exception as e:
         print(f"Error processing {midi_path.name}: {e}")
         return None
 
+
 if __name__ == "__main__":
     start_time = time.time()
 
     input_dir = Path("path/to/your/midi/dataset")
-    midi_files = list(input_dir.glob("**/*.mid")) # Recursively find MIDI files
+    midi_files = list(input_dir.glob("**/*.mid"))  # Recursively find MIDI files
     print(f"Found {len(midi_files)} MIDI files.")
 
     # Determine number of processes (use all available cores)
@@ -75,7 +77,9 @@ if __name__ == "__main__":
     valid_results = [r for r in results if r is not None]
 
     end_time = time.time()
-    print(f"\nProcessed {len(valid_results)} files in {end_time - start_time:.2f} seconds.")
+    print(
+        f"\nProcessed {len(valid_results)} files in {end_time - start_time:.2f} seconds."
+    )
 
     # Example: Save results to a file (e.g., JSON or CSV)
     # import json
@@ -84,8 +88,10 @@ if __name__ == "__main__":
 
     # Example: Print some stats
     if valid_results:
-        avg_notes = sum(r['num_notes'] for r in valid_results) / len(valid_results)
-        avg_duration = sum(r['duration_sec'] for r in valid_results) / len(valid_results)
+        avg_notes = sum(r["num_notes"] for r in valid_results) / len(valid_results)
+        avg_duration = sum(r["duration_sec"] for r in valid_results) / len(
+            valid_results
+        )
         print(f"Average notes per file: {avg_notes:.1f}")
         print(f"Average duration per file: {avg_duration:.1f} seconds")
 ```
@@ -116,6 +122,7 @@ from pathlib import Path
 from symusic import Score
 import time
 
+
 def filter_piano_tracks(midi_path: Path, output_dir: Path):
     """Loads a MIDI, keeps only piano tracks, and saves to output_dir."""
     try:
@@ -132,7 +139,7 @@ def filter_piano_tracks(midi_path: Path, output_dir: Path):
         # Create a new score with only piano tracks
         # Important: Need to copy global events like tempos, time signatures
         new_score = Score(score.ticks_per_quarter)
-        new_score.tracks = piano_tracks # Assign the filtered tracks
+        new_score.tracks = piano_tracks  # Assign the filtered tracks
         new_score.tempos = score.tempos.copy()
         new_score.time_signatures = score.time_signatures.copy()
         new_score.key_signatures = score.key_signatures.copy()
@@ -145,6 +152,7 @@ def filter_piano_tracks(midi_path: Path, output_dir: Path):
 
     except Exception as e:
         return f"Error processing {midi_path.name}: {e}"
+
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -172,7 +180,9 @@ if __name__ == "__main__":
     processed_count = sum(1 for r in results if r.startswith("Processed"))
     skipped_count = sum(1 for r in results if r.startswith("Skipped"))
     error_count = sum(1 for r in results if r.startswith("Error"))
-    print(f"Processed: {processed_count}, Skipped: {skipped_count}, Errors: {error_count}")
+    print(
+        f"Processed: {processed_count}, Skipped: {skipped_count}, Errors: {error_count}"
+    )
     # Optionally log the specific error messages
     # for r in results:
     #     if r.startswith("Error"):

@@ -6,13 +6,15 @@ import hashlib
 import json
 import mimetypes
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
 from docutils import nodes
-from sphinx.application import Sphinx
 from sphinx.util import logging
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
 
 LOGGER = logging.getLogger(__name__)
 _CACHE_NAME = "cache.json"
@@ -33,7 +35,9 @@ def _get_state(app: Sphinx) -> dict[str, Any]:
         try:
             cache = json.loads(cache_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            LOGGER.warning("[remote-images] cache %s is corrupted; rebuilding", cache_path)
+            LOGGER.warning(
+                "[remote-images] cache %s is corrupted; rebuilding", cache_path
+            )
 
     state = {
         "dir": target_root,
@@ -51,12 +55,14 @@ def _save_state(app: Sphinx) -> None:
         return
     cache_path: Path = state["cache_path"]
     cache_data: dict[str, str] = state["cache"]
-    cache_path.write_text(json.dumps(cache_data, indent=2, sort_keys=True), encoding="utf-8")
+    cache_path.write_text(
+        json.dumps(cache_data, indent=2, sort_keys=True), encoding="utf-8"
+    )
     state["dirty"] = False
 
 
 def _is_remote(uri: str) -> bool:
-    return uri.startswith("http://") or uri.startswith("https://")
+    return uri.startswith(("http://", "https://"))
 
 
 def _resolve_extension(uri: str, response: requests.Response) -> str:
@@ -80,7 +86,9 @@ def _localize_image(app: Sphinx, uri: str) -> str:
         local_path = Path(app.outdir) / rel_path
         if local_path.exists():
             return rel_path.replace("\\", "/")
-        LOGGER.info("[remote-images] cache entry missing file for %s; re-downloading", uri)
+        LOGGER.info(
+            "[remote-images] cache entry missing file for %s; re-downloading", uri
+        )
 
     try:
         response = requests.get(uri, timeout=_DOWNLOAD_TIMEOUT)

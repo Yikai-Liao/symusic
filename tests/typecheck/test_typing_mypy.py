@@ -4,9 +4,12 @@ import platform
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 MYPY_SUPPORTED = platform.python_implementation() != "PyPy"
 MYPY_SKIP_REASON = "mypy checks run on the CPython CI jobs"
@@ -93,7 +96,7 @@ NEGATIVE_SAMPLE = """
 
 def _write_sample(path: Path, content: str) -> None:
     path.write_text(
-        f"from __future__ import annotations\n\n{textwrap.dedent(content).strip()}\n"
+        f"from __future__ import annotations\n\n{textwrap.dedent(content).strip()}\n",
     )
 
 

@@ -72,17 +72,17 @@ def test_second_conversion(midi_path: Path):
         delta_rel = delta / (start_sec_gt + 1e-6)
         max_delta = max(max_delta, np.max(delta))
         max_delta_rel = max(max_delta_rel, np.max(delta_rel))
-        assert (
-            max_delta_rel < 1e-5
-        ), f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        assert max_delta_rel < 1e-5, (
+            f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        )
         end_sec_gt = mapper.t2s(end_tick)
         delta = np.abs(end_sec_gt - end_sec)
         delta_rel = delta / (end_sec_gt + 1e-6)
         max_delta = max(max_delta, np.max(delta))
         max_delta_rel = max(max_delta_rel, np.max(delta_rel))
-        assert (
-            max_delta_rel < 1e-5
-        ), f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        assert max_delta_rel < 1e-5, (
+            f"max_delta_rel={max_delta_rel}, max_delta={max_delta}"
+        )
 
 
 def test_quarter_parse_matches_tick_conversion(tmp_path):
@@ -163,9 +163,9 @@ def test_issue90_direct_load_matches_tick_conversion():
                 nc.time,
                 abs=1e-4,
             ), f"Note {i} time mismatch: direct={nd.time}, convert={nc.time}"
-            assert (
-                nd.duration == pytest.approx(nc.duration, abs=1e-4)
-            ), f"Note {i} duration mismatch: direct={nd.duration}, convert={nc.duration}"
+            assert nd.duration == pytest.approx(nc.duration, abs=1e-4), (
+                f"Note {i} duration mismatch: direct={nd.duration}, convert={nc.duration}"
+            )
             assert nd.pitch == nc.pitch
             assert nd.velocity == nc.velocity
 
