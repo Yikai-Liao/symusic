@@ -29,7 +29,7 @@ Run from the repository root inside a virtual environment:
 git submodule update --init --recursive --depth 1     # once per clone or worktree
 uv pip install ".[test]" --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
 pytest -n auto tests
-cmake -S . -B ../symusic-build -DBUILD_SYMUSIC_TEST=ON -DCMAKE_BUILD_TYPE=Debug \
+cmake -S . -B ../symusic-build -DSYMUSIC_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug \
   && cmake --build ../symusic-build -j && ctest --test-dir ../symusic-build --output-on-failure
 prek run --all-files                                   # needs clice on PATH
 ```

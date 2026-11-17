@@ -27,7 +27,24 @@ pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON   # -O1, no LTO: for local i
 pip install .                                         # release flags
 ```
 
-Reinstall after every change to `src/`, `include/`, `py_src/`, `python/` or the stub script. The installed package, not the source tree, is what tests import, so a stale install tests old code. Installing also regenerates `symusic/core.pyi`. `-C cmake.define.MEM_LEAK_WARNING=ON` enables nanobind leak reports.
+Reinstall after every change to `src/`, `include/`, `py_src/`, `python/` or the stub script. The installed package, not the source tree, is what tests import, so a stale install tests old code. Installing also regenerates `symusic/core.pyi`. `-C cmake.define.SYMUSIC_WARN_ON_LEAKS=ON` enables nanobind leak reports.
+
+Release builds keep LTO in the C++ core. Python bindings and nanobind compile without LTO; their final link still consumes the core's LTO objects. `SYMUSIC_FAST_BUILD` uses O1 throughout the build and disables core LTO for iteration. For profiling with debug symbols, use the standard `-C cmake.build-type=RelWithDebInfo` instead of a tool-specific option.
+
+Project CMake switches use the `SYMUSIC_` prefix:
+
+| Option | Default | Purpose |
+|---|---|---|
+| `SYMUSIC_BUILD_PYTHON` | OFF (ON through pip) | Extension, stubs and ABC tools |
+| `SYMUSIC_BUILD_TESTS` | OFF | C++ test executable |
+| `SYMUSIC_BUILD_EXAMPLES` | OFF | C++ examples |
+| `SYMUSIC_ENABLE_LTO` | ON | LTO in the C++ core |
+| `SYMUSIC_ENABLE_COVERAGE` | OFF | C++ coverage instrumentation |
+| `SYMUSIC_FAST_BUILD` | OFF | O1 and no LTO for iteration |
+| `SYMUSIC_WARN_ON_LEAKS` | OFF | nanobind shutdown leak reports |
+| `SYMUSIC_TIME_BUILD_RULES` | OFF | Per-rule compile and link timings |
+
+Configuration prints a target summary; dependency status messages are available with `cmake --log-level=VERBOSE`. Warnings and errors remain visible. Makefile builds report completed targets; pass `-DCMAKE_RULE_MESSAGES=ON` at configure time for individual compile/link progress, or use `cmake --build <dir> --verbose` for full commands.
 
 ## Validate
 
@@ -38,14 +55,14 @@ Run the checks for every area you touched:
 | Core (`include/`, `src/`) | C++ tests below, then reinstall and run pytest |
 | Binding (`py_src/`) or package (`python/`) | Reinstall, then `pytest -n auto tests` |
 | Typing or stubs | Reinstall, then `pytest tests/typecheck` |
-| Documentation | `python -m sphinx -b html docs docs/_build/html` with the package installed |
+| Documentation | `python -m sphinx -W --keep-going -b html docs docs/_build/html`, then `python -m sphinx -W --keep-going -b linkcheck docs docs/_build/linkcheck` with the package installed |
 | Formatting and lint | `prek run --all-files` |
 | CI workflows or scripts | `pytest .github/scripts`; see [CI](docs/development/ci.md) |
 
 C++ tests use Catch2 and run from any build directory outside the source tree:
 
 ```sh
-cmake -S . -B ../symusic-build -DBUILD_SYMUSIC_TEST=ON -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B ../symusic-build -DSYMUSIC_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build ../symusic-build -j
 ctest --test-dir ../symusic-build --output-on-failure
 ```
@@ -53,7 +70,7 @@ ctest --test-dir ../symusic-build --output-on-failure
 `clice lint` runs clang-tidy (checks in `.clang-tidy`) and needs a compilation database in `build/`, the one in-tree build directory, which Git ignores:
 
 ```sh
-cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_SYMUSIC_TEST=ON -DBUILD_SYMUSIC_PY=ON -DBUILD_SYMUSIC_EXAMPLE=ON
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_BUILD_PYTHON=ON -DSYMUSIC_BUILD_EXAMPLES=ON
 clice lint
 ```
 
@@ -62,6 +79,8 @@ It is not yet a CI gate; do not add findings in code you touch. Report which com
 ### Tests
 
 Test public behavior, the [contracts](docs/design/architecture.md#contracts), historical bugs and malformed input. Prefer one round-trip test plus focused boundary cases over repeating the same assertion at every layer. Cover all three time units when behavior depends on the unit. A test without assertions is not a test: record missing coverage in the [roadmap](ROADMAP.md) instead of committing a placeholder. Regression files go in `tests/testcases/`, named after the issue they reproduce.
+
+Keep test function names short: use `test_<subject>_<case>` and let the test file supply context. For example, `test_core_lto` or `test_rename_paths`; avoid sentence-length names that repeat setup and expected results. Put input variants in parametrization and state expected behavior in assertions.
 
 ### Code and comments
 
@@ -77,14 +96,14 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 
 | Content | Location |
 |---|---|
-| Agent instructions | [`AGENTS.md`](AGENTS.md) |
+| Agent instructions | [`AGENTS.md`](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md) |
 | Contribution procedure | This file |
 | Design and contracts | [`docs/design/`](docs/design/architecture.md) |
 | User guides and tutorials | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
 | Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/` |
 | Planned work and accepted debt | [`ROADMAP.md`](ROADMAP.md) |
 
-Edit the existing page that owns a topic before adding a new one. Delete obsolete instructions instead of marking them legacy; Git history keeps superseded decisions, so do not add separate decision records or dated reports. New Markdown paragraphs occupy one line. Read the Docs runs `readthedocs.yml`, which installs the package from source, builds the site and indexes it with Pagefind; `./build_docs_with_pagefind.sh` reproduces that locally.
+Edit the existing page that owns a topic before adding a new one. Delete obsolete instructions instead of marking them legacy; Git history keeps superseded decisions, so do not add separate decision records or dated reports. New Markdown paragraphs occupy one line. The website includes this file and `ROADMAP.md` directly; edit their root sources. Read the Docs runs `readthedocs.yml`, which installs the package from source, builds the site with warnings as errors and indexes it with Pagefind; `./build_docs_with_pagefind.sh` reproduces that locally.
 
 ## Commits and pull requests
 
@@ -107,10 +126,10 @@ Optional scopes: `core`, `io`, `abc`, `binding`, `typing`, `synth`, `pianoroll`,
 
 ## AI-assisted contributions
 
-AI assistance is welcome, and a person stays accountable for the whole change. Read and understand every line you submit, run the checks above rather than predicting their results, and disclose the tools you used in the pull request. Coding agents follow [`AGENTS.md`](AGENTS.md).
+AI assistance is welcome, and a person stays accountable for the whole change. Read and understand every line you submit, run the checks above rather than predicting their results, and disclose the tools you used in the pull request. Coding agents follow [`AGENTS.md`](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md).
 
 ## Releasing
 
 1. Set `__version__` in `python/symusic/__init__.py`; the build reads the version from there.
-2. Run the **Wheels** workflow manually on that commit and wait for it to pass. Pull requests build only one wheel, so this is the first run on every platform.
+2. Run **CI** manually with `compatibility` enabled and run **Wheels** on that commit; wait for both to pass. Daily PR checks use Linux, and only packaging changes build a smoke wheel.
 3. Publish a GitHub release with a `vX.Y.Z` tag and notes generated from merged pull requests. Publishing runs `.github/workflows/release.yml`, which builds the wheels and the sdist again and uploads them to PyPI.

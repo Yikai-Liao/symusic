@@ -9,7 +9,7 @@ symusic is a C++20 library for note-level symbolic music with a nanobind Python 
 | Core library | `include/symusic/`, `src/` | Data model, transformations, time conversion, MIDI and pickle I/O, piano rolls, synthesis glue |
 | Binding | `py_src/` | The `symusic.core` extension: one class per C++ type and time unit, docstrings, NumPy and pickle bridges, external-process calls for ABC |
 | Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`), bundled `abc2midi`/`midi2abc` paths |
-| Type stubs | `scripts/lift_generic_stubs.py`, `CMakeLists.txt` | `symusic/core.pyi`, generated at install time |
+| Type stubs | `scripts/lift_generic_stubs.py`, `py_src/CMakeLists.txt`, `cmake/LiftStubs.cmake.in` | `symusic/core.pyi`, generated at install time |
 
 Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core knows nothing about Python except the `pyvec` container. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer only dispatches.
 
@@ -58,10 +58,10 @@ Refactors keep these behaviors unless a change is explicitly about them:
 - **Reference stability.** Python references to events, tracks and lists stay valid as described under [data model](#data-model).
 - **Round trips.** MIDI read/write and pickle preserve the shared data model; a pickled score loads in the same version.
 - **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values) rather than coercing silently. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
-- **Stable ABI.** On CPython 3.12 and later the extension uses only the limited C API (nanobind `STABLE_ABI`), so one `abi3` wheel serves every later version. Do not call CPython APIs outside the limited API in the binding; `abi3audit` in the wheel build rejects them.
+- **Stable ABI.** On GIL-enabled CPython 3.12 and later the extension uses only the limited C API (nanobind `STABLE_ABI`), so one `abi3` wheel per platform serves later GIL-enabled CPython 3 versions. Free-threaded builds require a different ABI and are not supported yet. Do not call CPython APIs outside the limited API in the binding; `abi3audit` in the wheel build rejects them.
 - **Thin Python layer.** Hot paths stay in C++; the Python package does not reimplement core logic.
 
-Known violations of memory safety at extreme values are tracked in the [roadmap](https://github.com/Yikai-Liao/symusic/blob/main/ROADMAP.md#memory-safety).
+Known violations of memory safety at extreme values are tracked in the [roadmap](../ROADMAP.md#memory-safety).
 
 ## Adding a feature
 
@@ -70,3 +70,7 @@ Known violations of memory safety at extreme values are tracked in the [roadmap]
 3. Extend `symusic.factory` only if construction or dispatch changes.
 4. Reinstall (`pip install .`) to regenerate the stubs, and add C++ and Python tests at the new boundary.
 5. Update the concept guide or tutorial that describes the area.
+
+## Build ownership
+
+The root `CMakeLists.txt` declares the core target and its public include/link requirements. `cmake/BuildOptions.cmake` owns project switches and compiler settings; `cmake/Dependencies.cmake` adds pinned submodules without their status chatter. `py_src/`, `tests/cpp/` and `examples/cpp/` each own their targets and installation or execution rules. Release LTO applies to the C++ core; bindings and nanobind remain native objects. Compiler-cache setup belongs to the wheel workflow, not the library's build contract.

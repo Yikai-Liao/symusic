@@ -83,7 +83,7 @@ if.env.CMAKE_GENERATOR = "^Ninja( Multi-Config)?$"
 build.tool-args = []
 
 [tool.scikit-build.cmake.define]
-BUILD_SYMUSIC_PY = "ON"
+SYMUSIC_BUILD_PYTHON = "ON"
 CMAKE_POLICY_VERSION_MINIMUM = "3.5"
 
 [tool.scikit-build.metadata]
@@ -121,7 +121,7 @@ test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
 test-skip = "pp*"
 
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "11.0"
+MACOSX_DEPLOYMENT_TARGET = "13.0"
 
 [tool.cibuildwheel.windows]
 environment = { CMAKE_GENERATOR = "Ninja" }

@@ -1,246 +1,64 @@
 cmake_minimum_required(VERSION 3.20)
+if(POLICY CMP0137)
+    # LTO probes need the cross-toolchain variables in their test project.
+    cmake_policy(SET CMP0137 NEW)
+endif()
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-project(symusic)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum supported macOS version")
+project(symusic LANGUAGES C CXX)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
+set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "Show individual Makefile compile and link steps")
+set_property(GLOBAL PROPERTY RULE_MESSAGES ${CMAKE_RULE_MESSAGES})
 
-option(BUILD_SYMUSIC_PY "Build the python binding of symusic" OFF)
-option(BUILD_SYMUSIC_EXAMPLE "Build the test target" OFF)
-option(BUILD_SYMUSIC_TEST "Build the test target" OFF)
-option(ENABLE_LTO "Enables link-time optimization, requires compiler support." ON)
-option(SYMUSIC_FAST_BUILD "Use O1 and disable LTO for faster local builds" OFF)
-option(VTUNE "Compile Options for Intel VTune" Off)
-option(MEM_LEAK_WARNING "Enable memory leak warning" OFF)
-option(ENABLE_COVERAGE "Enable code coverage" OFF)
+include(cmake/BuildOptions.cmake)
+include(cmake/Dependencies.cmake)
 
-# Enable code coverage if requested
-if(ENABLE_COVERAGE)
-    message(STATUS "Code coverage enabled")
-    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fprofile-arcs -ftest-coverage")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
-    else()
-        message(WARNING "Code coverage is only supported with GCC and Clang")
-    endif()
-endif()
-
-# set /utf-8 for MSVC
-if(MSVC)
-    add_compile_options(-bigobj)
-    add_compile_options(/utf-8)
-    # The Visual Studio generator does not reliably propagate /MP from
-    # add_compile_options() onto regular targets in this project, but the
-    # language-wide flags do.
-    string(APPEND CMAKE_C_FLAGS " /MP")
-    string(APPEND CMAKE_CXX_FLAGS " /MP")
-endif()
-
-if(MEM_LEAK_WARNING)
-    message(STATUS "Nanobind memory leak warning ENABLED")
-    add_definitions(-DMEM_LEAK_WARNING)
-else ()
-    message(STATUS "Nanobind memory leak warning DISABLED")
-endif()
-
-add_subdirectory(3rdparty/fmt EXCLUDE_FROM_ALL)
-add_subdirectory(3rdparty/minimidi EXCLUDE_FROM_ALL)
-add_subdirectory(3rdparty/prestosynth EXCLUDE_FROM_ALL)
-add_subdirectory(3rdparty/pyvec EXCLUDE_FROM_ALL)
-
-include_directories(include)
-include_directories(3rdparty/pdqsort)
-include_directories(3rdparty/zpp_bits)
-include_directories(3rdparty)
-
-file(GLOB_RECURSE symusic_src src/*.cpp src/io/*.cpp)
-
-foreach(src_file ${symusic_src})
-    message(STATUS "symusic_src: ${src_file}")
-endforeach()
-
-add_library(symusic ${symusic_src})
-target_link_libraries(symusic fmt::fmt-header-only)
-target_link_libraries(symusic minimidi)
-target_link_libraries(symusic prestosynth)
-target_link_libraries(symusic pyvec)
-
-if(SYMUSIC_FAST_BUILD)
-    message(STATUS "SYMUSIC_FAST_BUILD enabled: disabling LTO and using O1 optimizations")
-    set(ENABLE_LTO OFF)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-        set(CMAKE_C_FLAGS_RELEASE "-O1 -DNDEBUG")
-        set(CMAKE_CXX_FLAGS_RELEASE "-O1 -DNDEBUG")
-        set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O1 -g -DNDEBUG")
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O1 -g -DNDEBUG")
-    elseif(MSVC)
-        set(CMAKE_C_FLAGS_RELEASE "/O1 /DNDEBUG")
-        set(CMAKE_CXX_FLAGS_RELEASE "/O1 /DNDEBUG")
-        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O1 /Zi /DNDEBUG")
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O1 /Zi /DNDEBUG")
-    endif()
-endif()
-
-if(BUILD_SYMUSIC_PY)
-    message("Building python binding.")
-    # nanobind's STABLE_ABI needs Development.SABIModule; without it the
-    # module silently builds against the full CPython API.
-    find_package(
-        Python REQUIRED
-        COMPONENTS Interpreter Development.Module
-        OPTIONAL_COMPONENTS Development.SABIModule
-    )
-    message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
-
-    add_subdirectory(3rdparty/nanobind EXCLUDE_FROM_ALL)
-
-    set(NB_FLAGS NB_STATIC STABLE_ABI PROTECT_STACK NOSTRIP)
-    if(NOT SYMUSIC_FAST_BUILD)
-        list(APPEND NB_FLAGS LTO)
-    else()
-        list(APPEND NB_FLAGS NOMINSIZE)
-    endif()
-    nanobind_add_module(
-        core
-        ${NB_FLAGS}
-        NB_DOMAIN symusic
-        py_src/bindings/core/module.cpp
-        py_src/bindings/core/binding_prelude.h
-        py_src/bindings/core/binding_registration.h
-        py_src/utils/process_runner.cpp
-        py_src/bindings/events/register_events.cpp
-        py_src/bindings/events/register_events_notes.cpp
-        py_src/bindings/events/register_events_controls.cpp
-        py_src/bindings/track/register_tracks.cpp
-        py_src/bindings/score/register_scores.cpp
-        py_src/bindings/synth/synthesizer_bindings.cpp
-        py_src/bindings/track/track_bindings.h
-        py_src/bindings/score/score_bindings.h
-        py_src/bindings/events/event_bindings.h
-        py_src/bindings/core/binding_common.h
-        py_src/utils/python_helpers.h
-        py_src/utils/process_runner.h
-        py_src/utils/vector_bindings.h
-    )
-    target_link_libraries(core PRIVATE symusic)
-
-    install(TARGETS core LIBRARY DESTINATION symusic)
-
-    nanobind_add_stub(
-        symusic_core_stub_raw
-        INSTALL_TIME
-        MODULE symusic.core
-        OUTPUT symusic/core.raw.pyi
-        MARKER_FILE symusic/py.typed
-        PYTHON_PATH "."
-    )
-    install(CODE "
-        execute_process(
-            COMMAND \"${Python_EXECUTABLE}\"
-                    \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/lift_generic_stubs.py\"
-                    \"\${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi\"
-                    \"\${CMAKE_INSTALL_PREFIX}/symusic/core.pyi\"
-            RESULT_VARIABLE STUB_LIFT_RESULT
-        )
-        if(NOT STUB_LIFT_RESULT EQUAL 0)
-            message(FATAL_ERROR \"Failed to generate generic symusic stubs\")
-        endif()
-        file(REMOVE \"\${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi\")
-    ")
-#   install abc2midi and midi2abc
-    add_subdirectory(cmake/abcmidi ${CMAKE_CURRENT_BINARY_DIR}/abcmidi)
-    install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
-endif()
-
-if(BUILD_SYMUSIC_EXAMPLE)
-    add_subdirectory(./3rdparty/nanobench EXCLUDE_FROM_ALL)
-
-    add_executable(note_count examples/cpp/note_count.cpp)
-    add_executable(dump examples/cpp/dump.cpp)
-    add_executable(io_bench examples/cpp/io_bench.cpp)
-    add_executable(synth examples/cpp/synth.cpp)
-    add_executable(adjust_time examples/cpp/adjust_time.cpp)
-    add_executable(process_midi_directory examples/cpp/process_midi_directory.cpp)
-
-    target_link_libraries(note_count PRIVATE symusic)
-    target_link_libraries(dump PRIVATE symusic)
-    target_link_libraries(io_bench PRIVATE symusic nanobench)
-    target_link_libraries(synth PUBLIC symusic)
-    target_link_libraries(adjust_time PUBLIC symusic)
-    target_link_libraries(process_midi_directory PRIVATE symusic)
-endif()
-
-if(BUILD_SYMUSIC_TEST)
-    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Catch2/CMakeLists.txt")
-        message(
-            FATAL_ERROR
-            "Catch2 submodule is missing. Run `git submodule update --init --recursive 3rdparty/Catch2`."
-        )
-    endif()
-
-    add_subdirectory(3rdparty/Catch2 EXCLUDE_FROM_ALL)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/Catch2/extras")
-
-    add_executable(symusic_test tests/cpp/test_main.cpp)
-    target_include_directories(symusic_test PRIVATE tests/cpp)
-    target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
-    add_custom_command(
-        TARGET symusic_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/testcases"
-                "$<TARGET_FILE_DIR:symusic_test>/testcases"
-    )
-    include(CTest)
-    include(Catch)
-    enable_testing()
-    add_test(
-        NAME symusic_ctest
-        COMMAND $<TARGET_FILE:symusic_test> --success
-    )
-    set_tests_properties(symusic_ctest PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
-endif()
-
-
-if (ENABLE_LTO)
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT has_lto OUTPUT lto_check_output)
-    if(has_lto)
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-            message(STATUS "Clang detected, use -fuse-ld=lld")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
-        endif ()
-        message(STATUS "Link-time optimization (LTO) enabled")
-        set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-        if(BUILD_SYMUSIC_PY)
-            set_property(TARGET core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-        endif ()
-    else()
-        message(WARNING "Link-time optimization (LTO) is not supported: \n${lto_check_output}")
-    endif()
-endif()
-
-# enable parallel compilation for MSVC
-if(MSVC)
-    message(STATUS "MSVC parallel compilation enabled")
-    add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Gm->)
-endif()
-
-if(VTUNE)
-    message(STATUS "VTune enabled")
+add_library(symusic
+    src/conversion.cpp
+    src/event.cpp
+    src/io/common.cpp
+    src/io/midi.cpp
+    src/io/zpp.cpp
+    src/pianoroll.cpp
+    src/repr.cpp
+    src/score.cpp
+    src/synth.cpp
+    src/track.cpp
+    src/utils.cpp
+)
+target_include_directories(symusic
+    PUBLIC include 3rdparty 3rdparty/pdqsort
+    PRIVATE 3rdparty/zpp_bits
+)
+target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi prestosynth pyvec)
+set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION ${SYMUSIC_CORE_LTO})
+if(SYMUSIC_CORE_LTO)
+    # Consumers must link the core's LTO objects, without enabling IPO on
+    # their own compilation. CMake supplies the compiler-specific flags.
     if(MSVC)
-        add_compile_options(/Zi)
-        add_compile_options(/MDd)
-        add_compile_options(/D "TBB_USE_THREADING_TOOLS")
+        target_link_options(symusic INTERFACE ${CMAKE_CXX_LINK_OPTIONS_IPO})
     else()
-        add_compile_options(-g)
-    endif ()
-endif ()
-
-option(SYMUSIC_TIME_BUILD_RULES "Prefix compile and link rules with `cmake -E time`." OFF)
-
-if(SYMUSIC_TIME_BUILD_RULES)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
+        target_link_options(symusic INTERFACE
+            ${CMAKE_CXX_COMPILE_OPTIONS_IPO} ${CMAKE_CXX_LINK_OPTIONS_IPO})
+    endif()
 endif()
+
+if(SYMUSIC_BUILD_PYTHON)
+    add_subdirectory(py_src)
+endif()
+if(SYMUSIC_BUILD_EXAMPLES)
+    add_subdirectory(examples/cpp)
+endif()
+if(SYMUSIC_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests/cpp)
+endif()
+
+message(STATUS
+    "symusic: Python=${SYMUSIC_BUILD_PYTHON}, tests=${SYMUSIC_BUILD_TESTS}, "
+    "examples=${SYMUSIC_BUILD_EXAMPLES}, fast=${SYMUSIC_FAST_BUILD}, core LTO=${SYMUSIC_CORE_LTO}"
+)

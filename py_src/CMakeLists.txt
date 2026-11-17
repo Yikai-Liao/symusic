@@ -1,0 +1,39 @@
+# Linked-mode abi3 requires this optional component; older CPython and PyPy
+# still build a version-specific extension.
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module
+    OPTIONAL_COMPONENTS Development.SABIModule)
+symusic_add_dependency(nanobind)
+
+# Only the C++ core carries LTO objects. The binding and nanobind compile
+# to native objects so each Python wheel avoids optimizing that code again.
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+set(_symusic_nb_flags NB_STATIC STABLE_ABI PROTECT_STACK NOSTRIP)
+if(SYMUSIC_FAST_BUILD)
+    list(APPEND _symusic_nb_flags NOMINSIZE)
+endif()
+nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
+    bindings/core/module.cpp
+    utils/process_runner.cpp
+    bindings/events/register_events.cpp
+    bindings/events/register_events_notes.cpp
+    bindings/events/register_events_controls.cpp
+    bindings/track/register_tracks.cpp
+    bindings/score/register_scores.cpp
+    bindings/synth/synthesizer_bindings.cpp
+)
+target_link_libraries(core PRIVATE symusic)
+target_compile_definitions(core PRIVATE $<$<BOOL:${SYMUSIC_WARN_ON_LEAKS}>:MEM_LEAK_WARNING>)
+set_target_properties(core PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION FALSE
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+)
+install(TARGETS core LIBRARY DESTINATION symusic)
+
+nanobind_add_stub(symusic_core_stub_raw INSTALL_TIME MODULE symusic.core
+    OUTPUT symusic/core.raw.pyi MARKER_FILE symusic/py.typed PYTHON_PATH ".")
+configure_file("${PROJECT_SOURCE_DIR}/cmake/LiftStubs.cmake.in" LiftStubs.cmake @ONLY)
+install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/LiftStubs.cmake")
+
+add_subdirectory("${PROJECT_SOURCE_DIR}/cmake/abcmidi" "${PROJECT_BINARY_DIR}/abcmidi")
+install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)

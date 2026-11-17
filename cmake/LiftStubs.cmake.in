@@ -1,0 +1,7 @@
+execute_process(
+    COMMAND "@Python_EXECUTABLE@" "@PROJECT_SOURCE_DIR@/scripts/lift_generic_stubs.py"
+        "${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi"
+        "${CMAKE_INSTALL_PREFIX}/symusic/core.pyi"
+    COMMAND_ERROR_IS_FATAL ANY
+)
+file(REMOVE "${CMAKE_INSTALL_PREFIX}/symusic/core.raw.pyi")
