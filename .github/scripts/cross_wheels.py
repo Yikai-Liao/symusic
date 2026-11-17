@@ -115,14 +115,23 @@ def build(args: argparse.Namespace) -> None:
 
 def stub_api(text: str) -> str:
     tree = ast.parse(text, type_comments=True)
+    annotations = []
     for node in ast.walk(tree):
-        # Demanglers format opaque C++ template names differently on Windows.
-        if (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and re.fullmatch(r"\w+(?:::\w+)+<.*>", node.value)
-        ):
-            node.value = re.sub(r"\s*([<>,])\s*", r"\1", node.value)
+        if isinstance(node, (ast.arg, ast.AnnAssign)):
+            annotations.append(node.annotation)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            annotations.append(node.returns)
+    for annotation in annotations:
+        if annotation is None:
+            continue
+        for node in ast.walk(annotation):
+            # Normalize type-name formatting, preserving default string values.
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and re.fullmatch(r"\w+(?:::\w+)+<.*>", node.value)
+            ):
+                node.value = re.sub(r"\s*([<>,])\s*", r"\1", node.value)
     return ast.dump(tree)
 
 

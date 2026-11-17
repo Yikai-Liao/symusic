@@ -212,7 +212,8 @@ def test_stub_types(variant: str, equivalent: bool) -> None:
     assert (cross_wheels.stub_api(host) == cross_wheels.stub_api(variant)) == equivalent
 
 
-def test_stub_literals() -> None:
-    host = 'def render(name: str = "a, b") -> None: ...'
-    target = 'def render(name: str = "a,b") -> None: ...'
+@pytest.mark.parametrize("literal", ["a, b", "Eigen::Array<float, -1>"])
+def test_stub_literals(literal: str) -> None:
+    host = f"def render(name: str = {literal!r}) -> None: ..."
+    target = host.replace(", ", ",")
     assert cross_wheels.stub_api(host) != cross_wheels.stub_api(target)
