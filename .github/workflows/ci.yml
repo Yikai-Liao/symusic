@@ -82,7 +82,7 @@ jobs:
           python-version: ${{ matrix.python }}
           activate-environment: true
       - name: Install
-        run: uv pip install ".[test]" -C cmake.define.SYMUSIC_FAST_BUILD=ON
+        run: uv pip install ".[test]" --only-binary numpy --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Test
         run: python -m pytest -n auto tests ${{ matrix.coverage && '--cov=symusic --cov-report=xml' || '' }}
       - name: Upload coverage
@@ -154,7 +154,7 @@ jobs:
           python-version: "3.12"
           activate-environment: true
       - name: Install
-        run: uv pip install -r docs/requirements.txt . -C cmake.define.SYMUSIC_FAST_BUILD=ON
+        run: uv pip install -r docs/requirements.txt . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Build (warnings are errors)
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
 
