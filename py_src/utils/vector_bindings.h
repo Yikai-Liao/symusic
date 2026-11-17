@@ -508,10 +508,6 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
                       "Check whether the vector is nonempty"
                   )
 
-                  // .def("__repr__",
-                  //      [](handle_t<self_t> h) {
-                  //         return steal<str>(detail::repr_list(h.ptr()));
-                  //      })
 
                   .def(
                       "__iter__",

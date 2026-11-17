@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-13.
-//
 #pragma once
 
 #ifndef LIBSYMUSIC_BATCH_OPS_H
@@ -24,25 +21,6 @@ void sort(vec<T>& data, const bool reverse, Comp cmp) {
     }
 }
 
-// template<typename T>
-// void sort_by_time(pyvec<T> & data, const bool reverse = false) {
-//     auto cmp = [](const T & a, const T & b) {return (a->time) < (b->time);};
-//     sort(data, reverse, cmp);
-// }
-//
-// template<TType T>
-// void sort_notes(vec<shared<Note<T>>> & notes, const bool reverse = false) {
-//     #define KEY(NOTE) std::tie((NOTE)->time, (NOTE)->duration, (NOTE)->pitch, (NOTE)->velocity)
-//     sort(notes, reverse, [](const auto & a, const auto & b) {return KEY(a) < KEY(b);});
-//     #undef KEY
-// }
-//
-// template<TType T>
-// void sort_pedals(vec<shared<Pedal<T>>> & pedals, const bool reverse = false) {
-//     #define KEY(PEDAL) std::tie((PEDAL)->time, (PEDAL)->duration)
-//     sort(pedals, reverse, [](const auto & a, const auto & b) {return KEY(a) < KEY(b);});
-//     #undef KEY
-// }
 
 template<TType T>
 void sort_tracks(vec<shared<Track<T>>>& tracks, const bool reverse = false) {
@@ -359,7 +337,6 @@ void adjust_time_inplace(
     adjust_time_inplace<false>(*(score.time_signatures), original_times, new_times);
     adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
     adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
-    // adjust_time_inplace<false>(*(score.lyrics), original_times, new_times);
     adjust_time_inplace<false>(*(score.markers), original_times, new_times);
 }
 
@@ -378,7 +355,6 @@ T adjust_time(
 template<TimeEvent T>
 inline typename T::unit start(const pyvec<T>& events) {
     if (events.empty()) {
-        // return 0;
         return std::numeric_limits<typename T::unit>::max();
     }
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
@@ -390,7 +366,6 @@ inline typename T::unit start(const pyvec<T>& events) {
 template<TimeEvent T>
 inline typename T::unit end(const pyvec<T>& events) {
     if (events.empty()) {
-        // return 0;
         return std::numeric_limits<typename T::unit>::min();
     }
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();

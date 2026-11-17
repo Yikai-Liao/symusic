@@ -1,8 +1,3 @@
-//
-// Created by lyk on 23-12-16.
-// This file is now much too confusing to read.
-// Refactor it later.
-//
 #include <cmath>
 #include "symusic/conversion.h"
 #include "symusic/ops.h"
@@ -16,9 +11,6 @@ Score<To> convertInner(
     const Score<From>& score, const Converter& converter, const typename To::unit min_dur
 ) {
     Score<To> new_s(score.ticks_per_quarter);
-    // new_s.lyrics   = std::make_shared<pyvec<TextMeta<To>>>(
-    //     std::move(converter.time_vec(*score.lyrics))
-    // );
     new_s.markers  = std::make_shared<pyvec<TextMeta<To>>>(
         std::move(converter.time_vec(*score.markers))
     );
@@ -126,11 +118,9 @@ Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 mi
         return f64toi32(scale_rate * static_cast<f64>(t));
     };
 
-    // REPEAT_ON(RESAMPLE_GENERAL, time_signatures, key_signatures, tempos, lyrics, markers)
     ans.time_signatures = resample_time(*score.time_signatures, convert);
     ans.key_signatures  = resample_time(*score.key_signatures, convert);
     ans.tempos          = resample_time(*score.tempos, convert);
-    // ans.lyrics          = resample_time(*score.lyrics, convert);
     ans.markers         = resample_time(*score.markers, convert);
 
     const size_t track_num = score.tracks->size();

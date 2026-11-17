@@ -1,11 +1,7 @@
-//
-// Created by nhy on 2024/2/12.
-//
 #include "symusic/synth.h"
 #include "symusic/ops.h"
 #include "symusic/conversion.h"
 
-// #include "unordered_dense.h"
 #include <algorithm>
 #include <map>
 

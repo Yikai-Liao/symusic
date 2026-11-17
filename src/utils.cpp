@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-16.
-//
 #include "symusic/utils.h"
 #include "utf8.h"
 

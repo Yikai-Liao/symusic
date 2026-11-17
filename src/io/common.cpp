@@ -1,7 +1,3 @@
-//
-// Created by lyk on 23-12-25.
-//
-
 #include <stdexcept>
 
 #include <span>

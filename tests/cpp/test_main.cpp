@@ -1,8 +1,4 @@
-//
-// Created by lyk on 24-5-23.
-// The main entry of the test program using Catch2
-// Include unit test in different files into one file
-//
+// Catch2 entry point: includes every C++ test file into one executable.
 
 // Define the Catch2 main entry point
 #define CATCH_CONFIG_MAIN

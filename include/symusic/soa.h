@@ -1,7 +1,3 @@
-//
-// Created by nhy on 2024/1/8.
-//
-
 #ifndef LIBSYMUSIC_SOA_H
 #define LIBSYMUSIC_SOA_H
 

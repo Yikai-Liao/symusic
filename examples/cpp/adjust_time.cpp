@@ -1,7 +1,3 @@
-//
-// Created by nhy on 2024/2/14.
-//
-
 #include "symusic.h"
 #include "argparse.h"
 using namespace symusic;

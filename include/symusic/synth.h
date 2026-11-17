@@ -1,6 +1,3 @@
-//
-// Created by nhy on 2024/2/12.
-//
 #pragma once
 #ifndef SYNTH_H
 #define SYNTH_H

@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-25.
-//
 #include <span>
 
 #include "zpp_bits.h"
@@ -60,7 +57,6 @@ SERIALIZE_COMMON(
     d.time_signatures,
     d.key_signatures,
     d.tempos,
-    // d.lyrics,
     d.markers
 )
 

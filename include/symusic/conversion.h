@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-17.
-//
 #pragma once
 
 #ifndef LIBSYMUSIC_CONVERSION_H
@@ -89,7 +86,6 @@ template<TType T>
 Score<T> to_shared(ScoreNative<T>&& score) {
     Score<T> new_score{score.ticks_per_quarter};
     new_score.tempos  = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
-    // new_score.lyrics  = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.lyrics));
     new_score.markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
     new_score.time_signatures
         = std::make_shared<pyvec<TimeSignature<T>>>(std::move(score.time_signatures));
@@ -123,7 +119,6 @@ ScoreNative<T> to_native(const Score<T>& score) {
     new_score.time_signatures = std::move(score.time_signatures->collect());
     new_score.key_signatures  = std::move(score.key_signatures->collect());
     new_score.tempos          = std::move(score.tempos->collect());
-    // new_score.lyrics          = std::move(score.lyrics->collect());
     new_score.markers         = std::move(score.markers->collect());
 
     new_score.tracks.reserve(score.tracks->size());

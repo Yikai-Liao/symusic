@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-9-21.
-//
 #include "symusic.h"
 #include "fmt/ranges.h"
 #include "argparse.h"

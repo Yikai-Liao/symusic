@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-16.
-//
 #pragma once
 
 #ifndef LIBSYMUSIC_UTILS_H

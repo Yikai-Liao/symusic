@@ -1,6 +1,3 @@
-//
-// Created by lyk on 2023/12/24.
-//
 #pragma once
 
 #ifndef LIBSYMUSIC_TRACK_HSCORE_H
@@ -40,7 +37,6 @@ struct Score {
         time_signatures   = std::move(other.time_signatures);
         key_signatures    = std::move(other.key_signatures);
         tempos            = std::move(other.tempos);
-        // lyrics            = std::move(other.lyrics);
         markers = std::move(other.markers);
     }
 
@@ -50,14 +46,12 @@ struct Score {
         pyvec<TimeSignature<T>>&&     time_signatures,
         pyvec<KeySignature<T>>&&      key_signatures,
         pyvec<Tempo<T>>&&             tempos,
-        // pyvec<TextMeta<T>>&&          lyrics,
         pyvec<TextMeta<T>>&& markers
     ) : ticks_per_quarter{tpq}, tracks{std::move(tracks)} {
         this->time_signatures
             = std::make_shared<pyvec<TimeSignature<T>>>(std::move(time_signatures));
         this->key_signatures = std::make_shared<pyvec<KeySignature<T>>>(std::move(key_signatures));
         this->tempos         = std::make_shared<pyvec<Tempo<T>>>(std::move(tempos));
-        // this->lyrics         = std::make_shared<pyvec<TextMeta<T>>>(std::move(lyrics));
         this->markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
     }
 
@@ -68,13 +62,11 @@ struct Score {
         shared<pyvec<TimeSignature<T>>> time_signatures,
         shared<pyvec<KeySignature<T>>>  key_signatures,
         shared<pyvec<Tempo<T>>>         tempos,
-        // shared<pyvec<TextMeta<T>>>      lyrics,
         shared<pyvec<TextMeta<T>>> markers
     ) :
         ticks_per_quarter{tpq}, tracks{std::move(tracks)},
         time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
         tempos{std::move(tempos)},
-        // lyrics{std::move(lyrics)},
         markers{std::move(markers)} {}
 
     Score& operator=(const Score&) = default;
@@ -98,7 +90,6 @@ struct Score {
                && *time_signatures == *other.time_signatures
                && *key_signatures == *other.key_signatures
                && *tempos == *other.tempos
-               // && *lyrics == *other.lyrics
                && *markers == *other.markers;
         // clang-format on
     }
@@ -119,7 +110,6 @@ struct Score {
             std::move(time_signatures->deepcopy()),
             std::move(key_signatures->deepcopy()),
             std::move(tempos->deepcopy()),
-            // std::move(lyrics->deepcopy()),
             std::move(markers->deepcopy())
         };
     }
@@ -202,7 +192,6 @@ struct ScoreNative {
     vec<TimeSignature<T>> time_signatures;
     vec<KeySignature<T>>  key_signatures;
     vec<Tempo<T>>         tempos;
-    // vec<TextMeta<T>>      lyrics;
     vec<TextMeta<T>>      markers;
     vec<TrackNative<T>>   tracks;
 
@@ -214,7 +203,6 @@ struct ScoreNative {
         return time_signatures.empty()
             && key_signatures.empty()
             && tempos.empty()
-            // && lyrics.empty()
             && markers.empty()
             && tracks.empty();
     }

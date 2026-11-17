@@ -1,7 +1,3 @@
-//
-// Created by lyk on 23-12-14.
-//
-
 #include "fmt/core.h"
 
 #include "symusic/event.h"
@@ -41,7 +37,7 @@ std::string Score<T>::summary() const {
     return fmt::format(
         "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={})",
         T(), ticks_per_quarter, start(), end(), tracks->size(), note_num(),
-        time_signatures->size(), key_signatures->size(), markers->size()// , lyrics->size()
+        time_signatures->size(), key_signatures->size(), markers->size()
     );
 }
 

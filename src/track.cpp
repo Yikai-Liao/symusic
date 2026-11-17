@@ -1,6 +1,3 @@
-//
-// Created by lyk on 23-12-25.
-//
 #include "symusic/track.h"
 #include "symusic/ops.h"
 #include "MetaMacro.h"

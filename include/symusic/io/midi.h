@@ -1,8 +1,5 @@
-//
-// Created by lyk on 2023/12/24.
-// This file should be included by users if they need to use the MIDI format
-// And it can't be included in midi.cpp becuase of extern template
-//
+// Declares the MIDI parse/dump specializations for users of the MIDI format.
+// midi.cpp defines them, so it must not include this header (extern templates).
 #pragma once
 
 #ifndef LIBSYMUSIC_IO_MIDI_H
