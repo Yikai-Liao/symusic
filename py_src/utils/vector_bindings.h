@@ -482,7 +482,6 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
     return cl;
 }
 
-// template <typename Vector, typename... Args>
 template<typename T, typename... Args>
 nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
     nanobind::handle scope, const char* name, Args&&... args

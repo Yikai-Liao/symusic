@@ -30,16 +30,6 @@ void sort_tracks(vec<shared<Track<T>>>& tracks, const bool reverse = false) {
 }
 
 
-// template<class Iter, class Compare>
-// void sort(Iter begin, Iter end, Compare cmp) {
-//     pdqsort_branchless(begin, end, cmp);
-// }
-//
-// template<typename T, class Compare>
-// void sort(vec<T> & data, Compare cmp){
-//     pdqsort_branchless(data.begin(), data.end(), cmp);
-// }
-
 // deep copy filter
 template<class T, class Filter>
 vec<shared<T>> filter(const vec<shared<T>>& data, Filter t_fiter) {
