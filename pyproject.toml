@@ -100,6 +100,27 @@ filterwarnings = [
 ]
 testpaths = ["tests"]
 
+[tool.cibuildwheel]
+# Used by .github/workflows/wheels.yml; the workflow selects the architecture.
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-* pp311-*"
+# PyPy wheels only for manylinux x86_64 and macOS.
+skip = "pp*-win* pp*-musllinux* pp*-manylinux_aarch64"
+enable = ["pypy"]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
+test-extras = ["test"]
+test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+[tool.cibuildwheel.windows]
+environment = { CMAKE_GENERATOR = "Ninja" }
+# The extension links no external DLLs; skip delvewheel.
+repair-wheel-command = ""
+
 [tool.ruff]
 target-version = "py39"
 extend-exclude = ["3rdparty", "build"]

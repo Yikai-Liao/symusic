@@ -1,0 +1,180 @@
+name: CI
+
+# One required check, `ci-ok`, gates merges. The `changes` job selects lanes
+# from the changed paths (.github/scripts/ci_changes.py); pushes to main and
+# manual runs select every lane. See docs/development/ci.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: "1"
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.select.outputs.python }}
+      cpp: ${{ steps.select.outputs.cpp }}
+      docs: ${{ steps.select.outputs.docs }}
+      wheels: ${{ steps.select.outputs.wheels }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: select
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: python3 .github/scripts/ci_changes.py "$BASE_REF" | tee -a "$GITHUB_OUTPUT"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - name: Install clice
+        run: .github/scripts/install_clice.sh "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Hooks (whitespace, ruff, clice format)
+        env:
+          RUFF_OUTPUT_FORMAT: github
+        run: uvx prek@0.5.11 run --all-files --show-diff-on-failure
+      - name: Action pins
+        run: python3 .github/scripts/check_action_pins.py
+      - name: CI script tests
+        run: uv run --no-project --with pytest pytest -p no:cacheprovider .github/scripts
+
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    name: python (${{ matrix.os }}, ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.9" }
+          - { os: ubuntu-latest, python: "3.14", coverage: true }
+          - { os: ubuntu-latest, python: "pypy3.11" }
+          - { os: macos-latest, python: "3.14" }
+          - { os: windows-latest, python: "3.14" }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: MSVC developer shell
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: x64
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          python-version: ${{ matrix.python }}
+          activate-environment: true
+      - name: Install
+        run: uv pip install ".[test]" -C cmake.define.SYMUSIC_FAST_BUILD=ON
+      - name: Test
+        run: python -m pytest -n auto tests ${{ matrix.coverage && '--cov=symusic --cov-report=xml' || '' }}
+      - name: Upload coverage
+        if: matrix.coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: python
+
+  cpp:
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
+    name: cpp (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, coverage: true }
+          - { os: macos-latest }
+          - { os: windows-latest }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: MSVC developer shell
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: x64
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        if: matrix.coverage
+      - name: Configure
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_SYMUSIC_TEST=ON -DENABLE_LTO=OFF
+          ${{ runner.os == 'Windows' && '-G Ninja' || '' }}
+          ${{ matrix.coverage && '-DENABLE_COVERAGE=ON' || '' }}
+      - name: Build
+        run: cmake --build build --config Debug --parallel
+      - name: Test
+        run: ctest --test-dir build -C Debug --output-on-failure
+      - name: Coverage report
+        if: matrix.coverage
+        run: >-
+          uvx gcovr --xml build/coverage.xml --root . --filter src/ --filter include/
+          --gcov-ignore-errors=no_working_dir_found build
+      - name: Upload coverage
+        if: matrix.coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/coverage.xml
+          flags: cpp
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          python-version: "3.12"
+          activate-environment: true
+      - name: Install
+        run: uv pip install -r docs/requirements.txt . -C cmake.define.SYMUSIC_FAST_BUILD=ON
+      - name: Build (warnings are errors)
+        run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+
+  wheels:
+    needs: changes
+    if: needs.changes.outputs.wheels == 'true'
+    uses: ./.github/workflows/wheels.yml
+    with:
+      smoke: true
+
+  ci-ok:
+    needs: [changes, lint, python, cpp, docs, wheels]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All selected lanes passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in success|skipped) ;; *) exit 1 ;; esac
+          done

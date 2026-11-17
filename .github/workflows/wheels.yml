@@ -1,0 +1,76 @@
+name: Wheels
+
+# Builds wheels with cibuildwheel (configuration in pyproject.toml) and the sdist,
+# and tests every wheel. With `smoke`, CI builds a single Linux wheel instead.
+# release.yml calls the full build and publishes the artifacts.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      smoke:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: ${{ inputs.smoke }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
+        env:
+          CIBW_BUILD: cp312-manylinux_x86_64
+
+  wheels:
+    if: ${{ !inputs.smoke }}
+    name: wheels (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, platform: linux-x86_64 }
+          - { os: ubuntu-24.04-arm, platform: linux-aarch64 }
+          - { os: macos-15-intel, platform: macos-x86_64 }
+          - { os: macos-14, platform: macos-arm64 }
+          - { os: windows-latest, platform: windows-x64, msvc: x64 }
+          - { os: windows-2022, platform: windows-x86, msvc: x86, archs: x86 }
+          - { os: windows-11-arm, platform: windows-arm64, msvc: arm64 }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: MSVC developer shell
+        if: matrix.msvc
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: ${{ matrix.msvc }}
+      - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
+        env:
+          CIBW_ARCHS: ${{ matrix.archs || 'native' }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.platform }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  sdist:
+    if: ${{ !inputs.smoke }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - run: uv build --sdist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
