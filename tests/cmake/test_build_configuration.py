@@ -61,3 +61,17 @@ def test_core_lto(tmp_path: Path) -> None:
 
     configure(False)
     assert all("-flto" not in command for command in commands_for(root / "src"))
+
+
+@pytest.mark.skipif(shutil.which("cmake") is None, reason="Configure checks need CMake")
+def test_deprecated_option_alias(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        ["cmake", "-S", str(root), "-B", str(tmp_path), "-DBUILD_SYMUSIC_TEST=ON"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "BUILD_SYMUSIC_TEST is deprecated" in result.stderr
+    cache = (tmp_path / "CMakeCache.txt").read_text()
+    assert "SYMUSIC_BUILD_TESTS:BOOL=ON" in cache
