@@ -1,0 +1,122 @@
+name: Cross wheels
+
+# Experimental packaging only: release.yml keeps its native builders.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          python-version: "3.12.13"
+          activate-environment: true
+      - id: targets
+        run: python .github/scripts/cross_wheels.py plan >> "$GITHUB_OUTPUT"
+      - name: Generate stubs from the host extension
+        run: |
+          uv pip install . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
+          python -c 'import shutil, symusic; from pathlib import Path; shutil.copyfile(Path(symusic.__file__).with_name("core.pyi"), "${{ runner.temp }}/core.pyi")'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cross-wheel-stubs
+          path: ${{ runner.temp }}/core.pyi
+
+  build:
+    needs: host
+    runs-on: ubuntu-latest
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.host.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          python-version: "3.12.13"
+          activate-environment: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: cross-wheel-stubs
+          path: ${{ runner.temp }}/stubs
+      - name: Install xclang
+        id: compiler
+        run: echo "root=$(bash .github/scripts/install_xclang.sh "$RUNNER_TEMP/toolchain")" >> "$GITHUB_OUTPUT"
+      - name: Fetch vendor SDK
+        env:
+          XCLANG: ${{ steps.compiler.outputs.root }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            *apple-darwin) "$XCLANG/bin/xclang" sdk fetch macos --accept-license --preset macos-15 ;;
+            *pc-windows-msvc) "$XCLANG/bin/xclang" sdk fetch windows --accept-license --preset windows-2022 --arch x86_64,aarch64 ;;
+          esac
+      - name: Build wheel on Linux
+        env:
+          XCLANG: ${{ steps.compiler.outputs.root }}
+          TARGET: ${{ matrix.target }}
+        run: >-
+          python .github/scripts/cross_wheels.py build --target "$TARGET"
+          --toolchain "$XCLANG/lib/cmake/xclang/toolchain.cmake"
+          --stub "$RUNNER_TEMP/stubs/core.pyi" --work-dir "$RUNNER_TEMP/cross-build"
+          --out-dir "$RUNNER_TEMP/wheels"
+      - name: Audit Linux compatibility
+        if: contains(matrix.target, 'linux')
+        run: |
+          uvx --with patchelf auditwheel==6.8.2 repair --plat manylinux_2_28_aarch64 --wheel-dir "$RUNNER_TEMP/repaired" "$RUNNER_TEMP"/wheels/*.whl
+          rm "$RUNNER_TEMP"/wheels/*.whl
+          mv "$RUNNER_TEMP"/repaired/*.whl "$RUNNER_TEMP/wheels/"
+      - name: Audit stable ABI
+        run: uvx abi3audit==0.0.26 --strict "$RUNNER_TEMP"/wheels/*.whl
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cross-wheel-${{ matrix.target }}
+          path: ${{ runner.temp }}/wheels/*.whl
+          if-no-files-found: error
+
+  test:
+    needs: [host, build]
+    if: ${{ !cancelled() && needs.host.result == 'success' }}
+    runs-on: ${{ matrix.runner }}
+    name: native (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.host.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v8
+        with:
+          name: cross-wheel-${{ matrix.target }}
+          path: ${{ runner.temp }}/wheels
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          python-version: "3.12.13"
+          activate-environment: true
+      - name: Install wheel and verify stubs on Python 3.12
+        run: |
+          uv pip install "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pretty_midi
+          python .github/scripts/cross_wheels.py check-stubs
+          python -m pytest tests --ignore=tests/cmake -n auto -p no:cacheprovider
+      - name: Test the same wheel on Python 3.15
+        run: |
+          uv venv -p 3.15 "$RUNNER_TEMP/python315"
+          interpreter="$RUNNER_TEMP/python315/bin/python"
+          if [ "$RUNNER_OS" = Windows ]; then interpreter="$RUNNER_TEMP/python315/Scripts/python.exe"; fi
+          uv pip install --python "$interpreter" "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pretty_midi
+          "$interpreter" -m pytest tests --ignore=tests/cmake -n auto -p no:cacheprovider

@@ -11,6 +11,7 @@ CI runs on GitHub Actions. Every pull request reports an aggregate check, `ci-ok
 | `wheels.yml` | Manual, called by the other workflows | Builds and tests every wheel and the sdist with cibuildwheel |
 | `release.yml` | GitHub release published | Runs the full wheel build and uploads to PyPI |
 | `cross-validation.yml` | Manual Wheels run with `cross_validation` enabled | Experimental xclang builds on Linux, executed on native target runners |
+| `cross-wheels.yml` | Manual Wheels run with `cross_wheels` enabled | Experimental abi3 wheels built on Linux and installed on target runners |
 
 cibuildwheel reads its configuration from `[tool.cibuildwheel]` in `pyproject.toml`; the workflow picks the runner, architecture and libc.
 
@@ -62,6 +63,10 @@ The Python test lane keys its uv dependency cache on the root `pyproject.toml`, 
 A manual **Wheels** run with `cross_validation` enabled skips packaging and calls `cross-validation.yml`. Linux x64 builds the full C++ test executable for macOS 13+ (arm64 and x86_64), Linux ARM64 (glibc and static musl), and Windows (MSVC ABI, x64 and ARM64). Native GitHub runners then run each artifact against the test fixtures. The checksum-pinned xclang installer and vendor SDK presets make the build reproducible; SDK downloads require the maintainer's accepted Apple and Microsoft licenses. SDKs are never uploaded as artifacts.
 
 This experiment validates the C++ core and target runtime only. Release wheels retain native builders until target Python headers/libraries, stub generation, wheel repair and installed-package tests also pass.
+
+A manual **Wheels** run with `cross_wheels` enabled tests the packaging path separately. A native Linux build generates `core.pyi` from the same revision; Linux x64 then builds `cp312-abi3` wheels for both macOS architectures, both Windows MSVC architectures, and Linux AArch64 with glibc. `.github/scripts/cross_wheels.py` owns the target Python distributions, wheel tags and runner mapping. Cross builds use target Python headers and Windows import libraries, while scikit-build-core runs under the host Python. Linux wheels pass auditwheel repair, and every wheel passes strict abi3audit.
+
+Each target runner installs its wheel, regenerates the stub with the pinned nanobind submodule and compares it with the bundled file, then runs the runtime and typing tests. A separate Python 3.15 environment tests the same wheel again. CMake configuration tests are excluded from these runtime jobs and remain in the normal Python lane. This experiment does not publish packages or replace the release workflow. Python 3.10/3.11, PyPy, Windows x86 and musllinux retain native packaging; xclang's bundled musl sysroot supports static executables and needs a separate dynamic sysroot for Python extensions.
 
 ## Pinning
 

@@ -66,7 +66,7 @@ function(abcmidi_add_executable target_name)
         )
     endif()
 
-    if(NOT MSVC)
+    if(NOT WIN32)
         target_link_libraries(${target_name} PRIVATE m)
     endif()
 endfunction()
