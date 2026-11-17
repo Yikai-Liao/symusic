@@ -21,7 +21,6 @@ historical links only.
 
 - Read the Docs is the primary public documentation target: <https://symusic.readthedocs.io/en/stable/>.
 - The documentation source for RTD lives under `docs/` and is built with Sphinx + MyST.
-- `CHANGELOG.md` tracks the current `v0.6.0` work and backfills published historical releases.
 - The legacy mdBook stays online for historical reference but is no longer updated.
 - Build the docs locally via `python -m venv .venv`, `source .venv/bin/activate`,
   `pip install -r docs/requirements.txt`, and `pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON`
