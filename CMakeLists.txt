@@ -4,7 +4,7 @@ if(POLICY CMP0137)
     cmake_policy(SET CMP0137 NEW)
 endif()
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum supported macOS version")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum supported macOS version")
 project(symusic LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
