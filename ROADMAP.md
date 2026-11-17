@@ -4,9 +4,8 @@ Planned work and accepted debt. Remove an item when the change that resolves it 
 
 ## Toolchain compatibility
 
-CI has failed on `main` since the runner images moved to newer toolchains (observed November 2026). Each item below was diagnosed but not fixed.
+Workarounds and unsupported configurations with current toolchains.
 
-- **Clang 21 / AppleClang 21.** `src/io/zpp.cpp` fails to compile: with C++26 structured-binding packs, the pinned `zpp_bits` tries to decompose `Note` and other events whose base class `TimeStamp` also has members. Upstream fixed this in `zpp_bits` v4.7.7 (commit `0f35eab`, "Fix inspection_guarded to exclude types with explicit serializers"). A local GCC 14 build and C++ tests pass with v4.7.7, fmt 12.2.1, Catch2 v3.16.1 and nanobench v4.6.0.
 - **CMake 4.** `CMAKE_POLICY_VERSION_MINIMUM` in `CMakeLists.txt` and `pyproject.toml` exists because CMake 4 rejects projects declaring a minimum below 3.5. The direct submodules all declare 3.8 or later; the remaining offender is `gcem` (3.1) nested in `prestosynth`, whose upstream has since updated `gcem` and `libsamplerate`. Updating `prestosynth` should let the setting go.
 - **Free-threaded Python.** Importing the extension on `3.13t`/`3.14t` re-enables the GIL with a `RuntimeWarning`. Supporting it requires declaring free-threading support in the module and auditing shared state.
 
