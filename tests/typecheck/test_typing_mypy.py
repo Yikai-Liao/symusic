@@ -114,6 +114,7 @@ def test_complete_typing_contract(tmp_path: Path) -> None:
             "mypy",
             "--strict",
             "--no-incremental",
+            "--no-color-output",
             str(positive),
             str(negative),
         ],
