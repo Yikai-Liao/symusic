@@ -31,7 +31,7 @@ Reinstall after every change to `src/`, `include/`, `py_src/`, `python/` or the 
 
 Release builds keep LTO in the C++ core. Python bindings and nanobind compile without LTO; their final link still consumes the core's LTO objects. `SYMUSIC_FAST_BUILD` uses O1 throughout the build and disables core LTO for iteration. For profiling with debug symbols, use the standard `-C cmake.build-type=RelWithDebInfo` instead of a tool-specific option.
 
-Project CMake switches use the `SYMUSIC_` prefix:
+Project CMake settings use the `SYMUSIC_` prefix:
 
 | Option | Default | Purpose |
 |---|---|---|
