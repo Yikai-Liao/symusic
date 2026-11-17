@@ -20,7 +20,7 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 | Lane | Selected by | Runs |
 |---|---|---|
 | `lint` | Always | `prek run --all-files` (whitespace, YAML/TOML, Ruff, clice format), action pin check, CI script tests |
-| `python` | Core, binding, package, tests, build files | `pytest` on Linux (CPython 3.9 and 3.14, PyPy 3.11), macOS and Windows; Python coverage from Linux 3.14 |
+| `python` | Core, binding, package, tests, build files | `pytest` on Linux (CPython 3.10 and 3.14, PyPy 3.11), macOS and Windows; Python coverage from Linux 3.14 |
 | `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, macOS and Windows; C++ coverage from Linux |
 | `docs` | `docs/`, core, binding, package | Sphinx with warnings as errors |
 | `wheels` | Core, binding, build and packaging files | One cibuildwheel build and test (CPython 3.12, manylinux x86_64) |

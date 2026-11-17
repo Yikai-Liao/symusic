@@ -240,10 +240,10 @@ def _merge_function(
         message = f"Cannot merge default values for {context}"
         raise StubLiftError(message)
 
-    for index, defaults in enumerate(zip(*positional_defaults)):
+    for index, defaults in enumerate(zip(*positional_defaults, strict=True)):
         if len({_dump(default) for default in defaults}) != 1:
             result.args.defaults[index] = ast.Constant(value=Ellipsis)
-    for index, defaults in enumerate(zip(*keyword_defaults)):
+    for index, defaults in enumerate(zip(*keyword_defaults, strict=True)):
         if len({_dump(default) for default in defaults}) != 1:
             result.args.kw_defaults[index] = ast.Constant(value=Ellipsis)
 
@@ -365,7 +365,7 @@ def lift_generic_stubs(source: str) -> str:
         for key in _ordered_keys(maps):
             present = [
                 (unit, mapping[key])
-                for unit, (_, mapping) in zip(TIME_UNITS, maps)
+                for unit, (_, mapping) in zip(TIME_UNITS, maps, strict=True)
                 if key in mapping
             ]
             functions = [function for _, function in present]

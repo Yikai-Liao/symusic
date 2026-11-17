@@ -54,7 +54,7 @@ def test_second_conversion(midi_path: Path):
     mapper = ScoreTimeMapper(s_tick)
     max_delta = 0
     max_delta_rel = 0
-    for track_tick, track_sec in zip(s_tick.tracks, s_sec.tracks):
+    for track_tick, track_sec in zip(s_tick.tracks, s_sec.tracks, strict=True):
         if len(track_tick.notes) == 0:
             continue
         track_tick.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
@@ -112,7 +112,7 @@ def test_quarter_parse_matches_tick_conversion(tmp_path):
     assert notes_direct[1].time == pytest.approx(1.0)
     assert notes_direct[1].duration == pytest.approx(2.0)
 
-    for note_direct, note_from_tick in zip(notes_direct, notes_from_tick):
+    for note_direct, note_from_tick in zip(notes_direct, notes_from_tick, strict=True):
         assert note_direct.time == pytest.approx(note_from_tick.time)
         assert note_direct.duration == pytest.approx(note_from_tick.duration)
 
@@ -151,14 +151,14 @@ def test_issue90_direct_load_matches_tick_conversion():
 
     assert len(score_direct.tracks) == len(score_convert.tracks)
 
-    for track_d, track_c in zip(score_direct.tracks, score_convert.tracks):
+    for track_d, track_c in zip(score_direct.tracks, score_convert.tracks, strict=True):
         notes_d = track_d.notes
         notes_c = track_c.notes
         assert len(notes_d) == len(
             notes_c,
         ), f"Note count mismatch: direct={len(notes_d)}, convert={len(notes_c)}"
 
-        for i, (nd, nc) in enumerate(zip(notes_d, notes_c)):
+        for i, (nd, nc) in enumerate(zip(notes_d, notes_c, strict=True)):
             assert nd.time == pytest.approx(
                 nc.time,
                 abs=1e-4,

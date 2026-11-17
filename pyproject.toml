@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "symusic"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Yikai Liao", email = "lyk-boya@outlook.com"},
     {name = "Zhongqi Luo", email = "luozhongqi@mail.com"},
@@ -35,7 +35,6 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: MIDI",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -102,7 +101,7 @@ testpaths = ["tests"]
 
 [tool.cibuildwheel]
 # Used by .github/workflows/wheels.yml; the workflow selects the architecture.
-build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-* pp311-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-* pp311-*"
 # PyPy wheels only for manylinux x86_64 and macOS.
 skip = "pp*-win* pp*-musllinux* pp*-manylinux_aarch64"
 enable = ["pypy"]
@@ -122,7 +121,7 @@ environment = { CMAKE_GENERATOR = "Ninja" }
 repair-wheel-command = ""
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 extend-exclude = ["3rdparty", "build"]
 
 [tool.ruff.lint]
