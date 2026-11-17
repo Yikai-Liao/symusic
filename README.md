@@ -1,98 +1,67 @@
-# [symusic](https://github.com/Yikai-Liao/symusic)
-[![Build and upload to PyPI](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml/badge.svg?branch=main)](https://github.com/Yikai-Liao/symusic/actions/workflows/wheel.yml) [![PyPI version](https://badge.fury.io/py/symusic.svg)](https://badge.fury.io/py/symusic) [![Downloads](https://static.pepy.tech/badge/symusic)](https://pepy.tech/project/symusic) [![codecov](https://codecov.io/gh/Yikai-Liao/symusic/branch/main/graph/badge.svg)](https://codecov.io/gh/Yikai-Liao/symusic) [![Tests](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml/badge.svg)](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml) [![Page Views Count](https://badges.toozhao.com/badges/01HGE1345YAKN4YV7WF0JRKZJK/blue.svg)](https://badges.toozhao.com/stats/01HGE1345YAKN4YV7WF0JRKZJK "Get your own page views count badge on badges.toozhao.com")
+# symusic
 
-**ISMIR 2024 LBD Demo Video**: [YouTube](https://www.youtube.com/watch?v=ZGcyyUJ3P6Q) [Bilibili](https://www.bilibili.com/video/BV1mJUaYcEj1)
+[![PyPI](https://img.shields.io/pypi/v/symusic)](https://pypi.org/project/symusic/)
+[![Downloads](https://static.pepy.tech/badge/symusic)](https://pepy.tech/project/symusic)
+[![Tests](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml/badge.svg)](https://github.com/Yikai-Liao/symusic/actions/workflows/tests.yml)
+[![Docs](https://readthedocs.org/projects/symusic/badge/?version=stable)](https://symusic.readthedocs.io/en/stable/)
+[![codecov](https://codecov.io/gh/Yikai-Liao/symusic/branch/main/graph/badge.svg)](https://codecov.io/gh/Yikai-Liao/symusic)
 
-**Sy**music ("**Sy**mbolic **Music**") is a cross-platform symbolic music toolkit for note-level
-MIDI and ABC workflows. The core is written in C++20 and exposed to Python through nanobind, which
-keeps common parsing and transformation workloads hundreds of times faster than the pure-Python
-stacks many MIR pipelines still rely on.
+**Sy**music (**Sy**mbolic **Music**) is a fast toolkit for note-level symbolic music. It reads and writes MIDI and ABC, converts between ticks, quarter notes and seconds, transforms scores, exports NumPy arrays and piano rolls, and renders audio from SoundFonts. The core is C++20 with a Python binding built on nanobind, and parses MIDI hundreds of times faster than pure-Python libraries.
 
-The project builds on top of [minimidi](https://github.com/lzqlzzq/minimidi/tree/main) for parsing,
-[zpp_bits](https://github.com/eyalz800/zpp_bits) for fast pickling, and
-[prestosynth](https://github.com/lzqlzzq/prestosynth) for SoundFont rendering.
+## Install
 
-The canonical documentation is hosted on Read the Docs at
-[symusic.readthedocs.io](https://symusic.readthedocs.io/en/stable/). The legacy GitHub Pages mdBook
-remains available at [yikai-liao.github.io/symusic](https://yikai-liao.github.io/symusic/) for
-historical links only.
-
-## Documentation
-
-- Read the Docs is the primary public documentation target: <https://symusic.readthedocs.io/en/stable/>.
-- The documentation source for RTD lives under `docs/` and is built with Sphinx + MyST.
-- The legacy mdBook stays online for historical reference but is no longer updated.
-- Build the docs locally via `python -m venv .venv`, `source .venv/bin/activate`,
-  `pip install -r docs/requirements.txt`, and `pip install . -C cmake.define.SYMUSIC_FAST_BUILD=ON`
-  before running `sphinx-build -b html docs docs/_build/html`.
-
-## Features
-
-- Load MIDI and ABC files with `Score("path.mid")` or `Score("path.abc", fmt="abc")`.
-- Convert scores between `tick`, `quarter`, and `second` time units.
-- Export back to MIDI or ABC with `dump_midi`, `dump_abc`, and `dumps_abc`.
-- Compute beats, downbeats, and piano rolls for analysis and model pipelines.
-- Apply vectorized transformations on `Score` and `Track` objects such as `shift_pitch`,
-  `shift_velocity`, `shift_time`, `sort`, and `filter`.
-- Serialize containers efficiently with pickle and structured NumPy exports.
-- Render audio through SoundFonts with `Synthesizer`, `BuiltInSF2`, `BuiltInSF3`, and `dump_wav`.
-
-## Installation
-### Use pre-built wheels
-```bash
+```sh
 pip install symusic
 ```
 
-### Build from source
-Make sure your system has CMake and a C++20-capable compiler, then clone the repository with
-submodules and install it through `pip`:
+Wheels cover CPython 3.9–3.14 on Linux, macOS and Windows. To build from source you need CMake and a C++20 compiler; see [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#set-up).
 
-```bash
-git clone --recursive https://github.com/Yikai-Liao/symusic
-cd symusic
-pip install .
+## Example
+
+```python
+import pickle
+from symusic import Score
+
+score = Score("song.mid")                    # ticks by default; ABC with fmt="abc"
+print(score)                                 # tracks and event counts
+
+shifted = score.shift_pitch(2)               # returns a new score
+score.shift_time(480, inplace=True)          # or mutates in place
+
+seconds = score.to("second")                 # "tick", "quarter" or "second"
+notes = seconds.tracks[0].notes.numpy()      # dict of NumPy arrays
+roll = score.tracks[0].pianoroll(modes=["onset", "frame"], pitch_range=(0, 128))
+
+score.dump_midi("out.mid")
+restored = pickle.loads(pickle.dumps(score)) # fast binary pickling
 ```
 
-Or install the source distribution from PyPI:
+## Features
 
-```bash
-pip install symusic --no-binary symusic
-```
+- **I/O:** MIDI read and write; ABC through the bundled `abc2midi` and `midi2abc`; pickle support.
+- **Time units:** every score, track and event exists in `tick`, `quarter` and `second`, converted through the tempo map.
+- **Transformations:** shift time, pitch and velocity; clip, trim, sort, filter, resample and adjust time, each as a copy or in place.
+- **Analysis:** beat and downbeat grids, structure-of-arrays NumPy export and import, and piano rolls.
+- **Synthesis:** SoundFont 2/3 rendering with `Synthesizer`, built-in SoundFonts and `dump_wav`.
+- **Typing:** generated stubs with generic types, so type checkers distinguish `Score[Tick]` from `Score[Second]`.
 
-On Windows, `pip install .` will prefer `Ninja + MSVC` when it runs inside a Visual Studio
-Developer shell. In a regular shell it keeps using the default Visual Studio generator.
+## Documentation
 
-For debugging, you can pass `-Ccmake.define.MEM_LEAK_WARNING=True` to `pip install` to enable the
-nanobind leak-warning instrumentation:
+[Read the Docs](https://symusic.readthedocs.io/en/stable/) hosts the quickstart, concept guides, tutorials and API reference. The [architecture](https://github.com/Yikai-Liao/symusic/blob/main/docs/design/architecture.md) explains how the code is organized and which behavior it guarantees.
 
-```bash
-pip install -Ccmake.define.MEM_LEAK_WARNING=True .
-```
+## Performance
 
-## Python compatibility and CI coverage
+![MIDI parsing benchmark](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
 
-The wheel publication workflow builds CPython wheels for Python `3.9` through `3.14` across the
-Linux, macOS, and Windows targets listed in `.github/workflows/wheel.yml`, including `win_arm64`.
-PyPy wheels are currently published for `pp311` on `manylinux_x86_64`, `macosx_x86_64`, and
-`macosx_arm64`.
+Parse time on GitHub Actions M1 runners. `mido` parses to event level in pure Python; `pretty_midi` and `miditoolkit` build note-level objects on top of `mido`; `midifile` is C++. Python libraries were timed with `timeit`, C++ libraries with `nanobench` and Julia libraries with `BenchmarkTools`. The scripts are in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark).
 
-`+freethreaded` variants are not tested yet. CPython 3.12 can still emit nanobind leak warnings
-even when the build is otherwise healthy.
+## Contributing
 
-## Benchmark
-
-* `midifile` is written in C++ and can parse MIDI files to both `event level` and `note level`.
-  It is still slowed down by `iostream`.
-* `mido` is written in pure Python and only parses MIDI files to `event level`.
-* `pretty_midi` and `miditoolkit` build on top of `mido` and expose note-level abstractions.
-* For libraries written in Python or with Python bindings, we use `timeit` to measure parse time.
-  `nanobench` is used for C++ libraries and `BenchmarkTools` for Julia libraries.
-* The benchmark scripts live in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark).
-* The published chart was measured on GitHub Actions M1 runners.
-
-![Image](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
+Bug reports, fixes and features are welcome. [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md) covers setup, building, testing and pull requests; planned work and known issues are in [ROADMAP.md](https://github.com/Yikai-Liao/symusic/blob/main/ROADMAP.md). Coding agents start from [AGENTS.md](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md).
 
 ## Citation
+
+symusic was presented as an [ISMIR 2024 late-breaking demo](https://ismir2024program.ismir.net/lbd_426.html#lbd) ([video](https://www.youtube.com/watch?v=ZGcyyUJ3P6Q), [Bilibili](https://www.bilibili.com/video/BV1mJUaYcEj1)).
 
 ```bibtex
 @inproceedings{symusic2024,
@@ -104,11 +73,16 @@ even when the build is otherwise healthy.
 }
 ```
 
-## Acknowledgement
+## Acknowledgements
 
-* [minimidi](https://github.com/lzqlzzq/minimidi) : A fast and lightweight MIDI parsing library written in C++, which is the foundation of this project.
-* [prestosynth](https://github.com/lzqlzzq/prestosynth) : A fast SoundFont synthesizer written in C++, which powers Symusic's synthesis layer.
-* [nanobind](https://github.com/wjakob/nanobind) : An efficient and lightweight library for binding C++ to Python.
-* [zpp_bits](https://github.com/eyalz800/zpp_bits) : A fast single-header serialization library used for pickle support.
-* [geek_time_cpp](https://github.com/adah1972/geek_time_cpp/tree/master) : Example code from the book "Modern C++ Programming Practice". We use [metamacro.h](https://github.com/adah1972/geek_time_cpp/blob/master/40/metamacro.h#L1-L622) from it to shorten repetitive code.
-* [utfcpp](https://github.com/nemtrif/utfcpp) : A portable library for handling UTF-8 strings in C++.
+- [minimidi](https://github.com/lzqlzzq/minimidi): fast, lightweight MIDI parsing, the foundation of this project.
+- [prestosynth](https://github.com/lzqlzzq/prestosynth): SoundFont synthesis.
+- [nanobind](https://github.com/wjakob/nanobind): C++/Python binding.
+- [zpp_bits](https://github.com/eyalz800/zpp_bits): serialization for pickling.
+- [abcmidi](https://github.com/sshlien/abcmidi): ABC conversion.
+- [geek_time_cpp](https://github.com/adah1972/geek_time_cpp): `metamacro.h` for repetitive code.
+- [utfcpp](https://github.com/nemtrif/utfcpp): UTF-8 handling.
+
+## License
+
+[MIT](https://github.com/Yikai-Liao/symusic/blob/main/LICENSE)

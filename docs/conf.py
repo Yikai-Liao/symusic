@@ -64,6 +64,8 @@ myst_enable_extensions = [
     "attrs_block",
     "substitution",
 ]
+# GitHub-style heading anchors, so `page.md#section` links work on GitHub and on the site.
+myst_heading_anchors = 3
 
 nb_execution_mode = "off"
 autosummary_generate = True
@@ -126,7 +128,6 @@ exclude_patterns: list[str] = [
     "Thumbs.db",
     ".DS_Store",
     "README.md",
-    "api/generated/*",
 ]
 
 html_theme = "furo"

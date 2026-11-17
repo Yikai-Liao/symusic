@@ -1,0 +1,71 @@
+# Architecture
+
+symusic is a C++20 library for note-level symbolic music with a nanobind Python binding. This page describes how the code is layered, how data is owned and which behavior must survive refactors. User-facing explanations live in the [concept guides](../concepts/index.md).
+
+## Layers
+
+| Layer | Location | Owns |
+|---|---|---|
+| Core library | `include/symusic/`, `src/` | Data model, transformations, time conversion, MIDI and pickle I/O, piano rolls, synthesis glue |
+| Binding | `py_src/` | The `symusic.core` extension: one class per C++ type and time unit, docstrings, NumPy and pickle bridges, external-process calls for ABC |
+| Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`), bundled `abc2midi`/`midi2abc` paths |
+| Type stubs | `scripts/lift_generic_stubs.py`, `CMakeLists.txt` | `symusic/core.pyi`, generated at install time |
+
+Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core knows nothing about Python except the `pyvec` container. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer only dispatches.
+
+## Data model
+
+Every musical type is a template over a time unit `T` (the `TType` concept in `include/symusic/time_unit.h`):
+
+| Unit | `T::unit` | Meaning |
+|---|---|---|
+| `Tick` | `i32` | Raw MIDI ticks; resolution is `Score::ticks_per_quarter` |
+| `Quarter` | `f32` | Quarter notes |
+| `Second` | `f32` | Wall-clock seconds, derived from the tempo map |
+
+Events derive from `TimeStamp<T>` (`include/symusic/event.h`): `Note`, `Pedal` (with duration), `ControlChange`, `PitchBend`, `TimeSignature`, `KeySignature`, `Tempo` and `TextMeta`. A `Track<T>` holds notes, controls, pitch bends, pedals and lyrics; a `Score<T>` holds `ticks_per_quarter`, tracks, time signatures, key signatures, tempos and markers.
+
+Each container exists in two representations:
+
+- **Shared** (`Score`, `Track`): fields are `shared<pyvec<Event>>` and tracks are `shared<Track>`. This is what Python sees. Copying the outer object shares the event lists; `deepcopy` copies them.
+- **Native** (`ScoreNative`, `TrackNative`): plain `vec` fields with no shared ownership. Parsers build native values for speed and convert them once with `to_shared`; pickle serializes `to_native(...)`.
+
+`pyvec` (submodule `3rdparty/pyvec`) stores elements in chunks that are never reallocated and keeps order in a separate pointer array. Indexing from Python returns an aliasing `shared_ptr` that keeps the chunks alive, so a Python reference to an event stays valid after the list is appended to, sorted or has the element removed.
+
+## Data flow
+
+| Path | Implementation |
+|---|---|
+| MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
+| MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
+| ABC read/write | The binding writes a temporary MIDI or ABC file and runs the bundled `abc2midi`/`midi2abc` (`py_src/utils/process_runner.cpp`). `symusic.factory` exports their paths as `SYMUSIC_ABC2MIDI`/`SYMUSIC_MIDI2ABC`. The core has no ABC parser |
+| Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
+| Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
+| NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
+| Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |
+| Synthesis | `prestosynth` renders a `Score<Second>` (`src/synth.cpp`); `symusic.soundfont` downloads SoundFonts |
+
+## Python typing
+
+The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList`, ...) and generic placeholders (`Score`, `Note`, `PyVec`, ...) that only exist for type checkers and raise `TypeError` when instantiated (`py_src/bindings/core/module.cpp`). At install time nanobind writes `core.raw.pyi`; `scripts/lift_generic_stubs.py` rewrites it into `core.pyi` so that concrete classes appear as specializations of the generics. `tests/typecheck/` checks the result with mypy. `symusic.factory` gives users unit-agnostic constructors such as `Score(path, ttype="tick")` and makes `isinstance(x, Score)` match every unit.
+
+## Contracts
+
+Refactors keep these behaviors unless a change is explicitly about them:
+
+- **Unit symmetry.** Every type and operation exists for `Tick`, `Quarter` and `Second` with the same semantics.
+- **Copy and in-place pairs.** C++ transformations come as `foo()` returning a new value and `foo_inplace()` mutating. Python methods take `inplace=False`; with `inplace=True` they mutate and return `self`.
+- **Reference stability.** Python references to events, tracks and lists stay valid as described under [data model](#data-model).
+- **Round trips.** MIDI read/write and pickle preserve the shared data model; a pickled score loads in the same version.
+- **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values) rather than coercing silently. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
+- **Thin Python layer.** Hot paths stay in C++; the Python package does not reimplement core logic.
+
+Known violations of memory safety at extreme values are tracked in the [roadmap](https://github.com/Yikai-Liao/symusic/blob/main/ROADMAP.md#memory-safety).
+
+## Adding a feature
+
+1. Implement it in the core for all time units, with a copy and in-place form if it transforms data.
+2. Bind it in the matching `py_src/bindings/<area>/` file, with a docstring at the binding site.
+3. Extend `symusic.factory` only if construction or dispatch changes.
+4. Reinstall (`pip install .`) to regenerate the stubs, and add C++ and Python tests at the new boundary.
+5. Update the concept guide or tutorial that describes the area.

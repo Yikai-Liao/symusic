@@ -8,9 +8,6 @@ This site is the canonical documentation for symusic and is published on Read th
 <https://symusic.readthedocs.io/en/stable/>. It consolidates tutorials, task-focused examples,
 conceptual guides, and API reference material for the Python and C++ binding layers.
 
-> The legacy mdBook at <https://yikai-liao.github.io/symusic/> remains online as an archive for
-> historical links. Prefer the Read the Docs site for current behavior and versioned releases.
-
 ```{toctree}
 :maxdepth: 1
 :caption: Start Here
@@ -63,13 +60,7 @@ api/core/index
 :maxdepth: 1
 :caption: Contributing
 
-development
-project_notes
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Legacy Material
-
-legacy
+design/architecture
+Contributing guide <https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md>
+Roadmap <https://github.com/Yikai-Liao/symusic/blob/main/ROADMAP.md>
 ```
