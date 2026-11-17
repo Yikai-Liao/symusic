@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import check_action_pins
 import check_pr_title
 import ci_changes
+import cross_wheels
 
 
 @pytest.mark.parametrize(
@@ -195,3 +196,23 @@ def test_action_pins(tmp_path: Path) -> None:
 def test_workflow_pins() -> None:
     root = Path(__file__).resolve().parents[1] / "workflows"
     assert check_action_pins.main(["", str(root)]) == 0
+
+
+@pytest.mark.parametrize(
+    ("variant", "equivalent"),
+    [
+        ('def render(stereo: bool = True) -> "Eigen::Array<float,-1,-1>": ...', True),
+        ('def render(stereo: bool = False) -> "Eigen::Array<float,-1,-1>": ...', False),
+        ('def render(stereo: bool = True) -> "Eigen::Array<float,2,-1>": ...', False),
+        ('def render(stereo: bool = True) -> "Eigen::Array<int,-1,-1>": ...', False),
+    ],
+)
+def test_stub_types(variant: str, equivalent: bool) -> None:
+    host = 'def render(stereo: bool = True) -> "Eigen::Array<float, -1, -1>": ...'
+    assert (cross_wheels.stub_api(host) == cross_wheels.stub_api(variant)) == equivalent
+
+
+def test_stub_literals() -> None:
+    host = 'def render(name: str = "a, b") -> None: ...'
+    target = 'def render(name: str = "a,b") -> None: ...'
+    assert cross_wheels.stub_api(host) != cross_wheels.stub_api(target)

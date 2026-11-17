@@ -8,8 +8,10 @@ then regenerate the stub and test the installed wheel without rebuilding it.
 from __future__ import annotations
 
 import argparse
+import ast
 import difflib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -80,6 +82,9 @@ def build(args: argparse.Namespace) -> None:
             Python_SABI_LIBRARY=python_root / "libs" / "python3.lib",
             # Windows imports core.pyd; an abi3.pyd suffix is not recognized.
             SKBUILD_SOSABI="",
+            # Use the SDK's C++ library and CRT headers, as native MSVC does.
+            CMAKE_C_FLAGS="-stdlib=platform",
+            CMAKE_CXX_FLAGS="-stdlib=platform",
         )
     constraints = work / "build-constraints.txt"
     constraints.write_text("scikit-build-core==1.1.2\n", encoding="utf-8")
@@ -100,12 +105,25 @@ def build(args: argparse.Namespace) -> None:
         "--wheel",
         "--python",
         sys.executable,
-        "--build-constraint",
+        "--build-constraints",
         constraints,
         "--out-dir",
         args.out_dir.resolve(),
         *config,
     )
+
+
+def stub_api(text: str) -> str:
+    tree = ast.parse(text, type_comments=True)
+    for node in ast.walk(tree):
+        # Demanglers format opaque C++ template names differently on Windows.
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and re.fullmatch(r"\w+(?:::\w+)+<.*>", node.value)
+        ):
+            node.value = re.sub(r"\s*([<>,])\s*", r"\1", node.value)
+    return ast.dump(tree)
 
 
 def check_stubs() -> None:
@@ -126,7 +144,7 @@ def check_stubs() -> None:
         run(sys.executable, ROOT / "scripts/lift_generic_stubs.py", raw, lifted)
         expected = installed.read_text(encoding="utf-8")
         actual = lifted.read_text(encoding="utf-8")
-        if expected != actual:
+        if stub_api(expected) != stub_api(actual):
             diff = difflib.unified_diff(
                 expected.splitlines(),
                 actual.splitlines(),
@@ -135,7 +153,7 @@ def check_stubs() -> None:
                 lineterm="",
             )
             sys.exit("\n".join(diff))
-    print(f"Target-generated stubs match {installed}")
+    print(f"Target-generated stub API matches {installed}")
 
 
 def main() -> None:
