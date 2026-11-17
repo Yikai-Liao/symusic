@@ -74,6 +74,14 @@ def test_read_abc(abc_path: Path):
     assert score.note_num() > 0
 
 
+def test_read_abc_with_parse_errors_raises():
+    # The coda decoration `O` before `||` has no note to attach to. abc2midi
+    # reports it as a parse error and exits non-zero, so reading must fail.
+    path = TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc"
+    with pytest.raises(RuntimeError, match="Process exited with code 1"):
+        Score(path, fmt="abc")
+
+
 def test_dump_abc_roundtrip(tmp_path: Path):
     score = make_roundtrip_score()
     output_dir = tmp_path / "abc output"

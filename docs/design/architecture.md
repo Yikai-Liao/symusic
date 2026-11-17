@@ -38,7 +38,7 @@ Each container exists in two representations:
 |---|---|
 | MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
-| ABC read/write | The binding writes a temporary MIDI or ABC file and runs the bundled `abc2midi`/`midi2abc` (`py_src/utils/process_runner.cpp`). `symusic.factory` exports their paths as `SYMUSIC_ABC2MIDI`/`SYMUSIC_MIDI2ABC`. The core has no ABC parser |
+| ABC read/write | The binding writes a temporary MIDI or ABC file and runs the bundled `abc2midi`/`midi2abc` (`py_src/utils/process_runner.cpp`). `symusic.factory` exports their paths as `SYMUSIC_ABC2MIDI`/`SYMUSIC_MIDI2ABC`. A non-zero exit raises `RuntimeError`; `abc2midi` exits non-zero on any parse error, even one it recovers from. The core has no ABC parser |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
