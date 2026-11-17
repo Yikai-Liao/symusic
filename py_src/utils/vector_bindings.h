@@ -14,6 +14,12 @@
 
 namespace pyutils {
 
+// Return value policy for `__getitem__`: Python owns elements stored by raw
+// pointer and gets a copy otherwise. nanobind needs it as a compile-time tag.
+template<typename Value>
+using item_policy = nanobind::rv_policy::policy_tag<
+    std::is_pointer_v<Value> ? nanobind::rv_policy::take_ownership_v : nanobind::rv_policy::copy_v>;
+
 template<typename Vector, typename... Args>
 nanobind::class_<Vector> bind_vector_copy(
     nanobind::handle scope, const char* name, Args&&... args
@@ -63,7 +69,7 @@ nanobind::class_<Vector> bind_vector_copy(
               .def(
                   "__getitem__",
                   [](Vector& v, Py_ssize_t i) -> ValueRef { return v[detail::wrap(i, v.size())]; },
-                  std::is_pointer_v<Value> ? rv_policy::take_ownership : rv_policy::copy
+                  item_policy<Value>{}
               )
 
               .def("clear", [](Vector& v) { v.clear(); }, "Remove all items from list.");
@@ -276,7 +282,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                       [](self_t& v, Py_ssize_t i) -> ValueRef {
                           return v->operator[](detail::wrap(i, v->size()));
                       },
-                      std::is_pointer_v<Value> ? rv_policy::take_ownership : rv_policy::copy
+                      item_policy<Value>{}
                   )
 
                   .def("clear", [](self_t& v) { v->clear(); }, "Remove all items from list.");
