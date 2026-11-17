@@ -25,9 +25,7 @@ void ensure_valid_midi_data_byte(
     const char* const field_name, const uint8_t value, const bool sanitize_data
 ) {
     if (!sanitize_data && !is_valid_midi_data_byte(value)) {
-        throw std::runtime_error(
-            "Get " + std::string(field_name) + "=" + std::to_string(value)
-        );
+        throw std::runtime_error("Get " + std::string(field_name) + "=" + std::to_string(value));
     }
 }
 
@@ -572,18 +570,18 @@ vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
     return details::to_midi(convert<Tick>(*this)).to_bytes_sorted();
 }
 
-#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                                   \
-    template<>                                                                                \
-    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) {                   \
-        return Score<T>::parse<DataFormat::MIDI>(bytes);                                      \
-    }                                                                                         \
-    template<>                                                                                \
+#define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                                     \
+    template<>                                                                                  \
+    Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes) {                     \
+        return Score<T>::parse<DataFormat::MIDI>(bytes);                                        \
+    }                                                                                           \
+    template<>                                                                                  \
     Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes, bool sanitize_data) { \
         return details::parse_midi<T>(bytes, sanitize_data);                                    \
-    }                                                                                         \
-    template<>                                                                                \
-    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {                         \
-        return data.dumps<DataFormat::MIDI>();                                                \
+    }                                                                                           \
+    template<>                                                                                  \
+    vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {                           \
+        return data.dumps<DataFormat::MIDI>();                                                  \
     }
 
 REPEAT_ON(INSTANTIATE_GLOBAL_FUNC, Tick, Quarter, Second)

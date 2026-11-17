@@ -16,8 +16,8 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     // Add tracks
     auto track1 = std::make_shared<Track<Tick>>("Piano", 0, false);
-    track1->notes->push_back(Note<Tick>(0, 100, 60, 100));   // C4
-    track1->notes->push_back(Note<Tick>(240, 240, 62, 100)); // D4
+    track1->notes->push_back(Note<Tick>(0, 100, 60, 100));     // C4
+    track1->notes->push_back(Note<Tick>(240, 240, 62, 100));   // D4
 
     auto track2 = std::make_shared<Track<Tick>>("Guitar", 1, false);
     track2->notes->push_back(Note<Tick>(0, 480, 64, 100));   // E4, long note
@@ -30,10 +30,10 @@ TEST_CASE("Test Score class functionality", "[score]") {
     score.time_signatures->push_back(TimeSignature<Tick>(240, 3, 4));
 
     // Add key signatures
-    score.key_signatures->push_back(KeySignature<Tick>(0, 0, 0));  // C major
+    score.key_signatures->push_back(KeySignature<Tick>(0, 0, 0));   // C major
 
     // Add tempos
-    score.tempos->push_back(Tempo<Tick>(0, 500000));  // 120 bpm
+    score.tempos->push_back(Tempo<Tick>(0, 500000));   // 120 bpm
 
     SECTION("Default constructor and initial values") {
         Score<Tick> default_score;
@@ -77,7 +77,7 @@ TEST_CASE("Test Score class functionality", "[score]") {
     SECTION("sort() method") {
         // Create a new score with unsorted events
         Score<Tick> sortable(480);
-        auto track = std::make_shared<Track<Tick>>("Test", 0, false);
+        auto        track = std::make_shared<Track<Tick>>("Test", 0, false);
 
         // Add notes in unsorted order
         track->notes->push_back(Note<Tick>(240, 100, 60, 100));
@@ -101,8 +101,10 @@ TEST_CASE("Test Score class functionality", "[score]") {
     SECTION("clip() and clip_inplace() methods") {
         // Test non-inplace clip
         Score<Tick> clipped = score.clip(200, 400, false);
-        REQUIRE(clipped.tracks->at(0)->notes->size() == 1); // Only one note left (240-480)
-        REQUIRE(clipped.tracks->at(1)->notes->size() == 0); // One note (0-480) clipped and removed
+        REQUIRE(clipped.tracks->at(0)->notes->size() == 1);   // Only one note left (240-480)
+        REQUIRE(
+            clipped.tracks->at(1)->notes->size() == 0
+        );   // One note (0-480) clipped and removed
 
         // Test inplace clip
         score.clip_inplace(200, 400, false);
@@ -113,8 +115,8 @@ TEST_CASE("Test Score class functionality", "[score]") {
     SECTION("shift_time() and shift_time_inplace() methods") {
         // Test non-inplace time shift
         Score<Tick> shifted = score.shift_time(100);
-        REQUIRE(shifted.tracks->at(0)->notes->at(0).time == 100); // 0 -> 100
-        REQUIRE(shifted.tracks->at(0)->notes->at(1).time == 340); // 240 -> 340
+        REQUIRE(shifted.tracks->at(0)->notes->at(0).time == 100);   // 0 -> 100
+        REQUIRE(shifted.tracks->at(0)->notes->at(1).time == 340);   // 240 -> 340
 
         // Test inplace time shift
         score.shift_time_inplace(100);
@@ -124,9 +126,9 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     SECTION("shift_pitch() and shift_pitch_inplace() methods") {
         // Test non-inplace pitch shift
-        Score<Tick> pitched = score.shift_pitch(12); // Up one octave
-        REQUIRE(pitched.tracks->at(0)->notes->at(0).pitch == 72); // C4 -> C5
-        REQUIRE(pitched.tracks->at(0)->notes->at(1).pitch == 74); // D4 -> D5
+        Score<Tick> pitched = score.shift_pitch(12);                // Up one octave
+        REQUIRE(pitched.tracks->at(0)->notes->at(0).pitch == 72);   // C4 -> C5
+        REQUIRE(pitched.tracks->at(0)->notes->at(1).pitch == 74);   // D4 -> D5
 
         // Test inplace pitch shift
         score.shift_pitch_inplace(12);
@@ -136,7 +138,7 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     SECTION("shift_velocity() and shift_velocity_inplace() methods") {
         // Test non-inplace velocity shift
-        Score<Tick> velocitied = score.shift_velocity(10); // Increase velocity
+        Score<Tick> velocitied = score.shift_velocity(10);   // Increase velocity
         REQUIRE(velocitied.tracks->at(0)->notes->at(0).velocity == 110);
         REQUIRE(velocitied.tracks->at(0)->notes->at(1).velocity == 110);
 

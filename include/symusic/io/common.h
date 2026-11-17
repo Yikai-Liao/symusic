@@ -11,14 +11,14 @@
 
 namespace symusic {
 
-vec<u8> read_file(const std::filesystem::path & path);
+vec<u8> read_file(const std::filesystem::path& path);
 
-vec<u8> read_file(const std::string & path);
+vec<u8> read_file(const std::string& path);
 
-void write_file(const std::filesystem::path & path, std::span<const u8> buffer);
+void write_file(const std::filesystem::path& path, std::span<const u8> buffer);
 
-void write_file(const std::string & path, std::span<const u8> buffer);
+void write_file(const std::string& path, std::span<const u8> buffer);
 
-}
+}   // namespace symusic
 
-#endif //LIBSYMUSIC_IO_COMMON_H
+#endif   // LIBSYMUSIC_IO_COMMON_H

@@ -53,9 +53,7 @@ struct SimpleTimeConverter {
         converted.reserve(data.size());
         for (const auto& event : data) {
             converted.emplace_back(
-                time_value(event.time),
-                std::max(min_dur, time_value(event.duration)),
-                event
+                time_value(event.time), std::max(min_dur, time_value(event.duration)), event
             );
         }
         return pyvec<Event<To>>(std::move(converted));
@@ -73,19 +71,18 @@ struct SecondTimeConverter {
         f64                             factor;
     };
 
-    f64                    tpq;
-    vec<to_unit>           to_times;
-    vec<from_unit>         from_times;
-    vec<f64>               factors;
+    f64            tpq;
+    vec<to_unit>   to_times;
+    vec<from_unit> from_times;
+    vec<f64>       factors;
 
     explicit SecondTimeConverter(const Score<From>& score) :
         tpq(static_cast<f64>(score.ticks_per_quarter)) {
         vec<Tempo<From>> tempos;
         if (score.tempos->empty()) {
-            tempos = {
-                Tempo<From>(static_cast<from_unit>(0), 500000),
-                Tempo<From>(std::numeric_limits<from_unit>::max(), 500000)
-            };
+            tempos
+                = {Tempo<From>(static_cast<from_unit>(0), 500000),
+                   Tempo<From>(std::numeric_limits<from_unit>::max(), 500000)};
         } else {
             tempos.reserve(score.tempos->size() + 2);
             tempos.assign(score.tempos->cbegin(), score.tempos->cend());
@@ -133,11 +130,13 @@ struct SecondTimeConverter {
         converted.reserve(times.size());
         if (times.empty()) { return converted; }
 
-        const auto self = static_cast<const Converter*>(this);
+        const auto self  = static_cast<const Converter*>(this);
         auto       state = initial_state();
         for (const auto time : times) {
             update_state(state, time);
-            converted.push_back(self->get_time(time, state.pivot_to, state.range.first, state.factor));
+            converted.push_back(
+                self->get_time(time, state.pivot_to, state.range.first, state.factor)
+            );
         }
         return converted;
     }
@@ -149,13 +148,12 @@ struct SecondTimeConverter {
         converted.reserve(data.size());
         if (data.empty()) { return pyvec<Event<To>>(std::move(converted)); }
 
-        const auto self = static_cast<const Converter*>(this);
+        const auto self  = static_cast<const Converter*>(this);
         auto       state = initial_state();
         for (const auto& event : data) {
             update_state(state, event.time);
             converted.emplace_back(
-                self->get_time(event.time, state.pivot_to, state.range.first, state.factor),
-                event
+                self->get_time(event.time, state.pivot_to, state.range.first, state.factor), event
             );
         }
         return pyvec<Event<To>>(std::move(converted));
@@ -172,19 +170,17 @@ struct SecondTimeConverter {
         converted.reserve(data.size());
         if (data.empty()) { return pyvec<Event<To>>(std::move(converted)); }
 
-        const auto self = static_cast<const Converter*>(this);
+        const auto self  = static_cast<const Converter*>(this);
         auto       state = initial_state();
         for (const auto& event : data) {
             update_state(state, event.time);
-            const auto start = self->get_time(
-                event.time, state.pivot_to, state.range.first, state.factor
-            );
+            const auto start
+                = self->get_time(event.time, state.pivot_to, state.range.first, state.factor);
 
             const auto end_time = event.end();
             update_state(state, end_time);
-            const auto end = self->get_time(
-                end_time, state.pivot_to, state.range.first, state.factor
-            );
+            const auto end
+                = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
             converted.emplace_back(start, std::max(min_dur, end - start), event);
         }
         return pyvec<Event<To>>(std::move(converted));

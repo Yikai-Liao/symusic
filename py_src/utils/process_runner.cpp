@@ -36,8 +36,7 @@ std::string path_to_utf8(const std::filesystem::path& path) {
 }
 
 std::string render_command(
-    const std::filesystem::path&              executable,
-    const std::vector<std::filesystem::path>& args
+    const std::filesystem::path& executable, const std::vector<std::filesystem::path>& args
 ) {
     std::string rendered = path_to_utf8(executable);
     for (const auto& arg : args) {
@@ -56,31 +55,25 @@ std::filesystem::path create_scoped_temp_dir(std::string_view prefix) {
             std::chrono::steady_clock::now().time_since_epoch().count()
         );
         const auto candidate
-            = temp_root
-              / fmt::format("{}{}-{}-{}", prefix, GetCurrentProcessId(), now, attempt);
+            = temp_root / fmt::format("{}{}-{}-{}", prefix, GetCurrentProcessId(), now, attempt);
         if (CreateDirectoryW(candidate.c_str(), nullptr) != 0) { return candidate; }
 
         const auto error = GetLastError();
         if (error == ERROR_ALREADY_EXISTS) { continue; }
 
         throw std::runtime_error(
-            fmt::format(
-                "CreateDirectoryW failed for {} (error {})",
-                path_to_utf8(candidate),
-                error
-            )
+            fmt::format("CreateDirectoryW failed for {} (error {})", path_to_utf8(candidate), error)
         );
     }
 
     throw std::runtime_error(
         fmt::format(
-            "Failed to create a unique temporary directory under {}",
-            path_to_utf8(temp_root)
+            "Failed to create a unique temporary directory under {}", path_to_utf8(temp_root)
         )
     );
 #else
-    const auto pattern = temp_root / fmt::format("{}XXXXXX", prefix);
-    auto       native  = pattern.string();
+    const auto        pattern = temp_root / fmt::format("{}XXXXXX", prefix);
+    auto              native  = pattern.string();
     std::vector<char> buffer(native.begin(), native.end());
     buffer.push_back('\0');
 
@@ -128,8 +121,7 @@ std::wstring quote_windows_argument(const std::wstring& argument) {
 }
 
 std::wstring build_command_line(
-    const std::filesystem::path&              executable,
-    const std::vector<std::filesystem::path>& args
+    const std::filesystem::path& executable, const std::vector<std::filesystem::path>& args
 ) {
     std::wstring command_line = quote_windows_argument(executable.native());
     for (const auto& arg : args) {
@@ -196,7 +188,7 @@ void run_process_checked(
     const auto rendered_command = render_command(executable, args);
 
 #ifdef _WIN32
-    auto command_line = build_command_line(executable, args);
+    auto                 command_line = build_command_line(executable, args);
     std::vector<wchar_t> command_buffer(command_line.begin(), command_line.end());
     command_buffer.push_back(L'\0');
 
@@ -258,11 +250,7 @@ void run_process_checked(
 
     if (created == 0) {
         throw std::runtime_error(
-            fmt::format(
-                "Failed to start process '{}' (error {})",
-                rendered_command,
-                GetLastError()
-            )
+            fmt::format("Failed to start process '{}' (error {})", rendered_command, GetLastError())
         );
     }
 
@@ -275,9 +263,7 @@ void run_process_checked(
         CloseHandle(process_info.hProcess);
         throw std::runtime_error(
             fmt::format(
-                "Failed to query process exit code for '{}' (error {})",
-                rendered_command,
-                error
+                "Failed to query process exit code for '{}' (error {})", rendered_command, error
             )
         );
     }
@@ -294,18 +280,14 @@ void run_process_checked(
     std::vector<std::string> argv_storage;
     argv_storage.reserve(args.size() + 1);
     argv_storage.push_back(executable.string());
-    for (const auto& arg : args) {
-        argv_storage.push_back(arg.string());
-    }
+    for (const auto& arg : args) { argv_storage.push_back(arg.string()); }
 
     std::vector<char*> argv;
     argv.reserve(argv_storage.size() + 1);
-    for (auto& arg : argv_storage) {
-        argv.push_back(arg.data());
-    }
+    for (auto& arg : argv_storage) { argv.push_back(arg.data()); }
     argv.push_back(nullptr);
 
-    posix_spawn_file_actions_t file_actions{};
+    posix_spawn_file_actions_t  file_actions{};
     posix_spawn_file_actions_t* file_actions_ptr = nullptr;
     if (suppress_stderr) {
         int action_status = posix_spawn_file_actions_init(&file_actions);
@@ -334,14 +316,9 @@ void run_process_checked(
         file_actions_ptr = &file_actions;
     }
 
-    pid_t process_id    = -1;
-    const int spawn_err = posix_spawn(
-        &process_id,
-        executable.c_str(),
-        file_actions_ptr,
-        nullptr,
-        argv.data(),
-        environ
+    pid_t     process_id = -1;
+    const int spawn_err  = posix_spawn(
+        &process_id, executable.c_str(), file_actions_ptr, nullptr, argv.data(), environ
     );
 
     if (file_actions_ptr != nullptr) { posix_spawn_file_actions_destroy(file_actions_ptr); }
@@ -349,9 +326,7 @@ void run_process_checked(
     if (spawn_err != 0) {
         throw std::runtime_error(
             fmt::format(
-                "Failed to start process '{}': {}",
-                rendered_command,
-                std::strerror(spawn_err)
+                "Failed to start process '{}': {}", rendered_command, std::strerror(spawn_err)
             )
         );
     }
@@ -360,11 +335,7 @@ void run_process_checked(
     while (waitpid(process_id, &wait_status, 0) == -1) {
         if (errno != EINTR) {
             throw std::runtime_error(
-                fmt::format(
-                    "waitpid failed for '{}': {}",
-                    rendered_command,
-                    std::strerror(errno)
-                )
+                fmt::format("waitpid failed for '{}': {}", rendered_command, std::strerror(errno))
             );
         }
     }

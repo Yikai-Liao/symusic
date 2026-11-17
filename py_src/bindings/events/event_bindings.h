@@ -30,8 +30,8 @@ constexpr std::string_view kTimedEventTemplate = R"pbdoc(
 
 inline std::string build_time_notes(
     const docstring_helpers::TimeFlavorInfo& flavor,
-    const bool include_duration_note,
-    std::string_view extra_note = {}
+    const bool                               include_duration_note,
+    std::string_view                         extra_note = {}
 ) {
     std::string notes
         = fmt::format("- {}\n- Optimized for {}", flavor.measurement_sentence, flavor.best_for);
@@ -57,9 +57,12 @@ inline std::string render_signature(
 template<TType T>
 const char* note_doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto     signature
-            = render_signature(flavor, "Note", "{class_name}(time: {scalar}, duration: {scalar}, pitch: int, velocity: int = 0)");
+        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
+        const auto     signature = render_signature(
+            flavor,
+            "Note",
+            "{class_name}(time: {scalar}, duration: {scalar}, pitch: int, velocity: int = 0)"
+        );
         const auto description = fmt::format(
             "Pitched event anchored to a {} timestamp with editable duration and velocity.",
             flavor.timeline_noun
@@ -78,12 +81,13 @@ const char* note_doc() {
 template<TType T>
 const char* key_signature_doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
+        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
         const auto     signature = render_signature(
             flavor, "KeySignature", "{class_name}(time: {scalar}, key: int, tonality: int)"
         );
         const auto description = fmt::format(
-            "Key signature change scheduled on the {} timeline. ``key`` is the number of sharps/flats "
+            "Key signature change scheduled on the {} timeline. ``key`` is the number of "
+            "sharps/flats "
             "relative to C and ``tonality`` is ``0`` for major, ``1`` for minor.",
             flavor.timeline_noun
         );
@@ -101,12 +105,15 @@ const char* key_signature_doc() {
 template<TType T>
 const char* time_signature_doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
+        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
         const auto     signature = render_signature(
-            flavor, "TimeSignature", "{class_name}(time: {scalar}, numerator: int, denominator: int)"
+            flavor,
+            "TimeSignature",
+            "{class_name}(time: {scalar}, numerator: int, denominator: int)"
         );
         const auto description = fmt::format(
-            "Meter change storing beats-per-bar and subdivision (e.g., ``3/4``) on the {} timeline. "
+            "Meter change storing beats-per-bar and subdivision (e.g., ``3/4``) on the {} "
+            "timeline. "
             "The denominator must be a power of two because it represents note lengths.",
             flavor.timeline_noun
         );
@@ -124,12 +131,13 @@ const char* time_signature_doc() {
 template<TType T>
 const char* control_change_doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
+        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
         const auto     signature = render_signature(
             flavor, "ControlChange", "{class_name}(time: {scalar}, number: int, value: int)"
         );
         const auto description = fmt::format(
-            "Standard MIDI controller event carrying a controller number/value pair on the {} timeline.",
+            "Standard MIDI controller event carrying a controller number/value pair on the {} "
+            "timeline.",
             flavor.timeline_noun
         );
         const auto time_notes = build_time_notes(flavor, false);
@@ -172,7 +180,8 @@ const char* tempo_doc() {
             = render_signature(flavor, "Tempo", "{class_name}(time: {scalar}, mspq: int)");
         const auto description = fmt::format(
             "Tempo change stored as microseconds-per-quarter note at a {} timestamp. "
-            "The ``qpm`` property mirrors beats-per-minute and mutating it updates ``mspq`` accordingly.",
+            "The ``qpm`` property mirrors beats-per-minute and mutating it updates ``mspq`` "
+            "accordingly.",
             flavor.timeline_noun
         );
         const auto time_notes = build_time_notes(flavor, false);
@@ -193,7 +202,8 @@ const char* pitch_bend_doc() {
         const auto     signature
             = render_signature(flavor, "PitchBend", "{class_name}(time: {scalar}, value: int)");
         const auto description = fmt::format(
-            "Pitch-bend wheel value applied on the {} timeline. The raw 14-bit value matches the MIDI encoding.",
+            "Pitch-bend wheel value applied on the {} timeline. The raw 14-bit value matches the "
+            "MIDI encoding.",
             flavor.timeline_noun
         );
         const auto time_notes = build_time_notes(flavor, false);
@@ -327,8 +337,9 @@ auto bind_time_stamp(
 
     const auto event_sig = fmt::format("class {}({}[{}])", name, generic_base, unit_suffix);
 
-    auto event = class_doc ? nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()), class_doc) :
-                             nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()));
+    auto event = class_doc ?
+                     nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()), class_doc) :
+                     nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()));
 
     // clang-format off
     constexpr auto flavor = docstring_helpers::time_flavor<typename T::ttype>();
@@ -593,7 +604,7 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<TimeSignature<T>>;
     using self_inner = TimeSignature<T>;
 
-    const std::string name = "TimeSignature" + name_;
+    const std::string name      = "TimeSignature" + name_;
     auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(
         m, name, "TimeSignature", name_, event_docstrings::time_signature_doc<T>()
     );
@@ -622,7 +633,7 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
     using self_t     = shared<ControlChange<T>>;
     using self_inner = ControlChange<T>;
 
-    const std::string name = "ControlChange" + name_;
+    const std::string name                  = "ControlChange" + name_;
     auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(
         m, name, "ControlChange", name_, event_docstrings::control_change_doc<T>()
     );
@@ -733,7 +744,7 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     using self_t     = shared<PitchBend<T>>;
     using self_inner = PitchBend<T>;
 
-    const std::string name = "PitchBend" + name_;
+    const std::string name          = "PitchBend" + name_;
     auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(
         m, name, "PitchBend", name_, event_docstrings::pitch_bend_doc<T>()
     );
@@ -761,9 +772,10 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     using unit   = typename T::unit;
     using self_t = shared<TextMeta<T>>;
 
-    const std::string name = "TextMeta" + name_;
-    auto [textmeta, textmeta_vec]
-        = bind_time_stamp<TextMeta<T>>(m, name, "TextMeta", name_, event_docstrings::text_meta_doc<T>());
+    const std::string name        = "TextMeta" + name_;
+    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(
+        m, name, "TextMeta", name_, event_docstrings::text_meta_doc<T>()
+    );
 
     // clang-format off
     textmeta

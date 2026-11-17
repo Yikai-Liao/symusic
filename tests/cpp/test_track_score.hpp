@@ -54,20 +54,21 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         Track<Tick> track("Piano", 0, false);
 
         // Empty track should have start/end time of 0
-        REQUIRE(track.start() == 0); // start() returns max() for empty, but min(max(), max()...) is max(), needs fix in track.cpp/score.cpp
+        REQUIRE(track.start() == 0);   // start() returns max() for empty, but min(max(), max()...)
+                                       // is max(), needs fix in track.cpp/score.cpp
         REQUIRE(track.end() == 0);
 
         // Add some notes and check start/end time
-        track.notes->push_back(Note<Tick>{100, 200, 60, 80});  // ends at 300
-        REQUIRE(track.start() == 100); // Now expect 100 after adding the note
-        REQUIRE(track.end() == 300);   // End time should be correct
+        track.notes->push_back(Note<Tick>{100, 200, 60, 80});   // ends at 300
+        REQUIRE(track.start() == 100);   // Now expect 100 after adding the note
+        REQUIRE(track.end() == 300);     // End time should be correct
 
-        track.notes->push_back(Note<Tick>{400, 100, 62, 80});  // ends at 500
-        REQUIRE(track.start() == 100);  // Start time should still be the earliest
-        REQUIRE(track.end() == 500);    // End time should update
+        track.notes->push_back(Note<Tick>{400, 100, 62, 80});   // ends at 500
+        REQUIRE(track.start() == 100);   // Start time should still be the earliest
+        REQUIRE(track.end() == 500);     // End time should update
 
         // Add other event types and check if end time updates
-        track.pedals->push_back(Pedal<Tick>{600, 200});  // ends at 800
+        track.pedals->push_back(Pedal<Tick>{600, 200});   // ends at 800
         REQUIRE(track.end() == 800);
     }
 
@@ -96,9 +97,9 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         Track<Tick> track("Piano", 0, false);
 
         // Add some notes
-        track.notes->push_back(Note<Tick>{100, 200, 60, 80});  // 100-300
-        track.notes->push_back(Note<Tick>{300, 200, 62, 80});  // 300-500
-        track.notes->push_back(Note<Tick>{500, 200, 64, 80});  // 500-700
+        track.notes->push_back(Note<Tick>{100, 200, 60, 80});   // 100-300
+        track.notes->push_back(Note<Tick>{300, 200, 62, 80});   // 300-500
+        track.notes->push_back(Note<Tick>{500, 200, 64, 80});   // 500-700
 
         // Test clipping by start time
         Track<Tick> clipped1 = track.clip(200, 600);
@@ -200,21 +201,21 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         Score<Tick> score(480);
 
         // Empty score should have start/end time of 0
-        REQUIRE(score.start() == 0); // start() returns max() for empty, needs fix in score.cpp
+        REQUIRE(score.start() == 0);   // start() returns max() for empty, needs fix in score.cpp
         REQUIRE(score.end() == 0);
 
         // Add a track with notes
         auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
-        track->notes->push_back(Note<Tick>{100, 200, 60, 80});  // ends at 300
+        track->notes->push_back(Note<Tick>{100, 200, 60, 80});   // ends at 300
         score.tracks->push_back(track);
 
         // Test score start time after adding track
-        REQUIRE(score.start() == 100); // Now expect 100 after adding the track with the note
-        REQUIRE(score.end() == 300);   // End time should be correct
+        REQUIRE(score.start() == 100);   // Now expect 100 after adding the track with the note
+        REQUIRE(score.end() == 300);     // End time should be correct
 
-        track->notes->push_back(Note<Tick>{400, 100, 62, 80});  // ends at 500
-        REQUIRE(score.start() == 100); // Start time should still be the earliest
-        REQUIRE(score.end() == 500);   // End time should update
+        track->notes->push_back(Note<Tick>{400, 100, 62, 80});   // ends at 500
+        REQUIRE(score.start() == 100);   // Start time should still be the earliest
+        REQUIRE(score.end() == 500);     // End time should update
 
         // Add a tempo event that ends later
         score.tempos->push_back(Tempo<Tick>{600, 500000});
@@ -226,9 +227,9 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 
         // Add a track with notes
         auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
-        track->notes->push_back(Note<Tick>{100, 200, 60, 80});  // 100-300
-        track->notes->push_back(Note<Tick>{300, 200, 62, 80});  // 300-500
-        track->notes->push_back(Note<Tick>{500, 200, 64, 80});  // 500-700
+        track->notes->push_back(Note<Tick>{100, 200, 60, 80});   // 100-300
+        track->notes->push_back(Note<Tick>{300, 200, 62, 80});   // 300-500
+        track->notes->push_back(Note<Tick>{500, 200, 64, 80});   // 500-700
         score.tracks->push_back(track);
 
         // Add some tempo events
@@ -315,11 +316,11 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 
     SECTION("Score Beat Locations Use Current Time Unit") {
         Score<Tick> score(480);
-        auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
+        auto        track = std::make_shared<Track<Tick>>("Piano", 0, false);
         track->notes->push_back(Note<Tick>{0, 3840, 60, 80});
         score.tracks->push_back(track);
 
-        const auto beats = score.get_beats();
+        const auto beats     = score.get_beats();
         const auto downbeats = score.get_downbeats();
 
         REQUIRE(beats == vec<Tick::unit>{0, 480, 960, 1440, 1920, 2400, 2880, 3360});
@@ -328,12 +329,12 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 
     SECTION("Score Beat Locations Follow Compound Meter Heuristic") {
         Score<Quarter> score(480);
-        auto track = std::make_shared<Track<Quarter>>("Piano", 0, false);
+        auto           track = std::make_shared<Track<Quarter>>("Piano", 0, false);
         track->notes->push_back(Note<Quarter>{0.f, 12.f, 60, 80});
         score.tracks->push_back(track);
         score.time_signatures->push_back(TimeSignature<Quarter>{0.f, 6, 8});
 
-        const auto beats = score.get_beats();
+        const auto beats     = score.get_beats();
         const auto downbeats = score.get_downbeats();
 
         REQUIRE(beats.size() == 8);
@@ -349,15 +350,15 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 
     SECTION("Score Beat Locations Respect Tempo Changes In Second Time") {
         Score<Tick> tick_score(480);
-        auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
+        auto        track = std::make_shared<Track<Tick>>("Piano", 0, false);
         track->notes->push_back(Note<Tick>{0, 3840, 60, 80});
         tick_score.tracks->push_back(track);
         tick_score.tempos->push_back(Tempo<Tick>{0, 500000});
         tick_score.tempos->push_back(Tempo<Tick>{1920, 1000000});
 
         const auto second_score = convert<Second>(tick_score);
-        const auto beats = second_score.get_beats();
-        const auto downbeats = second_score.get_downbeats();
+        const auto beats        = second_score.get_beats();
+        const auto downbeats    = second_score.get_downbeats();
 
         REQUIRE(beats.size() == 8);
         REQUIRE(beats[0] == Catch::Approx(0.f));
@@ -370,4 +371,4 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
     }
 }
 
-#endif // SYMUSIC_TEST_TRACK_SCORE_HPP
+#endif   // SYMUSIC_TEST_TRACK_SCORE_HPP

@@ -17,9 +17,7 @@ Score<To> convert(
 );
 
 template<TType To, TType From>
-[[nodiscard]] typename To::unit convert_time(
-    typename From::unit time, const Score<From>& context
-) {
+[[nodiscard]] typename To::unit convert_time(typename From::unit time, const Score<From>& context) {
     const auto converter = details::make_time_converter<To>(context);
     return converter.time_value(time);
 }

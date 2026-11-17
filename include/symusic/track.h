@@ -87,7 +87,7 @@ struct Track {
         shared<pyvec<PitchBend<T>>>     pitch_bends,
         shared<pyvec<Pedal<T>>>         pedals,
         shared<pyvec<TextMeta<T>>>      lyrics
-    ) : // clang-format off
+    ) :   // clang-format off
         name{std::move(name)},
         program{program},
         is_drum{is_drum},
@@ -96,7 +96,7 @@ struct Track {
         pitch_bends{std::move(pitch_bends)},
         pedals{std::move(pedals)},
         lyrics{std::move(lyrics)} {}
-        // clang-format on
+    // clang-format on
 
     auto default_key() const { return std::make_tuple(is_drum, program, name, notes->size()); }
 
@@ -174,9 +174,21 @@ struct Track {
 
     [[nodiscard]] Track clip(unit start, unit end, bool clip_end = false) const;
 
-    void trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove");
+    void trim_inplace(
+        unit               start,
+        unit               end,
+        unit               min_overlap = 0,
+        const std::string& start_mode  = "remove",
+        const std::string& end_mode    = "remove"
+    );
 
-    [[nodiscard]] Track trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const;
+    [[nodiscard]] Track trim(
+        unit               start,
+        unit               end,
+        unit               min_overlap = 0,
+        const std::string& start_mode  = "remove",
+        const std::string& end_mode    = "remove"
+    ) const;
 
     // shift the time of all the events in the track, non-inplace, return a new Track
     [[nodiscard]] Track shift_time(unit offset) const;

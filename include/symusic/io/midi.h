@@ -11,15 +11,16 @@
 
 namespace symusic {
 
-// explicit extern dumps and parse to overload the general implementation which always throws a compile time error
+// explicit extern dumps and parse to overload the general implementation which always throws a
+// compile time error
 #define EXTERN_MIDI(__COUNT, T)                                         \
-    extern template vec<u8> Score<T>::dumps<DataFormat::MIDI>() const;  \
+    extern template vec<u8>  Score<T>::dumps<DataFormat::MIDI>() const; \
     extern template Score<T> Score<T>::parse<DataFormat::MIDI>(std::span<const u8> bytes);
 
-REPEAT_ON(EXTERN_MIDI, Tick, Quarter, Second) // Second is not supported yet
+REPEAT_ON(EXTERN_MIDI, Tick, Quarter, Second)   // Second is not supported yet
 
 #undef EXTERN_MIDI
 
-}
+}   // namespace symusic
 
-#endif //LIBSYMUSIC_IO_MIDI_H
+#endif   // LIBSYMUSIC_IO_MIDI_H

@@ -12,9 +12,9 @@
 using namespace symusic;
 
 TEST_CASE("Test Note formatting", "[repr][note]") {
-    Note<Tick> note(100, 200, 60, 80);
+    Note<Tick>    note(100, 200, 60, 80);
     Note<Quarter> quarter_note(0.5f, 1.0f, 62, 90);
-    Note<Second> second_note(1.5f, 0.75f, 64, 100);
+    Note<Second>  second_note(1.5f, 0.75f, 64, 100);
 
     SECTION("Default format (short)") {
         // Test the default formatting (short format)
@@ -108,7 +108,7 @@ TEST_CASE("Test KeySignature formatting", "[repr][keysig]") {
 }
 
 TEST_CASE("Test Tempo formatting", "[repr][tempo]") {
-    Tempo<Tick> tempo(100, 500000);  // 120 BPM
+    Tempo<Tick> tempo(100, 500000);   // 120 BPM
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", tempo);
@@ -178,7 +178,7 @@ TEST_CASE("Test Track formatting", "[repr][track]") {
 
 TEST_CASE("Test Score formatting", "[repr][score]") {
     Score<Tick> score(480);
-    auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
+    auto        track = std::make_shared<Track<Tick>>("Piano", 0, false);
     track->notes->push_back(Note<Tick>(0, 100, 60, 100));
     score.tracks->push_back(track);
 
@@ -207,10 +207,10 @@ TEST_CASE("Test Score formatting", "[repr][score]") {
 
 TEST_CASE("Test fixed_float formatting function", "[repr][utils]") {
     // Test the fix_float helper function through note formatting
-    Note<Tick> integer_note(100, 200, 60, 80);
+    Note<Tick>    integer_note(100, 200, 60, 80);
     Note<Quarter> float_note(0.5123f, 0.9987f, 62, 90);
 
-    std::string int_str = fmt::format("{}", integer_note);
+    std::string int_str   = fmt::format("{}", integer_note);
     std::string float_str = fmt::format("{}", float_note);
 
     // Integer values should be formatted without decimal point

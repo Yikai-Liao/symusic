@@ -56,7 +56,7 @@ score:
 stereo:
     When ``True`` two channels are emitted; otherwise mono.
 )pbdoc";
-constexpr const char* kDumpWavDoc = R"pbdoc(
+constexpr const char* kDumpWavDoc     = R"pbdoc(
 Write a :class:`numpy.ndarray` buffer to a WAV file using Prestosynth's writer.
 
 Parameters

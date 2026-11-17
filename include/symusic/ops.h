@@ -104,23 +104,23 @@ pyvec<T> clip(
 
 template<TimeEvent T>
 void trim_inplace(
-    pyvec<T>&  events,
-    typename T::unit start,
-    typename T::unit end,
-    typename T::unit min_overlap = 0,
-    const std::string &start_mode = "remove",
-    const std::string &end_mode = "remove"
+    pyvec<T>&          events,
+    typename T::unit   start,
+    typename T::unit   end,
+    typename T::unit   min_overlap = 0,
+    const std::string& start_mode  = "remove",
+    const std::string& end_mode    = "remove"
 ) {
     if constexpr (HashDuration<T>) {
-        if(start_mode == std::string("remove") && end_mode == std::string("remove")) {
+        if (start_mode == std::string("remove") && end_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
                 return (event.time >= start) && (event.end() <= end);
             });
-        } else if(start_mode == std::string("remove")) {
+        } else if (start_mode == std::string("remove")) {
             events.filter([start, end, min_overlap](const T& event) {
                 return (event.time >= start) && (end - event.time >= min_overlap);
             });
-        } else if(end_mode == std::string("remove")) {
+        } else if (end_mode == std::string("remove")) {
             events.filter([start, end, min_overlap](const T& event) {
                 return (event.end() - start >= min_overlap) && (event.end() <= end);
             });
@@ -130,29 +130,28 @@ void trim_inplace(
             });
         }
 
-        for (auto &event : events) {
-            if(start_mode == "truncate" && event.time < start) {
+        for (auto& event : events) {
+            if (start_mode == "truncate" && event.time < start) {
                 event.duration = event.end() - start;
-                event.time = start;
+                event.time     = start;
             }
-            if(end_mode == "truncate" && event.end() > end) {
+            if (end_mode == "truncate" && event.end() > end) {
                 event.duration -= event.end() - end;
             }
         }
-    }
-    else {
+    } else {
         clip_inplace(events, start, end);
     }
 }
 
 template<TimeEvent T>
 void trim(
-    const pyvec<T>&  events,
-    typename T::unit start,
-    typename T::unit end,
-    typename T::unit min_overlap = 0,
-    const std::string &start_mode = "remove",
-    const std::string &end_mode = "remove"
+    const pyvec<T>&    events,
+    typename T::unit   start,
+    typename T::unit   end,
+    typename T::unit   min_overlap = 0,
+    const std::string& start_mode  = "remove",
+    const std::string& end_mode    = "remove"
 ) {
     auto ans = events.copy();
     trim_inplace(ans, start, end, min_overlap, start_mode, end_mode);
@@ -230,7 +229,7 @@ void adjust_time_inplace_inner(
     if (events.empty()) return;
     auto get_factor = [&original_times, &new_times](const size_t x) {
         f64 factor = static_cast<f64>(new_times[x] - new_times[x - 1])
-               / static_cast<f64>(original_times[x] - original_times[x - 1]);
+                     / static_cast<f64>(original_times[x] - original_times[x - 1]);
         return factor;
     };
 
@@ -287,8 +286,10 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
         );
     }
     if (original_times.size() < 2) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times and new_times "
-                                    "should have at least 2 elements");
+        throw std::invalid_argument(
+            "symusic::ops::adjust_time: original_times and new_times "
+            "should have at least 2 elements"
+        );
     }
     if (!std::is_sorted(original_times.begin(), original_times.end())) {
         throw std::invalid_argument("symusic::ops::adjust_time: original_times should be sorted");
@@ -354,9 +355,7 @@ T adjust_time(
 // get the start time of the first event
 template<TimeEvent T>
 inline typename T::unit start(const pyvec<T>& events) {
-    if (events.empty()) {
-        return std::numeric_limits<typename T::unit>::max();
-    }
+    if (events.empty()) { return std::numeric_limits<typename T::unit>::max(); }
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     for (const T& event : events) { ans = std::min(ans, event.time); }
     return ans;
@@ -365,9 +364,7 @@ inline typename T::unit start(const pyvec<T>& events) {
 // get the end time of the last event
 template<TimeEvent T>
 inline typename T::unit end(const pyvec<T>& events) {
-    if (events.empty()) {
-        return std::numeric_limits<typename T::unit>::min();
-    }
+    if (events.empty()) { return std::numeric_limits<typename T::unit>::min(); }
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
     if constexpr (HashDuration<T>) {
         for (const T& event : events) { ans = std::max(ans, event.end()); }

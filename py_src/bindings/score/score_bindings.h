@@ -56,7 +56,7 @@ Examples
 
 template<TType T>
 const char* doc() {
-    constexpr auto flavor = docstring_helpers::time_flavor<T>();
+    constexpr auto           flavor   = docstring_helpers::time_flavor<T>();
     static const std::string rendered = fmt::format(
         fmt::runtime(kScoreDocTemplate),
         fmt::arg("signature", fmt::format("Score{}(tpq: int = 480)", flavor.suffix)),
@@ -82,15 +82,15 @@ constexpr const char* kScoreMidiFileCtorDoc = R"pbdoc(
 Load a MIDI file from disk into a score. Accepts strings or ``pathlib.Path`` objects pointing to a
 ``.mid``/``.midi`` file.
 )pbdoc";
-constexpr const char* kScoreFromFileDoc = R"pbdoc(
+constexpr const char* kScoreFromFileDoc     = R"pbdoc(
 Read a score from disk by auto-detecting a MIDI or ABC file. Use ``format`` (``"midi"`` or
 ``"abc"``) when the extension is ambiguous.
 )pbdoc";
-constexpr const char* kScoreFromMidiDoc = R"pbdoc(
+constexpr const char* kScoreFromMidiDoc     = R"pbdoc(
 Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controller/pitch values are
 clamped into the MIDI-safe range.
 )pbdoc";
-constexpr const char* kScoreFromAbcDoc = R"pbdoc(
+constexpr const char* kScoreFromAbcDoc      = R"pbdoc(
 Parse an ABC notation string into a score. Requires the ``SYMUSIC_ABC2MIDI`` environment variable
 to point to the abc2midi executable.
 )pbdoc";
@@ -103,7 +103,7 @@ Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up 
 )pbdoc";
 constexpr const char* kScoreDumpsAbcDoc
     = R"pbdoc(Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.)pbdoc";
-constexpr const char* kScoreGetBeatsDoc = R"pbdoc(
+constexpr const char* kScoreGetBeatsDoc     = R"pbdoc(
 Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
 PrettyMIDI heuristic of grouping every three denominator notes into one beat.
 )pbdoc";
@@ -111,15 +111,15 @@ constexpr const char* kScoreGetDownbeatsDoc = R"pbdoc(
 Return downbeat locations as a NumPy array in the score's current time unit. When no time
 signature is available at *start_time*, a 4/4 sentinel is assumed.
 )pbdoc";
-constexpr const char* kScoreToDoc = R"pbdoc(
+constexpr const char* kScoreToDoc           = R"pbdoc(
 Convert the score to another time unit (Tick, Quarter, Second). ``ttype`` may be a class object or
 ``"tick"/"quarter"/"second"``. ``min_dur`` snaps durations when downsampling.
 )pbdoc";
-constexpr const char* kScoreResampleDoc = R"pbdoc(
+constexpr const char* kScoreResampleDoc     = R"pbdoc(
 Resample the score to a new ticks-per-quarter resolution. ``min_dur`` controls rounding behaviour
 when reducing resolution.
 )pbdoc";
-constexpr const char* kScorePianorollDoc = R"pbdoc(
+constexpr const char* kScorePianorollDoc    = R"pbdoc(
 Export a tick-based score as a pianoroll NumPy tensor. ``mode`` controls aggregation, ``pitch_range``
 bounds the vertical axis, and ``encode_velocity`` switches from binary to velocity encoding.
 )pbdoc";
@@ -223,7 +223,7 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
     process_runner::ScopedTempDir temp_dir;
     const auto                    temp_midi_path = temp_dir.path() / "input.mid";
 #ifdef _WIN32
-    const auto temp_abc_path = temp_dir.path() / "output.abc";
+    const auto  temp_abc_path         = temp_dir.path() / "output.abc";
     const auto& converter_output_path = temp_abc_path;
 #else
     const auto& converter_output_path = path;
@@ -231,9 +231,7 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
 
     dump_midi(self, temp_midi_path);
     process_runner::run_process_checked(
-        midi2abc,
-        {temp_midi_path, std::filesystem::path("-o"), converter_output_path},
-        !warn
+        midi2abc, {temp_midi_path, std::filesystem::path("-o"), converter_output_path}, !warn
     );
 
     if (!std::filesystem::exists(converter_output_path)) {
@@ -245,17 +243,12 @@ void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path
 #ifdef _WIN32
     std::error_code error;
     std::filesystem::copy_file(
-        converter_output_path,
-        path,
-        std::filesystem::copy_options::overwrite_existing,
-        error
+        converter_output_path, path, std::filesystem::copy_options::overwrite_existing, error
     );
     if (error) {
         throw std::runtime_error(
             fmt::format(
-                "Failed to copy ABC output to {}: {}",
-                path_to_utf8_string(path),
-                error.message()
+                "Failed to copy ABC output to {}: {}", path_to_utf8_string(path), error.message()
             )
         );
     }
@@ -294,20 +287,15 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
 
     process_runner::ScopedTempDir temp_dir;
 #ifdef _WIN32
-    const auto temp_abc_path = temp_dir.path() / "input.abc";
+    const auto      temp_abc_path = temp_dir.path() / "input.abc";
     std::error_code copy_error;
     std::filesystem::copy_file(
-        path,
-        temp_abc_path,
-        std::filesystem::copy_options::overwrite_existing,
-        copy_error
+        path, temp_abc_path, std::filesystem::copy_options::overwrite_existing, copy_error
     );
     if (copy_error) {
         throw std::runtime_error(
             fmt::format(
-                "Failed to stage ABC input {}: {}",
-                path_to_utf8_string(path),
-                copy_error.message()
+                "Failed to stage ABC input {}: {}", path_to_utf8_string(path), copy_error.message()
             )
         );
     }
@@ -315,7 +303,7 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
 #else
     const auto& converter_input_path = path;
 #endif
-    const auto                    midi_path = temp_dir.path() / "output.mid";
+    const auto midi_path = temp_dir.path() / "output.mid";
     process_runner::run_process_checked(
         abc2midi,
         {
@@ -331,7 +319,7 @@ shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     }
 
     const auto data = read_file(midi_path);
-    auto s = Score<T>::template parse<DataFormat::MIDI>(data);
+    auto       s    = Score<T>::template parse<DataFormat::MIDI>(data);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
@@ -345,9 +333,9 @@ shared<Score<T>> from_abc(const std::string& abc) {
 
 template<TType T>
 shared<Score<T>> from_file(
-    const std::filesystem::path& path,
+    const std::filesystem::path&      path,
     const std::optional<std::string>& format,
-    const bool sanitize_data
+    const bool                        sanitize_data
 ) {
     std::string format_ = format.has_value() ? *format : "";
     if (format_.empty()) {
@@ -389,9 +377,9 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     using unit   = typename T::unit;
     using self_t = shared<Score<T>>;
 
-    const auto name      = "Score" + name_;
-    const auto score_sig = fmt::format("class {}(Score[{}])", name, name_);
-    constexpr auto flavor = docstring_helpers::time_flavor<T>();
+    const auto     name      = "Score" + name_;
+    const auto     score_sig = fmt::format("class {}(Score[{}])", name, name_);
+    constexpr auto flavor    = docstring_helpers::time_flavor<T>();
 
     auto copy_func     = [](const self_t& self) { return std::make_shared<Score<T>>(*self); };
     auto deepcopy_func = [](const self_t& self) {

@@ -16,4 +16,4 @@
 #include "symusic/io/midi.h"
 #include "symusic/synth.h"
 
-#endif //LIBSYMUSIC_SYMUSIC_H
+#endif   // LIBSYMUSIC_SYMUSIC_H

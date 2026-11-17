@@ -21,19 +21,21 @@
 // :s for short Note(0.22, 0.51, 65, 0.5)
 // if nothing, use short format, i.e. "{}" is the same as "{:s}"
 
-namespace symusic::details {struct BaseParser{};}
+namespace symusic::details {
+struct BaseParser {};
+}   // namespace symusic::details
 
 namespace fmt {
 
-#define TAG_FORMAT(__COUNT, NAME)                                                   \
-template<>                                                                          \
-struct formatter<symusic::NAME> {                                                   \
-    constexpr auto parse(const format_parse_context &ctx) { return ctx.begin(); }   \
-    template<typename FmtCtx>                                                       \
-    constexpr auto format(const symusic::NAME & _, FmtCtx &ctx) const {             \
-        return fmt::format_to(ctx.out(), #NAME);                                    \
-    }                                                                               \
-};
+#define TAG_FORMAT(__COUNT, NAME)                                                     \
+    template<>                                                                        \
+    struct formatter<symusic::NAME> {                                                 \
+        constexpr auto parse(const format_parse_context& ctx) { return ctx.begin(); } \
+        template<typename FmtCtx>                                                     \
+        constexpr auto format(const symusic::NAME& _, FmtCtx& ctx) const {            \
+            return fmt::format_to(ctx.out(), #NAME);                                  \
+        }                                                                             \
+    };
 
 REPEAT_ON(TAG_FORMAT, Tick, Quarter, Second)
 
@@ -41,27 +43,19 @@ REPEAT_ON(TAG_FORMAT, Tick, Quarter, Second)
 
 template<>
 struct formatter<symusic::DataFormat> {
-    static constexpr auto parse(const format_parse_context &ctx) {
-        return ctx.begin();
-    }
+    static constexpr auto parse(const format_parse_context& ctx) { return ctx.begin(); }
 
     template<typename FmtCtx>
-    constexpr auto format(const symusic::DataFormat &data_format, FmtCtx &ctx) const {
+    constexpr auto format(const symusic::DataFormat& data_format, FmtCtx& ctx) const {
         using symusic::DataFormat;
         // TODO using x-macro to generate this verbose code
         switch (data_format) {
-            case DataFormat::MIDI:
-                return fmt::format_to(ctx.out(), "MIDI");
-            case DataFormat::MusicXML:
-                return fmt::format_to(ctx.out(), "MusicXML");
-            case DataFormat::ABC:
-                return fmt::format_to(ctx.out(), "ABC");
-            case DataFormat::ZPP:
-                return fmt::format_to(ctx.out(), "ZPP");
-            case DataFormat::ALPACA:
-                return fmt::format_to(ctx.out(), "ALPACA");
-            case DataFormat::CEREAL:
-                return fmt::format_to(ctx.out(), "CEREAL");
+        case DataFormat::MIDI: return fmt::format_to(ctx.out(), "MIDI");
+        case DataFormat::MusicXML: return fmt::format_to(ctx.out(), "MusicXML");
+        case DataFormat::ABC: return fmt::format_to(ctx.out(), "ABC");
+        case DataFormat::ZPP: return fmt::format_to(ctx.out(), "ZPP");
+        case DataFormat::ALPACA: return fmt::format_to(ctx.out(), "ALPACA");
+        case DataFormat::CEREAL: return fmt::format_to(ctx.out(), "CEREAL");
         }
     }
 };
@@ -70,32 +64,26 @@ template<>
 struct formatter<symusic::details::BaseParser> {
     char presentation = 's';
 
-    constexpr auto parse(const format_parse_context &ctx) {
-        auto it = ctx.begin();
+    constexpr auto parse(const format_parse_context& ctx) {
+        auto       it  = ctx.begin();
         auto const end = ctx.end();
-        if (it != end && (*it == 'd' || *it == 's')) {
-            presentation = *it++;
-        }
-        if (it != end && *it != '}') {
-            throw format_error("invalid format");
-        }
+        if (it != end && (*it == 'd' || *it == 's')) { presentation = *it++; }
+        if (it != end && *it != '}') { throw format_error("invalid format"); }
         return it;
     }
 };
 
-#define INNER_FORMATTER(                                                            \
-    STRUCT_NAME, ARG_NAME, DETAIL_FORMAT, SHORT_FORMAT, ...)                        \
-    template<symusic::TType T>                                                      \
-    struct formatter<symusic::STRUCT_NAME<T>>:                                      \
-        formatter<symusic::details::BaseParser> {                                   \
-        template<typename FmtCtx>                                                   \
-        auto format(const symusic::STRUCT_NAME<T> &ARG_NAME, FmtCtx &ctx) const {   \
-            if (this->presentation == 'd') {                                        \
-                return fmt::format_to( ctx.out(), DETAIL_FORMAT, ##__VA_ARGS__ );   \
-            } else {                                                                \
-                return fmt::format_to( ctx.out(), SHORT_FORMAT, ##__VA_ARGS__ );    \
-            }                                                                       \
-        }                                                                           \
+#define INNER_FORMATTER(STRUCT_NAME, ARG_NAME, DETAIL_FORMAT, SHORT_FORMAT, ...)          \
+    template<symusic::TType T>                                                            \
+    struct formatter<symusic::STRUCT_NAME<T>> : formatter<symusic::details::BaseParser> { \
+        template<typename FmtCtx>                                                         \
+        auto format(const symusic::STRUCT_NAME<T>& ARG_NAME, FmtCtx& ctx) const {         \
+            if (this->presentation == 'd') {                                              \
+                return fmt::format_to(ctx.out(), DETAIL_FORMAT, ##__VA_ARGS__);           \
+            } else {                                                                      \
+                return fmt::format_to(ctx.out(), SHORT_FORMAT, ##__VA_ARGS__);            \
+            }                                                                             \
+        }                                                                                 \
     };
 
 // this is to make msvc work
@@ -103,67 +91,100 @@ struct formatter<symusic::details::BaseParser> {
 #define FORMATTER(...) HELPER(INNER_FORMATTER(__VA_ARGS__))
 
 // T is numeric type
-template<typename T> requires std::is_arithmetic_v<T>
+template<typename T>
+    requires std::is_arithmetic_v<T>
 std::string fix_float(const T value) {
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
         return fmt::format("{:.2f}", value);
-    }   return fmt::format("{}", value);
+    }
+    return fmt::format("{}", value);
 }
 
 FORMATTER(
-    Note, d,
+    Note,
+    d,
     "Note(time={}, duration={}, pitch={}, velocity={}, ttype='{}')",
     "Note({}, {}, {}, {}, '{}')",
-    fix_float(d.time), fix_float(d.duration), d.pitch, d.velocity, T()
+    fix_float(d.time),
+    fix_float(d.duration),
+    d.pitch,
+    d.velocity,
+    T()
 )
 
 FORMATTER(
-    Pedal, d,
+    Pedal,
+    d,
     "Pedal(time={}, duration={}, ttype='{}')",
     "Pedal({}, {}, '{}')",
-    fix_float(d.time), d.duration, T()
+    fix_float(d.time),
+    d.duration,
+    T()
 )
 
 FORMATTER(
-    ControlChange, d,
+    ControlChange,
+    d,
     "ControlChange(time={}, number={}, value={}, ttype='{}')",
     "ControlChange({}, {}, {}, '{}')",
-    fix_float(d.time), d.number, d.value, T()
+    fix_float(d.time),
+    d.number,
+    d.value,
+    T()
 )
 
 FORMATTER(
-    TimeSignature, d,
+    TimeSignature,
+    d,
     "TimeSignature(time={}, numerator={}, denominator={}, ttype='{}')",
     "TimeSignature({}, {}, {}, '{}')",
-    fix_float(d.time), d.numerator, d.denominator, T()
+    fix_float(d.time),
+    d.numerator,
+    d.denominator,
+    T()
 )
 
 FORMATTER(
-    KeySignature, d,
+    KeySignature,
+    d,
     "KeySignature(time={}, key={}, tonality={}, degree={}, ttype='{}')",
     "KeySignature({}, {}, {}, {}, '{}')",
-    fix_float(d.time), d.key, d.tonality, d.degree(), T()
+    fix_float(d.time),
+    d.key,
+    d.tonality,
+    d.degree(),
+    T()
 )
 
 FORMATTER(
-    Tempo, d,
+    Tempo,
+    d,
     "Tempo(time={}, qpm={}, mspq={}, ttype='{}')",
     "Tempo({}, {}, {}, '{}')",
-    fix_float(d.time), d.qpm(), d.mspq, T()
+    fix_float(d.time),
+    d.qpm(),
+    d.mspq,
+    T()
 )
 
 FORMATTER(
-    PitchBend, d,
+    PitchBend,
+    d,
     "PitchBend(time={}, value={}, ttype='{}')",
     "PitchBend({}, {}, '{}')",
-    fix_float(d.time), d.value, T()
+    fix_float(d.time),
+    d.value,
+    T()
 )
 
 FORMATTER(
-    TextMeta, d,
+    TextMeta,
+    d,
     "Text(time={}, text='{}', ttype='{}')",
     "Text({}, '{}', '{}')",
-    fix_float(d.time), d.text, T()
+    fix_float(d.time),
+    d.text,
+    T()
 )
 #undef FORMATTER
 #undef INNER_FORMATTER
@@ -171,26 +192,23 @@ FORMATTER(
 
 template<typename T>
 struct formatter<std::shared_ptr<T>> {
-    constexpr auto parse(format_parse_context &ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
     template<typename FmtCtx>
-    auto format(const std::shared_ptr<T> &data, FmtCtx &ctx) {
-        if (data) {
-            return fmt::format_to(ctx.out(), "{}", *data);
-        }   throw std::runtime_error("symusic: trying to format a nullptr");
+    auto format(const std::shared_ptr<T>& data, FmtCtx& ctx) {
+        if (data) { return fmt::format_to(ctx.out(), "{}", *data); }
+        throw std::runtime_error("symusic: trying to format a nullptr");
     }
 };
 
 // #undef SUMMARY_FORMAT
-}
+}   // namespace fmt
 
 // Declare ostream operator for all the classes and corresponding vectors
 
-#define OSTREAMEABLE(__COUNT, STRUCT_NAME)                                              \
-    template<symusic::TType T>                                                          \
-    std::ostream &operator<<(std::ostream &os, const symusic::STRUCT_NAME<T> &data);
+#define OSTREAMEABLE(__COUNT, STRUCT_NAME) \
+    template<symusic::TType T>             \
+    std::ostream& operator<<(std::ostream& os, const symusic::STRUCT_NAME<T>& data);
 
 REPEAT_ON(
     OSTREAMEABLE,
@@ -208,4 +226,4 @@ REPEAT_ON(
 #undef OSTREAMEABLE
 
 // define a base formatter with parse that
-#endif //LIBSYMUSIC_REPR_H
+#endif   // LIBSYMUSIC_REPR_H

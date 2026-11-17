@@ -37,7 +37,7 @@ struct Score {
         time_signatures   = std::move(other.time_signatures);
         key_signatures    = std::move(other.key_signatures);
         tempos            = std::move(other.tempos);
-        markers = std::move(other.markers);
+        markers           = std::move(other.markers);
     }
 
     Score(
@@ -46,13 +46,13 @@ struct Score {
         pyvec<TimeSignature<T>>&&     time_signatures,
         pyvec<KeySignature<T>>&&      key_signatures,
         pyvec<Tempo<T>>&&             tempos,
-        pyvec<TextMeta<T>>&& markers
+        pyvec<TextMeta<T>>&&          markers
     ) : ticks_per_quarter{tpq}, tracks{std::move(tracks)} {
         this->time_signatures
             = std::make_shared<pyvec<TimeSignature<T>>>(std::move(time_signatures));
         this->key_signatures = std::make_shared<pyvec<KeySignature<T>>>(std::move(key_signatures));
         this->tempos         = std::make_shared<pyvec<Tempo<T>>>(std::move(tempos));
-        this->markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
+        this->markers        = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
     }
 
 
@@ -62,12 +62,11 @@ struct Score {
         shared<pyvec<TimeSignature<T>>> time_signatures,
         shared<pyvec<KeySignature<T>>>  key_signatures,
         shared<pyvec<Tempo<T>>>         tempos,
-        shared<pyvec<TextMeta<T>>> markers
+        shared<pyvec<TextMeta<T>>>      markers
     ) :
         ticks_per_quarter{tpq}, tracks{std::move(tracks)},
         time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
-        tempos{std::move(tempos)},
-        markers{std::move(markers)} {}
+        tempos{std::move(tempos)}, markers{std::move(markers)} {}
 
     Score& operator=(const Score&) = default;
 
@@ -160,8 +159,20 @@ struct Score {
     [[nodiscard]] Score clip(unit start, unit end, bool clip_end = false) const;
     void                clip_inplace(unit start, unit end, bool clip_end = false);
 
-    [[nodiscard]] Score trim(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove") const;
-    void                trim_inplace(unit start, unit end, unit min_overlap = 0, const std::string &start_mode = "remove", const std::string &end_mode = "remove");
+    [[nodiscard]] Score trim(
+        unit               start,
+        unit               end,
+        unit               min_overlap = 0,
+        const std::string& start_mode  = "remove",
+        const std::string& end_mode    = "remove"
+    ) const;
+    void trim_inplace(
+        unit               start,
+        unit               end,
+        unit               min_overlap = 0,
+        const std::string& start_mode  = "remove",
+        const std::string& end_mode    = "remove"
+    );
 
     // shift the time of all the events in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_time(unit offset) const;
@@ -200,11 +211,8 @@ struct ScoreNative {
     explicit ScoreNative(const i32 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
 
     [[nodiscard]] bool empty() const {
-        return time_signatures.empty()
-            && key_signatures.empty()
-            && tempos.empty()
-            && markers.empty()
-            && tracks.empty();
+        return time_signatures.empty() && key_signatures.empty() && tempos.empty()
+               && markers.empty() && tracks.empty();
     }
 
     template<DataFormat F>

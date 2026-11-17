@@ -3,7 +3,7 @@
 #include "argparse.h"
 using namespace symusic;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     argparse::ArgumentParser program("dump");
     program.add_argument("midi_path").help("Path to the MIDI file");
     try {
@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
         // reload from midi bytes
         auto s2 = Score<Tick>::parse<DataFormat::MIDI>(midi_bytes);
         std::cout << "Score2: " << s2.to_string() << std::endl;
-    } catch(const char* e) {
+    } catch (const char* e) {
         std::cout << e << std::endl;
         exit(EXIT_FAILURE);
     };

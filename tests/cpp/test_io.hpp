@@ -16,13 +16,11 @@ namespace fs = std::filesystem;
 TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
     // Create a temporary directory for test files
     fs::path temp_dir = fs::temp_directory_path() / "symusic_test";
-    if (!fs::exists(temp_dir)) {
-        fs::create_directory(temp_dir);
-    }
+    if (!fs::exists(temp_dir)) { fs::create_directory(temp_dir); }
 
     SECTION("MIDI Read/Write Roundtrip") {
         // Create a simple score with one track and a few notes
-        Score<Tick> score(480);  // 480 ticks per quarter
+        Score<Tick> score(480);   // 480 ticks per quarter
 
         // Add a track with some notes
         auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
@@ -32,11 +30,11 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         score.tracks->push_back(track);
 
         // Add tempo and time signature
-        score.tempos->push_back(Tempo<Tick>{0, 500000});  // 120 BPM
+        score.tempos->push_back(Tempo<Tick>{0, 500000});   // 120 BPM
         score.time_signatures->push_back(TimeSignature<Tick>{0, 4, 4});
 
         // Write the score to a MIDI file
-        fs::path midi_path = temp_dir / "test_midi.mid";
+        fs::path             midi_path = temp_dir / "test_midi.mid";
         std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
 
         std::ofstream file(midi_path, std::ios::binary);
@@ -44,11 +42,14 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         file.close();
 
         // Read the MIDI file back
-        std::ifstream in_file(midi_path, std::ios::binary);
-        std::vector<uint8_t> read_data((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
+        std::ifstream        in_file(midi_path, std::ios::binary);
+        std::vector<uint8_t> read_data(
+            (std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>()
+        );
         in_file.close();
 
-        Score<Tick> read_score = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score
+            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.ticks_per_quarter == 480);
@@ -80,9 +81,9 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Track 3: Drums
         auto drum_track = std::make_shared<Track<Tick>>("Drums", 0, true);
-        drum_track->notes->push_back(Note<Tick>{480, 120, 36, 100});  // Bass drum
-        drum_track->notes->push_back(Note<Tick>{600, 120, 38, 80});   // Snare
-        drum_track->notes->push_back(Note<Tick>{720, 120, 42, 60});   // Hi-hat
+        drum_track->notes->push_back(Note<Tick>{480, 120, 36, 100});   // Bass drum
+        drum_track->notes->push_back(Note<Tick>{600, 120, 38, 80});    // Snare
+        drum_track->notes->push_back(Note<Tick>{720, 120, 42, 60});    // Hi-hat
         score.tracks->push_back(drum_track);
 
         // Add tempo and time signature
@@ -90,7 +91,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         score.time_signatures->push_back(TimeSignature<Tick>{0, 4, 4});
 
         // Write the score to a MIDI file
-        fs::path midi_path = temp_dir / "test_multitrack.mid";
+        fs::path             midi_path = temp_dir / "test_multitrack.mid";
         std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
 
         std::ofstream file(midi_path, std::ios::binary);
@@ -98,11 +99,14 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         file.close();
 
         // Read the MIDI file back
-        std::ifstream in_file(midi_path, std::ios::binary);
-        std::vector<uint8_t> read_data((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
+        std::ifstream        in_file(midi_path, std::ios::binary);
+        std::vector<uint8_t> read_data(
+            (std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>()
+        );
         in_file.close();
 
-        Score<Tick> read_score = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score
+            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.tracks->size() == 3);
@@ -131,19 +135,19 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         track->notes->push_back(Note<Tick>{480, 240, 60, 80});
 
         // Add volume controller (CC 7)
-        track->controls->push_back(ControlChange<Tick>{0, 7, 100});    // Initial volume
-        track->controls->push_back(ControlChange<Tick>{480, 7, 80});   // Reduce volume
-        track->controls->push_back(ControlChange<Tick>{720, 7, 120});  // Increase volume
+        track->controls->push_back(ControlChange<Tick>{0, 7, 100});     // Initial volume
+        track->controls->push_back(ControlChange<Tick>{480, 7, 80});    // Reduce volume
+        track->controls->push_back(ControlChange<Tick>{720, 7, 120});   // Increase volume
 
         // Add pan controller (CC 10)
-        track->controls->push_back(ControlChange<Tick>{0, 10, 64});     // Center pan
-        track->controls->push_back(ControlChange<Tick>{480, 10, 100});  // Pan right
-        track->controls->push_back(ControlChange<Tick>{720, 10, 30});   // Pan left
+        track->controls->push_back(ControlChange<Tick>{0, 10, 64});      // Center pan
+        track->controls->push_back(ControlChange<Tick>{480, 10, 100});   // Pan right
+        track->controls->push_back(ControlChange<Tick>{720, 10, 30});    // Pan left
 
         score.tracks->push_back(track);
 
         // Write the score to a MIDI file
-        fs::path midi_path = temp_dir / "test_controllers.mid";
+        fs::path             midi_path = temp_dir / "test_controllers.mid";
         std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
 
         std::ofstream file(midi_path, std::ios::binary);
@@ -151,11 +155,14 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         file.close();
 
         // Read the MIDI file back
-        std::ifstream in_file(midi_path, std::ios::binary);
-        std::vector<uint8_t> read_data((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
+        std::ifstream        in_file(midi_path, std::ios::binary);
+        std::vector<uint8_t> read_data(
+            (std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>()
+        );
         in_file.close();
 
-        Score<Tick> read_score = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score
+            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
 
         // Verify the controller events were preserved
         REQUIRE(read_score.tracks->at(0)->controls->size() == 6);
@@ -179,4 +186,4 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
     fs::remove_all(temp_dir);
 }
 
-#endif // SYMUSIC_TEST_IO_HPP
+#endif   // SYMUSIC_TEST_IO_HPP

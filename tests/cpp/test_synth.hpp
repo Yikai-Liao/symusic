@@ -35,10 +35,10 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
 
         // Add bank select controls
         // MSB (CC0) and LSB (CC32) for bank selection
-        track.controls->push_back(ControlChange<Second>(0.0, 0, 1));   // Bank MSB = 1
-        track.controls->push_back(ControlChange<Second>(0.0, 32, 2));  // Bank LSB = 2
-        track.controls->push_back(ControlChange<Second>(1.0, 0, 3));   // Bank MSB change to 3
-        track.controls->push_back(ControlChange<Second>(1.0, 32, 4));  // Bank LSB change to 4
+        track.controls->push_back(ControlChange<Second>(0.0, 0, 1));    // Bank MSB = 1
+        track.controls->push_back(ControlChange<Second>(0.0, 32, 2));   // Bank LSB = 2
+        track.controls->push_back(ControlChange<Second>(1.0, 0, 3));    // Bank MSB change to 3
+        track.controls->push_back(ControlChange<Second>(1.0, 32, 4));   // Bank LSB change to 4
 
         // Create score with this track
         Score<Second> score;
@@ -100,22 +100,24 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
 
     SECTION("Time Type Conversion") {
         // Test that converting from Tick to Second works correctly
-        Score<Tick> tick_score(480);  // 480 ticks per quarter
+        Score<Tick> tick_score(480);   // 480 ticks per quarter
 
         // Add tempo changes to make the conversion non-trivial
-        tick_score.tempos->push_back(Tempo<Tick>(0, 500000));  // 120 BPM
-        tick_score.tempos->push_back(Tempo<Tick>(960, 1000000));  // 60 BPM at tick 960
+        tick_score.tempos->push_back(Tempo<Tick>(0, 500000));      // 120 BPM
+        tick_score.tempos->push_back(Tempo<Tick>(960, 1000000));   // 60 BPM at tick 960
 
         // Add a track with notes
         auto track = std::make_shared<Track<Tick>>("Piano", 0, false);
-        track->notes->push_back(Note<Tick>(0, 480, 60, 80));      // Quarter note at start (120 BPM)
-        track->notes->push_back(Note<Tick>(960, 480, 64, 80));    // Quarter note at tempo change (60 BPM)
+        track->notes->push_back(Note<Tick>(0, 480, 60, 80));   // Quarter note at start (120 BPM)
+        track->notes->push_back(
+            Note<Tick>(960, 480, 64, 80)
+        );   // Quarter note at tempo change (60 BPM)
         track->notes->push_back(Note<Tick>(1440, 480, 67, 80));   // Quarter note after tempo change
         tick_score.tracks->push_back(track);
 
         // Convert to psynth::Sequence via Second
-        auto second_score = convert<Second>(tick_score);
-        psynth::Sequence sequence = details::toSequence(second_score);
+        auto             second_score = convert<Second>(tick_score);
+        psynth::Sequence sequence     = details::toSequence(second_score);
 
         // Check the track and notes count
         REQUIRE(sequence.tracks.size() == 1);
@@ -127,7 +129,7 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
         // - Third note at 2.0s (after one more quarter at 60 BPM)
 
         // Check timing (with some tolerance for floating point)
-        REQUIRE(sequence.tracks[0].notes[0].start < 0.01);  // ~0.0
+        REQUIRE(sequence.tracks[0].notes[0].start < 0.01);   // ~0.0
         REQUIRE(std::abs(sequence.tracks[0].notes[1].start - 1.0) < 0.01);
         REQUIRE(std::abs(sequence.tracks[0].notes[2].start - 2.0) < 0.01);
 
@@ -138,16 +140,15 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
     }
 
     SECTION("Unsupported SF Path") {
-        // Try to create a Synthesizer with an invalid SF path
-        // If we could actually initialize it (which would require a soundfont file)
-        // this would throw. Instead, we just make sure our interface is correct.
-        #ifdef DUMMY_TEST  // This test is not meant to be run automatically
+// Try to create a Synthesizer with an invalid SF path
+// If we could actually initialize it (which would require a soundfont file)
+// this would throw. Instead, we just make sure our interface is correct.
+#ifdef DUMMY_TEST   // This test is not meant to be run automatically
         REQUIRE_THROWS_AS(
-            Synthesizer("/path/that/does/not/exist.sf2", 44100, 0),
-            std::runtime_error
+            Synthesizer("/path/that/does/not/exist.sf2", 44100, 0), std::runtime_error
         );
-        #endif
+#endif
     }
 }
 
-#endif // SYMUSIC_TEST_SYNTH_HPP
+#endif   // SYMUSIC_TEST_SYNTH_HPP

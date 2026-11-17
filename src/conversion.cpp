@@ -11,12 +11,9 @@ Score<To> convertInner(
     const Score<From>& score, const Converter& converter, const typename To::unit min_dur
 ) {
     Score<To> new_s(score.ticks_per_quarter);
-    new_s.markers  = std::make_shared<pyvec<TextMeta<To>>>(
-        std::move(converter.time_vec(*score.markers))
-    );
-    new_s.tempos   = std::make_shared<pyvec<Tempo<To>>>(
-        std::move(converter.time_vec(*score.tempos))
-    );
+    new_s.markers
+        = std::make_shared<pyvec<TextMeta<To>>>(std::move(converter.time_vec(*score.markers)));
+    new_s.tempos = std::make_shared<pyvec<Tempo<To>>>(std::move(converter.time_vec(*score.tempos)));
     new_s.time_signatures = std::make_shared<pyvec<TimeSignature<To>>>(
         std::move(converter.time_vec(*score.time_signatures))
     );
@@ -39,9 +36,8 @@ Score<To> convertInner(
         new_t->controls = std::make_shared<pyvec<ControlChange<To>>>(
             std::move(converter.time_vec(*track->controls))
         );
-        new_t->lyrics = std::make_shared<pyvec<TextMeta<To>>>(
-            std::move(converter.time_vec(*track->lyrics))
-        );
+        new_t->lyrics
+            = std::make_shared<pyvec<TextMeta<To>>>(std::move(converter.time_vec(*track->lyrics)));
         new_s.tracks->push_back(std::move(new_t));
     }
     return new_s;
@@ -49,10 +45,12 @@ Score<To> convertInner(
 
 }   // namespace details
 
-#define IMPLEMENT_CONVERT(To, From)                                                          \
-    template<>                                                                               \
-    Score<To> convert<To, From>(const Score<From>& score, To::unit min_dur) {                \
-        return details::convertInner<To, From>(score, details::make_time_converter<To>(score), min_dur); \
+#define IMPLEMENT_CONVERT(To, From)                                           \
+    template<>                                                                \
+    Score<To> convert<To, From>(const Score<From>& score, To::unit min_dur) { \
+        return details::convertInner<To, From>(                               \
+            score, details::make_time_converter<To>(score), min_dur           \
+        );                                                                    \
     }
 
 //                To        From

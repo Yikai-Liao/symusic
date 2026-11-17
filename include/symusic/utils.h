@@ -6,7 +6,7 @@
 #include <string>
 
 namespace symusic::details {
-std::string strip_non_utf_8(const std::string & str);
+std::string strip_non_utf_8(const std::string& str);
 }
 
-#endif //LIBSYMUSIC_UTILS_H
+#endif   // LIBSYMUSIC_UTILS_H

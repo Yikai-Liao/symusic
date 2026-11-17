@@ -70,7 +70,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
         REQUIRE(ks.time == 300);
         REQUIRE(ks.key == 2);
         REQUIRE(ks.tonality == 0);
-        REQUIRE(ks.degree() == 10); // (2*5) % 12 + 0*12 = 10
+        REQUIRE(ks.degree() == 10);   // (2*5) % 12 + 0*12 = 10
     }
 
     SECTION("Tempo Constructor") {
@@ -142,19 +142,19 @@ TEST_CASE("Test Time Event Shift Operations", "[symusic][time_events][shifts]") 
     SECTION("Other Events Shifting") {
         // Test time shifting for other event types
         Pedal<Tick> pedal{100, 200};
-        auto shifted_pedal = pedal.shift_time(50);
+        auto        shifted_pedal = pedal.shift_time(50);
         REQUIRE(shifted_pedal.time == 150);
 
         ControlChange<Tick> cc{50, 7, 100};
-        auto shifted_cc = cc.shift_time(25);
+        auto                shifted_cc = cc.shift_time(25);
         REQUIRE(shifted_cc.time == 75);
 
         TimeSignature<Tick> ts{200, 3, 4};
-        auto shifted_ts = ts.shift_time(100);
+        auto                shifted_ts = ts.shift_time(100);
         REQUIRE(shifted_ts.time == 300);
 
         Tempo<Tick> tempo{150, 500000};
-        auto shifted_tempo = tempo.shift_time(50);
+        auto        shifted_tempo = tempo.shift_time(50);
         REQUIRE(shifted_tempo.time == 200);
     }
 }
@@ -184,12 +184,12 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][time_events][conversion]") {
 
     SECTION("Other Events Conversion") {
         // Test conversion for other event types
-        Tempo<Tick> tick_tempo{480, 500000};
+        Tempo<Tick>    tick_tempo{480, 500000};
         Tempo<Quarter> quarter_tempo{1.0, tick_tempo};
         REQUIRE(quarter_tempo.time == 1.0);
         REQUIRE(quarter_tempo.mspq == 500000);
 
-        TimeSignature<Tick> tick_ts{960, 6, 8};
+        TimeSignature<Tick>    tick_ts{960, 6, 8};
         TimeSignature<Quarter> quarter_ts{2.0, tick_ts};
         REQUIRE(quarter_ts.time == 2.0);
         REQUIRE(quarter_ts.numerator == 6);
@@ -213,7 +213,7 @@ TEST_CASE("Test Time Event Comparisons", "[symusic][time_events][comparison]") {
     SECTION("Equal with Different Units") {
         // Notes with same values but different time units should not be directly comparable
         // This test ensures the type system works as expected
-        Note<Tick> tick_note{480, 240, 60, 90};
+        Note<Tick>    tick_note{480, 240, 60, 90};
         Note<Quarter> quarter_note{1.0, 0.5, 60, 90};
 
         // These are semantically equal but have different types
@@ -221,4 +221,4 @@ TEST_CASE("Test Time Event Comparisons", "[symusic][time_events][comparison]") {
     }
 }
 
-#endif // SYMUSIC_TEST_TIME_EVENTS_HPP
+#endif   // SYMUSIC_TEST_TIME_EVENTS_HPP

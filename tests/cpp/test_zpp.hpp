@@ -34,7 +34,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("Control Change Serialization") {
         // Create a control change event
-        ControlChange<Tick> cc(240, 7, 100);  // CC 7 = volume
+        ControlChange<Tick> cc(240, 7, 100);   // CC 7 = volume
 
         // Serialize
         std::vector<uint8_t> serialized = cc.dumps<DataFormat::ZPP>();
@@ -66,7 +66,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
     SECTION("Track Serialization") {
         // Create a track
         TrackNative<Tick> track;
-        track.name = "Test Track";
+        track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
         track.notes.push_back(Note<Tick>(480, 240, 60, 80));
@@ -97,7 +97,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
         // Add a track
         TrackNative<Tick> track;
-        track.name = "Test Track";
+        track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
         track.notes.push_back(Note<Tick>(480, 240, 60, 80));
@@ -148,7 +148,9 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         REQUIRE(deserialized.tracks->size() == score.tracks->size());
         REQUIRE(deserialized.tracks->at(0)->name == score.tracks->at(0)->name);
         REQUIRE(deserialized.tracks->at(0)->notes->size() == score.tracks->at(0)->notes->size());
-        REQUIRE(deserialized.tracks->at(0)->notes->at(0).time == score.tracks->at(0)->notes->at(0).time);
+        REQUIRE(
+            deserialized.tracks->at(0)->notes->at(0).time == score.tracks->at(0)->notes->at(0).time
+        );
         REQUIRE(deserialized.tempos->size() == score.tempos->size());
         REQUIRE(deserialized.tempos->at(0).time == score.tempos->at(0).time);
         REQUIRE(deserialized.time_signatures->size() == score.time_signatures->size());
@@ -156,4 +158,4 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
     }
 }
 
-#endif // SYMUSIC_TEST_ZPP_HPP
+#endif   // SYMUSIC_TEST_ZPP_HPP

@@ -118,16 +118,16 @@ TEST_CASE("Test Score conversion between native and shared", "[conversion][score
     track1.notes.push_back(Note<Tick>(240, 240, 62, 100));
 
     TrackNative<Tick> track2("Drums", 9, true);
-    track2.notes.push_back(Note<Tick>(0, 120, 36, 100));  // Bass drum
-    track2.notes.push_back(Note<Tick>(120, 120, 42, 80)); // Closed hi-hat
+    track2.notes.push_back(Note<Tick>(0, 120, 36, 100));    // Bass drum
+    track2.notes.push_back(Note<Tick>(120, 120, 42, 80));   // Closed hi-hat
 
     native_score.tracks.push_back(std::move(track1));
     native_score.tracks.push_back(std::move(track2));
 
     // Add other global events
-    native_score.tempos.push_back(Tempo<Tick>(0, 500000));  // 120 BPM
+    native_score.tempos.push_back(Tempo<Tick>(0, 500000));   // 120 BPM
     native_score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
-    native_score.key_signatures.push_back(KeySignature<Tick>(0, 0, 0));  // C major
+    native_score.key_signatures.push_back(KeySignature<Tick>(0, 0, 0));   // C major
     native_score.markers.push_back(TextMeta<Tick>(0, "Start"));
 
     SECTION("Test ScoreNative to Score conversion") {
@@ -174,14 +174,14 @@ TEST_CASE("Test Score conversion between native and shared", "[conversion][score
 
         // Add track
         auto track = std::make_shared<Track<Tick>>("Guitar", 25, false);
-        track->notes->push_back(Note<Tick>(0, 480, 64, 100));    // E4
-        track->notes->push_back(Note<Tick>(480, 480, 67, 100));  // G4
+        track->notes->push_back(Note<Tick>(0, 480, 64, 100));     // E4
+        track->notes->push_back(Note<Tick>(480, 480, 67, 100));   // G4
         shared_score.tracks->push_back(track);
 
         // Add other global events
-        shared_score.tempos->push_back(Tempo<Tick>(0, 400000));  // 150 BPM
-        shared_score.time_signatures->push_back(TimeSignature<Tick>(0, 3, 4));  // 3/4 time
-        shared_score.key_signatures->push_back(KeySignature<Tick>(0, 1, 0));    // G major
+        shared_score.tempos->push_back(Tempo<Tick>(0, 400000));                  // 150 BPM
+        shared_score.time_signatures->push_back(TimeSignature<Tick>(0, 3, 4));   // 3/4 time
+        shared_score.key_signatures->push_back(KeySignature<Tick>(0, 1, 0));     // G major
         shared_score.markers->push_back(TextMeta<Tick>(0, "Intro"));
 
         // Convert to native version
@@ -221,23 +221,23 @@ TEST_CASE("Test Score conversion between native and shared", "[conversion][score
 
 TEST_CASE("Test conversion between different time types", "[conversion][time_unit]") {
     // Create a Score with Tick time type
-    Score<Tick> tick_score(480);  // 480 ticks per quarter
+    Score<Tick> tick_score(480);   // 480 ticks per quarter
 
     // Add a track
     auto track = std::make_shared<Track<Tick>>("Test", 0, false);
 
     // Add notes and other events
-    track->notes->push_back(Note<Tick>(0, 480, 60, 100));      // One beat
-    track->notes->push_back(Note<Tick>(480, 240, 62, 100));    // Half beat
-    track->notes->push_back(Note<Tick>(720, 120, 64, 100));    // Quarter beat
+    track->notes->push_back(Note<Tick>(0, 480, 60, 100));     // One beat
+    track->notes->push_back(Note<Tick>(480, 240, 62, 100));   // Half beat
+    track->notes->push_back(Note<Tick>(720, 120, 64, 100));   // Quarter beat
 
-    track->controls->push_back(ControlChange<Tick>(0, 7, 100));  // Volume
-    track->pedals->push_back(Pedal<Tick>(0, 960));  // Two beats pedal
+    track->controls->push_back(ControlChange<Tick>(0, 7, 100));   // Volume
+    track->pedals->push_back(Pedal<Tick>(0, 960));                // Two beats pedal
 
     tick_score.tracks->push_back(track);
 
     // Add global events
-    tick_score.tempos->push_back(Tempo<Tick>(0, 500000));  // 120 BPM
+    tick_score.tempos->push_back(Tempo<Tick>(0, 500000));   // 120 BPM
     tick_score.time_signatures->push_back(TimeSignature<Tick>(0, 4, 4));
 
     SECTION("Test conversion from Tick to Quarter") {
@@ -249,17 +249,17 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         // Verify time units are correctly converted
         // 480 ticks = 1 quarter
         REQUIRE(quarter_score.tracks->at(0)->notes->at(0).time == 0.0f);
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(0).duration == 1.0f);  // One beat
+        REQUIRE(quarter_score.tracks->at(0)->notes->at(0).duration == 1.0f);   // One beat
 
         REQUIRE(quarter_score.tracks->at(0)->notes->at(1).time == 1.0f);
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(1).duration == 0.5f);  // Half beat
+        REQUIRE(quarter_score.tracks->at(0)->notes->at(1).duration == 0.5f);   // Half beat
 
         REQUIRE(quarter_score.tracks->at(0)->notes->at(2).time == 1.5f);
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(2).duration == 0.25f);  // Quarter beat
+        REQUIRE(quarter_score.tracks->at(0)->notes->at(2).duration == 0.25f);   // Quarter beat
 
         // Verify other events conversion
         REQUIRE(quarter_score.tracks->at(0)->pedals->at(0).time == 0.0f);
-        REQUIRE(quarter_score.tracks->at(0)->pedals->at(0).duration == 2.0f);  // Two beats
+        REQUIRE(quarter_score.tracks->at(0)->pedals->at(0).duration == 2.0f);   // Two beats
 
         // Verify global events conversion
         REQUIRE(quarter_score.tempos->at(0).time == 0.0f);
@@ -275,17 +275,25 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         // Verify time units are correctly converted
         // 480 ticks = 1 quarter = 0.5 seconds @120 BPM
         REQUIRE(second_score.tracks->at(0)->notes->at(0).time == Catch::Approx(0.0f));
-        REQUIRE(second_score.tracks->at(0)->notes->at(0).duration == Catch::Approx(0.5f));  // 0.5 seconds (one beat)
+        REQUIRE(
+            second_score.tracks->at(0)->notes->at(0).duration == Catch::Approx(0.5f)
+        );   // 0.5 seconds (one beat)
 
         REQUIRE(second_score.tracks->at(0)->notes->at(1).time == Catch::Approx(0.5f));
-        REQUIRE(second_score.tracks->at(0)->notes->at(1).duration == Catch::Approx(0.25f));  // 0.25 seconds (half beat)
+        REQUIRE(
+            second_score.tracks->at(0)->notes->at(1).duration == Catch::Approx(0.25f)
+        );   // 0.25 seconds (half beat)
 
         REQUIRE(second_score.tracks->at(0)->notes->at(2).time == Catch::Approx(0.75f));
-        REQUIRE(second_score.tracks->at(0)->notes->at(2).duration == Catch::Approx(0.125f));  // 0.125 seconds (quarter beat)
+        REQUIRE(
+            second_score.tracks->at(0)->notes->at(2).duration == Catch::Approx(0.125f)
+        );   // 0.125 seconds (quarter beat)
 
         // Verify other events conversion
         REQUIRE(second_score.tracks->at(0)->pedals->at(0).time == Catch::Approx(0.0f));
-        REQUIRE(second_score.tracks->at(0)->pedals->at(0).duration == Catch::Approx(1.0f));  // 1 second (two beats)
+        REQUIRE(
+            second_score.tracks->at(0)->pedals->at(0).duration == Catch::Approx(1.0f)
+        );   // 1 second (two beats)
 
         // Verify global events conversion
         REQUIRE(second_score.tempos->at(0).time == Catch::Approx(0.0f));
@@ -294,15 +302,15 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
 
     SECTION("Test conversion from Quarter to Tick") {
         // First create a Score with Quarter time unit
-        Score<Quarter> quarter_score(120);  // 120 is sampling rate, not meaningful for Quarter
+        Score<Quarter> quarter_score(120);   // 120 is sampling rate, not meaningful for Quarter
 
         auto q_track = std::make_shared<Track<Quarter>>("Quarter Track", 0, false);
-        q_track->notes->push_back(Note<Quarter>(0.0f, 1.0f, 60, 100));      // One beat
-        q_track->notes->push_back(Note<Quarter>(1.0f, 0.5f, 62, 100));      // Half beat
-        q_track->notes->push_back(Note<Quarter>(1.5f, 0.25f, 64, 100));     // Quarter beat
+        q_track->notes->push_back(Note<Quarter>(0.0f, 1.0f, 60, 100));    // One beat
+        q_track->notes->push_back(Note<Quarter>(1.0f, 0.5f, 62, 100));    // Half beat
+        q_track->notes->push_back(Note<Quarter>(1.5f, 0.25f, 64, 100));   // Quarter beat
 
         quarter_score.tracks->push_back(q_track);
-        quarter_score.tempos->push_back(Tempo<Quarter>::from_qpm(0.0f, 120.0f));  // 120 BPM
+        quarter_score.tempos->push_back(Tempo<Quarter>::from_qpm(0.0f, 120.0f));   // 120 BPM
 
         // Convert to Tick time unit, specifying TPQ as 480
         Score<Tick> new_tick_score = resample(quarter_score, 480);
@@ -312,26 +320,35 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
 
         // Verify time units are correctly converted
         REQUIRE(new_tick_score.tracks->at(0)->notes->at(0).time == 0);
-        REQUIRE(new_tick_score.tracks->at(0)->notes->at(0).duration == 480);  // One beat = 480 ticks
+        REQUIRE(
+            new_tick_score.tracks->at(0)->notes->at(0).duration == 480
+        );   // One beat = 480 ticks
 
         REQUIRE(new_tick_score.tracks->at(0)->notes->at(1).time == 480);
-        REQUIRE(new_tick_score.tracks->at(0)->notes->at(1).duration == 240);  // Half beat = 240 ticks
+        REQUIRE(
+            new_tick_score.tracks->at(0)->notes->at(1).duration == 240
+        );   // Half beat = 240 ticks
 
         REQUIRE(new_tick_score.tracks->at(0)->notes->at(2).time == 720);
-        REQUIRE(new_tick_score.tracks->at(0)->notes->at(2).duration == 120);  // Quarter beat = 120 ticks
+        REQUIRE(
+            new_tick_score.tracks->at(0)->notes->at(2).duration == 120
+        );   // Quarter beat = 120 ticks
     }
 
     SECTION("Test conversion with minimum duration") {
         // Test conversion with minimum duration setting
-        Score<Quarter> quarter_score = convert<Quarter>(tick_score, 0.1f);  // Minimum duration of 0.1 beats
+        Score<Quarter> quarter_score
+            = convert<Quarter>(tick_score, 0.1f);   // Minimum duration of 0.1 beats
 
         // Verify that notes shorter than minimum duration are adjusted
-        REQUIRE(quarter_score.tracks->at(0)->notes->at(2).duration == 0.25f);  // Originally 0.25 beats, not adjusted
+        REQUIRE(
+            quarter_score.tracks->at(0)->notes->at(2).duration == 0.25f
+        );   // Originally 0.25 beats, not adjusted
 
         // Create a Score with very short notes
         Score<Tick> very_short_note_score(480);
-        auto short_track = std::make_shared<Track<Tick>>("Short", 0, false);
-        short_track->notes->push_back(Note<Tick>(0, 24, 60, 100));  // 1/20 beat (24 ticks)
+        auto        short_track = std::make_shared<Track<Tick>>("Short", 0, false);
+        short_track->notes->push_back(Note<Tick>(0, 24, 60, 100));   // 1/20 beat (24 ticks)
         very_short_note_score.tracks->push_back(short_track);
 
         // Convert and set minimum duration
@@ -339,7 +356,9 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
 
         // Verify that short notes are adjusted to minimum duration
         REQUIRE(adjusted_score.tracks->at(0)->notes->at(0).time == 0.0f);
-        REQUIRE(adjusted_score.tracks->at(0)->notes->at(0).duration == 0.1f);  // Adjusted to 0.1 beats
+        REQUIRE(
+            adjusted_score.tracks->at(0)->notes->at(0).duration == 0.1f
+        );   // Adjusted to 0.1 beats
     }
 }
 
@@ -356,7 +375,7 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
         REQUIRE(convert_time<Second>(480, tick_score) == Catch::Approx(0.625f));
 
         const vec<Tick::unit> tick_times{0, 240, 360, 480, 960};
-        const auto second_times = convert_times<Second>(
+        const auto            second_times = convert_times<Second>(
             std::span<const Tick::unit>(tick_times.data(), tick_times.size()), tick_score
         );
 
@@ -369,9 +388,8 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
     }
 
     SECTION("Time event conversion preserves payloads while remapping timestamps") {
-        const auto quarter_time_signatures = convert_time_events<Quarter>(
-            *tick_score.time_signatures, tick_score
-        );
+        const auto quarter_time_signatures
+            = convert_time_events<Quarter>(*tick_score.time_signatures, tick_score);
         const auto second_tempos = convert_time_events<Second>(*tick_score.tempos, tick_score);
 
         REQUIRE(quarter_time_signatures.size() == 2);

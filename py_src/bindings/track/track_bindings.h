@@ -58,12 +58,12 @@ Examples
 template<TType T>
 const char* doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto signature = fmt::format(
+        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
+        const auto     signature = fmt::format(
             "Track{}(name: str = \"\", program: int = 0, is_drum: bool = False)", flavor.suffix
         );
         const std::string underline(signature.size(), '=');
-        const auto example = fmt::format(
+        const auto        example = fmt::format(
             "    from symusic import Track{0}, Note{0}\n"
             "    track = Track{0}(name=\\\"Piano\\\")\n"
             "    track.notes.append(Note{0}(0, 120, 60, 90))",
@@ -90,7 +90,7 @@ Create a track with a friendly name, MIDI program, and optional drum flag.
 
 Parameters mirror the attributes displayed on :class:`symusic.Track`.
 )pbdoc";
-constexpr const char* kCopyCtorDoc = R"pbdoc(Clone another track, deep-copying its events.)pbdoc";
+constexpr const char* kCopyCtorDoc  = R"pbdoc(Clone another track, deep-copying its events.)pbdoc";
 constexpr const char* kCopyDoc = R"pbdoc(Return a shallow or deep copy depending on *deep*.)pbdoc";
 constexpr const char* kCopyMethodDoc = R"pbdoc(Return a shallow copy of the track.)pbdoc";
 constexpr const char* kDeepcopyDoc
@@ -161,9 +161,9 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     using track_t = Track<T>;
     using vec_t   = shared<vec<self_t>>;
 
-    const auto name      = "Track" + name_;
-    const auto track_sig = fmt::format("class {}(Track[{}])", name, name_);
-    constexpr auto flavor = docstring_helpers::time_flavor<T>();
+    const auto     name      = "Track" + name_;
+    const auto     track_sig = fmt::format("class {}(Track[{}])", name, name_);
+    constexpr auto flavor    = docstring_helpers::time_flavor<T>();
 
     auto copy_func = [](const self_t& self) { return std::make_shared<track_t>(*self); };
     auto deepcopy_func

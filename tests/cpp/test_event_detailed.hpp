@@ -34,7 +34,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
 
         // Constructor from other time type
         Note<Quarter> quarter_note(1.0f, 0.5f, 62, 90);
-        Note<Tick> converted_note(50, 100, quarter_note);
+        Note<Tick>    converted_note(50, 100, quarter_note);
         REQUIRE(converted_note.time == 50);
         REQUIRE(converted_note.duration == 100);
         REQUIRE(converted_note.pitch == 62);
@@ -53,7 +53,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         Note<Tick> note(100, 200, 60, 80);
 
         REQUIRE(note.start() == 100);
-        REQUIRE(note.end() == 300);  // 100 + 200
+        REQUIRE(note.end() == 300);   // 100 + 200
     }
 
     SECTION("Test empty() method") {
@@ -76,7 +76,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
     SECTION("Test equality operators") {
         Note<Tick> note1(100, 200, 60, 80);
         Note<Tick> note2(100, 200, 60, 80);
-        Note<Tick> note3(100, 200, 62, 80);  // Different pitch
+        Note<Tick> note3(100, 200, 62, 80);   // Different pitch
 
         REQUIRE(note1 == note2);
         REQUIRE(note1 != note3);
@@ -84,7 +84,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
 
     SECTION("Test default_key() method") {
         Note<Tick> note(100, 200, 60, 80);
-        auto key = note.default_key();
+        auto       key = note.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 200);
@@ -98,7 +98,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         // Test non-inplace time shift
         Note<Tick> shifted = note.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(note.time == 100);  // Original note not modified
+        REQUIRE(note.time == 100);   // Original note not modified
 
         // Test inplace time shift
         note.shift_time_inplace(50);
@@ -109,9 +109,9 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         Note<Tick> note(100, 200, 60, 80);
 
         // Test non-inplace pitch shift
-        Note<Tick> pitched = note.shift_pitch(12);  // Up one octave
+        Note<Tick> pitched = note.shift_pitch(12);   // Up one octave
         REQUIRE(pitched.pitch == 72);
-        REQUIRE(note.pitch == 60);  // Original note not modified
+        REQUIRE(note.pitch == 60);   // Original note not modified
 
         // Test inplace pitch shift
         note.shift_pitch_inplace(12);
@@ -124,7 +124,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         // Test non-inplace velocity shift
         Note<Tick> velocitied = note.shift_velocity(10);
         REQUIRE(velocitied.velocity == 90);
-        REQUIRE(note.velocity == 80);  // Original note not modified
+        REQUIRE(note.velocity == 80);   // Original note not modified
 
         // Test inplace velocity shift
         note.shift_velocity_inplace(10);
@@ -162,7 +162,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
 
         // Constructor from other time type
         Pedal<Quarter> quarter_pedal(1.0f, 0.5f);
-        Pedal<Tick> converted_pedal(50, 100, quarter_pedal);
+        Pedal<Tick>    converted_pedal(50, 100, quarter_pedal);
         REQUIRE(converted_pedal.time == 50);
         REQUIRE(converted_pedal.duration == 100);
 
@@ -177,13 +177,13 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         Pedal<Tick> pedal(100, 200);
 
         REQUIRE(pedal.start() == 100);
-        REQUIRE(pedal.end() == 300);  // 100 + 200
+        REQUIRE(pedal.end() == 300);   // 100 + 200
     }
 
     SECTION("Test equality operators") {
         Pedal<Tick> pedal1(100, 200);
         Pedal<Tick> pedal2(100, 200);
-        Pedal<Tick> pedal3(100, 300);  // Different duration
+        Pedal<Tick> pedal3(100, 300);   // Different duration
 
         REQUIRE(pedal1 == pedal2);
         REQUIRE(pedal1 != pedal3);
@@ -191,7 +191,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
 
     SECTION("Test default_key() method") {
         Pedal<Tick> pedal(100, 200);
-        auto key = pedal.default_key();
+        auto        key = pedal.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 200);
@@ -203,7 +203,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         // Test non-inplace time shift
         Pedal<Tick> shifted = pedal.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(pedal.time == 100);  // Original pedal not modified
+        REQUIRE(pedal.time == 100);   // Original pedal not modified
 
         // Test inplace time shift
         pedal.shift_time_inplace(50);
@@ -231,7 +231,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(default_cc.value == 0);
 
         // Constructor with parameters
-        ControlChange<Tick> cc(100, 7, 127);  // Volume controller set to maximum
+        ControlChange<Tick> cc(100, 7, 127);   // Volume controller set to maximum
         REQUIRE(cc.time == 100);
         REQUIRE(cc.number == 7);
         REQUIRE(cc.value == 127);
@@ -244,7 +244,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
 
         // Constructor from other time type
         ControlChange<Quarter> quarter_cc(1.0f, 10, 64);
-        ControlChange<Tick> converted_cc(50, quarter_cc);
+        ControlChange<Tick>    converted_cc(50, quarter_cc);
         REQUIRE(converted_cc.time == 50);
         REQUIRE(converted_cc.number == 10);
         REQUIRE(converted_cc.value == 64);
@@ -260,7 +260,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
     SECTION("Test equality operators") {
         ControlChange<Tick> cc1(100, 7, 127);
         ControlChange<Tick> cc2(100, 7, 127);
-        ControlChange<Tick> cc3(100, 7, 64);  // Different value
+        ControlChange<Tick> cc3(100, 7, 64);   // Different value
 
         REQUIRE(cc1 == cc2);
         REQUIRE(cc1 != cc3);
@@ -268,7 +268,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
 
     SECTION("Test default_key() method") {
         ControlChange<Tick> cc(100, 7, 127);
-        auto key = cc.default_key();
+        auto                key = cc.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 7);
@@ -281,7 +281,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         // Test non-inplace time shift
         ControlChange<Tick> shifted = cc.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(cc.time == 100);  // Original controller not modified
+        REQUIRE(cc.time == 100);   // Original controller not modified
 
         // Test inplace time shift
         cc.shift_time_inplace(50);
@@ -309,7 +309,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
         REQUIRE(default_ts.denominator == 4);
 
         // Constructor with parameters
-        TimeSignature<Tick> ts(100, 3, 4);  // 3/4 time
+        TimeSignature<Tick> ts(100, 3, 4);   // 3/4 time
         REQUIRE(ts.time == 100);
         REQUIRE(ts.numerator == 3);
         REQUIRE(ts.denominator == 4);
@@ -322,7 +322,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
 
         // Constructor from other time type
         TimeSignature<Quarter> quarter_ts(1.0f, 6, 8);
-        TimeSignature<Tick> converted_ts(50, quarter_ts);
+        TimeSignature<Tick>    converted_ts(50, quarter_ts);
         REQUIRE(converted_ts.time == 50);
         REQUIRE(converted_ts.numerator == 6);
         REQUIRE(converted_ts.denominator == 8);
@@ -338,7 +338,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
     SECTION("Test equality operators") {
         TimeSignature<Tick> ts1(100, 3, 4);
         TimeSignature<Tick> ts2(100, 3, 4);
-        TimeSignature<Tick> ts3(100, 4, 4);  // Different numerator
+        TimeSignature<Tick> ts3(100, 4, 4);   // Different numerator
 
         REQUIRE(ts1 == ts2);
         REQUIRE(ts1 != ts3);
@@ -346,9 +346,9 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
 
     SECTION("Test default_key() method") {
         TimeSignature<Tick> ts(100, 3, 4);
-        auto key = ts.default_key();
+        auto                key = ts.default_key();
 
-        REQUIRE(key == 100);  // Returns time
+        REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
@@ -357,7 +357,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
         // Test non-inplace time shift
         TimeSignature<Tick> shifted = ts.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(ts.time == 100);  // Original time signature not modified
+        REQUIRE(ts.time == 100);   // Original time signature not modified
 
         // Test inplace time shift
         ts.shift_time_inplace(50);
@@ -385,7 +385,7 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(default_ks.tonality == 0);
 
         // Constructor with parameters
-        KeySignature<Tick> ks(100, 2, 0);  // D major, 2 sharps
+        KeySignature<Tick> ks(100, 2, 0);   // D major, 2 sharps
         REQUIRE(ks.time == 100);
         REQUIRE(ks.key == 2);
         REQUIRE(ks.tonality == 0);
@@ -397,8 +397,8 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(copied_ks.tonality == ks.tonality);
 
         // Constructor from other time type
-        KeySignature<Quarter> quarter_ks(1.0f, -3, 1);  // C minor, 3 flats
-        KeySignature<Tick> converted_ks(50, quarter_ks);
+        KeySignature<Quarter> quarter_ks(1.0f, -3, 1);   // C minor, 3 flats
+        KeySignature<Tick>    converted_ks(50, quarter_ks);
         REQUIRE(converted_ks.time == 50);
         REQUIRE(converted_ks.key == -3);
         REQUIRE(converted_ks.tonality == 1);
@@ -413,20 +413,20 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
 
     SECTION("Test degree() method") {
         // Test degree() results for different key signatures
-        KeySignature<Tick> ks1(0, 0, 0);  // C major
+        KeySignature<Tick> ks1(0, 0, 0);   // C major
         REQUIRE(ks1.degree() == 0);
 
-        KeySignature<Tick> ks2(0, 2, 0);  // D major
-        REQUIRE(ks2.degree() == 10);  // (2*5)%12
+        KeySignature<Tick> ks2(0, 2, 0);   // D major
+        REQUIRE(ks2.degree() == 10);       // (2*5)%12
 
-        KeySignature<Tick> ks3(0, -1, 1);  // A minor
-        REQUIRE(ks3.degree() == 7);  // (-1*5)%12 + 1*12 = 7
+        KeySignature<Tick> ks3(0, -1, 1);   // A minor
+        REQUIRE(ks3.degree() == 7);         // (-1*5)%12 + 1*12 = 7
     }
 
     SECTION("Test equality operators") {
         KeySignature<Tick> ks1(100, 2, 0);
         KeySignature<Tick> ks2(100, 2, 0);
-        KeySignature<Tick> ks3(100, 1, 0);  // Different key
+        KeySignature<Tick> ks3(100, 1, 0);   // Different key
 
         REQUIRE(ks1 == ks2);
         REQUIRE(ks1 != ks3);
@@ -434,9 +434,9 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
 
     SECTION("Test default_key() method") {
         KeySignature<Tick> ks(100, 2, 0);
-        auto key = ks.default_key();
+        auto               key = ks.default_key();
 
-        REQUIRE(key == 100);  // Returns time
+        REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
@@ -445,7 +445,7 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         // Test non-inplace time shift
         KeySignature<Tick> shifted = ks.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(ks.time == 100);  // Original key signature not modified
+        REQUIRE(ks.time == 100);   // Original key signature not modified
 
         // Test inplace time shift
         ks.shift_time_inplace(50);
@@ -472,7 +472,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(default_tempo.mspq == 0);
 
         // Constructor with parameters
-        Tempo<Tick> tempo(100, 500000);  // 120 BPM
+        Tempo<Tick> tempo(100, 500000);   // 120 BPM
         REQUIRE(tempo.time == 100);
         REQUIRE(tempo.mspq == 500000);
 
@@ -482,8 +482,8 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(copied_tempo.mspq == tempo.mspq);
 
         // Constructor from other time type
-        Tempo<Quarter> quarter_tempo(1.0f, 400000);  // 150 BPM
-        Tempo<Tick> converted_tempo(50, quarter_tempo);
+        Tempo<Quarter> quarter_tempo(1.0f, 400000);   // 150 BPM
+        Tempo<Tick>    converted_tempo(50, quarter_tempo);
         REQUIRE(converted_tempo.time == 50);
         REQUIRE(converted_tempo.mspq == 400000);
 
@@ -498,18 +498,18 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         // Test creating Tempo from QPM
         Tempo<Tick> tempo = Tempo<Tick>::from_qpm(100, 120.0);
         REQUIRE(tempo.time == 100);
-        REQUIRE(tempo.mspq == 500000);  // 120 BPM = 500000 microseconds/quarter note
+        REQUIRE(tempo.mspq == 500000);   // 120 BPM = 500000 microseconds/quarter note
 
         // Test reading QPM
         REQUIRE(tempo.qpm() == Catch::Approx(120.0));
     }
 
     SECTION("Test set_qpm() method") {
-        Tempo<Tick> tempo(100, 500000);  // 120 BPM
+        Tempo<Tick> tempo(100, 500000);   // 120 BPM
 
         // Change tempo to 80 BPM
         tempo.set_qpm(80.0);
-        REQUIRE(tempo.mspq == 750000);  // 80 BPM = 750000 microseconds/quarter note
+        REQUIRE(tempo.mspq == 750000);   // 80 BPM = 750000 microseconds/quarter note
         REQUIRE(tempo.qpm() == Catch::Approx(80.0));
     }
 
@@ -526,7 +526,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
     SECTION("Test equality operators") {
         Tempo<Tick> tempo1(100, 500000);
         Tempo<Tick> tempo2(100, 500000);
-        Tempo<Tick> tempo3(100, 400000);  // Different tempo
+        Tempo<Tick> tempo3(100, 400000);   // Different tempo
 
         REQUIRE(tempo1 == tempo2);
         REQUIRE(tempo1 != tempo3);
@@ -534,9 +534,9 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
 
     SECTION("Test default_key() method") {
         Tempo<Tick> tempo(100, 500000);
-        auto key = tempo.default_key();
+        auto        key = tempo.default_key();
 
-        REQUIRE(std::get<0>(key) == 100);  // Returns time
+        REQUIRE(std::get<0>(key) == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
@@ -545,7 +545,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         // Test non-inplace time shift
         Tempo<Tick> shifted = tempo.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(tempo.time == 100);  // Original tempo not modified
+        REQUIRE(tempo.time == 100);   // Original tempo not modified
 
         // Test inplace time shift
         tempo.shift_time_inplace(50);
@@ -572,7 +572,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(default_pb.value == 0);
 
         // Constructor with parameters
-        PitchBend<Tick> pb(100, 8192);  // Center value
+        PitchBend<Tick> pb(100, 8192);   // Center value
         REQUIRE(pb.time == 100);
         REQUIRE(pb.value == 8192);
 
@@ -582,8 +582,8 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(copied_pb.value == pb.value);
 
         // Constructor from other time type
-        PitchBend<Quarter> quarter_pb(1.0f, 12288);  // Upward bend
-        PitchBend<Tick> converted_pb(50, quarter_pb);
+        PitchBend<Quarter> quarter_pb(1.0f, 12288);   // Upward bend
+        PitchBend<Tick>    converted_pb(50, quarter_pb);
         REQUIRE(converted_pb.time == 50);
         REQUIRE(converted_pb.value == 12288);
 
@@ -597,7 +597,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
     SECTION("Test equality operators") {
         PitchBend<Tick> pb1(100, 8192);
         PitchBend<Tick> pb2(100, 8192);
-        PitchBend<Tick> pb3(100, 10000);  // Different value
+        PitchBend<Tick> pb3(100, 10000);   // Different value
 
         REQUIRE(pb1 == pb2);
         REQUIRE(pb1 != pb3);
@@ -605,9 +605,9 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
 
     SECTION("Test default_key() method") {
         PitchBend<Tick> pb(100, 8192);
-        auto key = pb.default_key();
+        auto            key = pb.default_key();
 
-        REQUIRE(key == 100);  // Returns time
+        REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
@@ -616,7 +616,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         // Test non-inplace time shift
         PitchBend<Tick> shifted = pb.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(pb.time == 100);  // Original pitch bend not modified
+        REQUIRE(pb.time == 100);   // Original pitch bend not modified
 
         // Test inplace time shift
         pb.shift_time_inplace(50);
@@ -654,7 +654,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
 
         // Constructor from other time type
         TextMeta<Quarter> quarter_text(1.0f, "Quarter Text");
-        TextMeta<Tick> converted_text(50, quarter_text);
+        TextMeta<Tick>    converted_text(50, quarter_text);
         REQUIRE(converted_text.time == 50);
         REQUIRE(converted_text.text == "Quarter Text");
 
@@ -668,7 +668,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
     SECTION("Test equality operators") {
         TextMeta<Tick> text1(100, "Text A");
         TextMeta<Tick> text2(100, "Text A");
-        TextMeta<Tick> text3(100, "Text B");  // Different text
+        TextMeta<Tick> text3(100, "Text B");   // Different text
 
         REQUIRE(text1 == text2);
         REQUIRE(text1 != text3);
@@ -676,9 +676,9 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
 
     SECTION("Test default_key() method") {
         TextMeta<Tick> text(100, "Test Text");
-        auto key = text.default_key();
+        auto           key = text.default_key();
 
-        REQUIRE(key == 100);  // Returns time
+        REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
@@ -687,7 +687,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
         // Test non-inplace time shift
         TextMeta<Tick> shifted = text.shift_time(50);
         REQUIRE(shifted.time == 150);
-        REQUIRE(text.time == 100);  // Original text not modified
+        REQUIRE(text.time == 100);   // Original text not modified
 
         // Test inplace time shift
         text.shift_time_inplace(50);

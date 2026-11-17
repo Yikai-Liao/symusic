@@ -19,9 +19,7 @@ namespace fs = std::filesystem;
 TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
     // Create a temporary directory for test files
     fs::path temp_dir = fs::temp_directory_path() / "symusic_test_common_io";
-    if (!fs::exists(temp_dir)) {
-        fs::create_directory(temp_dir);
-    }
+    if (!fs::exists(temp_dir)) { fs::create_directory(temp_dir); }
 
     SECTION("Read and Write File with String Path") {
         // Create test data
@@ -38,9 +36,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
 
         // Verify the data
         REQUIRE(read_data.size() == test_data.size());
-        for (size_t i = 0; i < test_data.size(); ++i) {
-            REQUIRE(read_data[i] == test_data[i]);
-        }
+        for (size_t i = 0; i < test_data.size(); ++i) { REQUIRE(read_data[i] == test_data[i]); }
     }
 
     SECTION("Read and Write File with Filesystem Path") {
@@ -58,9 +54,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
 
         // Verify the data
         REQUIRE(read_data.size() == test_data.size());
-        for (size_t i = 0; i < test_data.size(); ++i) {
-            REQUIRE(read_data[i] == test_data[i]);
-        }
+        for (size_t i = 0; i < test_data.size(); ++i) { REQUIRE(read_data[i] == test_data[i]); }
     }
 
     SECTION("Attempt to Read Non-existent File") {
@@ -86,7 +80,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         const fs::path roundtrip_path = temp_dir / "issue_91_roundtrip.mid";
         write_file(roundtrip_path, original_score.dumps<DataFormat::MIDI>());
 
-        const auto roundtrip_data = read_file(roundtrip_path);
+        const auto        roundtrip_data = read_file(roundtrip_path);
         const Score<Tick> roundtrip_score
             = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(roundtrip_data));
 
@@ -99,4 +93,4 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
     fs::remove_all(temp_dir);
 }
 
-#endif // SYMUSIC_TEST_COMMON_IO_HPP
+#endif   // SYMUSIC_TEST_COMMON_IO_HPP

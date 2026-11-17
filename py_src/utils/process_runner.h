@@ -9,8 +9,8 @@ namespace symusic::process_runner {
 class ScopedTempDir {
 public:
     explicit ScopedTempDir(std::string_view prefix = "symusic-abc-");
-    ScopedTempDir(const ScopedTempDir&)                = delete;
-    ScopedTempDir& operator=(const ScopedTempDir&)     = delete;
+    ScopedTempDir(const ScopedTempDir&)            = delete;
+    ScopedTempDir& operator=(const ScopedTempDir&) = delete;
     ScopedTempDir(ScopedTempDir&& other) noexcept;
     ScopedTempDir& operator=(ScopedTempDir&& other) noexcept;
     ~ScopedTempDir();

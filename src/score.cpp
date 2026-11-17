@@ -20,7 +20,7 @@ REPEAT_ON(EXTERN_REPR, Tick, Quarter, Second)
 namespace details {
 
 struct BeatTimelineQuarter {
-    Quarter::unit              end_time;
+    Quarter::unit               end_time;
     vec<TimeSignature<Quarter>> time_signatures;
 };
 
@@ -34,9 +34,7 @@ inline bool ge_or_close(const Quarter::unit lhs, const Quarter::unit rhs) {
     return lhs > rhs || close_enough(lhs, rhs);
 }
 
-inline Quarter::unit beat_step_for(
-    const std::optional<TimeSignature<Quarter>>& time_signature
-) {
+inline Quarter::unit beat_step_for(const std::optional<TimeSignature<Quarter>>& time_signature) {
     if (!time_signature.has_value() || time_signature->denominator == 0) {
         return static_cast<Quarter::unit>(1);
     }
@@ -57,7 +55,7 @@ inline size_t beats_per_bar_for(const TimeSignature<Quarter>& time_signature) {
 template<TType T>
 BeatTimelineQuarter make_beat_timeline_quarter(const Score<T>& score) {
     return {
-        .end_time = convert_time<Quarter>(score.end(), score),
+        .end_time        = convert_time<Quarter>(score.end(), score),
         .time_signatures = convert_time_events<Quarter>(*score.time_signatures, score).collect()
     };
 }
@@ -93,8 +91,8 @@ inline vec<Quarter::unit> compute_beats_quarter(
         return lhs.time < rhs.time;
     });
 
-    vec<Quarter::unit> beats{start_time};
-    size_t next_ts_index = 0;
+    vec<Quarter::unit>                    beats{start_time};
+    size_t                                next_ts_index          = 0;
     std::optional<TimeSignature<Quarter>> current_time_signature = std::nullopt;
     while (next_ts_index < time_signatures.size()
            && ge_or_close(beats.back(), time_signatures[next_ts_index].time)) {
@@ -106,7 +104,7 @@ inline vec<Quarter::unit> compute_beats_quarter(
         auto next_beat = beats.back() + beat_step_for(current_time_signature);
         if (next_ts_index < time_signatures.size()
             && ge_or_close(next_beat, time_signatures[next_ts_index].time)) {
-            next_beat = time_signatures[next_ts_index].time;
+            next_beat              = time_signatures[next_ts_index].time;
             current_time_signature = time_signatures[next_ts_index];
             ++next_ts_index;
             while (next_ts_index < time_signatures.size()
@@ -139,11 +137,11 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
     vec<Quarter::unit> downbeats;
     size_t             end_beat_index = 0;
     for (size_t index = 0; index + 1 < time_signatures.size(); ++index) {
-        const auto& start_ts = time_signatures[index];
-        const auto& end_ts   = time_signatures[index + 1];
+        const auto& start_ts         = time_signatures[index];
+        const auto& end_ts           = time_signatures[index + 1];
         const auto  start_beat_index = find_time_index(beats, start_ts.time, 0);
-        end_beat_index = find_time_index(beats, end_ts.time, start_beat_index);
-        const auto stride = beats_per_bar_for(start_ts);
+        end_beat_index               = find_time_index(beats, end_ts.time, start_beat_index);
+        const auto stride            = beats_per_bar_for(start_ts);
         for (size_t beat_index = start_beat_index; beat_index < end_beat_index;
              beat_index += stride) {
             downbeats.push_back(beats[beat_index]);
@@ -151,9 +149,8 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
     }
 
     const auto& final_time_signature = time_signatures.back();
-    const auto  start_beat_index
-        = find_time_index(beats, final_time_signature.time, end_beat_index);
-    const auto stride = beats_per_bar_for(final_time_signature);
+    const auto start_beat_index = find_time_index(beats, final_time_signature.time, end_beat_index);
+    const auto stride           = beats_per_bar_for(final_time_signature);
     for (size_t beat_index = start_beat_index; beat_index < beats.size(); beat_index += stride) {
         downbeats.push_back(beats[beat_index]);
     }
@@ -197,11 +194,8 @@ size_t Score<T>::note_num() const {
 
 template<TType T>
 bool Score<T>::empty() const {
-    return tracks->empty()
-        && time_signatures->empty()
-        && key_signatures->empty()
-        && tempos->empty()
-        && markers->empty();
+    return tracks->empty() && time_signatures->empty() && key_signatures->empty() && tempos->empty()
+           && markers->empty();
 }
 
 template<TType T>
@@ -225,8 +219,7 @@ vec<typename T::unit> Score<T>::get_downbeats(const unit start_time) const {
     const auto timeline              = details::make_beat_timeline_quarter(*this);
     const auto quarter_tempo_context = details::make_quarter_tempo_context(*this);
     const auto quarter_start         = convert_time<Quarter>(start_time, *this);
-    const auto quarter_downbeats
-        = details::compute_downbeats_quarter(timeline, quarter_start);
+    const auto quarter_downbeats     = details::compute_downbeats_quarter(timeline, quarter_start);
     return convert_times<T, Quarter>(
         std::span<const Quarter::unit>(quarter_downbeats), quarter_tempo_context
     );
@@ -268,8 +261,15 @@ Score<T> Score<T>::clip(unit start, unit end, bool clip_end) const {
 }
 
 template<TType T>
-void Score<T>::trim_inplace(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) {
-    for (auto& track : *tracks) track->trim_inplace(start, end, min_overlap, start_mode, end_mode);;
+void Score<T>::trim_inplace(
+    unit               start,
+    unit               end,
+    unit               min_overlap,
+    const std::string& start_mode,
+    const std::string& end_mode
+) {
+    for (auto& track : *tracks) track->trim_inplace(start, end, min_overlap, start_mode, end_mode);
+    ;
     ops::clip_with_sentinel_inplace(*time_signatures, start, end);
     ops::clip_with_sentinel_inplace(*key_signatures, start, end);
     ops::clip_with_sentinel_inplace(*tempos, start, end);
@@ -277,7 +277,13 @@ void Score<T>::trim_inplace(unit start, unit end, unit min_overlap, const std::s
 }
 
 template<TType T>
-Score<T> Score<T>::trim(unit start, unit end, unit min_overlap, const std::string &start_mode, const std::string &end_mode) const {
+Score<T> Score<T>::trim(
+    unit               start,
+    unit               end,
+    unit               min_overlap,
+    const std::string& start_mode,
+    const std::string& end_mode
+) const {
     auto ans = deepcopy();
     ans.trim_inplace(start, end, min_overlap, start_mode, end_mode);
     return ans;

@@ -4,11 +4,9 @@
 
 namespace symusic {
 
-TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim)
-    : modeDim(modeDim),
-      pitchDim(pitchDim),
-      timeDim(timeDim),
-      dataPtr(std::make_unique<pianoroll_t[]>(modeDim * pitchDim * timeDim)) {}
+TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim) :
+    modeDim(modeDim), pitchDim(pitchDim), timeDim(timeDim),
+    dataPtr(std::make_unique<pianoroll_t[]>(modeDim * pitchDim * timeDim)) {}
 
 TrackPianoroll TrackPianoroll::from_track(
     const Track<Tick>&                track,
@@ -77,12 +75,9 @@ std::tuple<size_t, size_t, size_t> TrackPianoroll::dims() const {
     return {this->modeDim, this->pitchDim, this->timeDim};
 };
 
-ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim)
-    : modeDim(modeDim),
-      trackDim(trackDim),
-      pitchDim(pitchDim),
-      timeDim(timeDim),
-      dataPtr(std::make_unique<pianoroll_t[]>(modeDim * trackDim * pitchDim * timeDim)) {}
+ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim) :
+    modeDim(modeDim), trackDim(trackDim), pitchDim(pitchDim), timeDim(timeDim),
+    dataPtr(std::make_unique<pianoroll_t[]>(modeDim * trackDim * pitchDim * timeDim)) {}
 
 ScorePianoroll ScorePianoroll::from_score(
     const Score<Tick>&                score,
@@ -131,8 +126,8 @@ pianoroll_t* ScorePianoroll::release() {
 };
 
 pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch, size_t time) {
-    return data() + mode * this->trackDim * this->pitchDim * this->timeDim +
-           track * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
+    return data() + mode * this->trackDim * this->pitchDim * this->timeDim
+           + track * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
 };
 
 void ScorePianoroll::set(

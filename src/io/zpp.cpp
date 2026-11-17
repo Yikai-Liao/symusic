@@ -40,10 +40,12 @@ REPEAT_ON(
 SERIALIZE_COMMON(TextMeta, d, d.time, d.text)
 
 SERIALIZE_COMMON(
-    TrackNative, d,
+    TrackNative,
+    d,
     d.name,
     d.program,
-    d.is_drum, d.notes,
+    d.is_drum,
+    d.notes,
     d.controls,
     d.pitch_bends,
     d.pedals,
@@ -51,7 +53,8 @@ SERIALIZE_COMMON(
 )
 
 SERIALIZE_COMMON(
-    ScoreNative,d,
+    ScoreNative,
+    d,
     d.ticks_per_quarter,
     d.tracks,
     d.time_signatures,
@@ -122,8 +125,17 @@ T deserailize_zpp(std::span<const u8> buffer) {
     INSTANTIATE_ZPP_INNER(NAME, Second)
 
 REPEAT_ON(
-    INSTANTIATE_ZPP, Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend,
-    TextMeta, TrackNative, ScoreNative
+    INSTANTIATE_ZPP,
+    Note,
+    Pedal,
+    ControlChange,
+    TimeSignature,
+    KeySignature,
+    Tempo,
+    PitchBend,
+    TextMeta,
+    TrackNative,
+    ScoreNative
 )
 
 #undef INSTANTIATE_ZPP_INNER

@@ -3,10 +3,10 @@
 
 namespace symusic::details {
 
-std::string strip_non_utf_8(const std::string &str) {
-  std::string ans;
-  utf8::replace_invalid(str.begin(), str.end(), std::back_inserter(ans));
-  return ans;
+std::string strip_non_utf_8(const std::string& str) {
+    std::string ans;
+    utf8::replace_invalid(str.begin(), str.end(), std::back_inserter(ans));
+    return ans;
 }
 
-} // namespace symusic::details
+}   // namespace symusic::details

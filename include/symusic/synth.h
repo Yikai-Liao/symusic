@@ -14,19 +14,19 @@ private:
     psynth::Synthesizer synthesizer;
 
 public:
-    Synthesizer(const std::string &sfPath, u32 sampleRate, u8 quality):
+    Synthesizer(const std::string& sfPath, u32 sampleRate, u8 quality) :
         synthesizer(sfPath, sampleRate, quality, 1) {}
 
-    Synthesizer(const std::filesystem::path &sfPath, u32 sampleRate, u8 quality):
+    Synthesizer(const std::filesystem::path& sfPath, u32 sampleRate, u8 quality) :
         Synthesizer(sfPath.string(), sampleRate, quality) {}
 
     template<TType T>
-    psynth::AudioData render(const Score<T> & score, bool stereo);
+    psynth::AudioData render(const Score<T>& score, bool stereo);
 };
 
 namespace details {
-    psynth::Sequence toSequence(const Score<Second> & score);
+psynth::Sequence toSequence(const Score<Second>& score);
 }
 
-}
-#endif //SYNTH_H
+}   // namespace symusic
+#endif   // SYNTH_H

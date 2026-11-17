@@ -65,7 +65,7 @@ struct TimeStamp {
 
     COMPILER_DEFAULT_METHODS(TimeStamp)
 
-    explicit TimeStamp(const unit& time) : time(time){};
+    explicit TimeStamp(const unit& time) : time(time) {};
 };
 
 // Define TimeEvent concept, representing events with time

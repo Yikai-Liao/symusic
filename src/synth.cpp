@@ -12,7 +12,7 @@ namespace details {
 struct BankSelect {
     Second::unit time;
     u8           bank;
-                 BankSelect(const Second::unit time, const u8 bank) : time(time), bank(bank) {}
+    BankSelect(const Second::unit time, const u8 bank) : time(time), bank(bank) {}
 };
 
 struct TrackIdx {

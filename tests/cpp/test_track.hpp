@@ -33,7 +33,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
 
     SECTION("Copy constructor") {
         // Add some data
-        track.name = "Test Track";
+        track.name    = "Test Track";
         track.program = 10;
         track.is_drum = true;
         track.notes->push_back(Note<Tick>(0, 100, 60, 100));
@@ -49,13 +49,13 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
 
     SECTION("Move constructor") {
         // Prepare data to be moved
-        track.name = "Move Test";
+        track.name    = "Move Test";
         track.program = 20;
         track.notes->push_back(Note<Tick>(0, 100, 60, 100));
 
         // Record original data
-        std::string orig_name = track.name;
-        int orig_note_count = track.notes->size();
+        std::string orig_name       = track.name;
+        int         orig_note_count = track.notes->size();
 
         // Test move constructor
         Track<Tick> moved_track(std::move(track));
@@ -71,13 +71,13 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         notes.push_back(Note<Tick>(100, 100, 62, 100));
 
         pyvec<ControlChange<Tick>> controls;
-        controls.push_back(ControlChange<Tick>(0, 7, 100)); // Volume control
+        controls.push_back(ControlChange<Tick>(0, 7, 100));   // Volume control
 
         pyvec<PitchBend<Tick>> pitch_bends;
-        pitch_bends.push_back(PitchBend<Tick>(50, 8192)); // Center value pitch bend
+        pitch_bends.push_back(PitchBend<Tick>(50, 8192));   // Center value pitch bend
 
         pyvec<Pedal<Tick>> pedals;
-        pedals.push_back(Pedal<Tick>(0, 200)); // Hold pedal for 200 ticks
+        pedals.push_back(Pedal<Tick>(0, 200));   // Hold pedal for 200 ticks
 
         pyvec<TextMeta<Tick>> lyrics;
         lyrics.push_back(TextMeta<Tick>(0, "La"));
@@ -105,7 +105,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
 
     SECTION("Assignment operator") {
         // Prepare data
-        track.name = "Original";
+        track.name    = "Original";
         track.program = 30;
         track.notes->push_back(Note<Tick>(0, 100, 60, 100));
 
@@ -121,13 +121,13 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
 
     SECTION("Move assignment operator") {
         // Prepare data
-        track.name = "Move Assign";
+        track.name    = "Move Assign";
         track.program = 40;
         track.notes->push_back(Note<Tick>(0, 100, 60, 100));
 
         // Record original values
-        std::string orig_name = track.name;
-        int orig_program = track.program;
+        std::string orig_name    = track.name;
+        int         orig_program = track.program;
 
         // Test move assignment
         Track<Tick> move_assigned;
@@ -144,19 +144,19 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     Track<Tick> track("Test Track", 0, false);
 
     // Add notes
-    track.notes->push_back(Note<Tick>(0, 100, 60, 100));    // C4
-    track.notes->push_back(Note<Tick>(100, 100, 62, 100));  // D4
-    track.notes->push_back(Note<Tick>(200, 100, 64, 100));  // E4
+    track.notes->push_back(Note<Tick>(0, 100, 60, 100));     // C4
+    track.notes->push_back(Note<Tick>(100, 100, 62, 100));   // D4
+    track.notes->push_back(Note<Tick>(200, 100, 64, 100));   // E4
 
     // Add controllers
-    track.controls->push_back(ControlChange<Tick>(0, 7, 100));    // Volume
-    track.controls->push_back(ControlChange<Tick>(100, 10, 64));  // Pan
+    track.controls->push_back(ControlChange<Tick>(0, 7, 100));     // Volume
+    track.controls->push_back(ControlChange<Tick>(100, 10, 64));   // Pan
 
     // Add pitch bends
-    track.pitch_bends->push_back(PitchBend<Tick>(150, 8192 + 4096));  // 1/3 up bend
+    track.pitch_bends->push_back(PitchBend<Tick>(150, 8192 + 4096));   // 1/3 up bend
 
     // Add pedals
-    track.pedals->push_back(Pedal<Tick>(0, 300));  // Pedal pressed for 300 ticks
+    track.pedals->push_back(Pedal<Tick>(0, 300));   // Pedal pressed for 300 ticks
 
     // Add lyrics
     track.lyrics->push_back(TextMeta<Tick>(0, "Do"));
@@ -175,13 +175,13 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         // Test shallow copy
         Track<Tick> copied = track.copy();
         REQUIRE(copied == track);
-        REQUIRE(copied.notes.get() == track.notes.get());  // Same pointer
+        REQUIRE(copied.notes.get() == track.notes.get());   // Same pointer
 
         // Test deep copy
         Track<Tick> deep_copied = track.deepcopy();
         REQUIRE(deep_copied == track);
-        REQUIRE(deep_copied.notes.get() != track.notes.get());  // Different pointer
-        REQUIRE(*deep_copied.notes == *track.notes);  // Same content
+        REQUIRE(deep_copied.notes.get() != track.notes.get());   // Different pointer
+        REQUIRE(*deep_copied.notes == *track.notes);             // Same content
     }
 
     SECTION("equality operators") {
@@ -191,17 +191,17 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
 
         // Tracks with different content should not be equal
         Track<Tick> different_track = track.copy();
-        different_track.name = "Different";
+        different_track.name        = "Different";
         REQUIRE(different_track != track);
     }
 
     SECTION("start() and end() methods") {
-        REQUIRE(track.start() == 0);  // First event starts at 0
-        REQUIRE(track.end() == 300);  // Last ending event is pedal (0+300)
+        REQUIRE(track.start() == 0);   // First event starts at 0
+        REQUIRE(track.end() == 300);   // Last ending event is pedal (0+300)
     }
 
     SECTION("note_num() method") {
-        REQUIRE(track.note_num() == 3);  // 3 notes
+        REQUIRE(track.note_num() == 3);   // 3 notes
     }
 
     SECTION("empty() method") {
@@ -242,8 +242,8 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     SECTION("clip() and clip_inplace() methods") {
         // Test non-inplace clip
         Track<Tick> clipped = track.clip(50, 150, false);
-        REQUIRE(clipped.notes->size() == 1);  // Only one note in range (100-200)
-        REQUIRE(clipped.controls->size() == 1);  // Only one control in range (100)
+        REQUIRE(clipped.notes->size() == 1);      // Only one note in range (100-200)
+        REQUIRE(clipped.controls->size() == 1);   // Only one control in range (100)
 
         // Test inplace clip
         track.clip_inplace(50, 150, false);
@@ -254,8 +254,8 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     SECTION("shift_time() and shift_time_inplace() methods") {
         // Test non-inplace time shift
         Track<Tick> shifted = track.shift_time(50);
-        REQUIRE(shifted.notes->at(0).time == 50);  // 0 -> 50
-        REQUIRE(shifted.notes->at(1).time == 150);  // 100 -> 150
+        REQUIRE(shifted.notes->at(0).time == 50);    // 0 -> 50
+        REQUIRE(shifted.notes->at(1).time == 150);   // 100 -> 150
 
         // Test inplace time shift
         track.shift_time_inplace(50);
@@ -265,9 +265,9 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
 
     SECTION("shift_pitch() and shift_pitch_inplace() methods") {
         // Test non-inplace pitch shift
-        Track<Tick> pitched = track.shift_pitch(12);  // Up one octave
-        REQUIRE(pitched.notes->at(0).pitch == 72);  // C4 -> C5
-        REQUIRE(pitched.notes->at(1).pitch == 74);  // D4 -> D5
+        Track<Tick> pitched = track.shift_pitch(12);   // Up one octave
+        REQUIRE(pitched.notes->at(0).pitch == 72);     // C4 -> C5
+        REQUIRE(pitched.notes->at(1).pitch == 74);     // D4 -> D5
 
         // Test inplace pitch shift
         track.shift_pitch_inplace(12);

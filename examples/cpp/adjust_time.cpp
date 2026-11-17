@@ -2,7 +2,7 @@
 #include "argparse.h"
 using namespace symusic;
 
-int main(const int argc, const char *argv[]) {
+int main(const int argc, const char* argv[]) {
     argparse::ArgumentParser program("adjust_time");
     program.add_argument("midi_path").help("Path to the MIDI file");
     try {
@@ -13,10 +13,10 @@ int main(const int argc, const char *argv[]) {
         std::exit(1);
     }
     const auto midi_path = program.get<std::string>("midi_path");
-    const auto buffer = read_file(midi_path);
-    const auto s = Score<Tick>::parse<DataFormat::MIDI>(buffer);
+    const auto buffer    = read_file(midi_path);
+    const auto s         = Score<Tick>::parse<DataFormat::MIDI>(buffer);
     fmt::println("{}", s.tracks->at(0)->notes->collect());
-    auto end = s.end();
-    const auto s2 = ops::adjust_time(s, {0, end / 2, end}, {0, end, end + end/2});
+    auto       end = s.end();
+    const auto s2  = ops::adjust_time(s, {0, end / 2, end}, {0, end, end + end / 2});
     fmt::println("\n{}", s2.tracks->at(0)->notes->collect());
 }
