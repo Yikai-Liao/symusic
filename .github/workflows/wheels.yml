@@ -1,7 +1,7 @@
 name: Wheels
 
 # Builds wheels with cibuildwheel (configuration in pyproject.toml) and the sdist,
-# and tests every wheel. With `smoke`, CI builds a single Linux wheel instead.
+# and tests every CPython wheel. With `smoke`, CI builds a single Linux wheel instead.
 # release.yml calls the full build and publishes the artifacts.
 
 on:
@@ -25,7 +25,8 @@ jobs:
           submodules: recursive
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
         env:
-          CIBW_BUILD: cp312-manylinux_x86_64
+          # One stable-ABI build, tested on its oldest and newest CPython.
+          CIBW_BUILD: cp312-manylinux_x86_64 cp315-manylinux_x86_64
 
   wheels:
     if: ${{ !inputs.smoke }}
@@ -35,8 +36,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, platform: linux-x86_64 }
-          - { os: ubuntu-24.04-arm, platform: linux-aarch64 }
+          - { os: ubuntu-latest, platform: manylinux-x86_64, skip: "*-musllinux_*" }
+          - { os: ubuntu-latest, platform: musllinux-x86_64, skip: "*-manylinux_*" }
+          - { os: ubuntu-24.04-arm, platform: manylinux-aarch64, skip: "*-musllinux_*" }
+          - { os: ubuntu-24.04-arm, platform: musllinux-aarch64, skip: "*-manylinux_*" }
           - { os: macos-15-intel, platform: macos-x86_64 }
           - { os: macos-15, platform: macos-arm64 }
           - { os: windows-latest, platform: windows-x64, msvc: x64 }
@@ -54,6 +57,8 @@ jobs:
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
         env:
           CIBW_ARCHS: ${{ matrix.archs || 'native' }}
+          # Splits Linux by libc into parallel jobs; empty elsewhere.
+          CIBW_SKIP: ${{ matrix.skip }}
       - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform }}

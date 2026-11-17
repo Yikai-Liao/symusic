@@ -23,7 +23,7 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 | `python` | Core, binding, package, tests, build files | `pytest` on Linux (CPython 3.10 and 3.14, PyPy 3.11), macOS and Windows; Python coverage from Linux 3.14 |
 | `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, macOS and Windows; C++ coverage from Linux |
 | `docs` | `docs/`, core, binding, package | Sphinx with warnings as errors |
-| `wheels` | Core, binding, build and packaging files | One cibuildwheel build and test (CPython 3.12, manylinux x86_64) |
+| `wheels` | Core, binding, build and packaging files | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
 
 Changes to `.github/workflows/` or `.github/scripts/` select every lane. Markdown files outside `docs/` select only `lint`. When you add a top-level file or directory, add a rule to `ci_changes.py`; a test fails until every tracked file matches one.
 
