@@ -127,25 +127,25 @@ jobs:
         if: matrix.coverage
       - name: Configure
         run: >-
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_ENABLE_LTO=OFF
+          cmake -S . -B "$RUNNER_TEMP/symusic-build" -DCMAKE_BUILD_TYPE=Debug -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_ENABLE_LTO=OFF
           -DSYMUSIC_BUILD_EXAMPLES=${{ matrix.examples && 'ON' || 'OFF' }}
           ${{ runner.os == 'Windows' && '-G Ninja' || '' }}
           ${{ matrix.coverage && '-DSYMUSIC_ENABLE_COVERAGE=ON' || '' }}
       - name: Build
-        run: cmake --build build --config Debug --parallel
+        run: cmake --build "$RUNNER_TEMP/symusic-build" --config Debug --parallel
       - name: Test
-        run: ctest --test-dir build -C Debug --output-on-failure
+        run: ctest --test-dir "$RUNNER_TEMP/symusic-build" -C Debug --output-on-failure
       - name: Coverage report
         if: matrix.coverage
         run: >-
-          uvx gcovr --xml build/coverage.xml --root . --filter src/ --filter include/
-          --gcov-ignore-errors=no_working_dir_found build
+          uvx gcovr --xml "$RUNNER_TEMP/symusic-build/coverage.xml" --root . --filter src/ --filter include/
+          --gcov-ignore-errors=no_working_dir_found "$RUNNER_TEMP/symusic-build"
       - name: Upload coverage
         if: matrix.coverage
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: build/coverage.xml
+          files: ${{ runner.temp }}/symusic-build/coverage.xml
           flags: cpp
 
   docs:
