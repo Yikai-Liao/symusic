@@ -85,14 +85,13 @@ endif()
 
 if(BUILD_SYMUSIC_PY)
     message("Building python binding.")
-    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-    # set symusic target to O3 and release mode because nanobind use minisize
-#   execute_process(
-#        COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
-#        OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NB_DIR)
-#        list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
-#   find_package(nanobind CONFIG REQUIRED)
-    # show python executable path
+    # nanobind's STABLE_ABI needs Development.SABIModule; without it the
+    # module silently builds against the full CPython API.
+    find_package(
+        Python REQUIRED
+        COMPONENTS Interpreter Development.Module
+        OPTIONAL_COMPONENTS Development.SABIModule
+    )
     message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
 
     add_subdirectory(3rdparty/nanobind EXCLUDE_FROM_ALL)

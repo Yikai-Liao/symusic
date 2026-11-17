@@ -14,7 +14,7 @@
 pip install symusic
 ```
 
-Wheels cover CPython 3.10–3.14 on Linux, macOS and Windows. To build from source you need CMake and a C++20 compiler; see [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#set-up).
+Wheels cover CPython 3.10 and newer on Linux, macOS and Windows; from 3.12 on, one stable-ABI (`abi3`) wheel serves every CPython version. To build from source you need CMake and a C++20 compiler; see [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#set-up).
 
 ## Example
 

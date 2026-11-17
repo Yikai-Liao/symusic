@@ -34,9 +34,10 @@ pure-Python stacks traditionally used in MIR and deep-learning pipelines.
 pip install symusic
 ```
 
-We publish CPython wheels for Python 3.10 through 3.14 on Linux (manylinux and musllinux, x86_64 and
-aarch64), macOS (x86_64 and arm64) and Windows (x64, x86 and ARM64). PyPy wheels are published for
-`pp311` on `manylinux_x86_64`, `macosx_x86_64`, and `macosx_arm64`.
+We publish wheels for CPython 3.10 and newer on Linux (manylinux and musllinux, x86_64 and aarch64),
+macOS (x86_64 and arm64) and Windows (x64, x86 and ARM64). CPython 3.10 and 3.11 get one wheel each;
+from 3.12 on, a single stable-ABI (`abi3`) wheel serves every version. PyPy 3.11 wheels are published
+for `manylinux_x86_64`, `macosx_x86_64`, and `macosx_arm64`. Free-threaded builds are not supported yet.
 
 When you need to build from source, clone the repository with submodules and install it through
 `pip`:

@@ -40,6 +40,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
@@ -62,6 +63,9 @@ Issues = "https://github.com/Yikai-Liao/symusic/issues"
 [tool.scikit-build]
 cmake.version = ">=3.26.1"
 ninja.version = ">=1.11"
+# The extension uses the stable ABI from 3.12 on, so one cp312-abi3 wheel covers
+# every later CPython; older versions still get version-specific wheels.
+wheel.py-api = "cp312"
 
 [[tool.scikit-build.overrides]]
 if.platform-system = "^win32$"
@@ -100,10 +104,11 @@ filterwarnings = [
 testpaths = ["tests"]
 
 [tool.cibuildwheel]
-# Used by .github/workflows/wheels.yml; the workflow selects the architecture.
-build = "cp310-* cp311-* cp312-* cp313-* cp314-* pp311-*"
-# PyPy wheels only for manylinux x86_64 and macOS.
-skip = "pp*-win* pp*-musllinux* pp*-manylinux_aarch64"
+# Used by .github/workflows/wheels.yml, which picks the architecture and, on
+# Linux, the libc. cp312 builds one stable-ABI wheel; cibuildwheel reuses it
+# for cp313 and later and only runs the tests there. Free-threaded builds
+# (cp3XXt) are not supported yet. PyPy wheels: manylinux x86_64 and macOS.
+build = "cp310-* cp311-* cp312-* cp313-* cp314-* cp315-* pp311-manylinux_x86_64 pp311-macosx_*"
 enable = ["pypy"]
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
@@ -111,6 +116,9 @@ musllinux-x86_64-image = "musllinux_1_2"
 musllinux-aarch64-image = "musllinux_1_2"
 test-extras = ["test"]
 test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
+# NumPy has no PyPy wheels, so testing would build it from source; the CI
+# python lane tests PyPy instead.
+test-skip = "pp*"
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "11.0"
