@@ -43,4 +43,4 @@ Pull requests build a single wheel, so the [release steps](https://github.com/Yi
 
 ## Pinning
 
-Third-party actions are pinned to a full commit SHA with the version in a comment; `actions/*` may use a major tag. `check_action_pins.py` enforces this. Dependabot updates actions weekly and submodules monthly. The clice version and checksum live in `install_clice.sh`, and prek's version in `ci.yml`.
+Third-party actions are pinned to a full commit SHA with the version in a comment; `actions/*` may use a major tag. `check_action_pins.py` enforces this. Dependabot updates actions weekly; submodules follow release tags and are updated by hand (see [Dependencies](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#dependencies)). The clice version and checksum live in `install_clice.sh`, and prek's version in `ci.yml`.

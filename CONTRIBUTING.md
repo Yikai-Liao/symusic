@@ -69,7 +69,9 @@ Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `p
 
 ### Dependencies
 
-C++ dependencies are pinned submodules under `3rdparty/`; Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one only when it solves a recurring, non-trivial problem better than a small in-repo helper, builds on every wheel platform and has a clear license and maintained upstream. Optional workflows go in extras, not runtime dependencies. Explain the choice and the rejected alternative in the pull request.
+C++ dependencies are submodules under `3rdparty/`, pinned to release tags. A dependency without releases (`pdqsort`, `prestosynth`, `pyvec`, and `minimidi`, whose pin is newer than its only release) stays at a reviewed commit; never track a branch head. To update, check out the new tag in the submodule, run the full checks and commit the new pin with its version in the title.
+
+Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one only when it solves a recurring, non-trivial problem better than a small in-repo helper, builds on every wheel platform and has a clear license and maintained upstream. Optional workflows go in extras, not runtime dependencies. Explain the choice and the rejected alternative in the pull request.
 
 ## Documentation
 

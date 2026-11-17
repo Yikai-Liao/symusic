@@ -9,10 +9,3 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: ci
-  - package-ecosystem: gitsubmodule
-    directory: /
-    schedule:
-      interval: monthly
-    commit-message:
-      prefix: build
-      include: scope
