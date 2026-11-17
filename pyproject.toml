@@ -117,6 +117,8 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 environment = { CMAKE_GENERATOR = "Ninja" }
+# cmd's `cd` does not change drives without /d.
+test-command = "cd /d {project} && pytest tests -n auto -p no:cacheprovider"
 # The extension links no external DLLs; skip delvewheel.
 repair-wheel-command = ""
 
