@@ -7,7 +7,11 @@
 #include "symusic/score.h"
 #include "symusic/conversion.h"
 
-namespace zpp::bits {
+// zpp_bits finds these overloads by ADL on the event type, so they live in
+// namespace symusic. That also marks the types as having an explicit
+// serializer, which keeps zpp_bits from decomposing them with structured
+// bindings (ill-formed: the events inherit data members from TimeStamp).
+namespace symusic {
 #define SERIALIZE_NON_HEAP(__COUNT, NAME)                                   \
     template<symusic::TType T>                                              \
     constexpr auto serialize(auto& archive, const symusic::NAME<T>& data) { \
@@ -67,7 +71,7 @@ SERIALIZE_COMMON(
 #undef SERIALIZE_COMMON_INNER
 #undef HELPER
 
-}   // namespace zpp::bits
+}   // namespace symusic
 
 namespace symusic {
 
