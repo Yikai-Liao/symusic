@@ -78,7 +78,10 @@ def test_deprecated_option_alias(tmp_path: Path) -> None:
     assert "SYMUSIC_BUILD_TESTS:BOOL=ON" in cache
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Uses the Linux host compiler")
+@pytest.mark.skipif(
+    sys.platform != "linux" or shutil.which("cmake") is None,
+    reason="Compile-command checks run on Linux with CMake installed",
+)
 def test_cross_stub(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[2]
     command = [
