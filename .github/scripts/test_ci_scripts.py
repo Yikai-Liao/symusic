@@ -76,8 +76,8 @@ def test_ci_matrices(compatibility: bool, capsys) -> None:
         assert {job["python"] for job in python} >= {"3.10", "3.15", "pypy3.11"}
         assert len(cpp) == 3
     else:
-        assert len(python) == len(cpp) == 1
-        assert python[0]["os"] == cpp[0]["os"] == "ubuntu-latest"
+        assert [job["os"] for job in python] == ["ubuntu-latest", "windows-latest"]
+        assert [job["os"] for job in cpp] == ["ubuntu-latest"]
 
 
 @pytest.mark.parametrize(

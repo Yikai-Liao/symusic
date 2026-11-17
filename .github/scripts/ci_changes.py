@@ -5,8 +5,8 @@ Usage: ci_changes.py [BASE_REF] [--compatibility] (writes GITHUB_OUTPUT values)
 Each changed path selects the lanes listed for the first matching rule. A path
 that matches no rule selects every lane, so new top-level files are tested
 until someone routes them. Without a base ref (push, manual run) every lane runs.
-Daily runs use one Linux environment; compatibility runs add other interpreters
-and operating systems.
+Daily runs use Linux plus one Windows Python job, because MSVC breaks most
+often; compatibility runs add other interpreters and operating systems.
 """
 
 from __future__ import annotations
@@ -21,14 +21,16 @@ LANES = ("python", "cpp", "docs", "wheels")
 ALL = frozenset(LANES)
 CORE = frozenset({"python", "cpp"})
 
-PYTHON_BASELINE = {"os": "ubuntu-latest", "python": "3.12", "coverage": True}
+PYTHON_BASELINE = (
+    {"os": "ubuntu-latest", "python": "3.12", "coverage": True},
+    {"os": "windows-latest", "python": "3.15"},
+)
 CPP_BASELINE = {"os": "ubuntu-latest", "coverage": True}
 PYTHON_COMPATIBILITY = (
     {"os": "ubuntu-latest", "python": "3.10"},
     {"os": "ubuntu-latest", "python": "3.15"},
     {"os": "ubuntu-latest", "python": "pypy3.11"},
     {"os": "macos-latest", "python": "3.15"},
-    {"os": "windows-latest", "python": "3.15"},
 )
 CPP_COMPATIBILITY = ({"os": "macos-latest"}, {"os": "windows-latest"})
 
@@ -106,7 +108,7 @@ def main(argv: list[str]) -> int:
     selected = select(paths) if paths is not None else ALL
     for lane in LANES:
         print(f"{lane}={'true' if lane in selected else 'false'}")
-    python_jobs = [PYTHON_BASELINE]
+    python_jobs = list(PYTHON_BASELINE)
     cpp_jobs = [CPP_BASELINE]
     if args.compatibility:
         python_jobs.extend(PYTHON_COMPATIBILITY)

@@ -21,7 +21,7 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 | Lane | Selected by | Runs |
 |---|---|---|
 | `lint` | Always | `prek run --all-files` (whitespace, YAML/TOML, Ruff, clice format), action pin check, CI script tests |
-| `python` | Core, binding, package, tests, build files | `pytest` on Linux CPython 3.12, with Python coverage |
+| `python` | Core, binding, package, tests, build files | `pytest` on Linux CPython 3.12 with Python coverage, and on Windows CPython 3.15 |
 | `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, with C++ coverage |
 | `docs` | `docs/`, `CONTRIBUTING.md`, `ROADMAP.md`, binding, package, build files | Sphinx HTML with warnings as errors |
 | `wheels` | Build, packaging, dependency and CI configuration | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
@@ -34,7 +34,7 @@ The C++ lane also compiles examples when their sources or shared CMake configura
 
 ## Compatibility checks
 
-Every Monday at 08:00 UTC, or when a manual run enables `compatibility`, CI selects all lanes and adds Linux CPython 3.10/3.15 and PyPy 3.11, macOS and Windows CPython 3.15, and C++ tests on macOS and Windows. The baseline Linux 3.12 checks remain, with coverage collected only there. External linkcheck runs in this mode; network failures do not delay ordinary PRs.
+Every Monday at 08:00 UTC, or when a manual run enables `compatibility`, CI selects all lanes and adds Linux CPython 3.10/3.15 and PyPy 3.11, macOS CPython 3.15, and C++ tests on macOS and Windows. The daily checks remain, with coverage collected only there. External linkcheck runs in this mode; network failures do not delay ordinary PRs.
 
 ## Reproduce locally
 
