@@ -7,6 +7,10 @@ name: Wheels
 on:
   workflow_dispatch:
     inputs:
+      cross_wheels:
+        description: Cross-build abi3 wheels on Linux and test on native runners
+        type: boolean
+        default: false
       cross_validation:
         description: Run the temporary cross-build experiment on native runners
         type: boolean
@@ -34,7 +38,7 @@ jobs:
           CIBW_BUILD: cp312-manylinux_x86_64 cp315-manylinux_x86_64
 
   wheels:
-    if: ${{ !inputs.smoke && !inputs.cross_validation }}
+    if: ${{ !inputs.smoke && !inputs.cross_validation && !inputs.cross_wheels }}
     name: wheels (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -79,7 +83,7 @@ jobs:
           if-no-files-found: error
 
   sdist:
-    if: ${{ !inputs.smoke && !inputs.cross_validation }}
+    if: ${{ !inputs.smoke && !inputs.cross_validation && !inputs.cross_wheels }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -96,3 +100,7 @@ jobs:
   cross-validation:
     if: ${{ inputs.cross_validation }}
     uses: ./.github/workflows/cross-validation.yml
+
+  cross-wheels:
+    if: ${{ inputs.cross_wheels }}
+    uses: ./.github/workflows/cross-wheels.yml

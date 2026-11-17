@@ -43,6 +43,7 @@ Project CMake switches use the `SYMUSIC_` prefix:
 | `SYMUSIC_FAST_BUILD` | OFF | O1 and no LTO for iteration |
 | `SYMUSIC_WARN_ON_LEAKS` | OFF | nanobind shutdown leak reports |
 | `SYMUSIC_TIME_BUILD_RULES` | OFF | Per-rule compile and link timings |
+| `SYMUSIC_PYTHON_STUB` | empty | Generated `core.pyi` from the same revision, required for cross builds |
 
 Configuration prints a target summary; dependency status messages are available with `cmake --log-level=VERBOSE`. Warnings and errors remain visible. Makefile builds report completed targets; pass `-DCMAKE_RULE_MESSAGES=ON` at configure time for individual compile/link progress, or use `cmake --build <dir> --verbose` for full commands.
 

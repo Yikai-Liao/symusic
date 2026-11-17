@@ -47,7 +47,7 @@ Each container exists in two representations:
 
 ## Python typing
 
-The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList`, ...) and generic placeholders (`Score`, `Note`, `PyVec`, ...) that only exist for type checkers and raise `TypeError` when instantiated (`py_src/bindings/core/module.cpp`). At install time nanobind writes `core.raw.pyi`; `scripts/lift_generic_stubs.py` rewrites it into `core.pyi` so that concrete classes appear as specializations of the generics. `tests/typecheck/` checks the result with mypy. `symusic.factory` gives users unit-agnostic constructors such as `Score(path, ttype="tick")` and makes `isinstance(x, Score)` match every unit.
+The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList`, ...) and generic placeholders (`Score`, `Note`, `PyVec`, ...) that only exist for type checkers and raise `TypeError` when instantiated (`py_src/bindings/core/module.cpp`). At install time nanobind writes `core.raw.pyi`; `scripts/lift_generic_stubs.py` rewrites it into `core.pyi` so that concrete classes appear as specializations of the generics. Cross builds consume that generated file from a native build of the same revision through `SYMUSIC_PYTHON_STUB`, because the host cannot import the target extension. The experimental wheel workflow regenerates it on the target and requires an exact match. `tests/typecheck/` checks the result with mypy. `symusic.factory` gives users unit-agnostic constructors such as `Score(path, ttype="tick")` and makes `isinstance(x, Score)` match every unit.
 
 ## Contracts
 
