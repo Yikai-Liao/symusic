@@ -178,32 +178,38 @@ struct Fragment {
     size_t line;
 };
 
-class MusicLine {
-public:
-    MusicLine(
-        std::string_view          text,
-        Location                  start,
-        std::span<const Fragment> fragments,
-        Diagnostics&              diagnostics,
-        vec<Token>&               output
-    ) : text(text), start(start), fragments(fragments), diagnostics(diagnostics), output(output) {}
+// A logical line keeps its full byte view so every token kind uses the same
+// source map after trimming, comment removal and continuation assembly.
+struct LogicalLine {
+    std::string_view          bytes;
+    size_t                    first_line;
+    std::span<const Fragment> fragments{};
 
-    void read();
-
-private:
-    std::string_view          text;
-    Location                  start;
-    std::span<const Fragment> fragments;
-    Diagnostics&              diagnostics;
-    vec<Token>&               output;
-
-    Location location(const Node& node) const {
-        const auto offset = start.column - 1 + static_cast<size_t>(node.data.data() - text.data());
-        if (fragments.empty()) return {start.line, offset + 1};
+    [[nodiscard]] Location where(std::string_view part) const {
+        const auto offset = static_cast<size_t>(part.data() - bytes.data());
+        if (fragments.empty()) return {first_line, offset + 1};
         const auto fragment
             = std::ranges::upper_bound(fragments, offset, {}, &Fragment::offset) - 1;
         return {fragment->line, offset - fragment->offset + 1};
     }
+};
+
+class MusicLine {
+public:
+    MusicLine(
+        LogicalLine source, std::string_view text, Diagnostics& diagnostics, vec<Token>& output
+    ) : source(source), text(text), diagnostics(diagnostics), output(output) {}
+
+    void read();
+
+private:
+    LogicalLine      source;
+    std::string_view text;
+    Diagnostics&     diagnostics;
+    vec<Token>&      output;
+
+    Location location(const Node& node) const { return source.where(node.data); }
+
     template<class Rule>
     static const Node* child(const Node& node) {
         const auto found = std::ranges::find_if(node.children, [](const auto& candidate) {
@@ -222,6 +228,7 @@ private:
 
     template<class T>
     void push(const Node& node, T value) {
+        if constexpr (std::is_same_v<T, Atom>) value.music_line = source.first_line;
         output.push_back({location(node), std::move(value)});
     }
 
@@ -410,7 +417,8 @@ void MusicLine::emit(const Node& node, grammar::decoration) {
 void MusicLine::read() {
     Input      input(text);
     const auto root = peg::parse_tree::parse<grammar::music, Select>(input);
-    if (!root) diagnostics.error(start, "invalid-music", "could not read the music line");
+    if (!root)
+        diagnostics.error(source.where(text), "invalid-music", "could not read the music line");
     for (const auto& node : root->children) {
         const auto dispatch = [&]<class... Rule>(std::tuple<Rule...>) {
             return ((node->is_type<Rule>() && (emit(*node, Rule{}), true)) || ...);
@@ -440,7 +448,7 @@ void MusicLine::read() {
 class TuneLines {
 public:
     explicit TuneLines(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
-    bool line(std::string_view raw, size_t number, std::span<const Fragment> fragments = {});
+    bool line(LogicalLine line);
     bool joined(std::string text, std::span<const Fragment> fragments);
     Tune finish(Location end);
 
@@ -453,7 +461,7 @@ private:
     bool         ended         = false;
 
     bool metadata(Field value, Location at);
-    bool content(std::string_view text, Location at, std::span<const Fragment> fragments);
+    bool content(LogicalLine line, std::string_view text);
 };
 
 bool TuneLines::metadata(Field value, Location at) {
@@ -477,32 +485,28 @@ bool TuneLines::metadata(Field value, Location at) {
 
 bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
     return line(
-        tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments
+        {tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments}
     );
 }
 
-bool TuneLines::line(std::string_view raw, size_t number, std::span<const Fragment> fragments) {
-    const auto start = raw.find_first_not_of(whitespace);
-    if (start == raw.npos) {
+bool TuneLines::line(LogicalLine line) {
+    const auto text = trim(line.bytes);
+    if (text.empty()) {
         ended = ended || saw_music;
         return true;
     }
-    const Location at{number, start + 1};
-    const auto     text = trim(raw);
     if (ended && !text.starts_with("X:")) return true;
     if (text.starts_with("%%")) {
         (in_body ? tune.body : tune.header)
-            .push_back({at, Directive{trim(without_comment(text.substr(2)))}});
+            .push_back({line.where(text), Directive{trim(without_comment(text.substr(2)))}});
         return true;
     }
     const auto content = trim(without_comment(text));
-    if (content.empty()) return true;
-    return this->content(content, at, fragments);
+    return content.empty() || this->content(line, content);
 }
 
-bool TuneLines::content(
-    std::string_view content, Location at, std::span<const Fragment> fragments
-) {
+bool TuneLines::content(LogicalLine line, std::string_view content) {
+    const auto at          = line.where(content);
     const auto tail        = content.substr(1);
     const bool note_repeat = in_body && note_letter(content.front())
                              && (tail.starts_with(":|") || tail.starts_with("::"));
@@ -513,7 +517,7 @@ bool TuneLines::content(
     else if (field_separator(content) != content.npos)
         return metadata(field(content), at);
     if (!in_body) diagnostics.error(at, "missing-key", "expected K: before the music");
-    MusicLine(content, at, fragments, diagnostics, tune.body).read();
+    MusicLine(line, content, diagnostics, tune.body).read();
     saw_music = true;
     return true;
 }
@@ -573,7 +577,7 @@ bool read_logical_line(
         validate_line(raw, line, diagnostics);
         const auto part      = trim(raw.starts_with("%%") ? raw : without_comment(raw));
         const bool continues = newline && continuation(part);
-        if (!continues && fragments.empty()) return tune.line(raw, line++);
+        if (!continues && fragments.empty()) return tune.line({raw, line++});
         fragments.push_back({joined.size(), line++});
         if (continues)
             joined.append(

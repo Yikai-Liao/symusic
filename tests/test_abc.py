@@ -222,6 +222,26 @@ def test_abc_first_voice_keeps_preamble_and_music():
     assert [note.time for note in track.notes] == [1, 961]
 
 
+@pytest.mark.parametrize(("field", "column"), [("Q:0", 3), ("[Q:0]", 4)])
+def test_abc_continued_field_location(field: str, column: int):
+    with pytest.raises(
+        ValueError, match=rf"<string>:8:{column}: ABC \[invalid-tempo\]"
+    ):
+        Score.from_abc(HEADER + "\\\r\n  " + field)
+
+
+def test_abc_lyrics_follow_logical_music_line():
+    score = Score.from_abc(
+        HEADER + "C D " + chr(92) + "\n E F |\nw: one two three four"
+    )
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (481, "two"),
+        (961, "three"),
+        (1441, "four"),
+    ]
+
+
 def test_abc_aligns_lyrics_to_attacks_on_their_music_line():
     score = Score.from_abc(
         HEADER + "[CEG] z D E |\nw: One * three\nF G |\nw: Four five"

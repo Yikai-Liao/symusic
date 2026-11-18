@@ -528,9 +528,9 @@ void VoicePlayer::play(const Prepared& atom) {
     const auto end      = lane().time + duration;
     (void)tick(end, diagnostics, atom.at);
     if (lanes.id() == 0) accompaniment.advance(end, atom.at);
-    if (music_line != atom.at.line) {
+    if (music_line != atom.atom->music_line) {
         line_notes.clear();
-        music_line = atom.at.line;
+        music_line = atom.atom->music_line;
     }
     articulation(atom, duration);
     lane().time = end;
