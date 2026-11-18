@@ -22,6 +22,7 @@ using detail::tpq;
 using detail::whole;
 
 constexpr i32 midi_tempo_max = (1 << 24) - 1;
+constexpr i32 midi_delta_max = (1 << 28) - 1;
 // abc2midi reserves one channel for percussion and queues up to 50 releases.
 // A lane can have 25 active notes, leaving room for the next chord's attacks.
 constexpr int max_export_voices = 15;
@@ -88,16 +89,28 @@ std::string pitch(i8 note) {
 std::string tempo_text(i32 mspq, ExportIssues& issues) {
     if (mspq < 1 || mspq > midi_tempo_max)
         ExportIssues::invalid("tempo", "microseconds per quarter must fit the 24-bit MIDI range");
-    // Use the shortest binary beat whose integer BPM produces the target
-    // tempo. The oracle, like the reader, truncates toward zero.
-    int64_t rate = 60'000'000;
-    int     bpm  = 0;
+    // The denominator and integer BPM are independent. Stay below the
+    // reference converter's signed BPM * 4 intermediate, and choose the
+    // nearest representable tempo; prefer the shortest beat on a tie.
+    constexpr auto max_bpm      = std::numeric_limits<int>::max() / 4;
+    int64_t        rate         = 60'000'000;
+    int64_t        best_error   = std::numeric_limits<int64_t>::max();
+    int            best_divisor = 4;
+    int            best_bpm     = 120;
     for (int denominator = 4; denominator <= (1 << 20); denominator *= 2, rate *= 2) {
-        bpm = static_cast<int>(std::min<int64_t>(rate / mspq, std::numeric_limits<int>::max()));
-        if (bpm > 0 && rate / bpm == mspq) return fmt::format("1/{}={}", denominator, bpm);
+        const auto floor_bpm = rate / mspq;
+        for (const auto estimate : {floor_bpm, floor_bpm + 1}) {
+            const auto bpm   = std::clamp<int64_t>(estimate, 1, max_bpm);
+            const auto error = std::abs(rate / bpm - mspq);
+            if (error == 0) return fmt::format("1/{}={}", denominator, bpm);
+            if (error >= best_error || rate / bpm > midi_tempo_max) continue;
+            best_error   = error;
+            best_divisor = denominator;
+            best_bpm     = static_cast<int>(bpm);
+        }
     }
-    issues.warn("tempo", "rounded-tempo", "rounded a tempo to an integer BPM");
-    return fmt::format("1/4={}", (60'000'000LL + mspq / 2) / mspq);
+    issues.warn("tempo", "rounded-tempo", "rounded a tempo to the nearest supported ABC value");
+    return fmt::format("1/{}={}", best_divisor, best_bpm);
 }
 
 struct WrittenNote {
@@ -198,6 +211,7 @@ private:
 
     void token(std::string_view text, size_t steps = 1);
     void interval(i32 start, i32 end);
+    void atom(i32 duration, i32 end);
     void moment(const Moment& change);
 };
 
@@ -213,7 +227,18 @@ void VoiceWriter::token(std::string_view text, size_t steps) {
 }
 
 void VoiceWriter::interval(i32 start, i32 end) {
-    const auto [prefix, suffix] = length(end - start);
+    // The converter multiplies the written numerator when applying tuplets
+    // and converting to MIDI ticks. Bound each atom, including long silence.
+    constexpr i32 max_atom_ticks = tpq * 1024;
+    while (end - start > max_atom_ticks) {
+        start += max_atom_ticks;
+        atom(max_atom_ticks, start);
+    }
+    atom(end - start, end);
+}
+
+void VoiceWriter::atom(i32 duration, i32 end) {
+    const auto [prefix, suffix] = length(duration);
     std::string text            = prefix;
     const auto  steps           = prefix.empty() ? 1 : 2;
     if (active.empty()) {
@@ -300,9 +325,23 @@ i32 ScoreWriter::scale(int64_t time, std::string_view where) {
     const auto tick      = (numerator + score.ticks_per_quarter / 2) / score.ticks_per_quarter;
     if (tick > std::numeric_limits<i32>::max() - 2)
         ExportIssues::invalid(where, "rescaled event leaves no room for the ABC note release");
+    if (tick > midi_delta_max) {
+        issues.warn(
+            where, "midi-delta-range", "very late events may exceed the MIDI delta-time range"
+        );
+    }
     if (numerator % score.ticks_per_quarter != 0)
         issues.warn(where, "resampled-time", "rounded times to the ABC 480-tick grid");
     return static_cast<i32>(tick);
+}
+
+bool is_audible(const Note<Tick>& note) { return note.duration > 0 && note.velocity > 0; }
+
+bool legacy_sustain_fits(i32 duration) {
+    // abc2midi joins tied atoms before conversion. Its MIDI release queue
+    // multiplies the reduced quarter-note numerator by its tick division.
+    const auto numerator = duration / std::gcd(duration, tpq);
+    return numerator <= std::numeric_limits<i32>::max() / tpq;
 }
 
 vec<WrittenNote> ScoreWriter::notes(const Track<Tick>& track, std::string_view where) {
@@ -314,7 +353,7 @@ vec<WrittenNote> ScoreWriter::notes(const Track<Tick>& track, std::string_view w
         if (note.duration < 0) ExportIssues::invalid(where, "note duration cannot be negative");
         const auto start = scale(note.time, where);
         auto       end   = scale(static_cast<int64_t>(note.time) + note.duration, where);
-        if (note.duration == 0 || note.velocity == 0) {
+        if (!is_audible(note)) {
             issues.warn(where, "silent-note", "omitted a zero-velocity or zero-duration note");
             continue;
         }
@@ -322,6 +361,10 @@ vec<WrittenNote> ScoreWriter::notes(const Track<Tick>& track, std::string_view w
             ++end;
             issues.warn(where, "short-note", "stretched a resampled note to one ABC tick");
         }
+        if (!legacy_sustain_fits(end - start))
+            issues.warn(
+                where, "midi-sustain-range", "abc2midi may shorten an unusually long held note"
+            );
         result.push_back({start - start_offset, end - start_offset, note.pitch, note.velocity});
     }
     return result;
@@ -509,7 +552,7 @@ void ScoreWriter::track(const Track<Tick>& track, size_t index) {
 int ScoreWriter::onset_offset() {
     for (const auto& track : *score.tracks) {
         for (const auto& note : *track->notes) {
-            if (note.duration > 0 && note.velocity > 0 && scale(note.time, "note") == 0) {
+            if (is_audible(note) && scale(note.time, "note") == 0) {
                 issues.warn(
                     "score",
                     "note-start-offset",

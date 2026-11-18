@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from symusic import Note, Score, Track
+from symusic import Note, Score, Tempo, Track
 
 from tests.test_abc import HEADER, note_rows, roundtrip_score
 from tests.utils import TESTCASES_PATH
@@ -179,6 +179,51 @@ def test_upstream_plays_native_exports(kind: str, upstream: Path, tmp_path: Path
         assert played.tracks[0].program == score.tracks[0].program
         assert played.time_signatures == score.time_signatures
         assert played.tempos == score.tempos
+
+
+def single_note(time: int, duration: int) -> Score:
+    score = Score(480)
+    track = Track()
+    track.notes.append(Note(time, duration, 36, 80))
+    score.tracks.append(track)
+    return score
+
+
+def test_export_long_silence(upstream: Path, tmp_path: Path):
+    score = single_note(67_108_866, 19)
+    abc = score.dumps_abc()
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
+    assert note_rows(oracle_score(upstream, abc, tmp_path)) == note_rows(score)
+
+
+def test_export_long_hold(upstream: Path, tmp_path: Path):
+    score = single_note(1, 1_000_001)
+    abc = score.dumps_abc()
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
+    # abc2midi does not apply %%MIDI expand to a tied note.
+    assert note_rows(oracle_score(upstream, abc, tmp_path)) == [(1, 1_000_000, 36, 80)]
+
+
+def test_export_sustain_range():
+    score = single_note(1, 67_108_866)
+    with pytest.warns(UserWarning, match=r"\[midi-sustain-range\]"):
+        abc = score.dumps_abc(warn=True)
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
+
+
+@pytest.mark.parametrize(
+    ("wanted", "encoded"), [(1, 1), (777_777, 777_777), (16_777_215, 16_777_198)]
+)
+def test_export_tempos(wanted: int, encoded: int, upstream: Path, tmp_path: Path):
+    score = single_note(1, 480)
+    score.tempos.append(Tempo(0, mspq=wanted))
+    if wanted != encoded:
+        with pytest.warns(UserWarning, match=r"\[rounded-tempo\]"):
+            abc = score.dumps_abc(warn=True)
+    else:
+        abc = score.dumps_abc(warn=True)
+    assert Score.from_abc(abc).tempos[0].mspq == encoded
+    assert oracle_score(upstream, abc, tmp_path).tempos[0].mspq == encoded
 
 
 def refresh(executable: Path, revision: str) -> None:
