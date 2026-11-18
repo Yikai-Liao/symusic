@@ -287,6 +287,14 @@ def test_live_upstream_matches_snapshot(
     assert performed(score) == golden[name]
 
 
+def test_shorthand_decoration_spelling(upstream: Path, tmp_path: Path):
+    abc = HEADER + "'C !'! D !H! E !T! F|"
+    with pytest.warns(UserWarning, match=r"\[ignored-decoration\]") as warnings:
+        native = Score.from_abc(abc)
+    assert len(warnings) == 3
+    assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
+
+
 def test_control_after_program(upstream: Path, tmp_path: Path):
     abc = HEADER + "%%MIDI program 24\n%%MIDI control 7 50\nCDEF|"
     native = performed_track(Score.from_abc(abc).tracks[0])

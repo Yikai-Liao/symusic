@@ -430,8 +430,7 @@ void MusicLine::emit(const Node& node, grammar::overlay) {
 
 void MusicLine::emit(const Node& node, grammar::decoration) {
     const auto value = node.data;
-    const auto name  = value.size() == 1 ? value : value.substr(1, value.size() - 2);
-    push(node, Decoration{name, value.data() + value.size() == text.data() + text.size()});
+    push(node, Decoration{value, value.data() + value.size() == text.data() + text.size()});
 }
 
 void MusicLine::read() {

@@ -117,7 +117,7 @@ struct Harmony {
     std::string_view symbol;
 };
 struct Decoration {
-    std::string_view name;
+    std::string_view spelling;
     bool             last_on_line = false;
 };
 struct Tuplet {

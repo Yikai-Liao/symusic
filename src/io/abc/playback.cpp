@@ -15,6 +15,11 @@ namespace {
 using namespace std::literals;
 constexpr long double epsilon = 0.0000001L;
 
+struct DecorationMark {
+    std::string_view name;
+    bool             shorthand;
+};
+
 struct Sound {
     MidiPitch pitch;
     int       letter;
@@ -267,7 +272,7 @@ private:
     std::optional<RepeatEntry> repeat_entry;
 
     vec<const Token*> timed_effects;
-    std::string_view  decoration_name(const Decoration& decoration) const;
+    DecorationMark    decoration_mark(const Decoration& decoration) const;
     bool              can_defer(const Token& token) const;
     void              visit_token(const Token& token);
     void              visit_step(PlayStep step);
@@ -619,16 +624,21 @@ void VoicePlayer::visit(Tie, Location at) {
         diagnostics.warn(at, "unexpected-tie", "ignored tie without a preceding note");
 }
 
-std::string_view VoicePlayer::decoration_name(const Decoration& decoration) const {
-    const auto mark = decoration.name;
-    if (mark.size() == 1 && static_cast<unsigned char>(mark.front()) < symbols.size()) {
-        if (const auto alias = symbols[static_cast<unsigned char>(mark.front())]; !alias.empty())
-            return alias;
+DecorationMark VoicePlayer::decoration_mark(const Decoration& decoration) const {
+    auto spelling = decoration.spelling;
+    if (spelling.size() == 1 && static_cast<unsigned char>(spelling.front()) < symbols.size()) {
+        if (const auto alias = symbols[static_cast<unsigned char>(spelling.front())];
+            !alias.empty())
+            spelling = alias;
     }
-    return mark;
+    if (spelling.size() >= 2 && (spelling.front() == '!' || spelling.front() == '+')
+        && spelling.back() == spelling.front())
+        return {spelling.substr(1, spelling.size() - 2), false};
+    return {spelling, spelling.size() == 1};
 }
 
-bool Ornament::* ornament_flag(std::string_view mark) {
+bool Ornament::* ornament_flag(DecorationMark mark) {
+    if (!mark.shorthand && mark.name.size() == 1) return nullptr;
     struct Feature {
         std::string_view name;
         bool Ornament::* flag;
@@ -644,14 +654,15 @@ bool Ornament::* ornament_flag(std::string_view mark) {
         Feature{"~", &Ornament::cut},
         Feature{"R", &Ornament::roll}
     };
-    const auto feature = std::ranges::find(features, mark, &Feature::name);
+    const auto feature = std::ranges::find(features, mark.name, &Feature::name);
     return feature == features.end() ? nullptr : feature->flag;
 }
 
 void VoicePlayer::visit(const Decoration& decoration, Location at) {
-    const auto mark = decoration_name(decoration);
+    const auto resolved = decoration_mark(decoration);
+    const auto mark     = resolved.name;
     diagnostics.spend(PlaybackWork::text(mark), at);
-    if (const auto flag = ornament_flag(mark)) {
+    if (const auto flag = ornament_flag(resolved)) {
         if (decoration.last_on_line) {
             diagnostics.warn(
                 at, "orphan-decoration", "ornament at end of line has no note or rest"
@@ -778,12 +789,7 @@ void VoicePlayer::set_symbols(std::string_view value, Location at) {
         );
         return;
     }
-    auto alias = trim(value.substr(eq + 1));
-    if (alias.size() >= 2 && (alias.front() == '!' || alias.front() == '+')
-        && alias.back() == alias.front()) {
-        alias = alias.substr(1, alias.size() - 2);
-    }
-    symbols[static_cast<unsigned char>(symbol.front())] = alias;
+    symbols[static_cast<unsigned char>(symbol.front())] = trim(value.substr(eq + 1));
 }
 
 void VoicePlayer::program(std::string_view args, Location at) {
@@ -930,7 +936,7 @@ void VoicePlayer::jump_repeat() {
 
 bool VoicePlayer::can_defer(const Token& token) const {
     if (const auto* decoration = std::get_if<Decoration>(&token.value))
-        return !ornament_flag(decoration_name(*decoration));
+        return !ornament_flag(decoration_mark(*decoration));
     if (std::holds_alternative<Harmony>(token.value)
         || std::holds_alternative<Directive>(token.value))
         return true;
