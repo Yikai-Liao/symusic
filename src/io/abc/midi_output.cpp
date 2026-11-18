@@ -42,11 +42,12 @@ std::optional<NoteAddress> VoiceOutput::attack(
         );
     }
     if (velocity == 0) return {};
-    const auto time = tick(start + 1 + stagger, diagnostics, at);
-    const auto gate = std::max(0, tick(duration, diagnostics, at) - 1 - stagger);
+    const auto time = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
+    const auto gate
+        = std::max(0, tick(duration, diagnostics, at) - PlaybackGrid::release_trim - stagger);
     if (gate > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
-    diagnostics.spend(1, at);
+    diagnostics.spend(PlaybackWork::attack, at);
     auto& owner = track(target);
     owner.notes.emplace_back(time, gate, static_cast<i8>(pitch), static_cast<i8>(velocity));
     return NoteAddress(owner, owner.notes.size() - 1);

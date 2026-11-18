@@ -7,7 +7,9 @@ namespace symusic::abc::detail {
 namespace {
 
 constexpr int max_passes = 32;
-using Section            = std::span<const Token>;
+// Bound navigation independently of how many events each step emits.
+constexpr size_t max_materialized_steps = 1'000'000;
+using Section                           = std::span<const Token>;
 
 class PartOrder {
 public:
@@ -35,7 +37,7 @@ int PartOrder::count() {
     while (!text.empty() && digit(text.front())) pop();
     if (begin.size() == text.size()) return 1;
     const auto count = integer(begin.substr(0, begin.size() - text.size()));
-    if (!count || *count < 1 || *count > static_cast<int>(playback_work_limit)) {
+    if (!count || *count < 1 || *count > static_cast<int>(max_materialized_steps)) {
         diagnostics.error(
             at, "part-count-range", "part repeat count must be between 1 and 1000000"
         );
@@ -57,7 +59,7 @@ std::string PartOrder::parse(int depth) {
         const auto group  = c == '(' ? parse(depth + 1) : std::string(1, upper(c));
         const auto copies = count();
         if (group.empty()) continue;
-        if (group.size() * copies > playback_work_limit - labels.size()) {
+        if (group.size() * copies > max_materialized_steps - labels.size()) {
             diagnostics.error(
                 at, "expansion-limit", "part order exceeds the playback expansion limit"
             );
@@ -200,7 +202,7 @@ int RepeatOrder::final_pass(size_t first_bar, size_t last_bar) const {
 }
 
 void RepeatOrder::reserve_steps(size_t count, size_t index) const {
-    if (count > playback_work_limit - output.size()) {
+    if (count > max_materialized_steps - output.size()) {
         diagnostics.error(
             source[index].at, "expansion-limit", "expanded music exceeds the playback token limit"
         );

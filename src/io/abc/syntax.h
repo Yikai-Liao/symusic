@@ -11,6 +11,7 @@
 
 #include <fmt/format.h>
 
+#include "playback_rules.h"
 #include "symusic/mtype.h"
 
 namespace symusic::abc::detail {
@@ -20,11 +21,6 @@ struct Location {
     size_t column                             = 1;
     auto   operator<=>(const Location&) const = default;
 };
-
-inline constexpr size_t playback_work_limit = 1'000'000;
-
-// A playback step covers short tokens; quantize longer text scans to bound replay work.
-inline constexpr size_t text_work(std::string_view text) { return text.size() / 64; }
 
 class Diagnostics {
 public:
@@ -37,7 +33,7 @@ public:
 
 private:
     std::string_view                                         source;
-    size_t                                                   playback_budget = playback_work_limit;
+    size_t                                                   playback_budget = PlaybackWork::limit;
     std::set<std::tuple<Location, std::string, std::string>> warnings;
     std::string format(Location at, std::string_view code, std::string_view message) const;
 };

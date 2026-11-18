@@ -18,6 +18,8 @@ namespace symusic::abc {
 namespace {
 
 using detail::midi_max;
+using detail::PlaybackGrid;
+using detail::PlaybackWork;
 using detail::tpq;
 using detail::whole;
 
@@ -175,9 +177,6 @@ vec<VoiceLane> partition(vec<WrittenNote> notes, ExportIssues& issues, std::stri
     return lanes;
 }
 
-// Charge an upper bound on the work our output will require on import. Each
-// emitted atom costs one step plus up to three units per member (pitch, tie and
-// attack). There are no repeat, grace or accompaniment expansions in this ABC.
 class ExportBudget {
 public:
     void spend(size_t work, std::string_view where) {
@@ -190,7 +189,7 @@ public:
     }
 
 private:
-    size_t remaining = detail::playback_work_limit;
+    size_t remaining = PlaybackWork::limit;
 };
 
 class VoiceWriter {
@@ -209,14 +208,14 @@ private:
     int                        velocity = 0;
     size_t                     columns  = 0;
 
-    void token(std::string_view text, size_t steps = 1);
+    void token(std::string_view text, size_t steps = PlaybackWork::token);
     void interval(i32 start, i32 end);
     void atom(i32 duration, i32 end);
     void moment(const Moment& change);
 };
 
 void VoiceWriter::token(std::string_view text, size_t steps) {
-    budget.spend(steps + detail::text_work(text), where);
+    budget.spend(steps + PlaybackWork::text(text), where);
     if (columns > 76) {
         output += '\n';
         columns = 0;
@@ -240,7 +239,7 @@ void VoiceWriter::interval(i32 start, i32 end) {
 void VoiceWriter::atom(i32 duration, i32 end) {
     const auto [prefix, suffix] = length(duration);
     std::string text            = prefix;
-    const auto  steps           = prefix.empty() ? 1 : 2;
+    const auto  steps           = PlaybackWork::token * (prefix.empty() ? 1 : 2);
     if (active.empty()) {
         token(text + 'z' + suffix, steps);
         return;
@@ -253,7 +252,7 @@ void VoiceWriter::atom(i32 duration, i32 end) {
         if (note.end > end) text += '-';
     }
     if (chord) text += ']' + suffix;
-    token(text, steps + 3 * active.size());
+    token(text, steps + PlaybackWork::written_chord(active.size()));
 }
 
 void VoiceWriter::moment(const Moment& change) {
@@ -269,14 +268,14 @@ void VoiceWriter::moment(const Moment& change) {
 void VoiceWriter::write(int id, std::string_view name, int program, bool drums) {
     auto declaration = fmt::format("V:{}", id);
     if (!name.empty()) declaration += fmt::format(" name=\"{}\"", escape_text(name));
-    budget.spend(1 + detail::text_work(declaration), where);
+    budget.spend(PlaybackWork::token + PlaybackWork::text(declaration), where);
     output += declaration;
     output += '\n';
     token("[I:MIDI gchordoff]");
     if (drums) token("[I:MIDI channel 10]");
     token(fmt::format("[I:MIDI program {}]", program));
     token("[I:MIDI chordattack 0]");
-    token("[I:MIDI expand 1/480]");
+    token(fmt::format("[I:MIDI expand {}/{}]", PlaybackGrid::export_release_extension, tpq));
     i32 previous = 0;
     for (const auto& [time, change] : timeline) {
         if (time > previous) interval(previous, time);
@@ -284,7 +283,7 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
         previous = time;
     }
     // A one-tick tail allows the final expanded note to release before EOF.
-    token("(15:2:1z/64", 2);
+    atom(PlaybackGrid::export_tail, previous + PlaybackGrid::export_tail);
     token("|]");
     output += '\n';
 }
@@ -405,7 +404,7 @@ std::string ScoreWriter::fields(
     }
     if (auto at_zero = ordered.extract(0); !at_zero.empty()) fallback = std::move(at_zero.mapped());
     for (const auto& [time, value] : ordered) {
-        const auto playback_time = key == 'Q' ? time - 1 : time;
+        const auto playback_time = key == 'Q' ? time - PlaybackGrid::tempo_offset : time;
         global[playback_time].fields.push_back(fmt::format("[{}:{}]", key, value));
     }
     return fallback;
@@ -562,7 +561,7 @@ int ScoreWriter::onset_offset() {
             }
         }
     }
-    return 1;
+    return PlaybackGrid::attack_offset;
 }
 
 Result<std::string> ScoreWriter::write() {

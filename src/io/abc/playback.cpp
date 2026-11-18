@@ -419,17 +419,18 @@ std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Lo
 }
 
 void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
-    diagnostics.spend(atom.atom->pitches.size() + lane().ties.size(), atom.at);
+    diagnostics.spend(PlaybackWork::chord(atom.atom->pitches.size(), lane().ties.size()), atom.at);
     vec<TieNote> next_ties;
     const auto   audible
         = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
     const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
-    const auto has_ties      = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
-    const auto attack        = has_ties ? 0 : lane().expression.chord_attack;
-    const auto max_stagger   = std::max(0, tick(audible, diagnostics, atom.at) - 1);
-    int        stagger       = 0;
-    bool       aligned_lyric = false;
+    const auto has_ties = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
+    const auto attack   = has_ties ? 0 : lane().expression.chord_attack;
+    const auto max_stagger
+        = std::max(0, tick(audible, diagnostics, atom.at) - PlaybackGrid::release_trim);
+    int  stagger       = 0;
+    bool aligned_lyric = false;
     for (const auto& pitch : atom.atom->pitches) {
         auto played  = sound(pitch, atom.tied);
         auto address = sustain(played, start + audible, atom.at);
@@ -545,7 +546,7 @@ void VoicePlayer::visit(const Grace& next, Location at) {
 
 void VoicePlayer::visit(const Harmony& chord, Location at) {
     flush();
-    diagnostics.spend(text_work(chord.symbol), at);
+    diagnostics.spend(PlaybackWork::text(chord.symbol), at);
     if (lanes.id() == 0) accompaniment.harmony(chord.symbol, written.tone.transpose, at);
 }
 
@@ -584,7 +585,7 @@ bool Ornament::* ornament_flag(std::string_view mark) {
 
 void VoicePlayer::visit(const Decoration& decoration, Location at) {
     const auto mark = decoration_name(decoration);
-    diagnostics.spend(text_work(mark), at);
+    diagnostics.spend(PlaybackWork::text(mark), at);
     if (const auto flag = ornament_flag(mark)) {
         ornament.*flag = true;
         return;
@@ -772,7 +773,7 @@ void VoicePlayer::information(std::string_view value, Location at) {
 void VoicePlayer::visit(const Directive& command, Location at) {
     flush();
     auto value = command.value;
-    diagnostics.spend(text_work(value), at);
+    diagnostics.spend(PlaybackWork::text(value), at);
     if (word(value) == "MIDI")
         midi(value, at, false);
     else
@@ -807,7 +808,9 @@ void VoicePlayer::change_meter(std::string_view value, Location at) {
 
 void VoicePlayer::change_tempo(std::string_view value, Location at) {
     if (const auto usec = tempo(value, written.unit, diagnostics, at)) {
-        result.tempos.emplace_back(Tempo<Tick>(tick(lane().time + 1, diagnostics, at), usec), at);
+        result.tempos.emplace_back(
+            Tempo<Tick>(tick(lane().time + PlaybackGrid::tempo_offset, diagnostics, at), usec), at
+        );
     }
 }
 
@@ -820,7 +823,7 @@ void VoicePlayer::change_voice(std::string_view value, Location at) {
 void VoicePlayer::visit(const Field& field, Location at) {
     flush();
     const auto value = field.value;
-    diagnostics.spend(text_work(value), at);
+    diagnostics.spend(PlaybackWork::text(value), at);
     switch (field.kind) {
     case 'K': change_key(value, at); break;
     case 'Q': change_tempo(value, at); break;
@@ -882,7 +885,7 @@ void VoicePlayer::visit_token(const Token& token) {
 
 void VoicePlayer::visit_step(PlayStep step) {
     const auto& token = *step.token;
-    diagnostics.spend(1, token.at);
+    diagnostics.spend(PlaybackWork::token, token.at);
     switch (step.flow) {
     case Flow::enter_repeat:
         flush();
