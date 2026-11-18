@@ -125,13 +125,14 @@ void report_ties(vec<TieNote>& ties, Diagnostics& diagnostics) {
 class OverlayLanes {
 public:
     explicit OverlayLanes(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
-    PlaybackLane&     active() { return lanes[selected]; }
-    [[nodiscard]] int id() const { return static_cast<int>(selected); }
-    void              control(Overlay command, WrittenState& written, Location at);
-    void              close_implicit(WrittenState& written);
-    void              finish_voice(WrittenState& written, Location at);
-    void              primary_bar();
-    void              break_ties();
+    PlaybackLane&      active() { return lanes[selected]; }
+    [[nodiscard]] int  id() const { return static_cast<int>(selected); }
+    void               control(Overlay command, WrittenState& written, Location at);
+    void               close_implicit(WrittenState& written);
+    void               finish_voice(WrittenState& written, Location at);
+    void               primary_bar();
+    void               break_ties();
+    [[nodiscard]] bool has_secondary() const { return lanes.size() > 1; }
 
 private:
     struct Group {
@@ -844,9 +845,7 @@ void VoicePlayer::change_meter(std::string_view value, Location at) {
 
 void VoicePlayer::change_tempo(std::string_view value, Location at) {
     if (const auto usec = tempo(value, tempo_unit, diagnostics, at)) {
-        result.tempos.emplace_back(
-            Tempo<Tick>(tick(lane().time + PlaybackGrid::tempo_offset, diagnostics, at), usec), at
-        );
+        result.tempos.emplace_back(Tempo<Tick>(at_tick(at), usec), at);
     }
 }
 
@@ -878,7 +877,8 @@ void VoicePlayer::visit(const Field& field, Location at) {
 }
 
 void VoicePlayer::lyrics(std::string_view text, Location at) {
-    size_t index = 0;
+    result.needs_conductor = true;
+    size_t index           = 0;
     while (!text.empty() && index < line_notes.size()) {
         const auto split = text.find_first_of(" \t-_|*");
         if (split == 0) {
@@ -960,7 +960,10 @@ Performance VoicePlayer::render(const vec<Token>& preamble, const PlayOrder& ord
     if (tuplet.left)
         diagnostics.warn(tuplet.at, "unfinished-tuplet", "tuplet has fewer notes than declared");
     output.finish(result.tracks);
+    const auto melody_tracks = result.tracks.size();
     accompaniment.finish(result.tracks, lane().time, end);
+    result.needs_conductor
+        = result.needs_conductor || lanes.has_secondary() || result.tracks.size() != melody_tracks;
     return std::move(result);
 }
 

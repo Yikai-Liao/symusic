@@ -11,7 +11,8 @@ namespace symusic::abc::detail {
 struct PlaybackGrid {
     static constexpr int attack_offset = 1;
     static constexpr int release_trim  = 1;
-    static constexpr int tempo_offset  = 1;
+    // Separate conductor tracks advance without the melodic pickup tick.
+    static constexpr int tempo_offset(bool conductor) { return conductor ? 0 : attack_offset; }
 
     // Untied notes are shortened on export's target grid unless compensated.
     static constexpr int export_release_extension = release_trim;

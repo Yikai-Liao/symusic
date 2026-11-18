@@ -288,6 +288,14 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
     output += '\n';
 }
 
+// Plan voices before placing global events: partitioning can change the
+// tempo clock even if the original Score had only one track.
+struct PlannedVoice {
+    Timeline           timeline;
+    std::string        where;
+    const Track<Tick>* track;
+};
+
 class ScoreWriter {
 public:
     explicit ScoreWriter(const Score<Tick>& score) : score(score) {}
@@ -297,9 +305,10 @@ private:
     const Score<Tick>& score;
     ExportIssues       issues;
     ExportBudget       budget;
+    ExportBudget       planned_intervals;
     std::string        output;
     Timeline           global;
-    int                voices       = 0;
+    vec<PlannedVoice>  voices;
     int                start_offset = 0;
 
     i32                      scale(int64_t time, std::string_view where);
@@ -309,9 +318,9 @@ private:
     void add_pedals(Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where);
     void limitations(const Track<Tick>& track, std::string_view where);
     void header();
-    void track(const Track<Tick>& track, size_t index);
+    void render_voices();
+    void plan_track(const Track<Tick>& track, size_t index);
     int  onset_offset();
-    int  next_voice(std::string_view where);
 
     template<class Event, class Format>
     std::string fields(char key, const pyvec<Event>& events, std::string fallback, Format format);
@@ -404,7 +413,8 @@ std::string ScoreWriter::fields(
     }
     if (auto at_zero = ordered.extract(0); !at_zero.empty()) fallback = std::move(at_zero.mapped());
     for (const auto& [time, value] : ordered) {
-        const auto playback_time = key == 'Q' ? time - PlaybackGrid::tempo_offset : time;
+        const auto playback_time
+            = key == 'Q' ? time - PlaybackGrid::tempo_offset(voices.size() > 1) : time;
         global[playback_time].fields.push_back(fmt::format("[{}:{}]", key, value));
     }
     return fallback;
@@ -523,15 +533,7 @@ void ScoreWriter::add_pedals(
     append();
 }
 
-int ScoreWriter::next_voice(std::string_view where) {
-    if (++voices > max_export_voices)
-        ExportIssues::invalid(
-            where, "export needs more than 15 ABC voices, the abc2midi channel limit"
-        );
-    return voices;
-}
-
-void ScoreWriter::track(const Track<Tick>& track, size_t index) {
+void ScoreWriter::plan_track(const Track<Tick>& track, size_t index) {
     if (!utf8::is_valid(track.name.begin(), track.name.end()))
         ExportIssues::invalid(fmt::format("track {}", index + 1), "track name must be valid UTF-8");
     const auto where = fmt::format("track {} ('{}')", index + 1, escape_text(track.name));
@@ -544,14 +546,32 @@ void ScoreWriter::track(const Track<Tick>& track, size_t index) {
         for (const auto& [tick, change] : control_fields)
             lane.timeline[tick].fields = change.fields;
         if (lane.timeline.empty()) continue;
-        if (voices == 0) {
-            for (const auto& [tick, change] : global) {
-                auto& fields = lane.timeline[tick].fields;
-                fields.insert(fields.begin(), change.fields.begin(), change.fields.end());
-            }
-        }
-        VoiceWriter(output, std::move(lane.timeline), budget, where)
-            .write(next_voice(where), track.name, track.program, track.is_drum);
+        if (voices.size() >= max_export_voices)
+            ExportIssues::invalid(
+                where, "export needs more than 15 ABC voices, the abc2midi channel limit"
+            );
+        // Every scheduled tick needs at least one token (including the tail).
+        // Bound the timelines retained before rendering spends the full budget.
+        planned_intervals.spend(lane.timeline.size() * PlaybackWork::token, where);
+        voices.push_back({std::move(lane.timeline), where, &track});
+    }
+}
+
+void ScoreWriter::render_voices() {
+    if (voices.empty()) {
+        VoiceWriter(output, std::move(global), budget, "score").write(1, "", 0, false);
+        return;
+    }
+    auto& first = voices.front().timeline;
+    for (const auto& [tick, change] : global) {
+        auto& fields = first[tick].fields;
+        fields.insert(fields.begin(), change.fields.begin(), change.fields.end());
+    }
+    int id = 0;
+    for (auto& voice : voices) {
+        const auto& track = *voice.track;
+        VoiceWriter(output, std::move(voice.timeline), budget, voice.where)
+            .write(++id, track.name, track.program, track.is_drum);
     }
 }
 
@@ -578,10 +598,10 @@ Result<std::string> ScoreWriter::write() {
         issues.warn(
             "score", "omitted-markers", "ABC export does not represent arbitrary timed markers"
         );
-    header();
     start_offset = onset_offset();
-    for (size_t i = 0; i < score.tracks->size(); ++i) track(*(*score.tracks)[i], i);
-    if (voices == 0) VoiceWriter(output, std::move(global), budget, "score").write(1, "", 0, false);
+    for (size_t i = 0; i < score.tracks->size(); ++i) plan_track(*(*score.tracks)[i], i);
+    header();
+    render_voices();
     return {std::move(output), issues.take()};
 }
 

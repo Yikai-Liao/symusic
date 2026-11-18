@@ -195,7 +195,8 @@ vec<Event> global_events(
 }
 
 void merge(Performance& all, Performance voice) {
-    const auto append = [](auto& into, auto& from) {
+    all.needs_conductor = all.needs_conductor || voice.needs_conductor;
+    const auto append   = [](auto& into, auto& from) {
         into.insert(
             into.end(), std::make_move_iterator(from.begin()), std::make_move_iterator(from.end())
         );
@@ -229,6 +230,10 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
     score.time_signatures
         = global_events(initial_meter, music.meters, diagnostics, "meter changes");
     score.key_signatures = global_events(initial_key, music.keys, diagnostics, "key changes");
+    const int tempo_offset
+        = PlaybackGrid::tempo_offset(music.needs_conductor || voices.all().size() > 1);
+    for (auto& [tempo, at] : music.tempos)
+        tempo.time = tick(static_cast<long double>(tempo.time) + tempo_offset, diagnostics, at);
     score.tempos
         = global_events(Tempo<Tick>(0, settings.tempo), music.tempos, diagnostics, "tempo changes");
     score.tracks  = std::move(music.tracks);

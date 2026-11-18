@@ -22,6 +22,9 @@ template<class T>
 using Located = std::pair<T, Location>;
 
 struct Performance {
+    // Lyrics, overlays and generated backing can need a conductor track
+    // even when the tune declares only one voice.
+    bool                              needs_conductor = false;
     vec<TrackNative<Tick>>            tracks;
     vec<Located<Tempo<Tick>>>         tempos;
     vec<Located<TimeSignature<Tick>>> meters;

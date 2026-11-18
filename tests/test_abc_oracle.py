@@ -36,6 +36,14 @@ CASES = {
     "named_tempo": HEADER.replace("Q:1/4=120", 'Q:"Largo"').replace("L:1/4", "L:1/8")
     + "CDEFGABc|",
     "relative_tempo": HEADER + "C [L:1/8][Q:C=120] D E F|",
+    "conductor_tempo": HEADER + "V:1\nCDEF|[Q:1/4=90] GABc| [Q:1/4=60] cBAG|"
+    "\nV:2\nC,4| G,4| C,4|",
+    "lyric_tempo": HEADER
+    + "CDEF|[Q:1/4=90] GABc|\nw: one two three four five six seven eight",
+    "overlay_tempo": HEADER + "CDEF & C4|[Q:90]GABc|",
+    "harmony_tempo": HEADER + '"C"CDEF|[Q:90] "G"GABc|',
+    "drum_tempo": HEADER
+    + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nCDEF|[Q:90]GABc|",
     "inline_tempo": HEADER + "C [Q:1/8=100] D E F |",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
     "voices": HEADER + 'V:one name="Lead"\n%%MIDI program 4\nC D E F |\n'
@@ -146,8 +154,10 @@ UPSTREAM_SAMPLES = (
     "microtone_wide",
     "partdemo",
     "part_pickup",
+    "tempo_tracks",
     "text_fields",
     "words",
+    "words_tempo",
 )
 
 
@@ -326,6 +336,22 @@ def test_export_playback_events(kind: str, upstream: Path, tmp_path: Path):
     assert {track.program for track in actual.tracks} == {
         track.program for track in score.tracks
     }
+
+
+def test_export_conductor_tempo(upstream: Path, tmp_path: Path):
+    score = Score(480)
+    score.tempos.extend([Tempo(0, mspq=500_000), Tempo(720, mspq=625_000)])
+    for index in range(2):
+        track = Track(str(index), 24 + index)
+        track.notes.extend(
+            [Note(1, 240, 60 + index, 90), Note(961, 240, 62 + index, 90)]
+        )
+        score.tracks.append(track)
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert native.tempos == actual.tempos == score.tempos
+    assert performed(native) == performed(actual)
 
 
 def test_export_drum_release(upstream: Path, tmp_path: Path):
