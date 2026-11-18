@@ -1,3 +1,5 @@
+#include <array>
+#include <cstring>
 #include <span>
 
 #include "zpp_bits.h"
@@ -12,14 +14,30 @@
 // serializer, which keeps zpp_bits from decomposing them with structured
 // bindings (ill-formed: the events inherit data members from TimeStamp).
 namespace symusic {
-#define SERIALIZE_NON_HEAP(__COUNT, NAME)                                   \
-    template<symusic::TType T>                                              \
-    constexpr auto serialize(auto& archive, const symusic::NAME<T>& data) { \
-        return archive(zpp::bits::as_bytes(data));                          \
-    }                                                                       \
-    template<symusic::TType T>                                              \
-    constexpr auto serialize(auto& archive, symusic::NAME<T>& data) {       \
-        return archive(zpp::bits::as_bytes(data));                          \
+// Events are written as their raw object bytes, so the wire format is
+// `sizeof(event)` bytes per event. Padding bytes of a copied or constructed
+// struct are indeterminate, so the output path first assembles the image in a
+// zero-filled buffer and copies each member to its offset. Invariant: the bytes
+// written depend only on member values, and padding is always zero. The input
+// path reads the image directly, which also loads pickles written before the
+// padding was zeroed.
+template<class E, class... Members>
+constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Members&... members) {
+    alignas(E) std::array<std::byte, sizeof(E)> image{};
+    const auto*                                 base = reinterpret_cast<const std::byte*>(&data);
+    (std::memcpy(
+         image.data() + (reinterpret_cast<const std::byte*>(&members) - base),
+         &members,
+         sizeof(Members)
+     ),
+     ...);
+    return archive(zpp::bits::as_bytes(image));
+}
+
+#define SERIALIZE_NON_HEAP(__COUNT, NAME)                             \
+    template<symusic::TType T>                                        \
+    constexpr auto serialize(auto& archive, symusic::NAME<T>& data) { \
+        return archive(zpp::bits::as_bytes(data));                    \
     }
 
 REPEAT_ON(
@@ -27,6 +45,38 @@ REPEAT_ON(
 )
 
 #undef SERIALIZE_NON_HEAP
+
+// Output overloads. Pedal, Tempo and PitchBend have no padding (two 4-byte
+// members), so their raw bytes are already deterministic.
+#define SERIALIZE_PACKED_OUT(NAME)                                          \
+    template<symusic::TType T>                                              \
+    constexpr auto serialize(auto& archive, const symusic::NAME<T>& data) { \
+        return archive(zpp::bits::as_bytes(data));                          \
+    }
+SERIALIZE_PACKED_OUT(Pedal)
+SERIALIZE_PACKED_OUT(Tempo)
+SERIALIZE_PACKED_OUT(PitchBend)
+#undef SERIALIZE_PACKED_OUT
+
+template<symusic::TType T>
+constexpr auto serialize(auto& archive, const symusic::Note<T>& d) {
+    return serialize_zeroed_padding(archive, d, d.time, d.duration, d.pitch, d.velocity);
+}
+
+template<symusic::TType T>
+constexpr auto serialize(auto& archive, const symusic::ControlChange<T>& d) {
+    return serialize_zeroed_padding(archive, d, d.time, d.number, d.value);
+}
+
+template<symusic::TType T>
+constexpr auto serialize(auto& archive, const symusic::TimeSignature<T>& d) {
+    return serialize_zeroed_padding(archive, d, d.time, d.numerator, d.denominator);
+}
+
+template<symusic::TType T>
+constexpr auto serialize(auto& archive, const symusic::KeySignature<T>& d) {
+    return serialize_zeroed_padding(archive, d, d.time, d.key, d.tonality);
+}
 
 #define HELPER(X) X
 #define SERIALIZE_COMMON(...) HELPER(SERIALIZE_COMMON_INNER(__VA_ARGS__))

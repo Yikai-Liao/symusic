@@ -2,6 +2,8 @@
 #ifndef SYMUSIC_TEST_ZPP_HPP
 #define SYMUSIC_TEST_ZPP_HPP
 
+#include <cstring>
+#include <new>
 #include <span>
 #include <string>
 #include "symusic.h"
@@ -155,6 +157,85 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         REQUIRE(deserialized.tempos->at(0).time == score.tempos->at(0).time);
         REQUIRE(deserialized.time_signatures->size() == score.time_signatures->size());
         REQUIRE(deserialized.time_signatures->at(0).time == score.time_signatures->at(0).time);
+    }
+}
+
+namespace {
+
+// Builds `make()` in storage and then overwrites the trailing padding with `fill`.
+// Compilers often zero padding while initializing small members, so the garbage
+// is written explicitly. All padded events here have 4-byte time and 1-byte
+// members, so padding is the tail after the last member (`payload` bytes).
+template<class E, class F>
+std::vector<uint8_t> dumps_in_filled_storage(unsigned char fill, F make, size_t payload) {
+    alignas(E) unsigned char storage[sizeof(E)];
+    std::memset(storage, fill, sizeof(storage));
+    E* event = new (storage) E(make());
+    std::memset(storage + payload, fill, sizeof(E) - payload);
+    auto bytes = event->template dumps<DataFormat::ZPP>();
+    event->~E();
+    return bytes;
+}
+
+template<class E, class F>
+std::vector<uint8_t> dumps_vec_in_filled_storage(unsigned char fill, F make, size_t payload) {
+    std::vector<E> events;
+    events.reserve(4);
+    for (int i = 0; i < 3; ++i) {
+        events.push_back(make(i));
+        auto* raw = reinterpret_cast<unsigned char*>(&events.back());
+        std::memset(raw + payload, fill, sizeof(E) - payload);
+    }
+    return dumps<DataFormat::ZPP>(events);
+}
+
+}   // namespace
+
+TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") {
+    SECTION("Padded events") {
+        const auto check = [](auto make, size_t payload) {
+            using E     = decltype(make());
+            auto first  = dumps_in_filled_storage<E>(0xAA, make, payload);
+            auto second = dumps_in_filled_storage<E>(0x55, make, payload);
+            REQUIRE(first == second);
+            REQUIRE(first.size() == sizeof(E));
+            REQUIRE(E::template parse<DataFormat::ZPP>(first) == make());
+        };
+        check([] { return Note<Tick>(480, 240, 60, 80); }, 10);
+        check([] { return Note<Quarter>(1.5f, 0.5f, 60, 80); }, 10);
+        check([] { return Note<Second>(1.5f, 0.5f, 60, 80); }, 10);
+        check([] { return ControlChange<Tick>(240, 7, 100); }, 6);
+        check([] { return ControlChange<Second>(0.5f, 7, 100); }, 6);
+        check([] { return TimeSignature<Tick>(0, 3, 4); }, 6);
+        check([] { return TimeSignature<Quarter>(0.f, 3, 4); }, 6);
+        check([] { return KeySignature<Tick>(0, -2, 1); }, 6);
+        check([] { return KeySignature<Second>(0.f, -2, 1); }, 6);
+    }
+
+    SECTION("Padded events in a vector") {
+        const auto make = [](int i) { return Note<Tick>(i * 10, 5, 60 + i, 80); };
+        REQUIRE(
+            dumps_vec_in_filled_storage<Note<Tick>>(0xAA, make, 10)
+            == dumps_vec_in_filled_storage<Note<Tick>>(0x55, make, 10)
+        );
+    }
+
+    SECTION("Padding bytes are zero and the layout is unchanged") {
+        const auto bytes
+            = dumps_in_filled_storage<Note<Tick>>(0xAA, [] { return Note<Tick>(1, 2, 3, 4); }, 10);
+        REQUIRE(bytes.size() == 12);
+        REQUIRE(bytes[8] == 3);
+        REQUIRE(bytes[9] == 4);
+        REQUIRE(bytes[10] == 0);
+        REQUIRE(bytes[11] == 0);
+    }
+
+    SECTION("Images with nonzero padding still load") {
+        // Pickles written before padding was zeroed carry arbitrary padding bytes.
+        auto bytes = Note<Tick>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
+        bytes[10]  = 0xAA;
+        bytes[11]  = 0x55;
+        REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == Note<Tick>(1, 2, 3, 4));
     }
 }
 
