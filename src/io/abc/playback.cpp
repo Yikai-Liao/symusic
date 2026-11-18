@@ -288,10 +288,22 @@ private:
     long double atom_duration(const Atom& atom, Location at);
     void        play(const Prepared& atom);
     long double play_grace(const Prepared& atom);
-    void        play_chord(const Prepared& atom, long double start, long double duration);
-    void  play_trill(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    void  play_cut(Pitch pitch, const Prepared& atom, long double start, long double duration);
+    void        play_notes(const Prepared& atom, long double start, long double duration);
+    void        emit_chord(
+        const Prepared&         atom,
+        const vec<ChordMember>& members,
+        long double             start,
+        long double             audible
+    );
+    void play_trill(
+        Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
+    );
+    void play_roll(
+        Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
+    );
+    long double play_cut(
+        Pitch pitch, const Prepared& atom, long double start, long double duration
+    );
     Sound ornament_neighbor(Pitch pitch, Location at, int direction = 1);
     Sound resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
     Sound sound(Pitch pitch, Location at, bool tie);
@@ -458,9 +470,28 @@ vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double en
     return members;
 }
 
-void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
+void VoicePlayer::play_notes(const Prepared& atom, long double start, long double duration) {
     const auto audible
         = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
+    const auto members = resolve_chord(atom, start + audible);
+    if (members.size() == 1 && !members.front().continuation) {
+        const auto pitch = atom.atom->pitches.front();
+        const auto main  = members.front().sound;
+        if (atom.ornament.roll || atom.ornament.trill) {
+            lane().ties.clear();
+            if (atom.ornament.roll)
+                play_roll(pitch, main, atom, start, duration);
+            else
+                play_trill(pitch, main, atom, start, duration);
+            return;
+        }
+    }
+    emit_chord(atom, members, start, audible);
+}
+
+void VoicePlayer::emit_chord(
+    const Prepared& atom, const vec<ChordMember>& members, long double start, long double audible
+) {
     const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
     const auto has_ties = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
@@ -471,7 +502,7 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
     size_t       chord_member  = 0;
     bool         aligned_lyric = false;
     vec<TieNote> next_ties;
-    for (const auto& [played, continuation] : resolve_chord(atom, start + audible)) {
+    for (const auto& [played, continuation] : members) {
         auto address = continuation;
         if (!address) {
             // Converted tie attacks keep the selected channel in abc2midi.
@@ -521,9 +552,8 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
 }
 
 void VoicePlayer::play_roll(
-    Pitch pitch, const Prepared& atom, long double start, long double duration
+    Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
 ) {
-    const auto       main = sound(pitch, atom.at, false);
     const std::array notes{
         main, ornament_neighbor(pitch, atom.at), main, ornament_neighbor(pitch, atom.at, -1), main
     };
@@ -535,29 +565,25 @@ void VoicePlayer::play_roll(
     }
 }
 
-void VoicePlayer::play_cut(
+long double VoicePlayer::play_cut(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
-    const auto ornament_length = written.unit / lane().expression.grace_divider;
-    if (ornament_length + epsilon >= duration) {
-        play_chord(atom, start, duration);
-        return;
-    }
-    note(ornament_neighbor(pitch, atom.at), start, ornament_length, 0, velocity(start), atom.at);
-    play_chord(atom, start + ornament_length, duration - ornament_length);
+    const auto length = written.unit / lane().expression.grace_divider;
+    if (length + epsilon >= duration) return 0;
+    note(ornament_neighbor(pitch, atom.at), start, length, 0, velocity(start), atom.at);
+    return length;
 }
 
 void VoicePlayer::play_trill(
-    Pitch pitch, const Prepared& atom, long double start, long double duration
+    Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
 ) {
     const auto count = trill_attacks(duration, tempo_unit, initial_tempo, atom.at, diagnostics);
     if (count == 0) return;
     const auto step   = duration / count;
     const auto higher = ornament_neighbor(pitch, atom.at);
-    const auto lower  = sound(pitch, atom.at, false);
     for (int i = 0; i < count; ++i) {
         const auto onset = start + i * step;
-        note(i % 2 ? lower : higher, onset, step, 0, velocity(onset), atom.at);
+        note(i % 2 ? main : higher, onset, step, 0, velocity(onset), atom.at);
     }
 }
 
@@ -567,17 +593,14 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
         report_ties(lane().ties, diagnostics);
         return;
     }
-    const auto grace_time = play_grace(atom);
-    const auto onset      = lane().time + grace_time;
-    const auto remaining  = duration - grace_time;
-    if (atom.ornament.roll && pitches.size() == 1)
-        play_roll(pitches.front(), atom, onset, remaining);
-    else if (atom.ornament.cut && pitches.size() == 1)
-        play_cut(pitches.front(), atom, onset, remaining);
-    else if (atom.ornament.trill && pitches.size() == 1)
-        play_trill(pitches.front(), atom, onset, remaining);
-    else
-        play_chord(atom, onset, remaining);
+    auto lead_in = play_grace(atom);
+    if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll) {
+        lead_in += play_cut(pitches.front(), atom, lane().time + lead_in, duration - lead_in);
+    }
+    // Grace attacks, including an Irish cut, break the incoming tie. A
+    // trill or roll is instead an attribute of an attack that may not occur.
+    if (lead_in > 0) lane().ties.clear();
+    play_notes(atom, lane().time + lead_in, duration - lead_in);
 }
 
 void VoicePlayer::play(const Prepared& atom) {
