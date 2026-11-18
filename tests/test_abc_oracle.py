@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from symusic import Note, Score, Tempo, Track
+from symusic import ControlChange, Note, Pedal, Score, Tempo, Track
 
 from tests.test_abc import HEADER, note_rows, roundtrip_score
 from tests.utils import TESTCASES_PATH
@@ -270,6 +270,76 @@ def test_upstream_plays_native_exports(kind: str, upstream: Path, tmp_path: Path
         assert played.tracks[0].program == score.tracks[0].program
         assert played.time_signatures == score.time_signatures
         assert played.tempos == score.tempos
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["irregular_lengths", "overlap_pitch", "simultaneous_velocities", "multitrack"],
+)
+def test_export_playback_events(kind: str, upstream: Path, tmp_path: Path):
+    score = roundtrip_score()
+    track = score.tracks[0]
+    if kind == "irregular_lengths":
+        track.notes[:] = [
+            Note(1, 1, 60, 81),
+            Note(15, 53, 61, 91),
+            Note(1081, 240, 62, 77),
+        ]
+    elif kind == "overlap_pitch":
+        track.notes.append(Note(97, 600, track.notes[0].pitch, 92))
+    elif kind == "simultaneous_velocities":
+        track.notes.append(Note(track.notes[0].time, 480, 103, 109))
+    else:
+        other = Track("Other instrument", 41)
+        other.notes.append(Note(241, 240, 54, 94))
+        score.tracks.append(other)
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert performed(native) == performed(actual)
+    assert note_rows(actual) == note_rows(score)
+    assert {track.program for track in actual.tracks} == {
+        track.program for track in score.tracks
+    }
+
+
+def test_export_drum_release(upstream: Path, tmp_path: Path):
+    score = roundtrip_score()
+    score.tracks[0].is_drum = True
+    score.tracks[0].program = 0
+    abc = score.dumps_abc()
+    assert performed_track(Score.from_abc(abc).tracks[0]) == performed_track(
+        score.tracks[0]
+    )
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert actual.tracks[0].is_drum
+    assert note_rows(actual) == [(t, d - 1, p, v) for t, d, p, v in note_rows(score)]
+
+
+def test_export_controls_inside_sustains(upstream: Path, tmp_path: Path):
+    score = roundtrip_score()
+    track = score.tracks[0]
+    track.controls.extend([ControlChange(0, 7, 101), ControlChange(35, 7, 62)])
+    track.pedals.append(Pedal(45, 500))
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    assert list(native.tracks[0].controls) == [
+        *track.controls,
+        ControlChange(45, 64, 127),
+        ControlChange(545, 64, 0),
+    ]
+    assert native.tracks[0].pedals == track.pedals
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert list(actual.tracks[0].controls) == [
+        ControlChange(1, 7, 101),
+        ControlChange(1, 7, 62),
+        ControlChange(1, 64, 127),
+        ControlChange(481, 64, 0),
+    ]
+    assert list(actual.tracks[0].pedals) == [Pedal(1, 480)]
+    assert [(n.time, n.pitch, n.velocity) for n in actual.tracks[0].notes] == [
+        (n.time, n.pitch, n.velocity) for n in track.notes
+    ]
 
 
 def single_note(time: int, duration: int) -> Score:
