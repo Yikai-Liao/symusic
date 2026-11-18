@@ -933,8 +933,8 @@ void VoicePlayer::visit(const Field& field, Location at) {
     case 'M': change_meter(value, at); break;
     case 'L': written.unit = unit_length(value, diagnostics, at); break;
     case 'P':
-        visit(Bar{}, at);
-        lane().first_bar = true;
+        // A part can start with a pickup, but its label is not a barline.
+        if (std::fabs(lane().time - lane().bar) < epsilon) lane().first_bar = true;
         break;
     case 'V': change_voice(value, at); break;
     case 'I': information(value, at); break;

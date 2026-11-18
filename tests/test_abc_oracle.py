@@ -52,6 +52,8 @@ CASES = {
     "final_numbered_ending": HEADER + "|: C2 [1-2 D2 :| [3 E2 |]",
     "broken_dynamic": HEADER + "C>[K:G]!p!F G A |",
     "overlay_tie": HEADER + "C2 & E2- | D2 & E2 |",
+    "part_label_inside_measure": HEADER.replace("K:C", "P:(AB)2\nK:C")
+    + "P:A\nCDEF| G A\nP:B\nB c d e|",
     "implicit_repeat": HEADER + "C4 || D4 :| E4 |",
     "named_tempo": HEADER.replace("Q:1/4=120", 'Q:"Largo"').replace("L:1/4", "L:1/8")
     + "CDEFGABc|",
