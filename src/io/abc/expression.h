@@ -39,19 +39,25 @@ struct Expression {
     long double broken_factor(Broken mark) const;
     bool        starts_swing_pair(Meter meter, long double offset, long double duration) const;
     long double fermata(long double duration, long double unit) const;
-    int         velocity(long double position, Meter meter) const;
+    int         attack_velocity(long double position, Meter meter);
     long double gate(long double duration, long double unit, bool slur, bool staccato) const;
     long double tied_gate(long double duration, long double unit) const;
 
 private:
-    RhythmStyle rhythm;
-    long double broken_short;
-    int         chord_attack = 10;
-    bool        arpeggio     = false;
-    void        shift(int amount);
-    void        set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
-    int         string_velocity(long double position, long double pulse) const;
-    bool        timing(
+    bool note_volume(
+        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    );
+    std::optional<int> next_volume;
+    int                next_volume_delta = 0;
+    RhythmStyle        rhythm;
+    long double        broken_short;
+    int                chord_attack = 10;
+    bool               arpeggio     = false;
+    void               shift(int amount);
+    void set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
+    int  beat_velocity(long double position, Meter meter) const;
+    int  string_velocity(long double position, long double pulse) const;
+    bool timing(
         std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
     );
     bool articulation(

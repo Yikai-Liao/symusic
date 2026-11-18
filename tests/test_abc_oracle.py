@@ -89,6 +89,12 @@ CASES = {
     "overlay_clocks": HEADER + "C (& D E & c2 &) G | A (& B c & d2 &) d |",
     "directives": HEADER + "%%MIDI program 24\n"
     "%%MIDI beat 90 80 60 2\nC D E F |\n%%MIDI program 7\n%%MIDI channel 10\nC D E F |",
+    "single_note_volume": HEADER
+    + "C [I:MIDI vol 30] D [I:MIDI volinc 30] E F |\n%%MIDI vol 110\nGABc|",
+    "single_note_volume_order": HEADER
+    + "[I:MIDI vol 60][I:MIDI volinc -35] C D [I:MIDI vol 127] [EGB] F|",
+    "single_note_volume_tie": HEADER + "C- [I:MIDI vol 30] C D E|",
+    "single_note_volume_grace": HEADER + "C [I:MIDI vol 30] {DE} F G A |",
     "controllers": HEADER + "%%MIDI control 7 50\nCDEF|\n%%MIDI control 7 40\nGABc|"
     "[I:MIDI control 7 30]cBAG|",
     "beatstring_positions": HEADER.replace("L:1/4", "L:1/8")

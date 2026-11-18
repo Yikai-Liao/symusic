@@ -285,7 +285,7 @@ private:
 
     i32 at_tick(Location at) { return tick(lane().time, diagnostics, at); }
     int velocity(long double at) {
-        return lane().expression.velocity(at - lane().bar, written.meter);
+        return lane().expression.attack_velocity(at - lane().bar, written.meter);
     }
     void        push(const Atom& atom, Location at);
     void        flush();
@@ -518,7 +518,6 @@ void VoicePlayer::emit_chord(
     long double             audible,
     int                     spread
 ) {
-    const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
     const auto has_ties = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
     const auto attack   = has_ties ? 0 : spread;
@@ -534,7 +533,7 @@ void VoicePlayer::emit_chord(
             // Converted tie attacks keep the selected channel in abc2midi.
             const auto member = played.tie ? std::nullopt : std::optional{chord_member++};
             address           = output.attack(
-                lanes.id(), played.pitch, start, audible, stagger, loudness, atom.at, member
+                lanes.id(), played.pitch, start, audible, stagger, velocity(start), atom.at, member
             );
             stagger = static_cast<int>(
                 std::min<int64_t>(max_stagger, stagger + static_cast<int64_t>(attack))

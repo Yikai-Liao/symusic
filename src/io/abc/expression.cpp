@@ -126,7 +126,13 @@ int Expression::string_velocity(long double position, long double pulse) const {
     return beat[mark == 'F' ? 0 : (mark == 'M' ? 1 : 2)];
 }
 
-int Expression::velocity(long double position, Meter meter) const {
+int Expression::attack_velocity(long double position, Meter meter) {
+    if (next_volume) return *std::exchange(next_volume, {});
+    const auto volume = beat_velocity(position, meter) + std::exchange(next_volume_delta, 0);
+    return std::clamp(volume, 0, midi_max);
+}
+
+int Expression::beat_velocity(long double position, Meter meter) const {
     if (!accents) return beat[1];
     if (!beat_string.empty())
         return string_velocity(position, meter.measure() / beat_string.size());
@@ -165,6 +171,17 @@ long double Expression::fermata(long double duration, long double unit) const {
     return duration + (fixed_fermata ? unit : duration);
 }
 
+bool Expression::note_volume(
+    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+) {
+    if (name != "vol" && name != "volinc") return false;
+    if (name == "vol")
+        next_volume = midi_integer(args, 0, midi_max, diagnostics, at);
+    else
+        next_volume_delta = midi_integer(args, -midi_max, midi_max, diagnostics, at);
+    return true;
+}
+
 bool Expression::directive(
     std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
 ) {
@@ -184,7 +201,8 @@ bool Expression::directive(
     else if (name == "beataccents")
         accents = true;
     else
-        return articulation(name, args, at, diagnostics);
+        return note_volume(name, args, at, diagnostics)
+               || articulation(name, args, at, diagnostics);
     return true;
 }
 
