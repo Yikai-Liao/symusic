@@ -220,7 +220,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
         std::string     cur_name;
         count += 1;
         // channel -> pedal_on
-        std::array<unit, 16> last_pedal_on{-1};
+        std::array<unit, 16> last_pedal_on;
+        last_pedal_on.fill(-1);
         // iter midi messages in the track
 
         for (const auto& msg : midi_track) {
