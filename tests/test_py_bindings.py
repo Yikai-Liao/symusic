@@ -312,5 +312,22 @@ def test_numpy_integration():
         assert pianoroll[0, pitch, time] == 80  # Velocity value
 
 
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_list_equals_python_list(ttype):
+    note = Note(0, 1, 60, 100, ttype)
+    track = Track("a", 0, False, notes=[note], ttype=ttype)
+    other = Track("b", 0, False, ttype=ttype)
+
+    assert track.notes == [note]
+    assert track.notes != [Note(0, 1, 61, 100, ttype)]
+    assert type(track.notes)([track.notes[0]]) == [note]
+
+    tracks = Score(480, ttype=ttype).tracks
+    tracks.append(track)
+    assert tracks == [track]
+    assert tracks != [other]
+    assert tracks != []
+
+
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])

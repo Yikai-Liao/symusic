@@ -455,11 +455,11 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             return true;
         };
         cl.def("__eq__", equal)
-            .def("__eq__", [](const self_t&, const object&) { return false; })
             .def("__eq__", eq_list)
+            .def("__eq__", [](const self_t&, const object&) { return false; })
             .def("__ne__", [&](const self_t& v, const self_t& other) { return !equal(v, other); })
-            .def("__ne__", [](const self_t&, const object&) { return true; })
             .def("__ne__", [&](const self_t& v, const list& other) { return !eq_list(v, other); })
+            .def("__ne__", [](const self_t&, const object&) { return true; })
 
             .def(
                 "__contains__",
