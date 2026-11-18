@@ -308,22 +308,28 @@ Parts split_parts(Section source, Diagnostics& diagnostics) {
 
 }   // namespace
 
-PlayOrder play_order(
-    const vec<Token>& source, std::string_view parts, Location at, Diagnostics& diagnostics
-) {
+PartItinerary::PartItinerary(std::string_view order, Location at, Diagnostics& diagnostics) :
+    at(at), diagnostics(diagnostics) {
+    if (!order.empty()) labels = PartOrder(order, at, diagnostics).parse();
+}
+
+PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
     PlayOrder tokens;
-    if (parts.empty()) {
-        RepeatOrder(source, tokens, diagnostics).append();
+    if (!labels) {
+        RepeatOrder(voice, tokens, diagnostics).append();
         return tokens;
     }
-    const auto sections = split_parts(source, diagnostics);
+    const auto sections = split_parts(voice, diagnostics);
     RepeatOrder(sections.at('\0'), tokens, diagnostics).append();
-    for (const auto label : PartOrder(parts, at, diagnostics).parse()) {
+    std::map<char, RepeatOrder> repeats;
+    for (const auto label : *labels) {
         const auto section = sections.find(label);
-        if (section == sections.end())
+        if (section == sections.end()) {
             diagnostics.warn(at, "missing-part", fmt::format("no music found for part {}", label));
-        else
-            RepeatOrder(section->second, tokens, diagnostics).append();
+            continue;
+        }
+        auto [repeat, inserted] = repeats.try_emplace(label, section->second, tokens, diagnostics);
+        repeat->second.append();
     }
     return tokens;
 }

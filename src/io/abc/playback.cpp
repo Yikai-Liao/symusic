@@ -225,7 +225,7 @@ public:
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics) {}
 
-    Performance render(const PlayOrder& order);
+    Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
 private:
     Diagnostics&                               diagnostics;
@@ -903,8 +903,12 @@ void VoicePlayer::visit_step(PlayStep step) {
     }
 }
 
-Performance VoicePlayer::render(const PlayOrder& order) {
+Performance VoicePlayer::render(const vec<Token>& preamble, const PlayOrder& order) {
     Location end{};
+    for (const auto& token : preamble) {
+        end = token.at;
+        visit_step({&token});
+    }
     for (const auto step : order) {
         end = step.token->at;
         visit_step(step);
@@ -924,9 +928,13 @@ Performance VoicePlayer::render(const PlayOrder& order) {
 }   // namespace
 
 Performance perform(
-    const TuneSettings& settings, const PlayOrder& order, std::string name, Diagnostics& diagnostics
+    const TuneSettings& settings,
+    const vec<Token>&   preamble,
+    const PlayOrder&    order,
+    std::string         name,
+    Diagnostics&        diagnostics
 ) {
-    return VoicePlayer(settings, std::move(name), diagnostics).render(order);
+    return VoicePlayer(settings, std::move(name), diagnostics).render(preamble, order);
 }
 
 }   // namespace symusic::abc::detail

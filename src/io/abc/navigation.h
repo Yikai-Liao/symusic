@@ -13,8 +13,17 @@ struct PlayStep {
 };
 using PlayOrder = vec<PlayStep>;
 
-PlayOrder play_order(
-    const vec<Token>& source, std::string_view parts, Location at, Diagnostics& diagnostics
-);
+// Compile the tune-level P: order once. Each voice supplies its own music;
+// missing sections warn, and expansion never exceeds the navigation limit.
+class PartItinerary {
+public:
+    PartItinerary(std::string_view order, Location at, Diagnostics& diagnostics);
+    [[nodiscard]] PlayOrder arrange(const vec<Token>& voice) const;
+
+private:
+    Location                   at;
+    Diagnostics&               diagnostics;
+    std::optional<std::string> labels;
+};
 
 }   // namespace symusic::abc::detail

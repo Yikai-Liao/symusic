@@ -65,6 +65,7 @@ struct Voice {
     std::string_view id;
     std::string_view name;
     vec<Token>       music;
+    Location         last_part{};
 };
 
 class Voices {
@@ -118,13 +119,12 @@ bool Voices::select(const Token& token) {
 }
 
 void Voices::append(const Token& token) {
-    auto& music = voices[selected].music;
-    if (current_part) {
-        const auto part_at  = current_part->at;
-        const bool has_part = std::ranges::binary_search(music, part_at, {}, &Token::at);
-        if (!has_part) music.push_back(*current_part);
+    auto& voice = voices[selected];
+    if (current_part && voice.last_part != current_part->at) {
+        voice.music.push_back(*current_part);
+        voice.last_part = current_part->at;
     }
-    music.push_back(token);
+    voice.music.push_back(token);
 }
 
 void Voices::header(const Token& token) {
@@ -200,19 +200,16 @@ void merge(Performance& all, Performance voice) {
 }
 
 ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
-    const auto   header   = read_header(tune, diagnostics);
-    const auto&  settings = header.settings;
-    const Voices voices(tune, diagnostics);
-    Performance  music;
+    const auto          header   = read_header(tune, diagnostics);
+    const auto&         settings = header.settings;
+    const Voices        voices(tune, diagnostics);
+    const PartItinerary itinerary(header.order, header.order_at, diagnostics);
+    Performance         music;
     for (const auto& voice : voices.all()) {
-        auto      order = play_order(voice.music, header.order, header.order_at, diagnostics);
-        PlayOrder with_header;
-        with_header.reserve(voices.preamble().size() + order.size());
-        for (const auto& token : voices.preamble()) with_header.push_back({&token});
-        with_header.insert(with_header.end(), order.begin(), order.end());
+        const auto order = itinerary.arrange(voice.music);
         auto name = voice.name.empty() ? (music.tracks.empty() ? settings.title : std::string{}) :
                                          unquote_text(voice.name);
-        merge(music, perform(settings, with_header, std::move(name), diagnostics));
+        merge(music, perform(settings, voices.preamble(), order, std::move(name), diagnostics));
     }
     ScoreNative<Tick> score(tpq);
     const auto [numerator, denominator, free] = settings.meter;

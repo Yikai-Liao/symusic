@@ -159,6 +159,19 @@ def test_abc_repeat_does_not_drop_sections(body: str, pitches: list[int]):
     assert [row[2] for row in note_rows(Score.from_abc(HEADER + body))] == pitches
 
 
+def test_abc_part_itinerary_with_sparse_voices():
+    source = HEADER.replace("K:C", "P:ABA\nK:C") + (
+        "V:one\nV:two\nP:A\n[V:one] C | [V:two] E |\nP:B\n[V:one] D |"
+    )
+    with pytest.warns(UserWarning, match=r"\[missing-part\].*part B") as warnings:
+        score = Score.from_abc(source)
+    assert len(warnings) == 1
+    assert [[(n.time, n.pitch) for n in t.notes] for t in score.tracks] == [
+        [(1, 60), (481, 62), (961, 60)],
+        [(1, 64), (481, 64)],
+    ]
+
+
 def test_abc_broken_pair_places_intervening_field_at_correct_time():
     score = Score.from_abc(HEADER + "C>!tenuto![K:G]F|")
     assert [(e.time, e.key) for e in score.key_signatures] == [(0, 0), (720, 1)]

@@ -29,7 +29,11 @@ struct Performance {
 };
 
 Performance perform(
-    const TuneSettings& settings, const PlayOrder& order, std::string name, Diagnostics& diagnostics
+    const TuneSettings& settings,
+    const vec<Token>&   preamble,
+    const PlayOrder&    order,
+    std::string         name,
+    Diagnostics&        diagnostics
 );
 
 }   // namespace symusic::abc::detail
