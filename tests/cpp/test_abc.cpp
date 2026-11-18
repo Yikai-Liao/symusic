@@ -55,7 +55,7 @@ TEST_CASE("ABC repeat jumps restore notation without rewinding time", "[abc]") {
 
 TEST_CASE("ABC validates backing note endpoints", "[abc]") {
     const std::string input = "X:1\nM:4/4\nL:1/1920\nK:C\n%%MIDI gchordoff\n"
-                              "z2147483547\n%%MIDI gchord f\n%%MIDI gchordon\n\"C\"C";
+                              "z2147483547|\n%%MIDI gchord f\n%%MIDI gchordon\n\"C\"C";
     CHECK_THROWS_AS(abc::read(input), std::invalid_argument);
     CHECK(abc::read("X:1\nM:4/4\nL:1/4\nK:C\nz1000001 C").value.note_num() == 1);
 }

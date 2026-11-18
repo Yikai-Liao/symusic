@@ -77,8 +77,9 @@ void close_backing(TrackNative<Tick>& track, i32 end) {
 
 Accompaniment::Accompaniment(Meter meter, Diagnostics& diagnostics) :
     diagnostics(diagnostics), current_meter(meter) {
-    chords.assign(pattern(default_chords(meter), "fcz", {}), 0);
-    chords.active = true;
+    auto defaults = default_chords(meter);
+    if (defaults.empty()) defaults = "x";
+    chords.install(pattern(defaults, "fcbzx", {}), meter, 0);
 }
 
 std::string_view Accompaniment::default_chords(Meter meter) {
@@ -88,34 +89,89 @@ std::string_view Accompaniment::default_chords(Meter meter) {
         std::string_view sequence;
     };
     static constexpr DefaultPattern defaults[]{
-        {2, 4, "fzcz"}, {3, 4, "fzczcz"}, {6, 8, "fzcfzc"}, {9, 8, "fzcfzcfzc"}
+        {2, 2, "fzczfzcz"},
+        {2, 4, "fzcz"},
+        {3, 4, "fzczcz"},
+        {3, 8, "fzczcz"},
+        {4, 4, "fzczfzcz"},
+        {5, 4, "fzbcz"},
+        {5, 8, "fzbcz"},
+        {6, 4, "fzczfzczfzcz"},
+        {6, 8, "fzcfzc"},
+        {7, 4, "fzbczcz"},
+        {7, 8, "fzbczcz"},
+        {9, 8, "fzcfzcfzc"},
+        {12, 8, "fzcfzcfzcfzc"}
     };
     for (const auto& entry : defaults) {
         if (entry.numerator == meter.numerator && entry.denominator == meter.denominator)
             return entry.sequence;
     }
-    return "fzczfzcz";
+    return {};
 }
 
-void Accompaniment::Pattern::reset(long double time) {
-    next      = time;
-    bar_count = 0;
-    index     = 0;
+void Accompaniment::Pattern::restart(long double now) {
+    next  = now;
+    index = 0;
 }
 
-void Accompaniment::Pattern::bar(long double time) {
-    if (++bar_count >= bars) reset(time);
+void Accompaniment::Pattern::bar(long double now) {
+    if (bars == 1 || index >= steps.size()) restart(now);
 }
 
-void Accompaniment::Pattern::assign(vec<Step> replacement, long double time) {
-    steps = std::move(replacement);
-    units = 0;
+void Accompaniment::Pattern::set_span(int span, long double now) {
+    bars = span;
+    restart(now);
+}
+
+void Accompaniment::Pattern::install(vec<Step> replacement, Meter meter, long double now) {
+    const bool first = steps.empty();
+    steps            = std::move(replacement);
+    units            = 0;
     for (const auto& step : steps) units += step.length;
-    reset(time);
+    cycle = meter.measure() * bars;
+    // If this is the first definition, locate its first slot on or after
+    // the change. Earlier slots cannot sound retroactively.
+    if (first) {
+        while (ready(now)) consume();
+    }
 }
 
 bool Accompaniment::Pattern::ready(long double end) const {
-    return !steps.empty() && next < end - epsilon;
+    return index < steps.size() && next < end - epsilon;
+}
+
+long double Accompaniment::Pattern::consume() {
+    // MIDI's release queue truncates each rational slot independently.
+    const auto length = std::floor(cycle * steps[index++].length / units + epsilon);
+    next += length;
+    return length;
+}
+
+template<class Play>
+void Accompaniment::Pattern::advance(
+    long double end, Location at, Diagnostics& diagnostics, Play play
+) {
+    while (ready(end)) {
+        diagnostics.spend(1, at);
+        const auto time   = next;
+        const auto step   = steps[index];
+        const auto length = consume();
+        if (enabled) play(step, time, length);
+    }
+}
+
+int step_length(std::string_view& rest, Diagnostics& diagnostics, Location at) {
+    size_t digits = 0;
+    while (digits < rest.size() && digit(rest[digits])) ++digits;
+    if (!digits) return 1;
+    const auto count = integer(rest.substr(0, digits));
+    rest.remove_prefix(digits);
+    if (!count || *count < 1 || *count > 1024)
+        diagnostics.error(
+            at, "backing-pattern-range", "backing step length must be between 1 and 1024"
+        );
+    return *count;
 }
 
 vec<Accompaniment::Step> Accompaniment::pattern(
@@ -125,25 +181,20 @@ vec<Accompaniment::Step> Accompaniment::pattern(
     while (!text.empty()) {
         const char kind = text.front();
         text.remove_prefix(1);
-        if (allowed.find(kind) == allowed.npos) {
+        if (allowed.find(kind) == allowed.npos)
             diagnostics.error(
                 at,
                 "invalid-backing-pattern",
-                fmt::format("unexpected '{}' in MIDI backing pattern", kind)
+                fmt::format(
+                    "unexpected byte {:#04x} in MIDI backing pattern",
+                    static_cast<unsigned char>(kind)
+                )
             );
-        }
-        size_t digits = 0;
-        while (digits < text.size() && digit(text[digits])) ++digits;
-        const auto count = digits ? integer(text.substr(0, digits)) : std::optional(1);
-        if (!count || *count < 1 || *count > 1024 || result.size() >= 1024) {
+        if (result.size() == 1024)
             diagnostics.error(
-                at,
-                "backing-pattern-range",
-                "MIDI backing steps and their lengths must be between 1 and 1024"
+                at, "backing-pattern-range", "MIDI backing pattern exceeds 1024 steps"
             );
-        }
-        result.push_back({kind, *count});
-        text.remove_prefix(digits);
+        result.push_back({kind, step_length(text, diagnostics, at)});
     }
     if (result.empty())
         diagnostics.error(at, "invalid-backing-pattern", "expected a MIDI backing pattern");
@@ -151,7 +202,7 @@ vec<Accompaniment::Step> Accompaniment::pattern(
 }
 
 void Accompaniment::chord_pattern(std::string_view args, long double time, Location at) {
-    chords.assign(pattern(word(args), "fcbghijkGHIJKz", at), time);
+    chords.install(pattern(word(args), "fcbghijkGHIJKz", at), current_meter, time);
 }
 
 void Accompaniment::drum_pattern(std::string_view args, long double time, Location at) {
@@ -168,7 +219,7 @@ void Accompaniment::drum_pattern(std::string_view args, long double time, Locati
     }
     if (!trim(args).empty())
         diagnostics.warn(at, "extra-drum-values", "ignored values beyond the drum strikes");
-    drums.assign(std::move(steps), time);
+    drums.install(std::move(steps), current_meter, time);
 }
 
 void Accompaniment::chord_type(std::string_view args, Location at) {
@@ -233,7 +284,7 @@ void Accompaniment::harmony(std::string_view symbol, int transpose, Location at)
     const auto inversion = bass_note.starts_with('/') ?
                                slash_bass(bass_note.substr(1), at, diagnostics) :
                                std::nullopt;
-    Chord      next{36 + inversion.value_or(*root) + transpose, {}};
+    Chord      next{36 + inversion.value_or(*root) + transpose, {}, at};
     if (!bass_only) {
         const auto intervals = chord_intervals(name, at);
         if (intervals.empty()) return;
@@ -245,8 +296,8 @@ void Accompaniment::harmony(std::string_view symbol, int transpose, Location at)
 
 void Accompaniment::meter(Meter change, long double time) {
     current_meter = change;
-    chords.assign(pattern(default_chords(change), "fcz", {}), time);
-    drums.reset(time);
+    if (auto defaults = default_chords(change); !defaults.empty())
+        chords.install(pattern(defaults, "fcbz", {}), change, time);
 }
 
 void Accompaniment::bar(long double time) {
@@ -273,56 +324,55 @@ std::optional<int> Accompaniment::Chord::arpeggio(char action) const {
     return pitches[std::min(index, pitches.size() - 1)] - (lower(action) ? 0 : 12);
 }
 
-void Accompaniment::chord_step(Step step, i32 time, i32 duration) {
+void Accompaniment::chord_step(Step step, long double time, long double length, Location at) {
     if (!current_chord || step.kind == 'z') return;
-    const auto& [root, pitches] = *current_chord;
-    const auto action           = step.kind == 'c' && pitches.empty() ? 'f' : step.kind;
+    if (step.kind == 'x') {
+        diagnostics.warn(
+            current_chord->at, "no-default-backing", "no default guitar pattern for this meter"
+        );
+        return;
+    }
+    const auto& [root, pitches, chord_at] = *current_chord;
+    diagnostics.spend(pitches.size(), at);
+    const auto [start, duration] = backing_times(time, length, at);
+    const auto action            = step.kind == 'c' && pitches.empty() ? 'f' : step.kind;
     switch (action) {
-    case 'f': bass.play(root, time, duration); return;
-    case 'b': bass.play(root, time, duration); [[fallthrough]];
+    case 'f': bass.play(root, start, duration); return;
+    case 'b': bass.play(root, start, duration); [[fallthrough]];
     case 'c':
-        for (const auto pitch : pitches) chord.play(pitch, time, duration);
+        for (const auto pitch : pitches) chord.play(pitch, start, duration);
         return;
     default: break;
     }
-    if (const auto pitch = current_chord->arpeggio(action)) chord.play(*pitch, time, duration);
+    if (const auto pitch = current_chord->arpeggio(action)) chord.play(*pitch, start, duration);
 }
 
-// The legacy converter starts MIDI notes one tick into the slot and gates
-// them one tick early. Keep the pattern clock independent of these offsets.
-template<class Play>
-void Accompaniment::advance(Pattern& pattern, long double end, Location at, Play play) {
-    if (!pattern.active) return;
-    if (&pattern == &chords && !current_chord) {
-        // No chord can sound yet. Skip whole cycles without changing the phase.
-        const auto cycle  = current_meter.measure() * pattern.bars;
-        const auto cycles = std::floor((end - pattern.next) / cycle);
-        if (cycles > 0) pattern.next += cycles * cycle;
-    }
-    while (pattern.ready(end)) {
-        diagnostics.spend(1 + (current_chord ? current_chord->pitches.size() : 0), at);
-        const auto step     = pattern.steps[pattern.index];
-        const auto length   = current_meter.measure() * pattern.bars * step.length / pattern.units;
-        const auto onset    = tick(pattern.next + 1, diagnostics, at);
-        const auto duration = std::max(0, tick(length, diagnostics, at) - 1);
-        const bool audible
-            = &pattern == &drums ? step.kind == 'd' : current_chord.has_value() && step.kind != 'z';
-        if (audible) {
-            (void)tick(static_cast<long double>(onset) + duration, diagnostics, at);
-            play(step, onset, duration);
-        }
-        pattern.next += length;
-        pattern.index = (pattern.index + 1) % pattern.steps.size();
-    }
+std::pair<i32, i32> Accompaniment::backing_times(
+    long double time, long double length, Location at
+) {
+    const auto onset    = tick(time + PlaybackGrid::attack_offset, diagnostics, at);
+    const auto duration = std::max(0, tick(length, diagnostics, at) - PlaybackGrid::release_trim);
+    (void)tick(static_cast<long double>(onset) + duration, diagnostics, at);
+    return {onset, duration};
+}
+
+void Accompaniment::drum_step(Step step, long double time, long double length, Location at) {
+    if (step.kind != 'd') return;
+    const auto [onset, duration] = backing_times(time, length, at);
+    add_if_audible(drum_track, onset, duration, step.pitch, step.velocity);
 }
 
 void Accompaniment::advance(long double end, Location at) {
-    advance(chords, end, at, [this](Step step, i32 time, i32 duration) {
-        chord_step(step, time, duration);
-    });
-    advance(drums, end, at, [this](Step step, i32 time, i32 duration) {
-        if (step.kind == 'd') add_if_audible(drum_track, time, duration, step.pitch, step.velocity);
-    });
+    chords.advance(
+        end, at, diagnostics, [this, at](Step step, long double time, long double length) {
+            chord_step(step, time, length, at);
+        }
+    );
+    drums.advance(
+        end, at, diagnostics, [this, at](Step step, long double time, long double length) {
+            drum_step(step, time, length, at);
+        }
+    );
 }
 
 void Accompaniment::close_drone(long double time, Location at) {
@@ -360,14 +410,11 @@ bool Accompaniment::pattern_directive(
         chord_pattern(args, time, at);
     else if (name == "drum")
         drum_pattern(args, time, at);
-    else if (name == "gchordbars" || name == "drumbars") {
-        pattern.bars = midi_integer(args, 1, 32, diagnostics, at);
-        pattern.reset(time);
-    } else if (name == "gchordon" || name == "gchordoff" || name == "drumon" || name == "drumoff") {
-        const bool on = name.ends_with("on");
-        if (on && !pattern.active) pattern.reset(time);
-        pattern.active = on;
-    } else
+    else if (name == "gchordbars" || name == "drumbars")
+        pattern.set_span(midi_integer(args, 1, 32, diagnostics, at), time);
+    else if (name == "gchordon" || name == "gchordoff" || name == "drumon" || name == "drumoff")
+        pattern.set_enabled(name.ends_with("on"));
+    else
         return false;
     return true;
 }

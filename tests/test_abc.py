@@ -340,9 +340,25 @@ def test_abc_pedals_are_not_paired_across_overlay_lanes():
     assert not [pedal for track in score.tracks for pedal in track.pedals]
 
 
+@pytest.mark.parametrize("pattern", ["gchord f雪", "drum d雪"])
+def test_abc_locates_invalid_backing_bytes(pattern: str):
+    with pytest.raises(
+        ValueError,
+        match=r"<string>:7:1: ABC \[invalid-backing-pattern\]: unexpected byte 0xe9",
+    ):
+        Score.from_abc(HEADER + f"%%MIDI {pattern}\nCDEF|")
+
+
+def test_abc_unsupported_default_backing_keeps_melody():
+    with pytest.warns(UserWarning, match=r"<string>:7:1: ABC \[no-default-backing\]"):
+        score = Score.from_abc(HEADER.replace("M:4/4", "M:7/16") + '"C"CDEF|')
+    assert len(score.tracks) == 1
+    assert score.note_num() == 4
+
+
 def test_abc_backing_cannot_overflow_note_end():
     text = HEADER.replace("L:1/4", "L:1/1920")
-    text += '%%MIDI gchordoff\nz2147483547\n%%MIDI gchord f\n%%MIDI gchordon\n"C"C'
+    text += '%%MIDI gchordoff\nz2147483547|\n%%MIDI gchord f\n%%MIDI gchordon\n"C"C'
     with pytest.raises(ValueError, match=r"<string>:11:4: ABC \[time-range\]"):
         Score.from_abc(text)
 

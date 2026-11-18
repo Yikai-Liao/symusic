@@ -28,19 +28,31 @@ private:
         int  velocity = 0;
     };
 
-    struct Pattern {
-        vec<Step>   steps;
-        long double next      = 0;
-        int         units     = 0;
-        int         bars      = 1;
-        int         bar_count = 0;
-        size_t      index     = 0;
-        bool        active    = false;
+    // A sequence makes one pass between bar restarts. Installing steps keeps
+    // any pending slot; changing the span affects later installs, not the
+    // length of installed slots. Muting gates output without moving the cursor.
+    class Pattern {
+    public:
+        explicit Pattern(bool enabled) : enabled(enabled) {}
+        void install(vec<Step> replacement, Meter meter, long double now);
+        void set_span(int bars, long double now);
+        void set_enabled(bool on) { enabled = on; }
+        void bar(long double now);
+        template<class Play>
+        void advance(long double end, Location at, Diagnostics& diagnostics, Play play);
 
-        void               reset(long double time);
-        void               bar(long double time);
-        void               assign(vec<Step> replacement, long double time);
+    private:
+        vec<Step>   steps;
+        long double next  = 0;
+        long double cycle = 0;
+        int         units = 0;
+        int         bars  = 1;
+        size_t      index = 0;
+        bool        enabled;
+
+        void               restart(long double now);
         [[nodiscard]] bool ready(long double end) const;
+        long double        consume();
     };
 
     struct Instrument {
@@ -56,6 +68,7 @@ private:
     struct Chord {
         int      bass;
         vec<int> pitches;
+        Location at;
 
         [[nodiscard]] std::optional<int> arpeggio(char action) const;
     };
@@ -70,8 +83,8 @@ private:
 
     Diagnostics&                         diagnostics;
     Meter                                current_meter;
-    Pattern                              chords;
-    Pattern                              drums;
+    Pattern                              chords{true};
+    Pattern                              drums{false};
     Instrument                           bass{.velocity = 80};
     Instrument                           chord{.velocity = 75};
     std::optional<Chord>                 current_chord;
@@ -94,9 +107,9 @@ private:
     bool drone_directive(
         std::string_view name, std::string_view args, long double time, Location at
     );
-    void chord_step(Step step, i32 time, i32 duration);
-    template<class Play>
-    void advance(Pattern& pattern, long double end, Location at, Play play);
+    void                chord_step(Step step, long double time, long double length, Location at);
+    void                drum_step(Step step, long double time, long double length, Location at);
+    std::pair<i32, i32> backing_times(long double time, long double length, Location at);
 };
 
 }   // namespace symusic::abc::detail

@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import tempfile
+from itertools import groupby
 from pathlib import Path
 
 import pytest
@@ -163,6 +164,29 @@ CASES = {
     "%%MIDI temperamentlinear 1200 702\nCDEF|\n%%MIDI C 61\nCD [I:MIDI temperamentnormal] EF|",
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
+    "drums_enable_without_restarting": HEADER
+    + "%%MIDI drum dddd 35 42 37 38\nCD [I:MIDI drumon] EF|",
+    "drums_mute_without_restarting": HEADER
+    + "%%MIDI drum dddd 35 42 37 38\n%%MIDI drumon\nC[I:MIDI drumoff]DE[I:MIDI drumon]F|",
+    "drums_replace_between_slots": HEADER
+    + "%%MIDI drum dddd 35 42 37 38\n%%MIDI drumon\nC/[I:MIDI drum dd 39 43] D3/ EF|",
+    "harmony_replace_between_slots": HEADER
+    + '%%MIDI gchord fghc\n"C"C/ [I:MIDI gchord h2g2] D3/ EF|',
+    "harmony_bar_span_before_definition": HEADER
+    + '%%MIDI gchordbars 2\n%%MIDI gchord fghcffgh\n"C"CDEF|GABc|cBAG|FEDC|',
+    "harmony_bar_span_after_definition": HEADER
+    + '%%MIDI gchord fghc\n%%MIDI gchordbars 2\n"C"CDEF|GABc|cBAG|FEDC|',
+    "drum_spacing_survives_meter_change": HEADER
+    + "%%MIDI drum dddd 35 42 37 38\n%%MIDI drumon\nCDEF|[M:3/4]GAB|",
+    "harmony_meter_keeps_pending_slot": HEADER
+    + '%%MIDI gchord fghc\n"C"CD[M:3/4]EF|"C"GAB|',
+    "harmony_stops_after_one_pattern_per_long_bar": HEADER
+    + '%%MIDI gchord fghc\n"C"C12|C4|',
+    "drums_multibar_pickup": HEADER
+    + "%%MIDI drumbars 2\n%%MIDI drum dddddddd 35 42 37 38 39 40 41 43\n%%MIDI drumon\nCD|GABc|cBAG|FEDC|",
+    "drums_fractional_slot_ticks": HEADER
+    + "%%MIDI drum ddddddd 35 42 37 38 39 40 41\n%%MIDI drumon\nCDEF|GABc|",
+    "quintuple_meter_backing": HEADER.replace("M:4/4", "M:5/4") + '"C"C5|',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")
     + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nC D E F |",
     "drum_default_velocity": HEADER
@@ -248,13 +272,18 @@ def performed_track(track: Track) -> dict:
 
 
 def performed(score: Score) -> dict:
-    """Compare music events, not MIDI track titles, ordering or file bytes."""
+    """Compare performed events, not track titles or redundant meter copies."""
     return {
         "tpq": score.tpq,
         "tempos": [[event.time, event.mspq] for event in score.tempos],
+        # abc2midi can copy identical time signatures into the conductor
+        # and backing tracks. Keep real changes, including changes at tick 0.
         "meters": [
-            [event.time, event.numerator, event.denominator]
-            for event in score.time_signatures
+            list(meter)
+            for meter, _ in groupby(
+                (event.time, event.numerator, event.denominator)
+                for event in score.time_signatures
+            )
         ],
         "keys": [
             [event.time, event.key, event.tonality] for event in score.key_signatures
