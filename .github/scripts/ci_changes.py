@@ -39,6 +39,7 @@ RULES: tuple[tuple[str, frozenset[str]], ...] = (
     (".github/workflows/*", ALL),
     (".github/scripts/*", ALL),
     (".github/*", frozenset()),
+    ("benchmarks/*", frozenset()),
     ("include/*", CORE),
     ("src/*", CORE),
     ("3rdparty/*", ALL),

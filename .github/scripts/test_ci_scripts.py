@@ -32,6 +32,7 @@ import ci_changes
         (["3rdparty/minimidi"], set(ci_changes.LANES)),
         ([".github/workflows/ci.yml"], set(ci_changes.LANES)),
         ([".github/pull_request_template.md"], set()),
+        (["benchmarks/ab.py"], set()),
         (["somewhere/new.txt"], set(ci_changes.LANES)),
         (["docs/index.md", "tests/cpp/test_main.cpp"], {"docs", "cpp"}),
     ],
