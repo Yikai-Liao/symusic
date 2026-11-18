@@ -87,7 +87,7 @@ python benchmarks/ab.py --local                   # same, through the runner
 python benchmarks/ab.py origin/main HEAD          # build both refs in Release mode and compare
 ```
 
-`ab.py` checks each ref out under `--workdir` (default `~/.cache/symusic-bench`, always outside the source tree), builds it in its own virtual environment and alternates the scenarios between the two builds. It prints per-scenario medians, the head/base ratio and the lowest and highest per-round ratio. Run it on a quiet machine, and compare a ratio against the spread of an A/A run (`ab.py origin/main origin/main`) before calling it a change. A slowdown never fails the script. The manual **Bench** workflow (`bench.yml`) runs the same comparison on a GitHub runner, whose noise is larger.
+`ab.py` checks each ref out under `--workdir` (default `~/.cache/symusic-bench`, always outside the source tree), builds it in its own virtual environment and alternates the scenarios between the two builds. It prints per-scenario medians, the head/base ratio and the lowest and highest per-round ratio. Run it on a quiet machine, and compare a ratio against the spread of an A/A run (`ab.py origin/main origin/main`) before calling it a change. A slowdown never fails the script. The manual **Bench** workflow (`bench.yml`) runs the same comparison on a GitHub runner; there an A/A run stays within about 1% for most scenarios, so prefer it over a busy local machine.
 
 Pull requests that touch hot paths in `src/` or `include/` (time conversion, parsing, dumping, sorting, container operations) attach the A/B table to the description. Scenarios use the fixtures in `tests/testcases/`; add a scenario to `benchmarks/scenarios.py` when a change targets an operation no scenario covers.
 
