@@ -30,3 +30,26 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 ## Test coverage
 
 - **Boundary inputs.** The memory-safety items above need regression tests for large ticks and offsets, extreme tempos and malformed MIDI durations.
+
+## Architecture
+
+Changes that reduce the number of places one change must touch.
+
+- **One field list per event.** Each event's fields are written out separately in `include/symusic/event.h`, `include/symusic/repr.h`, `include/symusic/soa.h`, `py_src/bindings/events/event_bindings.h`, `py_src/utils/python_helpers.h` and `python/symusic/factory.py`, while pickle copies the raw struct (`src/io/zpp.cpp`). Adding or retyping a field means editing all of them consistently. Describe each event's members once and derive repr, the structure-of-arrays and NumPy fields, the binding properties and the factory signatures from that description, keeping old pickles loadable.
+- **Factory dispatch.** `python/symusic/factory.py` (about 670 lines) has a hand-written factory class per type that repeats the same `ttype` dispatch. Generate it from the type list, or register the dispatch in the binding, while keeping the public constructors, `isinstance(x, Score)` across units and the typed stubs.
+- **Example-only headers.** `include/argparse.h` (about 2,200 lines, excluded from `clice lint`) sits in the core's public include directory but only `examples/cpp/` uses it. Move it under `examples/` or replace it with a pinned release.
+- **minimidi branch.** `.gitmodules` names branch `template-container` for `3rdparty/minimidi`, but the pinned commit is on `main`. Make the declared branch match the pin.
+
+## Features
+
+- **FluidSynth as an optional synthesizer.** `Synthesizer` (`include/symusic/synth.h`) wraps prestosynth only, and its C++ interface returns `psynth::AudioData`. Plan:
+  1. Put a backend boundary in the core: render a `Score<Second>` into a symusic-owned audio buffer, so the public C++ API no longer exposes prestosynth types. prestosynth stays the default backend and is always built.
+  2. Add a FluidSynth backend. FluidSynth is LGPL-2.1, so link it dynamically. Proposed: load `libfluidsynth` at run time from the system or a user-supplied path, so wheels and the default install do not change, and selecting the backend without the library raises an error that says how to install it. Rendering is offline: configure the sample rate, load the SoundFont, send program, note, control-change and pitch-bend events in time order and pull blocks with `fluid_synth_write_float`.
+  3. Open questions: the minimum FluidSynth version; whether source builds may also link it at build time; reverb and chorus defaults; how the Python API selects a backend. Test both backends on the same score for length, channel count and non-silent output rather than sample equality.
+- **MusicXML through mx.** symusic has no MusicXML support; `DataFormat::MusicXML` in `include/symusic/io/iodef.h` is declared but not implemented. [mx](https://github.com/webern/mx) (MIT, C++20, tagged releases, latest v0.7.1) reads and writes MusicXML and offers `mx::api`, a score model timed in ticks per quarter. Plan:
+  1. Add it as a pinned release submodule behind a build option. mx compiles about 1,300 source files, so measure the build-time and wheel-size cost before enabling it in wheels by default.
+  2. Import first, into `Score<Tick>`, with one track per part. Decide and test each mapping: tied notes merge into one note; grace notes; repeats and jumps (written order or unrolled); voices and staves inside a part; dynamics to velocity; tempo from `<sound tempo>` and metronome marks; transposing instruments (sounding pitch); unpitched percussion. Check whether mx reads compressed `.mxl`, or unzip it in symusic.
+  3. Export after import is stable. MusicXML needs notation that symusic does not model (measures, voices, ties across bar lines, note types), so export requires quantization and notation inference; scope it separately.
+- **abcmidi in process.** ABC import and export build `abc2midi` and `midi2abc` as separate executables from the upstream sources (wrapper translation units in `cmake/abcmidi/`), ship them in the wheel and run them through temporary files (`py_src/utils/process_runner.cpp`). Every call pays a process start and file I/O, and errors arrive only as an exit code and stderr. Plan:
+  1. Resolve the license first. abcmidi is GPL-2.0-or-later and symusic is MIT. Running abcmidi as a separate program keeps the two works separate; under the FSF's reading of the GPL, loading it into the extension's process as a library, static or dynamic, makes the combination a derivative work that must be distributed under the GPL. Options: ask the upstream maintainer for a linking exception or a permissive license; keep the subprocess; or write an ABC parser in the core.
+  2. If linking is allowed, build abcmidi as a shared library that exports only two entry points taking and returning in-memory buffers. Upstream keeps its state in file-scope globals and calls `exit()` on errors, so the library build needs a way to reset that state between calls, an error return in place of `exit()`, and a lock that serializes calls. Prefer upstream changes over an overlay that grows with every abcmidi release.
