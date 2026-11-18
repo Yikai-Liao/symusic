@@ -186,7 +186,7 @@ def main(argv: list[str]) -> int:
                 results[side].append(sample(exes[side], args.samples, args.only))
     finally:
         if not args.keep:
-            for sha in installs:
+            for sha in dict.fromkeys(shas):
                 shutil.rmtree(workdir / f"venv-{sha[:12]}", ignore_errors=True)
                 subprocess.run(
                     [
@@ -197,6 +197,7 @@ def main(argv: list[str]) -> int:
                         str(workdir / f"src-{sha[:12]}"),
                     ],
                     cwd=ROOT,
+                    stderr=subprocess.DEVNULL,
                 )
 
     out = table(results[0], results[1], f"base {args.base}", f"head {args.head}")
