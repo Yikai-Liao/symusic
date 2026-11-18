@@ -639,6 +639,13 @@ std::optional<Alteration> accidental(std::string_view text, Location at, Diagnos
     constexpr std::array normal{"__"sv, "_"sv, "="sv, "^"sv, "^^"sv};
     if (const auto found = std::ranges::find(normal, text); found != normal.end())
         return Alteration{static_cast<int>(found - normal.begin()) - 2};
+    Input input(text);
+    if (!peg::parse<peg::seq<grammar::accidental, peg::eof>>(input)) {
+        diagnostics.warn(
+            at, "invalid-accidental", fmt::format("ignored malformed accidental '{}'", text)
+        );
+        return {};
+    }
     if (text.find_first_not_of("^_=") == 1 && text.front() != '=')
         return microtone(text.substr(1), text.front() == '_' ? -1 : 1, at, diagnostics);
     diagnostics.warn(

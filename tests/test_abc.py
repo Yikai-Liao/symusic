@@ -386,6 +386,18 @@ def test_abc_warns_on_incompatible_chord_bends():
     assert list(score.tracks[0].pitch_bends) == [PitchBend(1, 2048), PitchBend(11, 0)]
 
 
+@pytest.mark.parametrize("chord", ["[DC]", "[CD]"])
+def test_abc_warns_on_bending_a_continuation(chord: str):
+    with pytest.warns(UserWarning, match=r"<string>:7:6: ABC \[shared-pitch-wheel\]"):
+        score = Score.from_abc(HEADER + f"^/C- {chord} F G|")
+    track = score.tracks[0]
+    assert [(note.time, note.duration, note.pitch) for note in track.notes[:2]] == [
+        (1, 959, 60),
+        (481, 479, 62),
+    ]
+    assert list(track.pitch_bends) == [PitchBend(1, 2048), PitchBend(481, 0)]
+
+
 def test_abc_rejects_zero_microtone_divisor():
     with pytest.raises(ValueError, match=r"<string>:7:3: ABC \[invalid-microtone\]"):
         Score.from_abc(HEADER + "C ^1/0D EF |")

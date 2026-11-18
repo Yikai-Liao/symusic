@@ -47,12 +47,12 @@ VoiceOutput::ChannelOutput& VoiceOutput::channel(MidiTarget target) {
 void VoiceOutput::tune(
     ChannelOutput& owner, MidiTarget target, MidiPitch pitch, i32 time, Location at
 ) {
-    if (target.channel == midi_drum_channel || owner.wheel == pitch.wheel) return;
+    if (target.channel == midi_drum_channel || owner.accidental_wheel == pitch.wheel) return;
     if (time < owner.sounding_until)
         diagnostics.warn(
             at, "shared-pitch-wheel", "pitch bend also affects overlapping notes on this voice"
         );
-    owner.wheel = pitch.wheel;
+    owner.accidental_wheel = pitch.wheel;
     owner.track.pitch_bends.emplace_back(time, pitch.wheel);
 }
 

@@ -66,6 +66,11 @@ struct TieNote {
     Location    at;
 };
 
+struct ChordMember {
+    Sound                      sound;
+    std::optional<NoteAddress> continuation;
+};
+
 struct Prepared {
     const Atom*  atom;
     Location     at;
@@ -288,7 +293,8 @@ private:
     std::optional<NoteAddress> note(
         Sound sound, long double start, long double duration, int stagger, int loudness, Location at
     );
-    std::optional<NoteAddress> sustain(Sound& sound, long double end, Location at);
+    std::optional<NoteAddress> sustain(Sound& sound, i32 end);
+    vec<ChordMember>           resolve_chord(const Prepared& atom, long double end);
     void                       set_symbols(std::string_view value, Location at);
     void                       control(std::string_view args, Location at, bool in_field);
     void                       program(std::string_view args, Location at);
@@ -421,9 +427,10 @@ std::optional<NoteAddress> VoicePlayer::note(
     return output.attack(target(), sound.pitch, start, duration, stagger, loudness, at);
 }
 
-std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, long double end, Location at) {
+std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, i32 end) {
     auto match = std::ranges::find_if(lane().ties, [&](const TieNote& pending) {
-        return sound.pitch == pending.sound.pitch
+        // The wheel bends the channel, not the note number matched by a tie.
+        return sound.pitch.note == pending.sound.pitch.note
                || (!sound.explicit_accidental && sound.letter == pending.sound.letter
                    && sound.written_octave == pending.sound.written_octave);
     });
@@ -431,14 +438,26 @@ std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, long double end, L
     auto address = match->note;
     sound.pitch  = match->sound.pitch;
     lane().ties.erase(match);
-    address.release_at(tick(end, diagnostics, at));
+    address.release_at(end);
     return address;
 }
 
-void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
+vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double end) {
     diagnostics.spend(PlaybackWork::chord(atom.atom->pitches.size(), lane().ties.size()), atom.at);
-    vec<TieNote> next_ties;
-    const auto   audible
+    const auto       release = lane().ties.empty() ? 0 : tick(end, diagnostics, atom.at);
+    vec<ChordMember> members;
+    members.reserve(atom.atom->pitches.size());
+    // Extend every continuation before an attack can change the shared wheel.
+    for (const auto& pitch : atom.atom->pitches) {
+        auto played       = sound(pitch, atom.tied);
+        auto continuation = sustain(played, release);
+        members.push_back({played, continuation});
+    }
+    return members;
+}
+
+void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
+    const auto audible
         = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
     const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
@@ -446,11 +465,11 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
     const auto attack   = has_ties ? 0 : lane().expression.chord_attack;
     const auto max_stagger
         = std::max(0, tick(audible, diagnostics, atom.at) - PlaybackGrid::release_trim);
-    int  stagger       = 0;
-    bool aligned_lyric = false;
-    for (const auto& pitch : atom.atom->pitches) {
-        auto played  = sound(pitch, atom.tied);
-        auto address = sustain(played, start + audible, atom.at);
+    int          stagger       = 0;
+    bool         aligned_lyric = false;
+    vec<TieNote> next_ties;
+    for (const auto& [played, continuation] : resolve_chord(atom, start + audible)) {
+        auto address = continuation;
         if (!address) {
             address = note(played, start, audible, stagger, loudness, atom.at);
             stagger = static_cast<int>(

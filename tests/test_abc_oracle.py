@@ -92,6 +92,7 @@ CASES = {
     "microtone_carry": HEADER + "^/F F _3/4E E | F E ^/4F =F |",
     "microtone_wide": HEADER.replace("M:4/4", "M:1/4")
     + "^9/4F|_9/4F|^3/2F|^2F|^3F|_3F|",
+    "microtone_tie_wheel": HEADER + "^/C- _/C D E|",
     "microtone_tie": HEADER + "^/C4- | C4 | D4 |",
     "microtone_key": HEADER.replace("K:C", "K:G _/B _3/4e _3/4A")
     + "B e A G|_/B _3/4e _3/4A G|",
@@ -239,6 +240,26 @@ def test_live_upstream_matches_snapshot(
     exit_code = 1 if name in RECOVERED else 0
     score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
     assert performed(score) == golden[name]
+
+
+def test_bad_key_accidental(upstream: Path, tmp_path: Path):
+    abc = HEADER + "C [K:G ^xF] D E F|"
+    with pytest.warns(
+        UserWarning, match=r"<string>:7:4: ABC \[invalid-accidental\].*\^x"
+    ):
+        native = Score.from_abc(abc)
+    assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
+
+
+def test_mixed_pitch_bends(upstream: Path, tmp_path: Path):
+    abc = HEADER + "^/C [I:MIDI pitchbend 0 64] ^/D E F|"
+    native = performed_track(Score.from_abc(abc).tracks[0])["bends"]
+    upstream_bends = performed_track(oracle_score(upstream, abc, tmp_path).tracks[0])[
+        "bends"
+    ]
+    # Neither restores the accidental wheel on D; abc2midi moves E a tick early.
+    assert native == [[1, 2048], [480, 0], [961, 0]]
+    assert upstream_bends == [[1, 2048], [480, 0], [960, 0]]
 
 
 def test_pitchbend_does_not_shift_note_clock(upstream: Path, tmp_path: Path):
