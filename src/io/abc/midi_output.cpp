@@ -4,21 +4,6 @@
 
 namespace symusic::abc::detail {
 
-MidiPitch altered_pitch(int base, Alteration alteration) {
-    const auto [numerator, denominator] = alteration;
-    if (denominator == 0) return {base + numerator, 0};
-    const auto divisor = static_cast<int64_t>(denominator);
-    // Keep the natural note number inside the wheel's range; otherwise put
-    // the whole semitone shift in the note and use the wheel for the remainder.
-    const bool wide     = numerator >= 2 * divisor || numerator < -2 * divisor;
-    const auto fraction = wide ? numerator % divisor : numerator;
-    const auto steps    = (midi_bend_center * std::abs(fraction) + divisor) / (2 * divisor);
-    const auto wheel    = std::clamp<int64_t>(
-        fraction < 0 ? -steps : steps, -midi_bend_center, midi_bend_center - 1
-    );
-    return {base + (wide ? numerator / denominator : 0), static_cast<int>(wheel)};
-}
-
 void NoteAddress::release_at(i32 end) const {
     auto& event    = note();
     event.duration = std::max(0, end - event.time);

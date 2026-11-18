@@ -71,14 +71,19 @@ struct ChordMember {
     std::optional<NoteAddress> continuation;
 };
 
+struct GraceGroup {
+    const Grace* notes = nullptr;
+    Location     at{};
+};
+
 struct Prepared {
-    const Atom*  atom;
-    Location     at;
-    long double  duration;
-    const Grace* grace;
-    Ornament     ornament;
-    bool         tied;
-    bool         slur;
+    const Atom* atom;
+    Location    at;
+    long double duration;
+    GraceGroup  grace;
+    Ornament    ornament;
+    bool        tied;
+    bool        slur;
 };
 
 struct TupletState {
@@ -227,7 +232,7 @@ void OverlayLanes::break_ties() {
 class VoicePlayer {
 public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
-        diagnostics(diagnostics), output(std::move(name), diagnostics),
+        diagnostics(diagnostics), output(std::move(name), diagnostics), tuning(settings.tuning),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics),
         tempo_unit(settings.unit), midi_shift(settings.midi_shift) {}
@@ -237,6 +242,7 @@ public:
 private:
     Diagnostics&                               diagnostics;
     VoiceOutput                                output;
+    const PitchTuning&                         tuning;
     WrittenState                               written;
     Accompaniment                              accompaniment;
     std::array<std::string_view, 128>          symbols;
@@ -248,8 +254,7 @@ private:
     TupletState                                tuplet;
     std::optional<Prepared>                    pending;
     std::optional<std::pair<Broken, Location>> broken;
-    const Grace*                               grace = nullptr;
-    Location                                   grace_at{};
+    GraceGroup                                 grace;
     Ornament                                   ornament;
     vec<NoteAddress>                           line_notes;
     size_t                                     music_line = 0;
@@ -287,9 +292,9 @@ private:
     void  play_trill(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_cut(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    Sound ornament_neighbor(Pitch pitch, int direction = 1);
-    Sound resolve_sound(Pitch pitch, Alteration alteration, bool tie);
-    Sound sound(Pitch pitch, bool tie);
+    Sound ornament_neighbor(Pitch pitch, Location at, int direction = 1);
+    Sound resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
+    Sound sound(Pitch pitch, Location at, bool tie);
     std::optional<NoteAddress> note(
         Sound sound, long double start, long double duration, int stagger, int loudness, Location at
     );
@@ -321,9 +326,9 @@ private:
 };
 
 void VoicePlayer::orphan_grace(Location) {
-    if (grace)
-        diagnostics.warn(grace_at, "orphan-grace", "ignored grace notes without a following note");
-    grace = nullptr;
+    if (grace.notes)
+        diagnostics.warn(grace.at, "orphan-grace", "ignored grace notes without a following note");
+    grace = {};
 }
 
 void VoicePlayer::broken_pair(Prepared& next) {
@@ -368,7 +373,7 @@ void VoicePlayer::push(const Atom& atom, Location at) {
         &atom,
         at,
         atom_duration(atom, at),
-        std::exchange(grace, nullptr),
+        std::exchange(grace, {}),
         std::exchange(ornament, {}),
         atom.tie,
         lane().slur > 0
@@ -391,24 +396,25 @@ int VoicePlayer::sounding_shift() {
     return midi_shift + written.tone.transpose.value_or(0);
 }
 
-Sound VoicePlayer::sound(Pitch pitch, bool tie) {
-    return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), tie);
+Sound VoicePlayer::sound(Pitch pitch, Location at, bool tie) {
+    return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), at, tie);
 }
 
-Sound VoicePlayer::resolve_sound(Pitch pitch, Alteration alteration, bool tie) {
-    const auto index = letter_index(pitch.letter);
-    const int  base  = lane().base_pitch + natural_pitch[index]
-                       + 12 * (pitch.octave + written.tone.octave) + sounding_shift();
+Sound VoicePlayer::resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie) {
+    auto midi = tuning.pitch(
+        pitch.letter, pitch.octave + written.tone.octave, lane().base_pitch, alteration, at
+    );
+    midi.note += sounding_shift();
     return {
-        altered_pitch(base, alteration),
-        static_cast<int>(index),
+        midi,
+        static_cast<int>(letter_index(pitch.letter)),
         pitch.octave,
         pitch.accidental.has_value(),
         tie || pitch.tie
     };
 }
 
-Sound VoicePlayer::ornament_neighbor(Pitch pitch, int direction) {
+Sound VoicePlayer::ornament_neighbor(Pitch pitch, Location at, int direction) {
     constexpr std::string_view scale   = "CDEFGAB";
     const auto                 offset  = static_cast<int>(scale.find(pitch.letter)) + direction;
     constexpr int              degrees = static_cast<int>(scale.size());
@@ -418,7 +424,7 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch, int direction) {
     pitch.accidental.reset();
     pitch.tie = false;
     // An inferred ornament uses the key, not the measure's accidental for its neighbor.
-    return resolve_sound(pitch, written.tone.alterations[letter_index(pitch.letter)], false);
+    return resolve_sound(pitch, written.tone.alterations[letter_index(pitch.letter)], at, false);
 }
 
 std::optional<NoteAddress> VoicePlayer::note(
@@ -449,7 +455,7 @@ vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double en
     members.reserve(atom.atom->pitches.size());
     // Extend every continuation before an attack can change the shared wheel.
     for (const auto& pitch : atom.atom->pitches) {
-        auto played       = sound(pitch, atom.tied);
+        auto played       = sound(pitch, atom.at, atom.tied);
         auto continuation = sustain(played, release);
         members.push_back({played, continuation});
     }
@@ -487,8 +493,8 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
 }
 
 long double VoicePlayer::play_grace(const Prepared& atom) {
-    if (!atom.grace || atom.grace->pitches.empty()) return 0;
-    const auto& pitches = atom.grace->pitches;
+    if (!atom.grace.notes || atom.grace.notes->pitches.empty()) return 0;
+    const auto& pitches = atom.grace.notes->pitches;
     long double weights = 0;
     for (const auto& pitch : pitches) weights += pitch.length.fraction();
     if (weights == 0) return 0;
@@ -507,7 +513,7 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
     auto start = lane().time;
     for (const auto& pitch : pitches) {
         const auto duration = pitch.length.fraction() * length;
-        note(sound(pitch, false), start, duration, 0, velocity(start), atom.at);
+        note(sound(pitch, atom.grace.at, false), start, duration, 0, velocity(start), atom.at);
         start += duration;
     }
     return total;
@@ -516,9 +522,9 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
 void VoicePlayer::play_roll(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
-    const auto       main = sound(pitch, false);
+    const auto       main = sound(pitch, atom.at, false);
     const std::array notes{
-        main, ornament_neighbor(pitch), main, ornament_neighbor(pitch, -1), main
+        main, ornament_neighbor(pitch, atom.at), main, ornament_neighbor(pitch, atom.at, -1), main
     };
     const auto step = duration / notes.size();
     for (size_t index = 0; index < notes.size(); ++index) {
@@ -536,7 +542,7 @@ void VoicePlayer::play_cut(
         play_chord(atom, start, duration);
         return;
     }
-    note(ornament_neighbor(pitch), start, ornament_length, 0, velocity(start), atom.at);
+    note(ornament_neighbor(pitch, atom.at), start, ornament_length, 0, velocity(start), atom.at);
     play_chord(atom, start + ornament_length, duration - ornament_length);
 }
 
@@ -546,8 +552,8 @@ void VoicePlayer::play_trill(
     const auto count
         = std::clamp(static_cast<int>(std::min(256.L, duration / (written.unit / 8))), 2, 256);
     const auto step   = duration / count;
-    const auto higher = ornament_neighbor(pitch);
-    const auto lower  = sound(pitch, false);
+    const auto higher = ornament_neighbor(pitch, atom.at);
+    const auto lower  = sound(pitch, atom.at, false);
     for (int i = 0; i < count; ++i) {
         const auto onset = start + i * step;
         note(i % 2 ? lower : higher, onset, step, 0, velocity(onset), atom.at);
@@ -589,9 +595,8 @@ void VoicePlayer::play(const Prepared& atom) {
 }
 
 void VoicePlayer::visit(const Grace& next, Location at) {
-    if (grace) orphan_grace(at);
-    grace    = &next;
-    grace_at = at;
+    if (grace.notes) orphan_grace(at);
+    grace = {&next, at};
 }
 
 void VoicePlayer::visit(const Harmony& chord, Location at) {
@@ -791,6 +796,7 @@ void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
 
 void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
     const auto name = word(command);
+    if (name == PitchTuning::reset_command) return;   // Already compiled in source order.
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
     const auto value
         = [&](int low, int high) { return midi_integer(command, low, high, diagnostics, at); };

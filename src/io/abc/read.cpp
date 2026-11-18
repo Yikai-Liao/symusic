@@ -34,7 +34,7 @@ void header_field(Header& header, Field field, const Token& token, Diagnostics& 
 }
 
 Header read_header(const Tune& tune, Diagnostics& diagnostics) {
-    Header       header;
+    Header       header{.settings = {.tuning = PitchTuning(tune, diagnostics)}};
     const Token* unit      = nullptr;
     const Token* speed     = nullptr;
     bool         saw_meter = false;

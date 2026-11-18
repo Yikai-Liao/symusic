@@ -1,7 +1,7 @@
 #pragma once
 
 #include "navigation.h"
-#include "settings.h"
+#include "pitch_tuning.h"
 #include "symusic/score.h"
 
 namespace symusic::abc::detail {
@@ -9,6 +9,7 @@ namespace symusic::abc::detail {
 struct TuneSettings {
     Meter                             meter;
     Key                               key;
+    PitchTuning                       tuning;
     i32                               tempo      = 500000;
     long double                       unit       = whole / 8;
     int                               midi_shift = 0;

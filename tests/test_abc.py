@@ -398,6 +398,17 @@ def test_abc_warns_on_bending_a_continuation(chord: str):
     assert list(track.pitch_bends) == [PitchBend(1, 2048), PitchBend(481, 0)]
 
 
+@pytest.mark.parametrize("invalid", ["0 0 0", "0 0 nan", "201 0 0 0 0 0 0 0 0 0 0 0"])
+def test_abc_malformed_detune(invalid: str):
+    tuning = "%%temperament 0 0 10 0 0 0 0 0 0 0 0 0\n"
+    abc = HEADER + tuning + f"%%temperament {invalid}\nD E F G|"
+    with pytest.warns(
+        UserWarning, match=r"<string>:8:1: ABC \[invalid-temperament\].*12 detunings"
+    ):
+        score = Score.from_abc(abc)
+    assert list(score.tracks[0].pitch_bends) == [PitchBend(1, 410), PitchBend(481, 0)]
+
+
 def test_abc_rejects_zero_microtone_divisor():
     with pytest.raises(ValueError, match=r"<string>:7:3: ABC \[invalid-microtone\]"):
         Score.from_abc(HEADER + "C ^1/0D EF |")

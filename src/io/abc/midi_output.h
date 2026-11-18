@@ -2,7 +2,7 @@
 
 #include <map>
 
-#include "settings.h"
+#include "pitch_tuning.h"
 #include "symusic/track.h"
 
 namespace symusic::abc::detail {
@@ -12,13 +12,6 @@ struct MidiTarget {
     int channel;
     int program;
 };
-
-struct MidiPitch {
-    int note;
-    int wheel;
-};
-
-MidiPitch altered_pitch(int base, Alteration alteration);
 
 class VoiceOutput;
 

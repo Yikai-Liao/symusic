@@ -17,6 +17,7 @@ from tests.test_abc import HEADER, note_rows, roundtrip_score
 from tests.utils import TESTCASES_PATH
 
 SNAPSHOT = TESTCASES_PATH / "abc_oracle.json"
+DETUNE = "%%temperament +00 -06 -04.5 -02 -08 +02 -08 -02 -04 -06 +00 -10\n"
 RECOVERED = {
     "decoration_line_end": "orphan-decoration",
     "rising_sun_stray_coda": "ignored-decoration",
@@ -89,6 +90,15 @@ CASES = {
         HEADER.replace("K:C", "%%MIDI pitchbendrange 5\n%%MIDI portamento 12\nK:C")
         + "CDEF|"
     ),
+    "detune_reset": HEADER + DETUNE + "^b _c ^/D E|\n%%MIDI temperamentnormal\nCDEF|",
+    "detune_repeat": HEADER + "|: CDEF|\n" + DETUNE + "GABc:|",
+    "detune_voices": HEADER
+    + "V:one\nCDEF|\n"
+    + DETUNE
+    + "V:two\nCDEF|z4|\nV:one\nGABc|",
+    "detune_header": HEADER.replace("K:C", DETUNE + "K:C") + "CDEF|",
+    "detune_before_tune": DETUNE + HEADER + "CDEF|",
+    "detune_transpose": HEADER + DETUNE + "%%MIDI transpose 2\n%%MIDI C 63\nCDEF|",
     "microtone_carry": HEADER + "^/F F _3/4E E | F E ^/4F =F |",
     "microtone_wide": HEADER.replace("M:4/4", "M:1/4")
     + "^9/4F|_9/4F|^3/2F|^2F|^3F|_3F|",
@@ -146,6 +156,8 @@ UPSTREAM_SAMPLES = (
     "daramud",
     "demo",
     "decoration_bar_line",
+    "detune",
+    "detune_accidentals",
     "drums",
     "fermata_bars",
     "gchord_codes",

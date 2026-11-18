@@ -24,6 +24,7 @@ add_library(symusic
     src/io/abc/expression.cpp
     src/io/abc/midi_output.cpp
     src/io/abc/navigation.cpp
+    src/io/abc/pitch_tuning.cpp
     src/io/abc/playback.cpp
     src/io/abc/read.cpp
     src/io/abc/settings.cpp
