@@ -97,8 +97,9 @@ TrackPianoroll TrackPianoroll::from_track(
         if (note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
             const auto [noteStart, noteEnd] = checked_note_span(note.time, note.duration, timeDim);
             for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                // The span is inside the time axis, and set() re-checks every index.
-                pianoroll.set(
+                // Invariant: modeIdx < modes.size(), the pitch offset is below the pitch range
+                // size, and checked_note_span proved the span lies inside the time axis.
+                pianoroll.fill_unchecked(
                     modeIdx,
                     note->pitch - pitchRange.first,
                     modes[modeIdx] != PianorollMode::offset ? noteStart : noteEnd,
@@ -133,6 +134,20 @@ pianoroll_t* TrackPianoroll::operator()(const size_t mode, const size_t pitch, c
     check_index("time", time, this->timeDim);
     return this->data() + mode * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
 };
+
+void TrackPianoroll::fill_unchecked(
+    const size_t      mode,
+    const size_t      pitch,
+    const size_t      start,
+    const size_t      duration,
+    const pianoroll_t value
+) noexcept {
+    std::fill_n(
+        this->dataPtr.get() + (mode * this->pitchDim + pitch) * this->timeDim + start,
+        duration,
+        value
+    );
+}
 
 void TrackPianoroll::set(
     const size_t      mode,
@@ -189,8 +204,10 @@ ScorePianoroll ScorePianoroll::from_score(
                 const auto [noteStart, noteEnd]
                     = checked_note_span(note.time, note.duration, timeDim);
                 for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                    // The span is inside the time axis, and set() re-checks every index.
-                    pianoroll.set(
+                    // Invariant: modeIdx < modes.size(), trackIdx < tracks.size(), the pitch
+                    // offset is below the pitch range size, and checked_note_span proved the
+                    // span lies inside the time axis.
+                    pianoroll.fill_unchecked(
                         modeIdx,
                         trackIdx,
                         note->pitch - pitchRange.first,
@@ -229,6 +246,22 @@ pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch,
     return data() + mode * this->trackDim * this->pitchDim * this->timeDim
            + track * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
 };
+
+void ScorePianoroll::fill_unchecked(
+    const size_t      mode,
+    const size_t      track,
+    const size_t      pitch,
+    const size_t      start,
+    const size_t      duration,
+    const pianoroll_t value
+) noexcept {
+    std::fill_n(
+        this->dataPtr.get()
+            + ((mode * this->trackDim + track) * this->pitchDim + pitch) * this->timeDim + start,
+        duration,
+        value
+    );
+}
 
 void ScorePianoroll::set(
     size_t mode, size_t track, size_t pitch, size_t start, size_t duration, pianoroll_t value

@@ -42,6 +42,11 @@ private:
     size_t                         timeDim;
     std::unique_ptr<pianoroll_t[]> dataPtr;
 
+    /// Unchecked fill used by `from_track` after it has validated every index.
+    void fill_unchecked(
+        size_t mode, size_t pitch, size_t start, size_t duration, pianoroll_t value
+    ) noexcept;
+
 public:
     TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim);
     TrackPianoroll(const TrackPianoroll&)                = delete;
@@ -81,6 +86,11 @@ private:
     size_t                         pitchDim;
     size_t                         timeDim;
     std::unique_ptr<pianoroll_t[]> dataPtr;
+
+    /// Unchecked fill used by `from_score` after it has validated every index.
+    void fill_unchecked(
+        size_t mode, size_t track, size_t pitch, size_t start, size_t duration, pianoroll_t value
+    ) noexcept;
 
 public:
     ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim);
