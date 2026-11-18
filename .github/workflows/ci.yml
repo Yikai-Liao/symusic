@@ -172,6 +172,32 @@ jobs:
           files: ${{ runner.temp }}/symusic-build/coverage.xml
           flags: cpp
 
+  sanitize:
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      # Failures abort with stacks. Leak detection stays on for the C++ tests.
+      ASAN_OPTIONS: abort_on_error=0:halt_on_error=1:detect_leaks=1:print_stacktrace=1:strict_string_checks=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      # Statistics are printed by the action's post step.
+      - name: Compiler cache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba  # v0.0.11
+      - name: Configure
+        run: >-
+          cmake -S . -B "$RUNNER_TEMP/symusic-build" -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_SANITIZE="address;undefined"
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      - name: Build
+        run: cmake --build "$RUNNER_TEMP/symusic-build"
+      - name: Test
+        run: ctest --test-dir "$RUNNER_TEMP/symusic-build" --output-on-failure
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -211,7 +237,7 @@ jobs:
       smoke: true
 
   ci-ok:
-    needs: [changes, lint, python, cpp, docs, wheels]
+    needs: [changes, lint, python, cpp, sanitize, docs, wheels]
     if: always()
     runs-on: ubuntu-latest
     steps:
