@@ -14,6 +14,31 @@
 
 namespace pyutils {
 
+// Convert one item of a Python iterable into the shared event or track held by the
+// containers below. nanobind rejects `None` for typed arguments such as `append`, but
+// `cast` on an iterable's items turns it into an empty pointer and reports other
+// mismatches as `RuntimeError`. Every element that enters a container from Python goes
+// through this check, so containers never hold an empty `shared_ptr` and the helpers
+// below dereference their elements without null checks.
+template<typename Ptr>
+bool try_cast_element(const nanobind::handle h, Ptr& out) {
+    return nanobind::try_cast<Ptr>(h, out) && out;
+}
+
+// Raising form of `try_cast_element`, used where an item is stored. Comparisons use
+// `try_cast_element` directly: an item of another kind, `None` included, is unequal
+// to every element, so `==` returns `False` instead of raising.
+template<typename Ptr>
+Ptr cast_element(const nanobind::handle h) {
+    Ptr ptr;
+    if (!try_cast_element(h, ptr)) {
+        throw nanobind::type_error(("list elements must be instances of the element type, not "
+                                    + std::string(nanobind::type_name(h.type()).c_str()))
+                                       .c_str());
+    }
+    return ptr;
+}
+
 // Return value policy for `__getitem__`: Python owns elements stored by raw
 // pointer and gets a copy otherwise. nanobind needs it as a compile-time tag.
 template<typename Value>
@@ -301,7 +326,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             [](self_t& v, typed<iterable, Value>& seq) {
                 new (&v) self_t(std::move(std::make_shared<Vector>()));
                 v->reserve(len_hint(seq));
-                for (handle h : seq) v->push_back(cast<Value>(h));
+                for (handle h : seq) v->push_back(cast_element<Value>(h));
             },
             "Construct from an iterable object"
         );
@@ -424,7 +449,8 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             if (!v) return false;
             if (v->size() != len(other)) return false;
             for (size_t i = 0; i < v->size(); i++) {
-                if (*v->operator[](i) != *cast<Value>(other[i])) return false;
+                Value item;
+                if (!try_cast_element(other[i], item) || *v->operator[](i) != *item) return false;
             }
             return true;
         };
@@ -447,7 +473,8 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 
             .def(
                 "__contains__",   // fallback for incompatible types
-                [](const self_t&, handle) { return false; }
+                [](const self_t&, handle) { return false; },
+                arg("item").none()
             )
 
             .def(
@@ -543,7 +570,7 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
         [](self_t& v, typed<iterable, ValueRef>& seq) {
             new (&v) self_t(std::move(std::make_shared<Vector>()));
             v->reserve(len_hint(seq));
-            for (handle h : seq) v->push_back(*cast<ValueRef>(h));
+            for (handle h : seq) v->push_back(*cast_element<ValueRef>(h));
         },
         "Construct from an iterable object"
     );
@@ -633,7 +660,8 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
         auto eq_list = [](const self_t& v, const list& other) {
             if (v->size() != len(other)) return false;
             for (size_t i = 0; i < v->size(); i++) {
-                if (*v->operator[](i) != *cast<ValueRef>(other[i])) return false;
+                ValueRef item;
+                if (!try_cast_element(other[i], item) || *v->operator[](i) != *item) return false;
             }
             return true;
         };
@@ -649,7 +677,8 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
 
             .def(
                 "__contains__",   // fallback for incompatible types
-                [](const self_t&, handle) { return false; }
+                [](const self_t&, handle) { return false; },
+                arg("item").none()
             )
 
             .def(
