@@ -22,7 +22,10 @@ TrackNative<Tick>& VoiceOutput::track(MidiTarget target) {
     const auto [lane, channel, program] = target;
     return output
         .try_emplace(
-            {lane, channel, program}, lane == 0 ? name : "", static_cast<u8>(program), channel == 10
+            {lane, channel, program},
+            lane == 0 ? name : "",
+            static_cast<u8>(program),
+            channel == midi_drum_channel
         )
         .first->second;
 }

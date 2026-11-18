@@ -9,8 +9,9 @@ namespace symusic::abc::detail {
 struct TuneSettings {
     Meter                             meter;
     Key                               key;
-    i32                               tempo = 500000;
-    long double                       unit  = whole / 8;
+    i32                               tempo      = 500000;
+    long double                       unit       = whole / 8;
+    int                               midi_shift = 0;
     std::string                       title;
     std::array<std::string_view, 128> symbols{};
 };

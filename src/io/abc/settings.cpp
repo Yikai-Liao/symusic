@@ -228,6 +228,15 @@ long double tempo_beat(
 
 }   // namespace
 
+bool midi_transposition(
+    std::string_view name, std::string_view args, int& shift, Diagnostics& diagnostics, Location at
+) {
+    if (name != "transpose" && name != "rtranspose") return false;
+    const auto amount = shift_value(word(args), diagnostics, at, name, 127);
+    shift             = name == "transpose" ? amount : std::clamp(shift + amount, -127, 127);
+    return true;
+}
+
 int Meter::accent_beats() const {
     if (compound()) return 3;
     if (numerator == 4) return 2;

@@ -63,6 +63,19 @@ CASES = {
     "expand_after_trim": HEADER + "%%MIDI trim 1/8\nC\n%%MIDI expand 1/8\nD E F z |",
     "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
     "breath": HEADER + "C !breath!D !breath![EG] F |",
+    "transpose_tune": HEADER.replace("K:C", "%%MIDI transpose 2\nK:C")
+    + "V:one\nCDEF|\nV:two\nC,D,E,F,|",
+    "transpose_key_and_voice": HEADER.replace(
+        "K:C", "%%MIDI transpose 2\nK:C transpose=3"
+    )
+    + "V:one transpose=4\nCDEF|\nV:two\nC,D,E,F,|",
+    "transpose_scoped_header": HEADER.replace(
+        "K:C", "V:one\nV:two\n%%MIDI transpose 2\nK:C"
+    )
+    + "[V:one]CDEF|\n[V:two]C,D,E,F,|",
+    "relative_transpose": HEADER.replace("K:C", "K:C transpose=3")
+    + "C\n%%MIDI transpose 2\nD\n%%MIDI rtranspose -1\nE [K:G transpose=5] F|",
+    "transpose_percussion": HEADER + "%%MIDI channel 10\n%%MIDI transpose 2\nCDEF|",
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")

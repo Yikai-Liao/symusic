@@ -70,7 +70,7 @@ struct Voice {
 
 class Voices {
 public:
-    Voices(const Tune& tune, Diagnostics& diagnostics);
+    Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostics);
     [[nodiscard]] const auto& all() const { return voices; }
     [[nodiscard]] const auto& preamble() const { return common; }
 
@@ -84,7 +84,7 @@ private:
 
     size_t find_voice(std::string_view id, Location at);
     bool   select(const Token& token);
-    void   header(const Token& token);
+    void   header(const Token& token, TuneSettings& settings);
     void   append(const Token& token);
 };
 
@@ -127,7 +127,7 @@ void Voices::append(const Token& token) {
     voice.music.push_back(token);
 }
 
-void Voices::header(const Token& token) {
+void Voices::header(const Token& token, TuneSettings& settings) {
     if (select(token)) return;
     std::string_view command;
     if (const auto* directive = std::get_if<Directive>(&token.value))
@@ -138,17 +138,25 @@ void Voices::header(const Token& token) {
         if (field.kind != 'I') return;
         command = field.value;
     }
-    // MIDI commands before the first V: belong to the initial voice, just
-    // like commands after a later voice declaration belong to that voice.
-    if (word(command) == "MIDI")
-        append(token);
-    else
+    if (word(command) != "MIDI") {
         common.push_back(token);
+        return;
+    }
+    if (voices.front().id.empty()) {
+        const auto name = word(command);
+        if (midi_transposition(name, command, settings.midi_shift, diagnostics, token.at)) return;
+    }
+    append(token);
 }
 
-Voices::Voices(const Tune& tune, Diagnostics& diagnostics) : diagnostics(diagnostics) {
+Voices::Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostics) :
+    diagnostics(diagnostics) {
     voices.push_back({});
-    for (const auto& token : tune.header) header(token);
+    for (const auto& token : tune.header) header(token, settings);
+    // A header K: transpose follows the global MIDI preamble. Body K:/V:
+    // shifts, by contrast, are local to the current written voice.
+    if (settings.key.transpose) settings.midi_shift = *settings.key.transpose;
+    settings.key.transpose.reset();
     selected = 0;
     for (const auto& token : tune.body) {
         const auto* field = std::get_if<Field>(&token.value);
@@ -200,9 +208,9 @@ void merge(Performance& all, Performance voice) {
 }
 
 ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
-    const auto          header   = read_header(tune, diagnostics);
-    const auto&         settings = header.settings;
-    const Voices        voices(tune, diagnostics);
+    auto                header   = read_header(tune, diagnostics);
+    auto&               settings = header.settings;
+    const Voices        voices(tune, settings, diagnostics);
     const PartItinerary itinerary(header.order, header.order_at, diagnostics);
     Performance         music;
     for (const auto& voice : voices.all()) {

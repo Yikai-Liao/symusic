@@ -272,7 +272,7 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
     output += declaration;
     output += '\n';
     token("[I:MIDI gchordoff]");
-    if (drums) token("[I:MIDI channel 10]");
+    if (drums) token(fmt::format("[I:MIDI channel {}]", detail::midi_drum_channel));
     token(fmt::format("[I:MIDI program {}]", program));
     token("[I:MIDI chordattack 0]");
     token(fmt::format("[I:MIDI expand {}/{}]", PlaybackGrid::export_release_extension, tpq));

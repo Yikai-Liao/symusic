@@ -224,7 +224,7 @@ public:
         diagnostics(diagnostics), output(std::move(name), diagnostics),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics),
-        tempo_unit(settings.unit) {}
+        tempo_unit(settings.unit), midi_shift(settings.midi_shift) {}
 
     Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
@@ -237,6 +237,8 @@ private:
     OverlayLanes                               lanes;
     PlaybackLane&                              lane() { return lanes.active(); }
     const long double                          tempo_unit;
+    int                                        midi_shift;
+    [[nodiscard]] int                          sounding_shift();
     TupletState                                tuplet;
     std::optional<Prepared>                    pending;
     std::optional<std::pair<Broken, Location>> broken;
@@ -376,6 +378,11 @@ void VoicePlayer::flush() {
     for (const auto* token : next_effects) visit_token(*token);
 }
 
+int VoicePlayer::sounding_shift() {
+    if (lane().channel == midi_drum_channel) return 0;
+    return midi_shift + written.tone.transpose.value_or(0);
+}
+
 Sound VoicePlayer::sound(Pitch pitch, bool tie) {
     return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), tie);
 }
@@ -384,7 +391,7 @@ Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) {
     const auto index = letter_index(pitch.letter);
     return {
         lane().base_pitch + natural_pitch[index] + 12 * (pitch.octave + written.tone.octave)
-            + semitone + written.tone.transpose,
+            + semitone + sounding_shift(),
         static_cast<int>(index),
         pitch.octave,
         pitch.accidental.has_value(),
@@ -549,7 +556,8 @@ void VoicePlayer::visit(const Grace& next, Location at) {
 void VoicePlayer::visit(const Harmony& chord, Location at) {
     flush();
     diagnostics.spend(PlaybackWork::text(chord.symbol), at);
-    if (lanes.id() == 0) accompaniment.harmony(chord.symbol, written.tone.transpose, at);
+    if (lanes.id() == 0)
+        accompaniment.harmony(chord.symbol, midi_shift + written.tone.transpose.value_or(0), at);
 }
 
 void VoicePlayer::visit(Slur change, Location at) {
@@ -735,6 +743,7 @@ void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
 
 void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
     const auto name = word(command);
+    if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
     const auto value
         = [&](int low, int high) { return midi_integer(command, low, high, diagnostics, at); };
     if (name == "program")
@@ -743,10 +752,6 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
         lane().channel = value(1, 16);
     else if (name == "control")
         control(command, at, in_field);
-    else if (name == "transpose")
-        written.tone.transpose = value(-127, 127);
-    else if (name == "rtranspose")
-        written.tone.transpose = std::clamp(written.tone.transpose + value(-127, 127), -127, 127);
     else if (name == "C" || name == "c")
         lane().base_pitch = value(0, midi_max);
     else if (
