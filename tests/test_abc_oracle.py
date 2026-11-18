@@ -17,10 +17,8 @@ from tests.utils import TESTCASES_PATH
 
 SNAPSHOT = TESTCASES_PATH / "abc_oracle.json"
 RECOVERED = {
-    "rising_sun_stray_coda": (
-        TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc",
-        "ignored-decoration",
-    ),
+    "decoration_line_end": "orphan-decoration",
+    "rising_sun_stray_coda": "ignored-decoration",
 }
 CASES = {
     "straight": HEADER + "C D E F | G A B c |",
@@ -59,6 +57,8 @@ CASES = {
     "rhythm_ratio": HEADER + "%%MIDI ratio 2 1\nC>D E<F| G>>A B<<c|",
     "fermata_modes": HEADER + "%%MIDI fermatafixed\nHC2 D Hz |\n"
     "%%MIDI fermataproportional\nH[EG]2 F G|",
+    "roll_octaves_and_key": HEADER.replace("K:C", "K:G") + "RB RC RE RF |",
+    "ornament_continuation": HEADER + "CDE !fermata!\\\n F |",
     "trill_beat": HEADER + "TCDE|TC2DE|",
     "expand_after_trim": HEADER + "%%MIDI trim 1/8\nC\n%%MIDI expand 1/8\nD E F z |",
     "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
@@ -99,7 +99,10 @@ CASES = {
         path.stem: path.read_text(encoding="utf-8")
         for path in sorted((TESTCASES_PATH / "abc_files").glob("*.abc"))
     },
-    **{name: path.read_text(encoding="utf-8") for name, (path, _) in RECOVERED.items()},
+    "rising_sun_stray_coda": (
+        TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc"
+    ).read_text(encoding="utf-8"),
+    "decoration_line_end": HEADER + "C D E F |H\nG A B c |]",
 }
 
 
@@ -167,7 +170,7 @@ def upstream() -> Path:
 @pytest.mark.parametrize("name", CASES)
 def test_abc_performance_matches_upstream_snapshot(name: str, golden: dict):
     if name in RECOVERED:
-        with pytest.warns(UserWarning, match=rf"\[{RECOVERED[name][1]}\]"):
+        with pytest.warns(UserWarning, match=rf"\[{RECOVERED[name]}\]"):
             score = Score.from_abc(CASES[name] + "\n")
     else:
         score = Score.from_abc(CASES[name] + "\n")

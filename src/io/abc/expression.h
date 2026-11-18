@@ -51,6 +51,7 @@ struct Ornament {
     bool staccato = false;
     bool fermata  = false;
     bool trill    = false;
+    bool cut      = false;
     bool roll     = false;
 };
 

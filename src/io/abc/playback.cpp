@@ -280,7 +280,8 @@ private:
     void        play_chord(const Prepared& atom, long double start, long double duration);
     void  play_trill(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    Sound ornament_neighbor(Pitch pitch);
+    void  play_cut(Pitch pitch, const Prepared& atom, long double start, long double duration);
+    Sound ornament_neighbor(Pitch pitch, int direction = 1);
     Sound resolve_sound(Pitch pitch, int semitone, bool tie);
     Sound sound(Pitch pitch, bool tie);
     std::optional<NoteAddress> note(
@@ -399,9 +400,13 @@ Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) {
     };
 }
 
-Sound VoicePlayer::ornament_neighbor(Pitch pitch) {
-    if (pitch.letter == 'B') ++pitch.octave;
-    pitch.letter = pitch.letter == 'G' ? 'A' : static_cast<char>(pitch.letter + 1);
+Sound VoicePlayer::ornament_neighbor(Pitch pitch, int direction) {
+    constexpr std::string_view scale   = "CDEFGAB";
+    const auto                 offset  = static_cast<int>(scale.find(pitch.letter)) + direction;
+    constexpr int              degrees = static_cast<int>(scale.size());
+    if (offset < 0) --pitch.octave;
+    if (offset == degrees) ++pitch.octave;
+    pitch.letter = scale[(offset + degrees) % degrees];
     pitch.accidental.reset();
     pitch.tie = false;
     // An inferred ornament uses the key, not the measure's accidental for its neighbor.
@@ -492,6 +497,21 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
 void VoicePlayer::play_roll(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
+    const auto       main = sound(pitch, false);
+    const std::array notes{
+        main, ornament_neighbor(pitch), main, ornament_neighbor(pitch, -1), main
+    };
+    const auto step = duration / notes.size();
+    for (size_t index = 0; index < notes.size(); ++index) {
+        const auto onset   = start + index * step;
+        const auto address = note(notes[index], onset, step, 0, velocity(onset), atom.at);
+        if (index == 0 && address) line_notes.push_back(*address);
+    }
+}
+
+void VoicePlayer::play_cut(
+    Pitch pitch, const Prepared& atom, long double start, long double duration
+) {
     const auto ornament_length = written.unit / lane().expression.grace_divider;
     if (ornament_length + epsilon >= duration) {
         play_chord(atom, start, duration);
@@ -526,6 +546,8 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     const auto remaining  = duration - grace_time;
     if (atom.ornament.roll && pitches.size() == 1)
         play_roll(pitches.front(), atom, onset, remaining);
+    else if (atom.ornament.cut && pitches.size() == 1)
+        play_cut(pitches.front(), atom, onset, remaining);
     else if (atom.ornament.trill && pitches.size() == 1)
         play_trill(pitches.front(), atom, onset, remaining);
     else
@@ -589,7 +611,8 @@ bool Ornament::* ornament_flag(std::string_view mark) {
     if (mark == "." || mark == "breath") return &Ornament::staccato;
     if (mark == "fermata" || mark == "H") return &Ornament::fermata;
     if (mark == "trill" || mark == "T") return &Ornament::trill;
-    if (mark == "~") return &Ornament::roll;
+    if (mark == "~") return &Ornament::cut;
+    if (mark == "R") return &Ornament::roll;
     return nullptr;
 }
 
@@ -597,7 +620,13 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
     const auto mark = decoration_name(decoration);
     diagnostics.spend(PlaybackWork::text(mark), at);
     if (const auto flag = ornament_flag(mark)) {
-        ornament.*flag = true;
+        if (decoration.last_on_line) {
+            diagnostics.warn(
+                at, "orphan-decoration", "ornament at end of line has no note or rest"
+            );
+            ornament = {};
+        } else
+            ornament.*flag = true;
         return;
     }
     if (const auto change = dynamic_mark(mark)) {

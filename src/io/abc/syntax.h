@@ -107,6 +107,7 @@ struct Harmony {
 };
 struct Decoration {
     std::string_view name;
+    bool             last_on_line = false;
 };
 struct Tuplet {
     int count;
