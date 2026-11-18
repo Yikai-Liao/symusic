@@ -35,7 +35,7 @@ Project CMake settings use the `SYMUSIC_` prefix:
 
 | Option | Default | Purpose |
 |---|---|---|
-| `SYMUSIC_BUILD_PYTHON` | OFF (ON through pip) | Extension, stubs and ABC tools |
+| `SYMUSIC_BUILD_PYTHON` | OFF (ON through pip) | Extension and stubs |
 | `SYMUSIC_BUILD_TESTS` | OFF | C++ test executable |
 | `SYMUSIC_BUILD_EXAMPLES` | OFF | C++ examples |
 | `SYMUSIC_ENABLE_LTO` | ON | LTO in the C++ core |

@@ -38,7 +38,7 @@ Each container exists in two representations:
 |---|---|
 | MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
-| ABC read/write | The PEGTL grammar in `src/io/abc/syntax.cpp` builds located music tokens. Navigation expands parts and repeats; playback renders notes, tracks and global events directly to `Score<Tick>`. Export walks a tick event timeline to write ABC voices. The binding handles paths, time units and Python warnings. |
+| ABC read/write | The PEGTL grammar in `src/io/abc/syntax.cpp` builds located music tokens. Navigation expands parts and repeats; playback renders notes, tracks and global events directly to `Score<Tick>`. Export validates and projects original event endpoints onto the ABC tick grid, then writes ABC voices from the resulting timeline. The binding handles paths, read-time unit conversion, and Python warnings. |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |

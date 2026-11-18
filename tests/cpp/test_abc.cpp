@@ -1,6 +1,7 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "symusic/conversion.h"
 #include "symusic/io/abc.h"
 
 using namespace symusic;
@@ -84,6 +85,18 @@ TEST_CASE("ABC export reports loss and still emits readable notation", "[abc]") 
     CHECK_THROWS_WITH(
         abc::write(score), "ABC export track 1 (''): note duration cannot be negative"
     );
+}
+
+TEST_CASE("ABC export validates durations before converting floating units", "[abc]") {
+    const auto score    = abc::read("X:1\nM:4/4\nL:1/4\nK:C\nC").value;
+    auto       quarters = convert<Quarter>(score);
+    auto       seconds  = convert<Second>(score);
+    quarters.tracks->front()->notes->front().duration = 0.0001f;
+    CHECK(
+        abc::read(abc::write(quarters).value).value.tracks->front()->notes->front().duration == 1
+    );
+    seconds.tracks->front()->notes->front().duration = -1;
+    CHECK_THROWS_AS(abc::write(seconds), std::invalid_argument);
 }
 
 TEST_CASE("ABC diagnostics reject invalid file bytes before playback", "[abc]") {

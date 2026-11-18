@@ -101,11 +101,69 @@ def test_abc_warns_on_second_tune_and_recovers_nonbinary_duration():
     assert [row[:3] for row in note_rows(score)] == [(1, 119, 60), (121, 119, 62)]
 
 
-def test_abc_rejects_negative_pedal_even_with_explicit_cc64():
-    score = roundtrip_score()
-    score.tracks[0].pedals.append(Pedal(10, -1))
-    score.tracks[0].controls.append(ControlChange(10, 64, 127))
-    with pytest.raises(ValueError, match="pedal duration cannot be negative"):
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("event", ["note", "pedal"])
+def test_abc_rejects_negative_duration(ttype: str, event: str):
+    score = roundtrip_score().to(ttype)
+    track = score.tracks[0]
+    if event == "note":
+        track.notes[0].duration = -1
+    else:
+        track.pedals.append(Pedal(10, -1, ttype=ttype))
+        track.controls.append(ControlChange(10, 64, 127, ttype=ttype))
+    with pytest.raises(
+        ValueError, match=rf"track 1 .*: {event} duration cannot be negative"
+    ):
+        score.dumps_abc()
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("duration", [float("nan"), float("inf")])
+def test_abc_rejects_nonfinite_duration(ttype: str, duration: float):
+    score = roundtrip_score().to(ttype)
+    score.tracks[0].notes[0].duration = duration
+    with pytest.raises(ValueError, match="note duration must be finite"):
+        score.dumps_abc()
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_abc_retains_short_floating_note(ttype: str):
+    score = Score(1, ttype=ttype)
+    track = Track(ttype=ttype)
+    track.notes.append(Note(1, 0.0001, 60, 90, ttype=ttype))
+    track.pedals.append(Pedal(1, 0.0001, ttype=ttype))
+    score.tracks.append(track)
+    with pytest.warns(
+        UserWarning, match=r"\[(resampled-time|short-note|short-pedal)\]"
+    ) as caught:
+        text = score.dumps_abc(warn=True)
+    assert {str(w.message).split("[")[1].split("]")[0] for w in caught} == {
+        "resampled-time",
+        "short-note",
+        "short-pedal",
+    }
+    assert note_rows(Score.from_abc(text)) == [
+        (480 if ttype == "quarter" else 960, 1, 60, 90)
+    ]
+
+
+def test_abc_second_export_uses_tempo_map_for_endpoints():
+    score = Score(1, ttype="second")
+    score.tempos.extend([Tempo(0, 120, ttype="second"), Tempo(0.5, 60, ttype="second")])
+    track = Track(ttype="second")
+    track.notes.append(Note(0.25, 0.75, 60, 90, ttype="second"))
+    score.tracks.append(track)
+    actual = Score.from_abc(score.dumps_abc(warn=True))
+    assert note_rows(actual) == [(240, 480, 60, 90)]
+    assert list(actual.tempos) == [Tempo(0, 120), Tempo(480, 60)]
+
+
+def test_abc_second_export_rejects_invalid_tempo_before_conversion():
+    score = Score(480, ttype="second")
+    tempo = Tempo(0, 120, ttype="second")
+    tempo.time = float("nan")
+    score.tempos.append(tempo)
+    with pytest.raises(ValueError, match="tempo: time must be finite and nonnegative"):
         score.dumps_abc()
 
 

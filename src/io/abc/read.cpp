@@ -3,6 +3,7 @@
 #include <map>
 
 #include "playback.h"
+#include "symusic/conversion.h"
 #include "symusic/utils.h"
 
 namespace symusic::abc {

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <limits>
 #include <map>
 #include <numeric>
@@ -13,6 +14,7 @@
 #include <utf8.h>
 
 #include "settings.h"
+#include "symusic/detail/time_conversion.h"
 
 namespace symusic::abc {
 namespace {
@@ -88,9 +90,13 @@ std::string pitch(i8 note) {
     return result;
 }
 
-std::string tempo_text(i32 mspq, ExportIssues& issues) {
+void check_tempo(i32 mspq) {
     if (mspq < 1 || mspq > midi_tempo_max)
         ExportIssues::invalid("tempo", "microseconds per quarter must fit the 24-bit MIDI range");
+}
+
+std::string tempo_text(i32 mspq, ExportIssues& issues) {
+    check_tempo(mspq);
     // The denominator and integer BPM are independent. Stay below the
     // reference converter's signed BPM * 4 intermediate, and choose the
     // nearest representable tempo; prefer the shortest beat on a tie.
@@ -288,62 +294,119 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
     output += '\n';
 }
 
-// Plan voices before placing global events: partitioning can change the
-// tempo clock even if the original Score had only one track.
-struct PlannedVoice {
-    Timeline           timeline;
-    std::string        where;
-    const Track<Tick>* track;
+// Convert original endpoints once, on the ABC grid. In particular, a short
+// positive interval must not be confused with a zero-duration source event.
+template<TType T>
+class ExportClock {
+public:
+    explicit ExportClock(const Score<T>& score) : source_tpq(score.ticks_per_quarter) {
+        if (source_tpq <= 0) ExportIssues::invalid("score", "ticks per quarter must be positive");
+        if constexpr (std::is_same_v<T, Second>) {
+            for (const auto& tempo : *score.tempos) {
+                if (!std::isfinite(tempo.time) || tempo.time < 0)
+                    ExportIssues::invalid("tempo", "time must be finite and nonnegative");
+                check_tempo(tempo.mspq);
+            }
+            seconds.emplace(score);
+        }
+    }
+
+    i32 scale(long double time, std::string_view where, ExportIssues& issues) const {
+        if (!std::isfinite(time) || time < 0)
+            ExportIssues::invalid(where, "event time must be finite and nonnegative");
+        const auto exact   = on_grid(time, where);
+        const auto rounded = std::round(exact);
+        if (rounded > std::numeric_limits<i32>::max() - 2)
+            ExportIssues::invalid(where, "rescaled event leaves no room for the ABC note release");
+        if (rounded > midi_delta_max)
+            issues.warn(
+                where, "midi-delta-range", "very late events may exceed the MIDI delta-time range"
+            );
+        if (std::abs(rounded - exact) > grid_noise(exact))
+            issues.warn(where, "resampled-time", "rounded times to the ABC 480-tick grid");
+        return static_cast<i32>(rounded);
+    }
+
+private:
+    i32 source_tpq;
+    std::conditional_t<
+        std::is_same_v<T, Second>,
+        std::optional<details::SecondToQuarter<f64>>,
+        std::monostate>
+        seconds;
+
+    long double on_grid(long double time, std::string_view where) const {
+        if constexpr (std::is_same_v<T, Tick>) {
+            if (time > std::numeric_limits<i32>::max())
+                ExportIssues::invalid(where, "event time is outside the score's tick range");
+            return time * tpq / source_tpq;
+        } else if constexpr (std::is_same_v<T, Quarter>) {
+            return time * tpq;
+        } else {
+            return static_cast<long double>(seconds->time_value(static_cast<f64>(time))) * tpq;
+        }
+    }
+
+    static long double grid_noise(long double ticks) {
+        if constexpr (std::is_same_v<T, Tick>) return 0;
+        // Ignore floating storage noise near ordinary grid positions, without
+        // hiding larger rounding errors in long floating-point scores.
+        return std::min(0.001L, std::numeric_limits<typename T::unit>::epsilon() * ticks);
+    }
 };
 
+// Plan voices before placing global events: partitioning can change the
+// tempo clock even if the original Score had only one track.
+template<TType T>
+struct PlannedVoice {
+    Timeline        timeline;
+    std::string     where;
+    const Track<T>* track;
+};
+
+template<TType T>
 class ScoreWriter {
 public:
-    explicit ScoreWriter(const Score<Tick>& score) : score(score) {}
+    explicit ScoreWriter(const Score<T>& score) : score(score), clock(score) {}
     Result<std::string> write();
 
 private:
-    const Score<Tick>& score;
-    ExportIssues       issues;
-    ExportBudget       budget;
-    ExportBudget       planned_intervals;
-    std::string        output;
-    Timeline           global;
-    vec<PlannedVoice>  voices;
-    int                start_offset = 0;
+    const Score<T>&      score;
+    ExportClock<T>       clock;
+    ExportIssues         issues;
+    ExportBudget         budget;
+    ExportBudget         planned_intervals;
+    std::string          output;
+    Timeline             global;
+    vec<PlannedVoice<T>> voices;
+    int                  start_offset = 0;
 
-    i32                      scale(int64_t time, std::string_view where);
-    vec<WrittenNote>         notes(const Track<Tick>& track, std::string_view where);
-    Timeline                 channel_events(const Track<Tick>& track, std::string_view where);
-    vec<std::pair<i32, i32>> pedals(const Track<Tick>& track, std::string_view where);
+    i32 scale(long double time, std::string_view where) { return clock.scale(time, where, issues); }
+    vec<WrittenNote>         notes(const Track<T>& track, std::string_view where);
+    Timeline                 channel_events(const Track<T>& track, std::string_view where);
+    vec<std::pair<i32, i32>> pedals(const Track<T>& track, std::string_view where);
     void add_pedals(Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where);
-    void limitations(const Track<Tick>& track, std::string_view where);
+    void limitations(const Track<T>& track, std::string_view where);
     void header();
     void render_voices();
-    void plan_track(const Track<Tick>& track, size_t index);
+    void plan_track(const Track<T>& track, size_t index);
     int  onset_offset();
 
     template<class Event, class Format>
     std::string fields(char key, const pyvec<Event>& events, std::string fallback, Format format);
 };
 
-i32 ScoreWriter::scale(int64_t time, std::string_view where) {
-    if (time < 0 || time > std::numeric_limits<i32>::max())
-        ExportIssues::invalid(where, "event time is outside the score's tick range");
-    const auto numerator = time * tpq;
-    const auto tick      = (numerator + score.ticks_per_quarter / 2) / score.ticks_per_quarter;
-    if (tick > std::numeric_limits<i32>::max() - 2)
-        ExportIssues::invalid(where, "rescaled event leaves no room for the ABC note release");
-    if (tick > midi_delta_max) {
-        issues.warn(
-            where, "midi-delta-range", "very late events may exceed the MIDI delta-time range"
-        );
-    }
-    if (numerator % score.ticks_per_quarter != 0)
-        issues.warn(where, "resampled-time", "rounded times to the ABC 480-tick grid");
-    return static_cast<i32>(tick);
+template<TType T>
+bool is_audible(const Note<T>& note) {
+    return note.duration > 0 && note.velocity > 0;
 }
 
-bool is_audible(const Note<Tick>& note) { return note.duration > 0 && note.velocity > 0; }
+void check_duration(long double duration, std::string_view where, std::string_view event) {
+    if (!std::isfinite(duration))
+        ExportIssues::invalid(where, fmt::format("{} duration must be finite", event));
+    if (duration < 0)
+        ExportIssues::invalid(where, fmt::format("{} duration cannot be negative", event));
+}
 
 bool legacy_sustain_fits(i32 duration) {
     // abc2midi joins tied atoms before conversion. Its MIDI release queue
@@ -352,15 +415,16 @@ bool legacy_sustain_fits(i32 duration) {
     return numerator <= std::numeric_limits<i32>::max() / tpq;
 }
 
-vec<WrittenNote> ScoreWriter::notes(const Track<Tick>& track, std::string_view where) {
+template<TType T>
+vec<WrittenNote> ScoreWriter<T>::notes(const Track<T>& track, std::string_view where) {
     vec<WrittenNote> result;
     result.reserve(track.notes->size());
     for (const auto& note : *track.notes) {
         if (note.pitch < 0 || note.velocity < 0)
             ExportIssues::invalid(where, "note pitch and velocity must be in MIDI range 0–127");
-        if (note.duration < 0) ExportIssues::invalid(where, "note duration cannot be negative");
+        check_duration(note.duration, where, "note");
         const auto start = scale(note.time, where);
-        auto       end   = scale(static_cast<int64_t>(note.time) + note.duration, where);
+        auto       end   = scale(static_cast<long double>(note.time) + note.duration, where);
         if (!is_audible(note)) {
             issues.warn(where, "silent-note", "omitted a zero-velocity or zero-duration note");
             continue;
@@ -378,7 +442,8 @@ vec<WrittenNote> ScoreWriter::notes(const Track<Tick>& track, std::string_view w
     return result;
 }
 
-std::string meter_text(const TimeSignature<Tick>& event) {
+template<TType T>
+std::string meter_text(const TimeSignature<T>& event) {
     if (!event.numerator || !event.denominator || !std::has_single_bit(event.denominator)) {
         ExportIssues::invalid(
             "meter", "expected a positive numerator and a power-of-two denominator"
@@ -387,15 +452,17 @@ std::string meter_text(const TimeSignature<Tick>& event) {
     return fmt::format("{}/{}", event.numerator, event.denominator);
 }
 
-std::string key_text(const KeySignature<Tick>& event) {
+template<TType T>
+std::string key_text(const KeySignature<T>& event) {
     if (event.key < -7 || event.key > 7 || event.tonality < 0 || event.tonality > 1) {
         ExportIssues::invalid("key", "expected −7 to 7 fifths and major or minor tonality");
     }
     return std::string(detail::key_name(event.key, event.tonality != 0));
 }
 
+template<TType T>
 template<class Event, class Format>
-std::string ScoreWriter::fields(
+std::string ScoreWriter<T>::fields(
     char key, const pyvec<Event>& events, std::string fallback, Format format
 ) {
     std::map<i32, std::string> ordered;
@@ -420,9 +487,10 @@ std::string ScoreWriter::fields(
     return fallback;
 }
 
-void ScoreWriter::header() {
-    const auto m     = fields('M', *score.time_signatures, "4/4", meter_text);
-    const auto k     = fields('K', *score.key_signatures, "C", key_text);
+template<TType T>
+void ScoreWriter<T>::header() {
+    const auto m     = fields('M', *score.time_signatures, "4/4", meter_text<T>);
+    const auto k     = fields('K', *score.key_signatures, "C", key_text<T>);
     const auto q     = fields('Q', *score.tempos, "1/4=120", [&](const auto& event) {
         return tempo_text(event.mspq, issues);
     });
@@ -430,7 +498,8 @@ void ScoreWriter::header() {
     output = fmt::format("X:1\nT:{}\nM:{}\nL:1/4\nQ:{}\nK:{}\n", escape_text(title), m, q, k);
 }
 
-void ScoreWriter::limitations(const Track<Tick>& track, std::string_view where) {
+template<TType T>
+void ScoreWriter<T>::limitations(const Track<T>& track, std::string_view where) {
     if (!track.lyrics->empty())
         issues.warn(
             where, "omitted-lyrics", "ABC export does not represent arbitrary timed lyrics"
@@ -439,11 +508,7 @@ void ScoreWriter::limitations(const Track<Tick>& track, std::string_view where) 
         issues.warn(where, "drum-program", "other ABC readers may ignore the drum program");
 }
 
-vec<std::pair<i32, i32>> pedal_intervals(const pyvec<ControlChange<Tick>>& input) {
-    vec<ControlChange<Tick>> controls;
-    for (const auto& event : input) {
-        if (event.number == 64) controls.push_back(event);
-    }
+vec<std::pair<i32, i32>> pedal_intervals(vec<ControlChange<Tick>> controls) {
     std::ranges::stable_sort(controls, {}, &ControlChange<Tick>::time);
     vec<std::pair<i32, i32>> intervals;
     std::optional<i32>       start;
@@ -451,28 +516,24 @@ vec<std::pair<i32, i32>> pedal_intervals(const pyvec<ControlChange<Tick>>& input
         if (event.value >= 64) {
             if (!start) start = event.time;
         } else if (start) {
-            intervals.emplace_back(*start, event.time - *start);
+            intervals.emplace_back(*start, event.time);
             start.reset();
         }
     }
     return intervals;
 }
 
-bool conflicting_pedals(const Track<Tick>& track) {
-    if (track.pedals->empty()) return false;
-    vec<std::pair<i32, i32>> intervals;
-    for (const auto& pedal : *track.pedals) intervals.emplace_back(pedal.time, pedal.duration);
-    std::ranges::sort(intervals);
-    return intervals != pedal_intervals(*track.controls);
-}
-
-vec<std::pair<i32, i32>> ScoreWriter::pedals(const Track<Tick>& track, std::string_view where) {
+template<TType T>
+vec<std::pair<i32, i32>> ScoreWriter<T>::pedals(const Track<T>& track, std::string_view where) {
     vec<std::pair<i32, i32>> intervals;
     for (const auto& pedal : *track.pedals) {
-        if (pedal.duration < 0) ExportIssues::invalid(where, "pedal duration cannot be negative");
+        check_duration(pedal.duration, where, "pedal");
         const auto start = scale(pedal.time, where);
-        const auto end   = scale(static_cast<int64_t>(pedal.time) + pedal.duration, where);
-        if (start != end) intervals.emplace_back(start, end);
+        const auto end   = scale(static_cast<long double>(pedal.time) + pedal.duration, where);
+        if (start != end)
+            intervals.emplace_back(start, end);
+        else if (pedal.duration > 0)
+            issues.warn(where, "short-pedal", "omitted a pedal interval shorter than the ABC grid");
     }
     return intervals;
 }
@@ -484,33 +545,40 @@ std::string bend_field(int value, std::string_view where) {
     return fmt::format("[I:MIDI pitchbend {} {}]", wire & midi_max, wire >> 7);
 }
 
-Timeline ScoreWriter::channel_events(const Track<Tick>& track, std::string_view where) {
-    Timeline timeline;
-    auto     intervals         = pedals(track, where);
-    bool     has_pedal_control = false;
+template<TType T>
+Timeline ScoreWriter<T>::channel_events(const Track<T>& track, std::string_view where) {
+    Timeline                 timeline;
+    auto                     intervals = pedals(track, where);
+    vec<ControlChange<Tick>> pedal_controls;
     for (const auto& event : *track.controls) {
         if (event.number > midi_max || event.value > midi_max)
             ExportIssues::invalid(where, "control number and value must be in MIDI range 0–127");
-        has_pedal_control = has_pedal_control || event.number == 64;
-        timeline[scale(event.time, where)].fields.push_back(
+        const auto at = scale(event.time, where);
+        if (event.number == 64) pedal_controls.emplace_back(at, event.number, event.value);
+        timeline[at].fields.push_back(
             fmt::format("[I:MIDI control {} {}]", event.number, event.value)
         );
     }
     for (const auto& bend : *track.pitch_bends)
         timeline[scale(bend.time, where)].fields.push_back(bend_field(bend.value, where));
-    // Prefer explicit CC64: it can carry half-pedal values.
-    if (!has_pedal_control)
+    // Prefer explicit CC64: it can carry half-pedal values. Compare only
+    // what reaches the playback grid; float storage error is not a conflict.
+    if (pedal_controls.empty())
         add_pedals(timeline, std::move(intervals), where);
-    else if (conflicting_pedals(track))
-        issues.warn(
-            where,
-            "pedal-conflict",
-            "pedal intervals disagree with CC64; kept the explicit controls"
-        );
+    else if (!intervals.empty()) {
+        std::ranges::sort(intervals);
+        if (intervals != pedal_intervals(std::move(pedal_controls)))
+            issues.warn(
+                where,
+                "pedal-conflict",
+                "pedal intervals disagree with CC64; kept the explicit controls"
+            );
+    }
     return timeline;
 }
 
-void ScoreWriter::add_pedals(
+template<TType T>
+void ScoreWriter<T>::add_pedals(
     Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where
 ) {
     if (pedals.empty()) return;
@@ -533,7 +601,8 @@ void ScoreWriter::add_pedals(
     append();
 }
 
-void ScoreWriter::plan_track(const Track<Tick>& track, size_t index) {
+template<TType T>
+void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
     if (!utf8::is_valid(track.name.begin(), track.name.end()))
         ExportIssues::invalid(fmt::format("track {}", index + 1), "track name must be valid UTF-8");
     const auto where = fmt::format("track {} ('{}')", index + 1, escape_text(track.name));
@@ -557,7 +626,8 @@ void ScoreWriter::plan_track(const Track<Tick>& track, size_t index) {
     }
 }
 
-void ScoreWriter::render_voices() {
+template<TType T>
+void ScoreWriter<T>::render_voices() {
     if (voices.empty()) {
         VoiceWriter(output, std::move(global), budget, "score").write(1, "", 0, false);
         return;
@@ -575,7 +645,8 @@ void ScoreWriter::render_voices() {
     }
 }
 
-int ScoreWriter::onset_offset() {
+template<TType T>
+int ScoreWriter<T>::onset_offset() {
     for (const auto& track : *score.tracks) {
         for (const auto& note : *track->notes) {
             if (is_audible(note) && scale(note.time, "note") == 0) {
@@ -591,9 +662,8 @@ int ScoreWriter::onset_offset() {
     return PlaybackGrid::attack_offset;
 }
 
-Result<std::string> ScoreWriter::write() {
-    if (score.ticks_per_quarter <= 0)
-        ExportIssues::invalid("score", "ticks per quarter must be positive");
+template<TType T>
+Result<std::string> ScoreWriter<T>::write() {
     if (!score.markers->empty())
         issues.warn(
             "score", "omitted-markers", "ABC export does not represent arbitrary timed markers"
@@ -608,5 +678,7 @@ Result<std::string> ScoreWriter::write() {
 }   // namespace
 
 Result<std::string> write(const Score<Tick>& score) { return ScoreWriter(score).write(); }
+Result<std::string> write(const Score<Quarter>& score) { return ScoreWriter(score).write(); }
+Result<std::string> write(const Score<Second>& score) { return ScoreWriter(score).write(); }
 
 }   // namespace symusic::abc

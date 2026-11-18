@@ -60,10 +60,10 @@ struct SimpleTimeConverter {
     }
 };
 
-template<typename Converter, TType To, TType From>
+template<typename Converter, TType To, TType From, class ToUnit = typename To::unit>
 struct SecondTimeConverter {
     using from_unit = typename From::unit;
-    using to_unit   = typename To::unit;
+    using to_unit   = ToUnit;
 
     struct RangeState {
         std::pair<from_unit, from_unit> range;
@@ -86,7 +86,7 @@ struct SecondTimeConverter {
         } else {
             tempos.reserve(score.tempos->size() + 2);
             tempos.assign(score.tempos->cbegin(), score.tempos->cend());
-            std::sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
+            std::stable_sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
                 return lhs.time < rhs.time;
             });
             if (tempos.front().time != static_cast<from_unit>(0)) {
@@ -119,7 +119,8 @@ struct SecondTimeConverter {
         }
     }
 
-    [[nodiscard]] to_unit time_value(const from_unit time) const {
+    template<class Time = from_unit>
+    [[nodiscard]] to_unit time_value(const Time time) const {
         const auto self  = static_cast<const Converter*>(this);
         const auto index = range_index(time);
         return self->get_time(time, to_times[index], from_times[index], factors[index]);
@@ -187,7 +188,8 @@ struct SecondTimeConverter {
     }
 
 private:
-    [[nodiscard]] size_t range_index(const from_unit time) const {
+    template<class Time>
+    [[nodiscard]] size_t range_index(const Time time) const {
         return static_cast<size_t>(
             std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin() - 1
         );
@@ -298,22 +300,26 @@ struct Quarter2SecondConverter : SecondTimeConverter<Quarter2SecondConverter, Se
     }
 };
 
-struct Second2QuarterConverter : SecondTimeConverter<Second2QuarterConverter, Quarter, Second> {
-    using SecondTimeConverter<Second2QuarterConverter, Quarter, Second>::SecondTimeConverter;
+template<class Unit>
+struct SecondToQuarter : SecondTimeConverter<SecondToQuarter<Unit>, Quarter, Second, Unit> {
+    using Base = SecondTimeConverter<SecondToQuarter<Unit>, Quarter, Second, Unit>;
+    using Base::Base;
 
     [[nodiscard]] static f64 get_factor(const Tempo<Second>& tempo) {
         return 1000000. / static_cast<f64>(tempo.mspq);
     }
 
-    [[nodiscard]] static Quarter::unit get_time(
-        const Second::unit  time,
-        const Quarter::unit pivot_to,
-        const Second::unit  pivot_from,
-        const f64           factor
+    [[nodiscard]] static Unit get_time(
+        const std::common_type_t<Unit, Second::unit> time,
+        const Unit                                   pivot_to,
+        const Second::unit                           pivot_from,
+        const f64                                    factor
     ) {
-        return pivot_to + static_cast<Quarter::unit>(factor * (time - pivot_from));
+        return pivot_to + static_cast<Unit>(factor * (time - pivot_from));
     }
 };
+
+using Second2QuarterConverter = SecondToQuarter<Quarter::unit>;
 
 template<TType To, TType From>
 [[nodiscard]] auto make_time_converter(const Score<From>& score) {

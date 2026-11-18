@@ -219,12 +219,7 @@ inline void emit_abc_warnings(const vec<std::string>& warnings) {
 
 template<TType T>
 std::string dumps_abc(const shared<Score<T>>& self, bool warn) {
-    auto result = [&] {
-        if constexpr (std::is_same_v<T, Tick>)
-            return abc::write(*self);
-        else
-            return abc::write(convert<Tick>(*self));
-    }();
+    auto result = abc::write(*self);
     if (warn) emit_abc_warnings(result.warnings);
     return std::move(result.value);
 }

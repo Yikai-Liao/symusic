@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-#include "symusic/conversion.h"
+#include "symusic/score.h"
 
 namespace symusic::abc {
 
@@ -18,7 +18,9 @@ struct Result {
 // source is a label for diagnostics; it is not opened as a file.
 [[nodiscard]] Result<Score<Tick>> read(std::string_view text, std::string_view source = "<string>");
 
-// Write playable ABC, diagnosing score events that cannot be represented.
+// Write playable ABC. Validate score times before rounding to the playback grid.
 [[nodiscard]] Result<std::string> write(const Score<Tick>& score);
+[[nodiscard]] Result<std::string> write(const Score<Quarter>& score);
+[[nodiscard]] Result<std::string> write(const Score<Second>& score);
 
 }   // namespace symusic::abc
