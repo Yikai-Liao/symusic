@@ -29,6 +29,5 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 
 ## Test coverage
 
-- **Python references into containers.** No test checks that a reference such as `note = notes[1]` stays valid after the element or its container is modified or removed.
 - **Resample through Python.** Rounding on downsampling and upsampling is tested only in C++ (`tests/cpp/test_conversion.hpp`).
 - **Boundary inputs.** The memory-safety items above need regression tests for large ticks and offsets, extreme tempos and malformed MIDI durations.
