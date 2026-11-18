@@ -160,6 +160,12 @@ def test_abc_repeat_does_not_drop_sections(body: str, pitches: list[int]):
     assert [row[2] for row in note_rows(Score.from_abc(HEADER + body))] == pitches
 
 
+def test_abc_part_order_rejects_overflowing_nested_counts():
+    source = HEADER.replace("K:C", "P:(A65536)65536\nK:C") + "P:A\nC4 |"
+    with pytest.raises(ValueError, match=r"<string>:6:1: ABC \[expansion-limit\]"):
+        Score.from_abc(source)
+
+
 def test_abc_part_itinerary_with_sparse_voices():
     source = HEADER.replace("K:C", "P:ABA\nK:C") + (
         "V:one\nV:two\nP:A\n[V:one] C | [V:two] E |\nP:B\n[V:one] D |"

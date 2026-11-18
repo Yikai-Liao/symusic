@@ -24,6 +24,7 @@ private:
 
     char pop();
     int  count();
+    void append_group(std::string& labels, std::string_view group);
 };
 
 char PartOrder::pop() {
@@ -45,6 +46,16 @@ int PartOrder::count() {
     return *count;
 }
 
+void PartOrder::append_group(std::string& labels, std::string_view group) {
+    const auto copies = static_cast<size_t>(count());
+    if (group.empty()) return;
+    // Reject before multiplying: two individually valid counts can overflow size_t.
+    if (copies > (max_materialized_steps - labels.size()) / group.size()) {
+        diagnostics.error(at, "expansion-limit", "part order exceeds the playback expansion limit");
+    }
+    for (size_t n = 0; n < copies; ++n) labels += group;
+}
+
 std::string PartOrder::parse(int depth) {
     if (depth > 32) diagnostics.error(at, "part-depth", "too many nested groups in P: order");
     std::string labels;
@@ -56,15 +67,7 @@ std::string PartOrder::parse(int depth) {
             diagnostics.error(
                 at, "invalid-parts", "P: order needs part letters, groups or repeat counts"
             );
-        const auto group  = c == '(' ? parse(depth + 1) : std::string(1, upper(c));
-        const auto copies = count();
-        if (group.empty()) continue;
-        if (group.size() * copies > max_materialized_steps - labels.size()) {
-            diagnostics.error(
-                at, "expansion-limit", "part order exceeds the playback expansion limit"
-            );
-        }
-        for (int n = 0; n < copies; ++n) labels += group;
+        append_group(labels, c == '(' ? parse(depth + 1) : std::string(1, upper(c)));
     }
     if (depth) diagnostics.error(at, "invalid-parts", "missing ')' in P: order");
     return labels;
