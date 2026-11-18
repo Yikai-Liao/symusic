@@ -407,3 +407,10 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     score.dump_abc(path)
     assert path.read_text(encoding="utf-8") == score.dumps_abc()
     assert note_rows(Score(path)) == note_rows(score)
+
+
+def test_abc_discards_overlong_chord_definition():
+    source = HEADER + '%%MIDI chordname over 0 1 2 3 4 5 6 7 8 9 10\n"C"CDEF|'
+    with pytest.warns(UserWarning, match=r":7:1: ABC \[invalid-chord-name\]"):
+        result = Score.from_abc(source)
+    assert len(result.tracks[2].notes) == 6

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <span>
 
 #include "settings.h"
 #include "symusic/score.h"
@@ -55,6 +56,8 @@ private:
     struct Chord {
         int      bass;
         vec<int> pitches;
+
+        [[nodiscard]] std::optional<int> arpeggio(char action) const;
     };
 
     struct Drone {
@@ -81,6 +84,7 @@ private:
     void                    chord_pattern(std::string_view args, long double time, Location at);
     void                    drum_pattern(std::string_view args, long double time, Location at);
     void                    chord_type(std::string_view args, Location at);
+    std::span<const int>    chord_intervals(std::string_view name, Location at) const;
     void                    close_drone(long double time, Location at);
     void                    drone_settings(std::string_view args, long double time, Location at);
     bool                    pattern_directive(

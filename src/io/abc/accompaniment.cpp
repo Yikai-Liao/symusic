@@ -1,8 +1,6 @@
 #include "accompaniment.h"
 
 #include <cmath>
-
-#include <cmath>
 #include <span>
 
 namespace symusic::abc::detail {
@@ -28,16 +26,22 @@ const ChordType chord_types[] = {
     {"m6", {0, 3, 7, 9}},
     {"aug", {0, 4, 8}},
     {"+", {0, 4, 8}},
+    {"aug7", {0, 4, 8, 10}},
     {"dim", {0, 3, 6}},
     {"dim7", {0, 3, 6, 9}},
+    {"dim9", {0, 3, 6, 9, 13}},
     {"m7b5", {0, 3, 6, 10}},
     {"sus", {0, 5, 7}},
     {"sus4", {0, 5, 7}},
     {"sus2", {0, 2, 7}},
+    {"sus9", {0, 2, 5, 9}},
+    {"7sus2", {0, 2, 7, 10}},
     {"7sus4", {0, 5, 7, 10}},
+    {"7sus9", {0, 2, 7, 10}},
     {"9", {0, 4, 7, 10, 14}},
     {"m9", {0, 3, 7, 10, 14}},
     {"maj9", {0, 4, 7, 11, 14}},
+    {"M9", {0, 4, 7, 11, 14}},
     {"add9", {0, 4, 7, 14}},
     {"11", {0, 4, 7, 10, 14, 17}},
     {"13", {0, 4, 7, 10, 14, 21}},
@@ -47,8 +51,8 @@ const ChordType chord_types[] = {
 };
 
 std::optional<int> root_note(std::string_view& symbol) {
-    if (symbol.empty() || symbol.front() < 'A' || symbol.front() > 'G') return {};
-    auto note = natural_pitch[letter_index(symbol.front())];
+    if (symbol.empty() || !note_letter(symbol.front())) return {};
+    auto note = natural_pitch[letter_index(upper(symbol.front()))];
     symbol.remove_prefix(1);
     if (symbol.starts_with('#') || symbol.starts_with('b')) {
         note += symbol.front() == '#' ? 1 : -1;
@@ -81,10 +85,18 @@ Accompaniment::Accompaniment(Meter meter, Diagnostics& diagnostics) :
 }
 
 std::string_view Accompaniment::default_chords(Meter meter) {
-    if (meter.numerator == 2 && meter.denominator == 4) return "fzcz";
-    if (meter.numerator == 3 && meter.denominator == 4) return "fzczcz";
-    if (meter.numerator == 6 && meter.denominator == 8) return "fzcfzc";
-    if (meter.numerator == 9 && meter.denominator == 8) return "fzcfzcfzc";
+    struct DefaultPattern {
+        int              numerator;
+        int              denominator;
+        std::string_view sequence;
+    };
+    static constexpr DefaultPattern defaults[]{
+        {2, 4, "fzcz"}, {3, 4, "fzczcz"}, {6, 8, "fzcfzc"}, {9, 8, "fzcfzcfzc"}
+    };
+    for (const auto& entry : defaults) {
+        if (entry.numerator == meter.numerator && entry.denominator == meter.denominator)
+            return entry.sequence;
+    }
     return "fzczfzcz";
 }
 
@@ -147,62 +159,90 @@ void Accompaniment::chord_pattern(std::string_view args, long double time, Locat
 
 void Accompaniment::drum_pattern(std::string_view args, long double time, Location at) {
     auto steps = pattern(word(args), "dz", at);
+    // Omitted values default independently for each strike, not each slot.
     for (auto& step : steps) {
-        if (step.kind == 'd') step.pitch = directive_int(args, 0, midi_max, at, diagnostics);
+        if (step.kind != 'd') continue;
+        step.pitch    = trim(args).empty() ? 35 : directive_int(args, 0, midi_max, at, diagnostics);
+        step.velocity = 80;
     }
     for (auto& step : steps) {
-        if (step.kind == 'd') step.velocity = directive_int(args, 0, midi_max, at, diagnostics);
+        if (trim(args).empty()) break;
+        if (step.kind == 'd') step.velocity = directive_int(args, 1, midi_max, at, diagnostics);
     }
+    if (!trim(args).empty())
+        diagnostics.warn(at, "extra-drum-values", "ignored values beyond the drum strikes");
     drums.assign(std::move(steps), time);
 }
 
 void Accompaniment::chord_type(std::string_view args, Location at) {
-    const auto name = word(args);
-    vec<int>   intervals;
-    while (!trim(args).empty() && intervals.size() < 6)
+    const auto       name = word(args);
+    vec<int>         intervals;
+    constexpr size_t max_intervals = 10;
+    while (!trim(args).empty() && intervals.size() < max_intervals)
         intervals.push_back(directive_int(args, -48, 48, at, diagnostics));
-    if (intervals.empty() || !trim(args).empty())
-        diagnostics.error(at, "invalid-chord-name", "chordname needs one to six intervals");
+    if (intervals.empty() || !trim(args).empty()) {
+        diagnostics.warn(
+            at, "invalid-chord-name", "ignored chordname without one to ten intervals"
+        );
+        return;
+    }
     custom_chords.insert_or_assign(name, std::move(intervals));
 }
 
 std::optional<int> slash_bass(std::string_view bass, Location at, Diagnostics& diagnostics) {
+    bass            = bass.substr(0, bass.find_first_of(" )("));
     const auto note = root_note(bass);
     if (note && bass.empty()) return note;
     diagnostics.warn(at, "invalid-chord-bass", "ignored an invalid slash-chord bass note");
     return {};
 }
 
+std::span<const int> Accompaniment::chord_intervals(std::string_view name, Location at) const {
+    const auto custom = custom_chords.find(name);
+    if (custom != custom_chords.end()) return custom->second;
+    const auto standard = std::ranges::find(chord_types, name, &ChordType::name);
+    if (standard != std::end(chord_types)) return standard->intervals;
+    diagnostics.warn(
+        at, "unknown-chord", fmt::format("ignored unrecognized chord quality '{}'", name)
+    );
+    return {};
+}
+
+// Inversions move the voices before the selected chord tone up an octave.
+// Compare pitch classes: the selected tone may cross an octave boundary.
+vec<int> voiced_chord(std::span<const int> intervals, int root, std::optional<int> bass_note) {
+    size_t inversion = 0;
+    if (bass_note) {
+        for (size_t index = 0; index < intervals.size(); ++index) {
+            if ((root + intervals[index] - *bass_note) % 12 == 0) inversion = index;
+        }
+    }
+    vec<int> pitches;
+    pitches.reserve(intervals.size());
+    for (size_t index = 0; index < intervals.size(); ++index) {
+        pitches.push_back(48 + root + intervals[index] + (index < inversion ? 12 : 0));
+    }
+    if (inversion) std::ranges::sort(pitches);
+    return pitches;
+}
+
 void Accompaniment::harmony(std::string_view symbol, int transpose, Location at) {
-    const auto root = root_note(symbol);
+    if (symbol.starts_with('(')) symbol.remove_prefix(1);
+    const bool bass_only = !symbol.empty() && lower(symbol.front());
+    const auto root      = root_note(symbol);
     if (!root) return;   // quoted annotations are not chord symbols
-    const auto slash       = symbol.find('/');
-    const auto name        = symbol.substr(0, slash);
-    const auto bass_note   = slash == symbol.npos ?
-                                 std::nullopt :
-                                 slash_bass(symbol.substr(slash + 1), at, diagnostics);
-    const auto fundamental = bass_note.value_or(*root);
-    const auto custom      = custom_chords.find(name);
-    const auto standard    = std::ranges::find(chord_types, name, &ChordType::name);
-    if (custom == custom_chords.end() && standard == std::end(chord_types)) {
-        diagnostics.warn(
-            at, "unknown-chord", fmt::format("ignored unrecognized chord quality '{}'", name)
-        );
-        return;
+    const auto name      = symbol.substr(0, symbol.find_first_of(" /()"));
+    auto       bass_note = symbol.substr(name.size());
+    const auto inversion = bass_note.starts_with('/') ?
+                               slash_bass(bass_note.substr(1), at, diagnostics) :
+                               std::nullopt;
+    Chord      next{36 + inversion.value_or(*root) + transpose, {}};
+    if (!bass_only) {
+        const auto intervals = chord_intervals(name, at);
+        if (intervals.empty()) return;
+        next.pitches = voiced_chord(intervals, *root, inversion);
+        for (auto& pitch : next.pitches) pitch += transpose;
     }
-    const std::span<const int> intervals
-        = custom != custom_chords.end() ?
-              std::span<const int>(custom->second) :
-              std::span<const int>(standard->intervals.begin(), standard->intervals.size());
-    Chord next{36 + fundamental + transpose, {}};
-    for (const auto interval : intervals) {
-        auto note = *root + interval;
-        if (bass_note && note < fundamental
-            && std::ranges::find(intervals, (fundamental - *root + 12) % 12) != intervals.end())
-            note += 12;
-        next.pitches.push_back(48 + note + transpose);
-    }
-    std::ranges::sort(next.pitches);
     current_chord = std::move(next);
 }
 
@@ -228,17 +268,25 @@ void Accompaniment::Instrument::finish(vec<TrackNative<Tick>>& output) {
     }
 }
 
+std::optional<int> Accompaniment::Chord::arpeggio(char action) const {
+    if (pitches.empty()) return {};
+    const auto index = static_cast<size_t>(upper(action) - 'G');
+    return pitches[std::min(index, pitches.size() - 1)] - (lower(action) ? 0 : 12);
+}
+
 void Accompaniment::chord_step(Step step, i32 time, i32 duration) {
     if (!current_chord || step.kind == 'z') return;
-    if (step.kind == 'f' || step.kind == 'b') bass.play(current_chord->bass, time, duration);
-    if (step.kind == 'c' || step.kind == 'b') {
-        for (const auto pitch : current_chord->pitches) chord.play(pitch, time, duration);
+    const auto& [root, pitches] = *current_chord;
+    const auto action           = step.kind == 'c' && pitches.empty() ? 'f' : step.kind;
+    switch (action) {
+    case 'f': bass.play(root, time, duration); return;
+    case 'b': bass.play(root, time, duration); [[fallthrough]];
+    case 'c':
+        for (const auto pitch : pitches) chord.play(pitch, time, duration);
         return;
+    default: break;
     }
-    const auto index = upper(step.kind) - 'G';
-    if (index >= 0 && static_cast<size_t>(index) < current_chord->pitches.size()) {
-        chord.play(current_chord->pitches[index] - (lower(step.kind) ? 0 : 12), time, duration);
-    }
+    if (const auto pitch = current_chord->arpeggio(action)) chord.play(*pitch, time, duration);
 }
 
 // The legacy converter starts MIDI notes one tick into the slot and gates

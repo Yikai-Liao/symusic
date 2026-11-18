@@ -54,6 +54,19 @@ CASES = {
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")
     + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nC D E F |",
+    "drum_default_velocity": HEADER
+    + "%%MIDI drum dzddd 35 36 37 38 52 53\n%%MIDI drumon\nCDEF|",
+    "drum_default_pitch": HEADER + "%%MIDI drum dd\n%%MIDI drumon\nCDEF|",
+    "harmony_octave_inversion": HEADER
+    + '%%MIDI gchord ghij\n"A/C#"ABcd|"C9/Bb"_BGEC|"C/B"B,CDE|',
+    "harmony_arpeggio": HEADER
+    + '%%MIDI gchord ghij\n"C5"CDEF|\n%%MIDI gchord GHIJ\n"C"CDEF|',
+    "harmony_bass_only": HEADER + '"c"CDEF|"a/E"ABcd|',
+    "harmony_custom_intervals": "%%MIDI chordname long 0 1 2 3 4 5 6 7 8 9\n"
+    + HEADER
+    + '"Clong"CDEF|',
+    "harmony_extended_qualities": HEADER
+    + '"Caug7"CDEF|"Fdim9"FGAB|"GM9"GABc|"Csus9"CDEF|"C7sus2"CDEF|"C7sus9"CDEF|',
     "parts": HEADER.replace("K:C", "P:ABA\nK:C") + "P:A\nC D E F |\nP:B\nG A B c |",
     "compound_minor": "X:1\nM:6/8\nQ:3/8=90\nK:Gm\nC D E F G A |",
     **{
