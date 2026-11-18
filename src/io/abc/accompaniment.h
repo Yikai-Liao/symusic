@@ -75,7 +75,6 @@ private:
     TrackNative<Tick>                    drum_track{"", 0, true};
     Drone                                drone;
     std::map<std::string_view, vec<int>> custom_chords;
-    size_t                               steps_played = 0;
 
     static std::string_view default_chords(Meter meter);
     vec<Step>               pattern(std::string_view text, std::string_view allowed, Location at);
@@ -84,7 +83,14 @@ private:
     void                    chord_type(std::string_view args, Location at);
     void                    close_drone(long double time, Location at);
     void                    drone_settings(std::string_view args, long double time, Location at);
-    void                    chord_step(Step step, i32 time, i32 duration);
+    bool                    pattern_directive(
+        std::string_view name, std::string_view args, long double time, Location at
+    );
+    bool instrument_directive(std::string_view name, std::string_view args, Location at);
+    bool drone_directive(
+        std::string_view name, std::string_view args, long double time, Location at
+    );
+    void chord_step(Step step, i32 time, i32 duration);
     template<class Play>
     void advance(Pattern& pattern, long double end, Location at, Play play);
 };

@@ -36,8 +36,10 @@ int PartOrder::count() {
     while (!text.empty() && digit(text.front())) pop();
     if (begin.size() == text.size()) return 1;
     const auto count = integer(begin.substr(0, begin.size() - text.size()));
-    if (!count || *count < 1 || *count > max_passes) {
-        diagnostics.error(at, "part-count-range", "part repeat count must be between 1 and 32");
+    if (!count || *count < 1 || *count > static_cast<int>(expansion_limit)) {
+        diagnostics.error(
+            at, "part-count-range", "part repeat count must be between 1 and 1000000"
+        );
     }
     return *count;
 }
@@ -149,52 +151,72 @@ private:
         int    passes;
     };
 
-    Closing closing(size_t first) const;
-    void    slice(size_t first, size_t end);
-    void    region(size_t first, size_t first_bar, size_t last_bar, int passes);
-    size_t  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
+    std::optional<size_t> next_ending_close(size_t from) const;
+    Closing               closing(size_t first) const;
+    void                  slice(size_t first, size_t end);
+    void                  region(size_t first, size_t first_bar, size_t last_bar, int passes);
+    void                  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
 };
+
+std::optional<size_t> RepeatOrder::next_ending_close(size_t from) const {
+    bool numbered = bars[from].endings.mask != 0;
+    for (size_t i = from + 1; i < bars.size(); ++i) {
+        const auto& next = bars[i];
+        if (next.bar.repeat_start || next.bar.section) break;
+        if (next.bar.repeat_end) return numbered ? std::optional(i) : std::nullopt;
+        if (next.endings.mask != 0) numbered = true;
+    }
+    return {};
+}
 
 RepeatOrder::Closing RepeatOrder::closing(size_t first) const {
     Closing result{first, std::max(2, bars[first].endings.last_pass)};
-    while (bars[result.last].endings.mask != 0 && !bars[result.last].bar.repeat_start) {
-        size_t i = result.last + 1;
-        while (i < bars.size() && !bars[i].bar.repeat_end && !bars[i].bar.repeat_start
-               && !bars[i].bar.section)
-            ++i;
-        if (i == bars.size() || !bars[i].bar.repeat_end || bars[i].endings.mask == 0) break;
-        result = {i, std::max(result.passes, bars[i].endings.last_pass)};
+    while (!bars[result.last].bar.repeat_start) {
+        const auto next = next_ending_close(result.last);
+        if (!next) break;
+        for (size_t i = result.last + 1; i <= *next; ++i)
+            result.passes = std::max(result.passes, bars[i].endings.last_pass);
+        result.last   = *next;
+        result.passes = std::max(result.passes, 2 + static_cast<int>(*next != first));
     }
     return result;
 }
 
 void RepeatOrder::slice(size_t first, size_t end) {
-    if (end - first > expansion_limit - output.size()) {
+    if (first == end) return;
+    if (output.size() >= expansion_limit || end - first > expansion_limit - output.size()) {
         diagnostics.error(
             source[first].at, "expansion-limit", "expanded music exceeds the playback token limit"
         );
     }
-    for (size_t i = first; i < end; ++i) output.push_back(&source[i]);
+    for (size_t i = first; i < end; ++i) output.push_back({&source[i]});
 }
 
-size_t RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int pass) {
+void RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int pass) {
     bool playing = true;
     for (size_t b = first_bar; b <= last_bar; ++b) {
         const auto& boundary = bars[b];
         if (playing) slice(first, boundary.index);
-        if (playing || boundary.endings.has(pass)) slice(boundary.index, boundary.index + 1);
-        first = boundary.index + 1;
-        if (boundary.bar.repeat_end && playing && boundary.endings.mask
-            && !boundary.endings.has(pass)) {
-            return first;
-        }
-        if (boundary.endings.mask) playing = boundary.endings.has(pass);
+        first               = boundary.index + 1;
+        const bool selected = boundary.endings.has(pass);
+        if (boundary.bar.repeat_end) {
+            if (playing || selected) {
+                const auto mode = selected ? Flow::hard_bar : Flow::soft_bar;
+                output.push_back({&source[boundary.index], mode});
+            }
+            if (playing && b != last_bar) return;
+        } else if (selected || (playing && boundary.endings.mask == 0))
+            slice(boundary.index, first);
+        if (boundary.endings.mask) playing = selected;
     }
-    return first;
 }
 
 void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int passes) {
-    for (int pass = 1; pass <= passes; ++pass) play_pass(first, first_bar, last_bar, pass);
+    output.push_back({&source[first], Flow::enter_repeat});
+    for (int pass = 1; pass <= passes; ++pass) {
+        if (pass > 1) output.push_back({&source[first], Flow::jump_repeat});
+        play_pass(first, first_bar, last_bar, pass);
+    }
 }
 
 void RepeatOrder::append() {
@@ -205,14 +227,22 @@ void RepeatOrder::append() {
         if (marker.bar.repeat_end) {
             const auto close = closing(b);
             region(first, first_bar, close.last, close.passes);
-            b         = close.last;
-            first     = bars[b].index + 1;
-            first_bar = b + 1;
-        } else if (marker.bar.repeat_start || marker.bar.section) {
+            b = close.last;
+        } else if (marker.bar.repeat_start) {
             slice(first, marker.index + 1);
-            first     = marker.index + 1;
-            first_bar = b + 1;
-        }
+        } else
+            continue;
+        first     = bars[b].index + 1;
+        first_bar = b + 1;
+    }
+    const bool outside_repeat = first_bar == 0 || !bars[first_bar - 1].bar.repeat_end;
+    for (size_t b = first_bar; outside_repeat && b < bars.size(); ++b) {
+        if (bars[b].endings.mask != 0)
+            diagnostics.warn(
+                source[bars[b].index].at,
+                "orphan-ending",
+                "played a numbered ending outside a closed repeat in written order"
+            );
     }
     slice(first, source.size());
 }

@@ -29,6 +29,10 @@ struct Expression {
 
 private:
     void shift(int amount);
+    int  string_velocity(long double position, long double pulse) const;
+    bool articulation(
+        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    );
 };
 
 struct Ornament {

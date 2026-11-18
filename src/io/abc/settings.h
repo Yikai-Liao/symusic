@@ -45,8 +45,8 @@ struct VoiceSpec {
 Length ratio(
     std::string_view text, Diagnostics& diagnostics, Location at, std::string_view context
 );
-Meter meter(std::string_view text, Diagnostics& diagnostics, Location at);
-Key   key(
+Meter              meter(std::string_view text, Diagnostics& diagnostics, Location at);
+std::optional<Key> key(
     std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
 );
 i32       tempo(std::string_view text, long double unit, Diagnostics& diagnostics, Location at);

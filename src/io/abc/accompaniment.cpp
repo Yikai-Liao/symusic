@@ -1,6 +1,8 @@
 #include "accompaniment.h"
 
 #include <cmath>
+
+#include <cmath>
 #include <span>
 
 namespace symusic::abc::detail {
@@ -167,10 +169,14 @@ void Accompaniment::chord_type(std::string_view args, Location at) {
 void Accompaniment::harmony(std::string_view symbol, int transpose, Location at) {
     const auto root = root_note(symbol);
     if (!root) return;   // quoted annotations are not chord symbols
-    const auto slash       = symbol.find('/');
-    const auto name        = symbol.substr(0, slash);
-    auto       inversion   = slash == symbol.npos ? std::string_view{} : symbol.substr(slash + 1);
-    const auto fundamental = root_note(inversion).value_or(*root);
+    const auto slash     = symbol.find('/');
+    const auto name      = symbol.substr(0, slash);
+    auto       inversion = slash == symbol.npos ? std::string_view{} : symbol.substr(slash + 1);
+    const auto bass_note = root_note(inversion);
+    if (slash != symbol.npos && (!bass_note || !inversion.empty())) {
+        diagnostics.warn(at, "invalid-chord-bass", "ignored an invalid slash-chord bass note");
+    }
+    const auto fundamental = bass_note.value_or(*root);
     const auto custom      = custom_chords.find(name);
     const auto standard    = std::ranges::find(chord_types, name, &ChordType::name);
     if (custom == custom_chords.end() && standard == std::end(chord_types)) {
@@ -235,14 +241,24 @@ void Accompaniment::chord_step(Step step, i32 time, i32 duration) {
 template<class Play>
 void Accompaniment::advance(Pattern& pattern, long double end, Location at, Play play) {
     if (!pattern.active) return;
+    if (&pattern == &chords && !current_chord) {
+        // No chord can sound yet. Skip whole cycles without changing the phase.
+        const auto cycle  = current_meter.measure() * pattern.bars;
+        const auto cycles = std::floor((end - pattern.next) / cycle);
+        if (cycles > 0) pattern.next += cycles * cycle;
+    }
     while (pattern.ready(end)) {
-        if (++steps_played > 2'000'000)
-            diagnostics.error(at, "backing-limit", "MIDI backing exceeds the playback step limit");
+        diagnostics.spend(1 + (current_chord ? current_chord->pitches.size() : 0), at);
         const auto step     = pattern.steps[pattern.index];
         const auto length   = current_meter.measure() * pattern.bars * step.length / pattern.units;
         const auto onset    = tick(pattern.next + 1, diagnostics, at);
         const auto duration = std::max(0, tick(length, diagnostics, at) - 1);
-        play(step, onset, duration);
+        const bool audible
+            = &pattern == &drums ? step.kind == 'd' : current_chord.has_value() && step.kind != 'z';
+        if (audible) {
+            (void)tick(static_cast<long double>(onset) + duration, diagnostics, at);
+            play(step, onset, duration);
+        }
         pattern.next += length;
         pattern.index = (pattern.index + 1) % pattern.steps.size();
     }
@@ -284,46 +300,65 @@ void Accompaniment::drone_settings(std::string_view args, long double time, Loca
     if (playing) drone.start = time;
 }
 
-bool Accompaniment::directive(
+bool Accompaniment::pattern_directive(
     std::string_view name, std::string_view args, long double time, Location at
 ) {
-    const auto command = [&](std::string_view ending) { return name.ends_with(ending); };
+    auto& pattern = name.starts_with("drum") ? drums : chords;
     if (name == "gchord")
         chord_pattern(args, time, at);
     else if (name == "drum")
         drum_pattern(args, time, at);
-    else if (name == "chordname")
+    else if (name == "gchordbars" || name == "drumbars") {
+        pattern.bars = directive_int(args, 1, 32, at, diagnostics);
+        pattern.reset(time);
+    } else if (name == "gchordon" || name == "gchordoff" || name == "drumon" || name == "drumoff") {
+        const bool on = name.ends_with("on");
+        if (on && !pattern.active) pattern.reset(time);
+        pattern.active = on;
+    } else
+        return false;
+    return true;
+}
+
+bool Accompaniment::instrument_directive(
+    std::string_view name, std::string_view args, Location at
+) {
+    auto& instrument = name.starts_with("bass") ? bass : chord;
+    if (name == "chordname")
         chord_type(args, at);
-    else if (name == "drone")
+    else if (name == "bassprog" || name == "chordprog") {
+        instrument.program = directive_int(args, 0, midi_max, at, diagnostics);
+        if (auto options = word(args); options.starts_with("octave=")) {
+            auto octave       = options.substr(7);
+            instrument.octave = directive_int(octave, -2, 2, at, diagnostics);
+        }
+    } else if (name == "bassvol" || name == "chordvol")
+        instrument.velocity = directive_int(args, 0, midi_max, at, diagnostics);
+    else
+        return false;
+    return true;
+}
+
+bool Accompaniment::drone_directive(
+    std::string_view name, std::string_view args, long double time, Location at
+) {
+    if (name == "drone")
         drone_settings(args, time, at);
     else if (name == "droneon") {
         if (!drone.start) drone.start = time;
     } else if (name == "droneoff") {
         close_drone(time, at);
         drone.start.reset();
-    } else if (name == "gchordon" || name == "gchordoff" || name == "drumon" || name == "drumoff") {
-        auto&      pat = name.starts_with("drum") ? drums : chords;
-        const auto on  = command("on");
-        if (on && !pat.active) pat.reset(time);
-        pat.active = on;
-    } else if (name == "gchordbars" || name == "drumbars") {
-        auto& pat = name.starts_with("drum") ? drums : chords;
-        pat.bars  = directive_int(args, 1, 32, at, diagnostics);
-        pat.reset(time);
-    } else if (name == "bassprog" || name == "chordprog") {
-        auto& instrument   = name.starts_with("bass") ? bass : chord;
-        instrument.program = directive_int(args, 0, midi_max, at, diagnostics);
-        const auto opt     = word(args);
-        if (opt.starts_with("octave=")) {
-            auto octave       = opt.substr(7);
-            instrument.octave = directive_int(octave, -2, 2, at, diagnostics);
-        }
-    } else if (name == "bassvol" || name == "chordvol") {
-        auto& instrument    = name.starts_with("bass") ? bass : chord;
-        instrument.velocity = directive_int(args, 0, midi_max, at, diagnostics);
     } else
         return false;
     return true;
+}
+
+bool Accompaniment::directive(
+    std::string_view name, std::string_view args, long double time, Location at
+) {
+    return pattern_directive(name, args, time, at) || instrument_directive(name, args, at)
+           || drone_directive(name, args, time, at);
 }
 
 void Accompaniment::finish(vec<TrackNative<Tick>>& tracks, long double end, Location at) {

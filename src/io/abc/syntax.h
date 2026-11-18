@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <deque>
 #include <optional>
 #include <set>
 #include <string_view>
@@ -27,9 +28,11 @@ public:
     [[noreturn]] void error(Location at, std::string_view code, std::string_view message) const;
     void              warn(Location at, std::string_view code, std::string_view message);
     vec<std::string>  take();
+    void              spend(size_t work, Location at);
 
 private:
     std::string_view                                         source;
+    size_t                                                   playback_budget = 1'000'000;
     std::set<std::tuple<Location, std::string, std::string>> warnings;
     std::string format(Location at, std::string_view code, std::string_view message) const;
 };
@@ -147,9 +150,10 @@ struct Token {
 // Views in the token stream refer to the input; locations are one-based UTF-8 byte columns.
 // Header ends at K:, and body contains only the first tune's music and fields.
 struct Tune {
-    vec<Token> header;
-    vec<Token> body;
-    Location   key;
+    std::deque<std::string> continued_lines;
+    vec<Token>              header;
+    vec<Token>              body;
+    Location                key;
 };
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics);

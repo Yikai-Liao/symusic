@@ -57,15 +57,17 @@ bool Expression::dynamic(std::string_view name) {
     return true;
 }
 
+int Expression::string_velocity(long double position, long double pulse) const {
+    if (!aligned(position, pulse)) return beat[2];
+    const auto index = static_cast<size_t>(std::floor(position / pulse + 0.0000001L));
+    const char mark  = beat_string[index % beat_string.size()];
+    return beat[mark == 'f' ? 0 : (mark == 'm' ? 1 : 2)];
+}
+
 int Expression::velocity(long double position, Meter meter) const {
     if (!accents) return beat[1];
     if (position < 0.0000001L) return beat[0];
-    if (!beat_string.empty()) {
-        const auto index = static_cast<size_t>(std::floor(position / meter.beat() + 0.0000001L));
-        if (!aligned(position, meter.beat())) return beat[2];
-        const char mark = beat_string[index % beat_string.size()];
-        return beat[mark == 'f' ? 0 : (mark == 'm' ? 1 : 2)];
-    }
+    if (!beat_string.empty()) return string_velocity(position, meter.beat());
     long double period = meter.beat() * (beat_step == 0 ? meter.accent_beats() : beat_step);
     if (meter.denominator == 2 && beat_step == 0) period *= 2;
     return beat[aligned(position, period) ? 1 : 2];
@@ -102,7 +104,17 @@ bool Expression::directive(
         accents = false;
     else if (name == "beataccents")
         accents = true;
-    else if (name == "chordattack")
+    else
+        return articulation(name, args, at, diagnostics);
+    return true;
+}
+
+bool Expression::articulation(
+    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+) {
+    const auto value
+        = [&](int min, int max) { return midi_integer(args, min, max, diagnostics, at); };
+    if (name == "chordattack")
         chord_attack = value(0, tpq);
     else if (name == "grace")
         grace_ratio = ratio(args, diagnostics, at, "grace").fraction();

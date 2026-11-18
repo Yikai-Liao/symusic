@@ -40,3 +40,20 @@ TEST_CASE("ABC renders slash chord backing and melody separately", "[abc]") {
     CHECK(chords[1].pitch == 55);
     CHECK(chords[2].pitch == 60);
 }
+
+TEST_CASE("ABC repeat jumps restore notation without rewinding time", "[abc]") {
+    const auto [score, warnings] = abc::read("X:1\nM:4/4\nL:1/4\nK:C\n|: F [K:G][L:1/8] F2 :| F2");
+    REQUIRE(warnings.empty());
+    const auto& notes = *score.tracks->front()->notes;
+    REQUIRE(notes.size() == 5);
+    CHECK(notes[2] == Note<Tick>{961, 479, 65, 105});
+    CHECK(notes[3].time == 1441);
+    CHECK(notes[4].time == 1921);
+}
+
+TEST_CASE("ABC validates backing note endpoints", "[abc]") {
+    const std::string input = "X:1\nM:4/4\nL:1/1920\nK:C\n%%MIDI gchordoff\n"
+                              "z2147483547\n%%MIDI gchord f\n%%MIDI gchordon\n\"C\"C";
+    CHECK_THROWS_AS(abc::read(input), std::invalid_argument);
+    CHECK(abc::read("X:1\nM:4/4\nL:1/4\nK:C\nz1000001 C").value.note_num() == 1);
+}

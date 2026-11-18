@@ -89,9 +89,10 @@ struct TupletState {
 };
 
 struct Cursor {
-    long double  time = 0;
-    long double  bar  = 0;
-    int          lane = 0;
+    long double  time      = 0;
+    long double  bar       = 0;
+    int          lane      = 0;
+    bool         first_bar = true;
     Accidentals  accidentals;
     vec<TieNote> ties;
 };
@@ -113,30 +114,43 @@ public:
 
 private:
     using TrackKey = std::tuple<int, int, int>;   // overlay lane, MIDI channel, program
-    Diagnostics&                          diagnostics;
-    std::string                           name;
-    Meter                                 meter;
-    Key                                   tone;
-    long double                           unit;
-    Accompaniment                         accompaniment;
-    std::array<std::string_view, 128>     symbols;
-    Expression                            expression;
-    Cursor                                cursor;
-    std::optional<OverlayState>           overlay;
-    TupletState                           tuplet;
-    std::optional<Prepared>               pending;
-    std::optional<Broken>                 broken;
-    const Grace*                          grace = nullptr;
-    Ornament                              ornament;
-    int                                   slur       = 0;
-    int                                   channel    = 1;
-    int                                   base_pitch = 60;
-    std::array<int, 16>                   programs{};
-    std::map<TrackKey, TrackNative<Tick>> tracks;
-    std::map<int, i32>                    pedal_starts;
-    vec<NoteAddress>                      line_notes;
-    size_t                                music_line = 0;
-    Performance                           result;
+    Diagnostics&                                                      diagnostics;
+    std::string                                                       name;
+    Meter                                                             meter;
+    Key                                                               tone;
+    long double                                                       unit;
+    Accompaniment                                                     accompaniment;
+    std::array<std::string_view, 128>                                 symbols;
+    Expression                                                        expression;
+    Cursor                                                            cursor;
+    std::optional<OverlayState>                                       overlay;
+    TupletState                                                       tuplet;
+    std::optional<Prepared>                                           pending;
+    std::optional<std::pair<Broken, Location>>                        broken;
+    const Grace*                                                      grace = nullptr;
+    Location                                                          grace_at{};
+    Ornament                                                          ornament;
+    int                                                               slur       = 0;
+    int                                                               channel    = 1;
+    int                                                               base_pitch = 60;
+    std::array<int, 16>                                               programs{};
+    std::map<TrackKey, TrackNative<Tick>>                             tracks;
+    std::map<std::pair<int, int>, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
+    vec<NoteAddress>                                                  line_notes;
+    size_t                                                            music_line = 0;
+    Performance                                                       result;
+    struct WrittenState {
+        Key         tone;
+        long double unit;
+        int         channel;
+    };
+    std::optional<WrittenState> repeat_entry;
+
+    vec<const Token*> timed_effects;
+    void              visit_token(const Token& token);
+    void              visit_step(PlayStep step);
+    void              jump_repeat(Location at);
+    void              finish_rhythm();
 
     TrackNative<Tick>& track(int for_channel);
     i32                at_tick(Location at) const { return tick(cursor.time, diagnostics, at); }
@@ -197,18 +211,26 @@ void VoicePlayer::report_ties() {
     cursor.ties.clear();
 }
 
-void VoicePlayer::orphan_grace(Location at) {
-    if (grace) diagnostics.warn(at, "orphan-grace", "ignored grace notes without a following note");
+void VoicePlayer::orphan_grace(Location) {
+    if (grace)
+        diagnostics.warn(grace_at, "orphan-grace", "ignored grace notes without a following note");
     grace = nullptr;
 }
 
 void VoicePlayer::broken_pair(Prepared& next) {
     if (!broken) return;
-    const auto mark = std::exchange(broken, {}).value();
-    if (!pending) return;
+    const auto [mark, marked_at] = std::exchange(broken, {}).value();
+    if (!pending) {
+        diagnostics.warn(
+            marked_at,
+            "interrupted-broken-rhythm",
+            "ignored broken rhythm interrupted by a field or bar"
+        );
+        return;
+    }
     if (std::fabs(pending->duration - next.duration) > epsilon) {
         diagnostics.warn(
-            next.at,
+            marked_at,
             "unequal-broken-rhythm",
             "ignored broken rhythm between notes of unequal length"
         );
@@ -251,6 +273,8 @@ void VoicePlayer::flush() {
     if (!pending) return;
     play(*pending);
     pending.reset();
+    const auto effects = std::exchange(timed_effects, {});
+    for (const auto* token : effects) visit_token(*token);
 }
 
 Sound VoicePlayer::sound(Pitch pitch, bool tie) {
@@ -288,6 +312,7 @@ std::optional<NoteAddress> VoicePlayer::note(
     const auto gate = std::max(0, tick(duration, diagnostics, at) - 1 - stagger);
     if (gate > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
+    diagnostics.spend(1, at);
     auto& output = track(channel);
     output.notes.emplace_back(time, gate, static_cast<i8>(sound.note), static_cast<i8>(loudness));
     return NoteAddress{&output, output.notes.size() - 1};
@@ -307,6 +332,7 @@ std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Lo
 }
 
 void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
+    diagnostics.spend(atom.atom->pitches.size() + cursor.ties.size(), atom.at);
     vec<TieNote> next_ties;
     const auto   audible  = expression.gate(duration, unit, atom.slur, atom.ornament.staccato);
     const auto   loudness = velocity(start);
@@ -334,7 +360,7 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
             next_ties.push_back({played, *address, atom.at});
         }
     }
-    report_ties();
+    // abc2midi treats a dash between unlike pitches as an ordinary attack.
     cursor.ties = std::move(next_ties);
 }
 
@@ -418,7 +444,8 @@ void VoicePlayer::play(const Prepared& atom) {
 
 void VoicePlayer::visit(const Grace& next, Location at) {
     if (grace) orphan_grace(at);
-    grace = &next;
+    grace    = &next;
+    grace_at = at;
 }
 
 void VoicePlayer::visit(const Harmony& chord, Location at) {
@@ -457,8 +484,13 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
     else if (mark == "~")
         ornament.roll = true;
     else {
-        flush();
-        if (expression.dynamic(mark)) return;
+        const auto previous = expression;
+        if (expression.dynamic(mark)) {
+            const auto next = std::exchange(expression, previous);
+            flush();
+            expression = next;
+            return;
+        }
         constexpr std::array marks{
             "coda"sv,
             "segno"sv,
@@ -506,7 +538,7 @@ void VoicePlayer::visit(Tuplet group, Location at) {
 
 void VoicePlayer::visit(Broken next, Location at) {
     if (pending && !broken)
-        broken = next;
+        broken = std::pair{next, at};
     else
         diagnostics.warn(
             at, "unexpected-broken-rhythm", "ignored a broken rhythm mark without a preceding note"
@@ -551,18 +583,28 @@ void VoicePlayer::visit(Overlay change, Location at) {
     cursor = Cursor{.time = overlay->start, .bar = overlay->start, .lane = overlay->lane};
 }
 
-void VoicePlayer::visit(const Bar& bar, Location at) {
-    flush();
+void VoicePlayer::finish_rhythm() {
     if (broken)
         diagnostics.warn(
-            at, "unfinished-broken-rhythm", "broken rhythm did not reach a following note"
+            broken->second,
+            "unfinished-broken-rhythm",
+            "broken rhythm did not reach a following note"
         );
     broken.reset();
+}
+
+void VoicePlayer::visit(const Bar& bar, Location at) {
+    flush();
+    finish_rhythm();
     orphan_grace(at);
     ornament = {};
     if (!bar.resets_measure) return;
     finish_overlay(at, false);
     cursor.accidentals.reset();
+    const bool soft   = bar.repeat_start || bar.repeat_end || bar.section;
+    const auto length = cursor.time - cursor.bar;
+    if (soft && !cursor.first_bar && length + epsilon < meter.measure()) return;
+    if (length > epsilon) cursor.first_bar = false;
     if (cursor.lane == 0) accompaniment.bar(cursor.time);
     cursor.bar = cursor.time;
 }
@@ -603,10 +645,15 @@ void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
     auto&      output = track(channel);
     output.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(value));
     if (number != 64) return;
+    const auto key = std::pair{cursor.lane, channel};
     if (value >= 64)
-        pedal_starts.try_emplace(channel, time);
-    else if (auto pedal = pedal_starts.extract(channel); !pedal.empty()) {
-        output.pedals.emplace_back(pedal.mapped(), time - pedal.mapped());
+        pedal_starts.try_emplace(key, &output, time);
+    else if (auto pedal = pedal_starts.extract(key); !pedal.empty()) {
+        const auto [owner, start] = pedal.mapped();
+        if (time >= start)
+            owner->pedals.emplace_back(start, time - start);
+        else
+            diagnostics.warn(at, "backward-pedal", "ignored pedal release before its press");
     }
 }
 
@@ -663,13 +710,16 @@ void VoicePlayer::visit(const Field& field, Location at) {
     const auto value = field.value;
     const auto time  = at_tick(at);
     switch (field.kind) {
-    case 'K':
-        tone = key(value, tone, diagnostics, at, false);
+    case 'K': {
+        const auto change = key(value, tone, diagnostics, at, false);
+        if (!change) break;
+        tone = *change;
         cursor.accidentals.reset();
         result.keys.emplace_back(
             KeySignature<Tick>(time, static_cast<i8>(tone.fifths), static_cast<i8>(tone.minor)), at
         );
         break;
+    }
     case 'Q':
         if (const auto usec = tempo(value, unit, diagnostics, at)) {
             result.tempos.emplace_back(
@@ -726,13 +776,58 @@ void VoicePlayer::lyrics(std::string_view text, Location at) {
         diagnostics.warn(at, "extra-lyrics", "more lyric syllables than notes on the music line");
 }
 
+void VoicePlayer::jump_repeat(Location at) {
+    flush();
+    finish_overlay(at, false);
+    report_ties();
+    finish_rhythm();
+    cursor.accidentals.reset();
+    slur    = 0;
+    tone    = repeat_entry->tone;
+    unit    = repeat_entry->unit;
+    channel = repeat_entry->channel;
+}
+
+bool can_defer(const Token& token) {
+    if (std::holds_alternative<Harmony>(token.value)
+        || std::holds_alternative<Directive>(token.value))
+        return true;
+    const auto* field = std::get_if<Field>(&token.value);
+    return field && std::string_view("KQMI").find(field->kind) != std::string_view::npos;
+}
+
+void VoicePlayer::visit_token(const Token& token) {
+    std::visit([&](const auto& value) { visit(value, token.at); }, token.value);
+}
+
+void VoicePlayer::visit_step(PlayStep step) {
+    const auto& token = *step.token;
+    diagnostics.spend(1, token.at);
+    switch (step.flow) {
+    case Flow::enter_repeat:
+        flush();
+        repeat_entry = {tone, unit, channel};
+        break;
+    case Flow::jump_repeat: jump_repeat(token.at); break;
+    case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
+    case Flow::hard_bar: visit(Bar{}, token.at); break;
+    case Flow::token:
+        if (broken && can_defer(token))
+            timed_effects.push_back(&token);
+        else
+            visit_token(token);
+        break;
+    }
+}
+
 Performance VoicePlayer::render(const PlayOrder& order) {
     Location end{};
-    for (const auto* token : order) {
-        end = token->at;
-        std::visit([&](const auto& value) { visit(value, end); }, token->value);
+    for (const auto step : order) {
+        end = step.token->at;
+        visit_step(step);
     }
     flush();
+    finish_rhythm();
     finish_overlay(end, true);
     report_ties();
     orphan_grace(end);

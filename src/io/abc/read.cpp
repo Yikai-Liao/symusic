@@ -21,7 +21,7 @@ void header_field(Header& header, Field field, const Token& token, Diagnostics& 
     switch (field.kind) {
     case 'M': header.settings.meter = meter(value, diagnostics, token.at); break;
     case 'K':
-        header.settings.key = key(value, header.settings.key, diagnostics, token.at, true);
+        header.settings.key = *key(value, header.settings.key, diagnostics, token.at, true);
         break;
     case 'T':
         if (header.settings.title.empty()) header.settings.title = unquote_text(value);
@@ -91,27 +91,39 @@ private:
     vec<Voice>           voices;
     size_t               selected = 0;
     std::optional<Token> current_part;
-    vec<Token>           shared;
 
-    bool select(const Token& token);
-    void append(const Token& token);
+
+    size_t find_voice(std::string_view id, Location at);
+    bool   select(const Token& token);
+    void   append(const Token& token);
 };
+
+size_t Voices::find_voice(std::string_view id, Location at) {
+    if (voices.front().id.empty()) {
+        auto& first = voices.front();
+        if (std::ranges::any_of(first.music, [](const Token& token) {
+                return std::holds_alternative<Atom>(token.value);
+            })) {
+            diagnostics.warn(
+                at, "late-first-voice", "continued the opening music in the first declared voice"
+            );
+        }
+        first.id = id;
+        return 0;
+    }
+    const auto match = std::ranges::find(voices, id, &Voice::id);
+    if (match != voices.end()) return static_cast<size_t>(match - voices.begin());
+    if (voices.size() >= max_voice_lanes) diagnostics.error(at, "voice-limit", "too many voices");
+    voices.push_back({id, {}, {}});
+    return voices.size() - 1;
+}
 
 bool Voices::select(const Token& token) {
     const auto* field = std::get_if<Field>(&token.value);
     if (!field || field->kind != 'V') return false;
-    const auto spec  = voice_spec(field->value, diagnostics, token.at);
-    auto       match = std::ranges::find(voices, spec.id, &Voice::id);
-    if (match == voices.end()) {
-        if (voices.size() >= max_voice_lanes)
-            diagnostics.error(token.at, "voice-limit", "too many voices");
-        if (voices.size() == 1 && voices.front().id.empty() && voices.front().music.empty())
-            voices.clear();
-        voices.push_back({spec.id, spec.name, shared});
-        match = voices.end() - 1;
-    }
-    selected = static_cast<size_t>(match - voices.begin());
-    if (!spec.name.empty()) match->name = spec.name;
+    const auto spec = voice_spec(field->value, diagnostics, token.at);
+    selected        = find_voice(spec.id, token.at);
+    if (!spec.name.empty()) voices[selected].name = spec.name;
     append(token);
     return true;
 }
@@ -145,12 +157,12 @@ vec<Event> global_events(
 ) {
     std::ranges::stable_sort(input, {}, [](const auto& item) { return item.first.time; });
     vec<Event> result{initial};
-    Location   previous{};
+    bool       have_change = false;
     for (auto& [event, at] : input) {
         if (result.back().time != event.time)
             result.push_back(std::move(event));
         else if (result.back() != event) {
-            if (previous.line != 1)
+            if (have_change)
                 diagnostics.warn(
                     at,
                     "conflicting-metadata",
@@ -161,7 +173,7 @@ vec<Event> global_events(
             else
                 result.back() = std::move(event);
         }
-        previous = at;
+        have_change = true;
     }
     return result;
 }
@@ -188,7 +200,7 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
         auto      order = play_order(voice.music, header.order, header.order_at, diagnostics);
         PlayOrder with_header;
         with_header.reserve(header.common.size() + order.size());
-        for (const auto& token : header.common) with_header.push_back(&token);
+        for (const auto& token : header.common) with_header.push_back({&token});
         with_header.insert(with_header.end(), order.begin(), order.end());
         auto name = voice.name.empty() ? (music.tracks.empty() ? settings.title : std::string{}) :
                                          unquote_text(voice.name);

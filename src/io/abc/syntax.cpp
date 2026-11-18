@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <limits>
+#include <span>
 #include <stdexcept>
 #include <utility>
 
@@ -29,6 +30,12 @@ vec<std::string> Diagnostics::take() {
     result.reserve(warnings.size());
     for (const auto& [at, code, message] : warnings) result.push_back(format(at, code, message));
     return result;
+}
+
+void Diagnostics::spend(size_t work, Location at) {
+    if (work > playback_budget)
+        error(at, "expansion-limit", "expanded tune exceeds the playback work limit");
+    playback_budget -= work;
 }
 
 namespace {
@@ -64,6 +71,7 @@ struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<pitch, ws>>, chars<'}'>
 
 using field_key = seq<sor<alpha, chars<'+'>>, chars<':'>>;
 struct field : seq<field_key, until<']'>> {};
+struct bad_field : seq<chars<'['>, field_key, star<any>> {};
 using inline_field = seq<chars<'['>, field, chars<']'>>;
 struct endings : seq<number, star<seq<chars<',', '-'>, number>>> {};
 struct repeat_both : sor<string<':', ':'>, string<':', '|', ':'>, string<':', '|', '|', ':'>> {};
@@ -73,7 +81,8 @@ struct section : sor<string<'|', ']'>, string<'|', '|'>> {};
 struct plain_bar : sor<string<'[', '|'>, chars<'|'>> {};
 struct bar : seq<sor<repeat_both, repeat_end, repeat_start, section, plain_bar>,
                  opt<seq<opt<chars<'['>>, endings>>> {};
-struct ending : seq<chars<'['>, endings> {};
+struct quoted_ending : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'"'>> {};
+struct ending : seq<chars<'['>, sor<endings, quoted_ending>, opt<chars<']'>>> {};
 
 struct tuplet : seq<chars<'('>, number, rep_max<2, chars<':'>, opt<number>>> {};
 struct broken : sor<repeated<'>'>, repeated<'<'>> {};
@@ -87,6 +96,7 @@ struct invalid : any {};
 using layout = sor<chars<'$', '`'>, seq<chars<'\\', '!'>, eof>, ws>;
 using token  = sor<
     inline_field,
+    bad_field,
     ending,
     bar,
     chord,
@@ -122,6 +132,8 @@ using Select = peg::parse_tree::selector<
         grammar::tie,
         grammar::length,
         grammar::field,
+        grammar::bad_field,
+        grammar::quoted_ending,
         grammar::bar,
         grammar::repeat_both,
         grammar::repeat_start,
@@ -140,8 +152,10 @@ using Select = peg::parse_tree::selector<
 using Input = peg::view_input<>;
 using Node  = peg::parse_tree::node_t<Input>;
 
-bool is_field(std::string_view text) {
-    return text.size() >= 2 && (letter(text[0]) || text[0] == '+') && text[1] == ':';
+size_t field_separator(std::string_view text) {
+    if (text.empty() || !(letter(text.front()) || text.front() == '+')) return text.npos;
+    const auto colon = text.find_first_not_of(whitespace, 1);
+    return colon != text.npos && text[colon] == ':' ? colon : text.npos;
 }
 
 std::string_view without_comment(std::string_view line) {
@@ -149,28 +163,45 @@ std::string_view without_comment(std::string_view line) {
     for (size_t i = 0; i < line.size(); ++i) {
         if (line[i] == '"') quoted = !quoted;
         if (line[i] == '%' && !quoted) return line.substr(0, i);
-        if (line[i] == '\\' && quoted && i + 1 < line.size()) ++i;
+        if (line[i] == '\\' && i + 1 < line.size() && (quoted || line[i + 1] == '%')) ++i;
     }
     return line;
 }
 
-Field field(std::string_view text) { return {text[0], trim(text.substr(2))}; }
+Field field(std::string_view text) {
+    return {text[0], trim(text.substr(field_separator(text) + 1))};
+}
+
+struct Fragment {
+    size_t offset;
+    size_t line;
+};
 
 class MusicLine {
 public:
-    MusicLine(std::string_view text, Location start, Diagnostics& diagnostics, vec<Token>& output) :
-        text(text), start(start), diagnostics(diagnostics), output(output) {}
+    MusicLine(
+        std::string_view          text,
+        Location                  start,
+        std::span<const Fragment> fragments,
+        Diagnostics&              diagnostics,
+        vec<Token>&               output
+    ) : text(text), start(start), fragments(fragments), diagnostics(diagnostics), output(output) {}
 
     void read();
 
 private:
-    std::string_view text;
-    Location         start;
-    Diagnostics&     diagnostics;
-    vec<Token>&      output;
+    std::string_view          text;
+    Location                  start;
+    std::span<const Fragment> fragments;
+    Diagnostics&              diagnostics;
+    vec<Token>&               output;
 
     Location location(const Node& node) const {
-        return {start.line, start.column + static_cast<size_t>(node.data.data() - text.data())};
+        const auto offset = start.column - 1 + static_cast<size_t>(node.data.data() - text.data());
+        if (fragments.empty()) return {start.line, offset + 1};
+        const auto fragment
+            = std::ranges::upper_bound(fragments, offset, {}, &Fragment::offset) - 1;
+        return {fragment->line, offset - fragment->offset + 1};
     }
     template<class Rule>
     static const Node* child(const Node& node) {
@@ -198,6 +229,11 @@ private:
     void emit(const Node& node, grammar::chord);
     void emit(const Node& node, grammar::grace) { push(node, Grace{members(node)}); }
     void emit(const Node& node, grammar::field) { push(node, field(node.data)); }
+    void emit(const Node& node, grammar::bad_field) {
+        diagnostics.error(
+            location(node), "unclosed-inline-field", "expected ']' after the inline field"
+        );
+    }
     void emit(const Node& node, grammar::bar) { push(node, bar(node)); }
     void emit(const Node& node, grammar::ending) { push(node, bar(node)); }
     void emit(const Node& node, grammar::tuplet) { push(node, tuplet(node)); }
@@ -273,14 +309,22 @@ Pitch MusicLine::pitch(const Node& node) const {
 vec<Pitch> MusicLine::members(const Node& node) const {
     vec<Pitch> notes;
     for (const auto& member : node.children) {
-        if (member->is_type<grammar::pitch>()) notes.push_back(pitch(*member));
+        if (!member->is_type<grammar::pitch>()) continue;
+        if (notes.size() >= 128)
+            diagnostics.error(
+                location(*member),
+                "group-limit",
+                "chords and grace groups support at most 128 notes"
+            );
+        notes.push_back(pitch(*member));
     }
     return notes;
 }
 
 Bar MusicLine::bar(const Node& node) const {
-    const auto ending = child<grammar::endings>(node);
-    const auto both   = child<grammar::repeat_both>(node);
+    const auto  ending = child<grammar::endings>(node);
+    const auto  both   = child<grammar::repeat_both>(node);
+    const auto* label  = child<grammar::quoted_ending>(node);
     return {
         bool(both || child<grammar::repeat_start>(node)),
         bool(both || child<grammar::repeat_end>(node)),
@@ -317,7 +361,11 @@ void MusicLine::invalid(const Node& node) {
     else if (c == '\\')
         diagnostics.warn(at, "stray-continuation", "ignored a line continuation inside music");
     else
-        diagnostics.warn(at, "unexpected-character", "ignored an unexpected music character");
+        diagnostics.warn(
+            at,
+            "unexpected-character",
+            fmt::format("ignored unexpected byte {:#04x}", static_cast<unsigned char>(c))
+        );
 }
 
 void MusicLine::emit(const Node& node, grammar::pitch) {
@@ -373,6 +421,7 @@ void MusicLine::read() {
                 grammar::chord,
                 grammar::grace,
                 grammar::field,
+                grammar::bad_field,
                 grammar::bar,
                 grammar::ending,
                 grammar::tuplet,
@@ -390,7 +439,8 @@ void MusicLine::read() {
 class TuneLines {
 public:
     explicit TuneLines(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
-    bool line(std::string_view raw, size_t number);
+    bool line(std::string_view raw, size_t number, std::span<const Fragment> fragments = {});
+    bool joined(std::string text, std::span<const Fragment> fragments);
     Tune finish(Location end);
 
 private:
@@ -402,6 +452,7 @@ private:
     bool         ended         = false;
 
     bool metadata(Field value, Location at);
+    bool content(std::string_view text, Location at, std::span<const Fragment> fragments);
 };
 
 bool TuneLines::metadata(Field value, Location at) {
@@ -423,7 +474,13 @@ bool TuneLines::metadata(Field value, Location at) {
     return true;
 }
 
-bool TuneLines::line(std::string_view raw, size_t number) {
+bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
+    return line(
+        tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments
+    );
+}
+
+bool TuneLines::line(std::string_view raw, size_t number, std::span<const Fragment> fragments) {
     const auto start = raw.find_first_not_of(whitespace);
     if (start == raw.npos) {
         ended = ended || saw_music;
@@ -439,9 +496,23 @@ bool TuneLines::line(std::string_view raw, size_t number) {
     }
     const auto content = trim(without_comment(text));
     if (content.empty()) return true;
-    if (is_field(content)) return metadata(field(content), at);
+    return this->content(content, at, fragments);
+}
+
+bool TuneLines::content(
+    std::string_view content, Location at, std::span<const Fragment> fragments
+) {
+    const auto tail        = content.substr(1);
+    const bool note_repeat = in_body && note_letter(content.front())
+                             && (tail.starts_with(":|") || tail.starts_with("::"));
+    if (note_repeat)
+        diagnostics.warn(
+            at, "field-repeat-ambiguity", "read a note followed by a repeat bar rather than a field"
+        );
+    else if (field_separator(content) != content.npos)
+        return metadata(field(content), at);
     if (!in_body) diagnostics.error(at, "missing-key", "expected K: before the music");
-    MusicLine(content, at, diagnostics, tune.body).read();
+    MusicLine(content, at, fragments, diagnostics, tune.body).read();
     saw_music = true;
     return true;
 }
@@ -455,17 +526,50 @@ Tune TuneLines::finish(Location end) {
 
 }   // namespace
 
+namespace {
+
+struct PhysicalLine {
+    std::string_view text;
+    bool             has_newline;
+};
+
+PhysicalLine take_line(std::string_view& text) {
+    const auto end  = text.find_first_of("\r\n");
+    const auto line = text.substr(0, end);
+    if (end == text.npos)
+        text = {};
+    else
+        text.remove_prefix(end + (text.substr(end).starts_with("\r\n") ? 2 : 1));
+    return {line, end != text.npos};
+}
+
+bool read_logical_line(TuneLines& tune, std::string_view& text, size_t& line) {
+    vec<Fragment> fragments;
+    std::string   joined;
+    do {
+        const auto [raw, newline] = take_line(text);
+        const auto part           = trim(raw.starts_with("%%") ? raw : without_comment(raw));
+        const bool continues      = newline && part.ends_with('\\');
+        if (!continues && fragments.empty()) return tune.line(raw, line++);
+        fragments.push_back({joined.size(), line++});
+        if (continues)
+            joined.append(
+                raw.substr(0, static_cast<size_t>(part.data() - raw.data()) + part.size() - 1)
+            );
+        else
+            joined.append(raw);
+        if (!continues) break;
+    } while (!text.empty());
+    return tune.joined(std::move(joined), fragments);
+}
+
+}   // namespace
+
 Tune tokenize(std::string_view text, Diagnostics& diagnostics) {
     if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
     TuneLines tune(diagnostics);
     size_t    line = 1;
-    while (!text.empty()) {
-        const auto end = text.find_first_of("\r\n");
-        if (!tune.line(text.substr(0, end), line) || end == text.npos) break;
-        const auto newline = text.substr(end).starts_with("\r\n") ? 2 : 1;
-        text.remove_prefix(end + newline);
-        ++line;
-    }
+    while (!text.empty() && read_logical_line(tune, text, line)) {}
     return tune.finish({line, 1});
 }
 

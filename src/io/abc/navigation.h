@@ -4,9 +4,15 @@
 
 namespace symusic::abc::detail {
 
-// Playback visits immutable source tokens. Expanded repeats and ordered parts
-// keep the location of their original token and are bounded before rendering.
-using PlayOrder = vec<const Token*>;
+// The score clock only moves forward. Repeat jumps restore written state, not
+// emitted notes, the accent clock, or running MIDI effects.
+enum class Flow { token, enter_repeat, jump_repeat, soft_bar, hard_bar };
+struct PlayStep {
+    const Token* token;
+    Flow         flow = Flow::token;
+};
+using PlayOrder = vec<PlayStep>;
+
 PlayOrder play_order(
     const vec<Token>& source, std::string_view parts, Location at, Diagnostics& diagnostics
 );

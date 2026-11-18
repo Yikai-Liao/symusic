@@ -214,15 +214,13 @@ Length ratio(
     return {*numerator, *denominator};
 }
 
-Meter meter(std::string_view text, Diagnostics& diagnostics, Location at) {
-    if (text == "C") return {};
-    if (text == "C|") return {2, 2};
-    if (ascii_lower(text) == "none") return {4, 4, true};
-    const auto slash = text.find('/');
-    if (slash == text.npos)
-        diagnostics.error(at, "invalid-meter", "expected a meter such as 4/4, C or none");
-    auto numerator = text.substr(0, slash);
-    int  beats     = 0;
+namespace {
+
+int meter_numerator(std::string_view numerator, Diagnostics& diagnostics, Location at) {
+    numerator = trim(numerator);
+    if (numerator.starts_with('(') && numerator.ends_with(')'))
+        numerator = numerator.substr(1, numerator.size() - 2);
+    int beats = 0;
     while (!numerator.empty()) {
         const auto plus = numerator.find('+');
         const auto part = integer(trim(numerator.substr(0, plus)));
@@ -232,6 +230,19 @@ Meter meter(std::string_view text, Diagnostics& diagnostics, Location at) {
         if (plus == numerator.npos) break;
         numerator.remove_prefix(plus + 1);
     }
+    return beats;
+}
+
+}   // namespace
+
+Meter meter(std::string_view text, Diagnostics& diagnostics, Location at) {
+    if (text == "C") return {};
+    if (text == "C|") return {2, 2};
+    if (ascii_lower(text) == "none") return {4, 4, true};
+    const auto slash = text.find('/');
+    if (slash == text.npos)
+        diagnostics.error(at, "invalid-meter", "expected a meter such as 4/4, C or none");
+    const auto beats       = meter_numerator(text.substr(0, slash), diagnostics, at);
     const auto denominator = integer(trim(text.substr(slash + 1)));
     if (!beats || !denominator || *denominator < 1 || *denominator > 128
         || !std::has_single_bit(static_cast<unsigned>(*denominator))) {
@@ -242,7 +253,7 @@ Meter meter(std::string_view text, Diagnostics& diagnostics, Location at) {
     return {beats, *denominator};
 }
 
-Key key(
+std::optional<Key> key(
     std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
 ) {
     Key  result  = previous;
@@ -256,7 +267,7 @@ Key key(
         result = previous;
         if (first != "clef" && first != "octave" && first != "transpose") {
             diagnostics.warn(at, "invalid-inline-key", "ignored an unrecognized key change");
-            return result;
+            return {};
         }
         options = text;
     }
