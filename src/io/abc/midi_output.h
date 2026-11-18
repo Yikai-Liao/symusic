@@ -7,12 +7,6 @@
 
 namespace symusic::abc::detail {
 
-struct MidiTarget {
-    int lane;
-    int channel;
-    int program;
-};
-
 class VoiceOutput;
 
 // A stable note handle until its voice finishes; note vectors may grow in between.
@@ -43,7 +37,7 @@ public:
     VoiceOutput& operator=(const VoiceOutput&) = delete;
 
     std::optional<NoteAddress> attack(
-        MidiTarget  target,
+        int         lane,
         MidiPitch   pitch,
         long double start,
         long double duration,
@@ -51,17 +45,29 @@ public:
         int         velocity,
         Location    at
     );
-    void control(MidiTarget target, i32 time, int number, int value, Location at);
+    int  selected_channel(int lane) const { return routing[lane].selected; }
+    void select_channel(int lane, int channel) { routing[lane].selected = channel; }
+    void control(int lane, i32 time, int number, int value, Location at);
     // Map channel-effect directives onto Score events; leave unrelated MIDI
     // commands to the playback and accompaniment state owners.
-    bool effect(
-        std::string_view name, std::string_view args, MidiTarget target, i32 time, Location at
-    );
+    bool effect(std::string_view name, std::string_view args, int lane, i32 time, Location at);
     void finish(vec<TrackNative<Tick>>& tracks);
 
 private:
     using TrackKey   = std::tuple<int, int, int>;
     using ChannelKey = std::pair<int, int>;
+
+    struct Target {
+        int lane;
+        int channel;
+        int program;
+    };
+
+    struct Routing {
+        int                 selected = 1;
+        std::array<int, 16> programs{};
+    };
+    std::array<Routing, max_voice_lanes> routing;
 
     struct ChannelOutput {
         ChannelOutput(std::string name, u8 program, bool drums) :
@@ -78,8 +84,11 @@ private:
     std::map<TrackKey, ChannelOutput>                        output;
     std::map<ChannelKey, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
 
-    ChannelOutput& channel(MidiTarget target);
-    void tune(ChannelOutput& owner, MidiTarget target, MidiPitch pitch, i32 time, Location at);
+    [[nodiscard]] Target target(int lane) const;
+    ChannelOutput&       channel(Target target);
+    bool                 route(std::string_view name, std::string_view args, int lane, Location at);
+    void                 program(int lane, std::string_view args, Location at);
+    void tune(ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at);
     void sustain(ChannelKey channel, TrackNative<Tick>& track, i32 time, int value, Location at);
 };
 

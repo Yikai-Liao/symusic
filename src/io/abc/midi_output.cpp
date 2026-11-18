@@ -17,7 +17,12 @@ void NoteAddress::lyric(std::string text) const {
 VoiceOutput::VoiceOutput(std::string name, Diagnostics& diagnostics) :
     name(std::move(name)), diagnostics(diagnostics) {}
 
-VoiceOutput::ChannelOutput& VoiceOutput::channel(MidiTarget target) {
+VoiceOutput::Target VoiceOutput::target(int lane) const {
+    const auto& [selected, programs] = routing[lane];
+    return {lane, selected, programs[selected - 1]};
+}
+
+VoiceOutput::ChannelOutput& VoiceOutput::channel(Target target) {
     const auto [lane, channel, program] = target;
     return output
         .try_emplace(
@@ -30,7 +35,7 @@ VoiceOutput::ChannelOutput& VoiceOutput::channel(MidiTarget target) {
 }
 
 void VoiceOutput::tune(
-    ChannelOutput& owner, MidiTarget target, MidiPitch pitch, i32 time, Location at
+    ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at
 ) {
     if (target.channel == midi_drum_channel || owner.accidental_wheel == pitch.wheel) return;
     if (time < owner.sounding_until)
@@ -42,7 +47,7 @@ void VoiceOutput::tune(
 }
 
 std::optional<NoteAddress> VoiceOutput::attack(
-    MidiTarget  target,
+    int         lane,
     MidiPitch   pitch,
     long double start,
     long double duration,
@@ -62,8 +67,9 @@ std::optional<NoteAddress> VoiceOutput::attack(
     if (gate > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
     diagnostics.spend(PlaybackWork::attack, at);
-    auto& owner = channel(target);
-    tune(owner, target, pitch, time, at);
+    const auto destination = target(lane);
+    auto&      owner       = channel(destination);
+    tune(owner, destination, pitch, time, at);
     owner.sounding_until = std::max(owner.sounding_until, time + gate);
     owner.track.notes.emplace_back(
         time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
@@ -87,24 +93,49 @@ void VoiceOutput::sustain(
         diagnostics.warn(at, "backward-pedal", "ignored pedal release before its press");
 }
 
-void VoiceOutput::control(MidiTarget target, i32 time, int number, int value, Location at) {
-    auto& owner = channel(target).track;
+void VoiceOutput::control(int lane, i32 time, int number, int value, Location at) {
+    const auto destination = target(lane);
+    auto&      owner       = channel(destination).track;
     owner.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(value));
-    if (number == 64) sustain({target.lane, target.channel}, owner, time, value, at);
+    if (number == 64) sustain({lane, destination.channel}, owner, time, value, at);
+}
+
+void VoiceOutput::program(int lane, std::string_view args, Location at) {
+    const auto first           = midi_integer(args, 0, midi_max, diagnostics, at);
+    auto& [selected, programs] = routing[lane];
+    if (trim(args).empty()) {
+        programs[selected - 1] = first;
+        return;
+    }
+    if (first < 1 || first > 16)
+        diagnostics.error(at, "invalid-midi-channel", "program channel must be between 1 and 16");
+    programs[first - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
+}
+
+bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, Location at) {
+    if (name == "program")
+        program(lane, args, at);
+    else if (name == "channel")
+        select_channel(lane, midi_integer(args, 1, 16, diagnostics, at));
+    else
+        return false;
+    return true;
 }
 
 bool VoiceOutput::effect(
-    std::string_view name, std::string_view args, MidiTarget target, i32 time, Location at
+    std::string_view name, std::string_view args, int lane, i32 time, Location at
 ) {
     const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
-    const auto cc   = [&](int number, int value) { control(target, time, number, value, at); };
+    const auto cc   = [&](int number, int value) { control(lane, time, number, value, at); };
+    if (route(name, args, lane, at)) return true;
     if (name == "control") {
         const int number = byte();
         cc(number, byte());
     } else if (name == "pitchbend") {
         const int low  = byte();
         const int high = trim(args).empty() ? 0 : byte();
-        channel(target).track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
+        channel(target(lane))
+            .track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
     } else if (name == "pitchbendrange") {
         const int semitones = byte();
         cc(101, 0);

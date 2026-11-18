@@ -107,15 +107,13 @@ struct WrittenState {
 };
 
 struct PlaybackLane {
-    long double         time      = 0;
-    long double         bar       = 0;
-    bool                first_bar = true;
-    Accidentals         accidentals;
-    vec<TieNote>        ties;
-    Expression          expression;
-    int                 slur    = 0;
-    int                 channel = 1;
-    std::array<int, 16> programs{};
+    long double  time      = 0;
+    long double  bar       = 0;
+    bool         first_bar = true;
+    Accidentals  accidentals;
+    vec<TieNote> ties;
+    Expression   expression;
+    int          slur = 0;
     // Re-entry uses the previous primary bar boundary, not an inner barline.
     long double                reentry_bar = 0;
     std::optional<long double> primary_until;
@@ -279,9 +277,6 @@ private:
     void              jump_repeat();
     void              finish_rhythm();
 
-    MidiTarget target() {
-        return {lanes.id(), lane().channel, lane().programs[lane().channel - 1]};
-    }
     i32 at_tick(Location at) { return tick(lane().time, diagnostics, at); }
     int velocity(long double at) {
         return lane().expression.velocity(at - lane().bar, written.meter);
@@ -306,7 +301,6 @@ private:
     std::optional<NoteAddress> sustain(Sound& sound, i32 end);
     vec<ChordMember>           resolve_chord(const Prepared& atom, long double end);
     void                       set_symbols(std::string_view value, Location at);
-    void                       program(std::string_view args, Location at);
     void                       midi(std::string_view command, Location at);
     void                       information(std::string_view value, Location at);
     void                       lyrics(std::string_view text, Location at);
@@ -396,7 +390,7 @@ void VoicePlayer::flush() {
 }
 
 int VoicePlayer::sounding_shift() {
-    if (lane().channel == midi_drum_channel) return 0;
+    if (output.selected_channel(lanes.id()) == midi_drum_channel) return 0;
     return midi_shift + written.tone.transpose.value_or(0);
 }
 
@@ -432,7 +426,7 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch, Location at, int direction) {
 std::optional<NoteAddress> VoicePlayer::note(
     Sound sound, long double start, long double duration, int stagger, int loudness, Location at
 ) {
-    return output.attack(target(), sound.pitch, start, duration, stagger, loudness, at);
+    return output.attack(lanes.id(), sound.pitch, start, duration, stagger, loudness, at);
 }
 
 std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, i32 end) {
@@ -679,12 +673,12 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
     }
     if (mark == "ped" || mark == "ped(") {
         flush();
-        output.control(target(), at_tick(at), 64, 127, at);
+        output.control(lanes.id(), at_tick(at), 64, 127, at);
         return;
     }
     if (mark == "ped-up" || mark == "ped)") {
         flush();
-        output.control(target(), at_tick(at), 64, 0, at);
+        output.control(lanes.id(), at_tick(at), 64, 0, at);
         return;
     }
     constexpr std::array marks{
@@ -792,32 +786,13 @@ void VoicePlayer::set_symbols(std::string_view value, Location at) {
     symbols[static_cast<unsigned char>(symbol.front())] = trim(value.substr(eq + 1));
 }
 
-void VoicePlayer::program(std::string_view args, Location at) {
-    auto target = midi_integer(args, 0, midi_max, diagnostics, at);
-    if (trim(args).empty()) {
-        lane().programs[lane().channel - 1] = target;
-        return;
-    }
-    if (target < 1 || target > 16)
-        diagnostics.error(at, "invalid-midi-channel", "program channel must be between 1 and 16");
-    lane().programs[target - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
-}
-
 void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
     if (PitchTuning::handles_midi(name)) return;   // Already compiled in source order.
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
-    const auto value
-        = [&](int low, int high) { return midi_integer(command, low, high, diagnostics, at); };
-    if (name == "program")
-        program(command, at);
-    else if (name == "channel")
-        lane().channel = value(1, 16);
-    else if (
-        !lane().expression.directive(name, command, at, diagnostics)
-        && !output.effect(name, command, target(), at_tick(at), at)
-        && !accompaniment.directive(name, command, lane().time, at)
-    ) {
+    if (!lane().expression.directive(name, command, at, diagnostics)
+        && !output.effect(name, command, lanes.id(), at_tick(at), at)
+        && !accompaniment.directive(name, command, lane().time, at)) {
         diagnostics.warn(at, "unsupported-midi", fmt::format("ignored MIDI directive '{}'", name));
     }
 }
@@ -928,10 +903,10 @@ void VoicePlayer::jump_repeat() {
     lanes.break_ties();
     finish_rhythm();
     lane().accidentals.reset();
-    lane().slur    = 0;
-    written.tone   = repeat_entry->tone;
-    written.unit   = repeat_entry->unit;
-    lane().channel = repeat_entry->channel;
+    lane().slur  = 0;
+    written.tone = repeat_entry->tone;
+    written.unit = repeat_entry->unit;
+    output.select_channel(lanes.id(), repeat_entry->channel);
 }
 
 bool VoicePlayer::can_defer(const Token& token) const {
@@ -954,7 +929,7 @@ void VoicePlayer::visit_step(PlayStep step) {
     switch (step.flow) {
     case Flow::enter_repeat:
         flush();
-        repeat_entry = {written.tone, written.unit, lane().channel};
+        repeat_entry = {written.tone, written.unit, output.selected_channel(lanes.id())};
         break;
     case Flow::jump_repeat: jump_repeat(); break;
     case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
