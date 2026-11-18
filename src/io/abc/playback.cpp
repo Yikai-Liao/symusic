@@ -865,7 +865,10 @@ void VoicePlayer::visit(const Field& field, Location at) {
     case 'Q': change_tempo(value, at); break;
     case 'M': change_meter(value, at); break;
     case 'L': written.unit = unit_length(value, diagnostics, at); break;
-    case 'P': visit(Bar{}, at); break;
+    case 'P':
+        visit(Bar{}, at);
+        lane().first_bar = true;
+        break;
     case 'V': change_voice(value, at); break;
     case 'I': information(value, at); break;
     case 'U': set_symbols(value, at); break;

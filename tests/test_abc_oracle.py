@@ -94,6 +94,9 @@ CASES = {
     "harmony_extended_qualities": HEADER
     + '"Caug7"CDEF|"Fdim9"FGAB|"GM9"GABc|"Csus9"CDEF|"C7sus2"CDEF|"C7sus9"CDEF|',
     "parts": HEADER.replace("K:C", "P:ABA\nK:C") + "P:A\nC D E F |\nP:B\nG A B c |",
+    "part_pickup": HEADER + 'P:A\nD |:"C"CDEF| GABc:|\nP:B\nE |:"G"GABc| CDEF:|',
+    "part_order_pickup": HEADER.replace("K:C", "P:ABA\nK:C")
+    + "P:A\nD |:CDEF| GABc:|\nP:B\nE |:GABc| CDEF:|",
     "compound_minor": "X:1\nM:6/8\nQ:3/8=90\nK:Gm\nC D E F G A |",
     **{
         path.stem: path.read_text(encoding="utf-8")
