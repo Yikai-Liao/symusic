@@ -169,11 +169,48 @@ void key_options(std::string_view options, Key& result, Diagnostics& diagnostics
     if (octave || from_clef) result.octave = octave.value_or(from_clef.value_or(0));
 }
 
-std::string_view without_tempo_label(std::string_view text) {
+std::string_view tempo_label(std::string_view& text) {
     text = trim(text);
-    if (!text.starts_with('"')) return text;
+    if (!text.starts_with('"')) return {};
     const auto end = text.find('"', 1);
-    return end == text.npos ? std::string_view{} : trim(text.substr(end + 1));
+    if (end == text.npos) {
+        text = {};
+        return {};
+    }
+    const auto label = text.substr(1, end - 1);
+    text             = trim(text.substr(end + 1));
+    return label;
+}
+
+int named_tempo(std::string_view label) {
+    // Conventional text tempi use abc2midi's quarter-note metronome rates.
+    struct NamedTempo {
+        std::string_view name;
+        int              bpm;
+    };
+    static constexpr NamedTempo names[]{
+        {"larghissimo", 40},
+        {"adagissimo", 44},
+        {"lentissimo", 48},
+        {"largo", 56},
+        {"adagio", 59},
+        {"lento", 62},
+        {"larghetto", 66},
+        {"adagietto", 76},
+        {"andante", 88},
+        {"andantino", 96},
+        {"moderato", 104},
+        {"allegretto", 112},
+        {"allegro", 120},
+        {"vivace", 168},
+        {"vivo", 180},
+        {"presto", 192},
+        {"allegrissimo", 208},
+        {"vivacissimo", 220},
+        {"prestissimo", 240}
+    };
+    const auto found = std::ranges::find(names, ascii_lower(label), &NamedTempo::name);
+    return found == std::end(names) ? 0 : found->bpm;
 }
 
 long double tempo_beat(
@@ -284,11 +321,12 @@ std::optional<Key> key(
 }
 
 i32 tempo(std::string_view text, long double unit, Diagnostics& diagnostics, Location at) {
-    text = without_tempo_label(text);
-    text = trim(text.substr(0, text.find('"')));
+    const auto label = tempo_label(text);
+    text             = trim(text.substr(0, text.find('"')));
     if (text.empty()) {
+        if (const auto bpm = named_tempo(label)) return 60'000'000 / bpm;
         diagnostics.warn(
-            at, "text-tempo", "tempo text has no metronome value; kept the current tempo"
+            at, "text-tempo", "tempo text has no recognized metronome value; kept the current tempo"
         );
         return 0;
     }
@@ -298,7 +336,7 @@ i32 tempo(std::string_view text, long double unit, Diagnostics& diagnostics, Loc
     const auto value = integer(trim(eq == text.npos ? text : text.substr(eq + 1)));
     if (!value || *value <= 0 || beat <= 0)
         diagnostics.error(at, "invalid-tempo", "tempo needs a positive metronome value");
-    const auto usec = 60000000.L * tpq / (beat * *value);
+    const auto usec = 60'000'000.L * tpq / (beat * *value);
     if (usec < 1 || usec > std::numeric_limits<i32>::max())
         diagnostics.error(at, "tempo-range", "tempo is outside the score's range");
     return static_cast<i32>(usec);

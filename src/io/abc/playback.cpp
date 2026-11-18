@@ -223,7 +223,8 @@ public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
         diagnostics(diagnostics), output(std::move(name), diagnostics),
         written{settings.meter, settings.key, settings.unit},
-        accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics) {}
+        accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics),
+        tempo_unit(settings.unit) {}
 
     Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
@@ -235,6 +236,7 @@ private:
     std::array<std::string_view, 128>          symbols;
     OverlayLanes                               lanes;
     PlaybackLane&                              lane() { return lanes.active(); }
+    const long double                          tempo_unit;
     TupletState                                tuplet;
     std::optional<Prepared>                    pending;
     std::optional<std::pair<Broken, Location>> broken;
@@ -807,7 +809,7 @@ void VoicePlayer::change_meter(std::string_view value, Location at) {
 }
 
 void VoicePlayer::change_tempo(std::string_view value, Location at) {
-    if (const auto usec = tempo(value, written.unit, diagnostics, at)) {
+    if (const auto usec = tempo(value, tempo_unit, diagnostics, at)) {
         result.tempos.emplace_back(
             Tempo<Tick>(tick(lane().time + PlaybackGrid::tempo_offset, diagnostics, at), usec), at
         );

@@ -34,6 +34,9 @@ CASES = {
     "broken_dynamic": HEADER + "C>[K:G]!p!F G A |",
     "overlay_tie": HEADER + "C2 & E2- | D2 & E2 |",
     "implicit_repeat": HEADER + "C4 || D4 :| E4 |",
+    "named_tempo": HEADER.replace("Q:1/4=120", 'Q:"Largo"').replace("L:1/4", "L:1/8")
+    + "CDEFGABc|",
+    "relative_tempo": HEADER + "C [L:1/8][Q:C=120] D E F|",
     "inline_tempo": HEADER + "C [Q:1/8=100] D E F |",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
     "voices": HEADER + 'V:one name="Lead"\n%%MIDI program 4\nC D E F |\n'
