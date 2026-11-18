@@ -22,6 +22,7 @@ add_library(symusic
     src/event.cpp
     src/io/abc/accompaniment.cpp
     src/io/abc/expression.cpp
+    src/io/abc/midi_output.cpp
     src/io/abc/navigation.cpp
     src/io/abc/playback.cpp
     src/io/abc/read.cpp

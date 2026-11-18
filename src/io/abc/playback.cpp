@@ -6,6 +6,7 @@
 
 #include "accompaniment.h"
 #include "expression.h"
+#include "midi_output.h"
 
 
 namespace symusic::abc::detail {
@@ -58,12 +59,6 @@ void Accidentals::propagation(std::string_view value, Location at, Diagnostics& 
             "expected 'pitch', 'octave' or 'not' for propagate-accidentals"
         );
 }
-
-struct NoteAddress {
-    TrackNative<Tick>* track;
-    size_t             index;
-    Note<Tick>&        note() const { return track->notes[index]; }
-};
 
 struct TieNote {
     Sound       sound;
@@ -136,38 +131,35 @@ struct OverlayLane {
 class VoicePlayer {
 public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
-        diagnostics(diagnostics), name(std::move(name)),
+        diagnostics(diagnostics), output(std::move(name), diagnostics),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, diagnostics), symbols(settings.symbols) {}
 
     Performance render(const PlayOrder& order);
 
 private:
-    using TrackKey = std::tuple<int, int, int>;   // overlay lane, MIDI channel, program
-    Diagnostics&                                                      diagnostics;
-    std::string                                                       name;
-    WrittenState                                                      written;
-    Accompaniment                                                     accompaniment;
-    std::array<std::string_view, 128>                                 symbols;
-    LaneEffects                                                       effects;
-    Cursor                                                            cursor;
-    long double                                                       written_bar = 0;
-    std::map<int, OverlayLane>                                        overlay_clocks;
-    void                                                              record_lane();
-    void                                                              advance_lanes();
-    void                                                              switch_lane(Location at);
-    std::optional<OverlayState>                                       overlay;
-    TupletState                                                       tuplet;
-    std::optional<Prepared>                                           pending;
-    std::optional<std::pair<Broken, Location>>                        broken;
-    const Grace*                                                      grace = nullptr;
-    Location                                                          grace_at{};
-    Ornament                                                          ornament;
-    std::map<TrackKey, TrackNative<Tick>>                             tracks;
-    std::map<std::pair<int, int>, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
-    vec<NoteAddress>                                                  line_notes;
-    size_t                                                            music_line = 0;
-    Performance                                                       result;
+    Diagnostics&                               diagnostics;
+    VoiceOutput                                output;
+    WrittenState                               written;
+    Accompaniment                              accompaniment;
+    std::array<std::string_view, 128>          symbols;
+    LaneEffects                                effects;
+    Cursor                                     cursor;
+    long double                                written_bar = 0;
+    std::map<int, OverlayLane>                 overlay_clocks;
+    void                                       record_lane();
+    void                                       advance_lanes();
+    void                                       switch_lane(Location at);
+    std::optional<OverlayState>                overlay;
+    TupletState                                tuplet;
+    std::optional<Prepared>                    pending;
+    std::optional<std::pair<Broken, Location>> broken;
+    const Grace*                               grace = nullptr;
+    Location                                   grace_at{};
+    Ornament                                   ornament;
+    vec<NoteAddress>                           line_notes;
+    size_t                                     music_line = 0;
+    Performance                                result;
     struct RepeatEntry {
         Key         tone;
         long double unit;
@@ -183,9 +175,11 @@ private:
     void              jump_repeat(Location at);
     void              finish_rhythm();
 
-    TrackNative<Tick>& track(int for_channel);
-    i32                at_tick(Location at) const { return tick(cursor.time, diagnostics, at); }
-    int                velocity(long double at) const {
+    MidiTarget target() const {
+        return {cursor.lane, effects.channel, effects.programs[effects.channel - 1]};
+    }
+    i32 at_tick(Location at) const { return tick(cursor.time, diagnostics, at); }
+    int velocity(long double at) const {
         return effects.expression.velocity(at - cursor.bar, written.meter);
     }
     void        push(const Atom& atom, Location at);
@@ -231,18 +225,6 @@ private:
     void                       visit(Overlay change, Location at);
     void                       visit(const Bar& bar, Location at);
 };
-
-TrackNative<Tick>& VoicePlayer::track(int for_channel) {
-    const auto program = effects.programs[for_channel - 1];
-    return tracks
-        .try_emplace(
-            {cursor.lane, for_channel, program},
-            cursor.lane == 0 ? name : "",
-            static_cast<u8>(program),
-            for_channel == 10
-        )
-        .first->second;
-}
 
 void VoicePlayer::report_ties(vec<TieNote>& ties) {
     for (const auto& tie : ties)
@@ -345,20 +327,7 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch) const {
 std::optional<NoteAddress> VoicePlayer::note(
     Sound sound, long double start, long double duration, int stagger, int loudness, Location at
 ) {
-    if (sound.note < 0 || sound.note > midi_max) {
-        diagnostics.error(
-            at, "pitch-range", fmt::format("pitch {} is outside MIDI range 0–127", sound.note)
-        );
-    }
-    if (loudness == 0) return {};
-    const auto time = tick(start + 1 + stagger, diagnostics, at);
-    const auto gate = std::max(0, tick(duration, diagnostics, at) - 1 - stagger);
-    if (gate > std::numeric_limits<i32>::max() - time)
-        diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
-    diagnostics.spend(1, at);
-    auto& output = track(effects.channel);
-    output.notes.emplace_back(time, gate, static_cast<i8>(sound.note), static_cast<i8>(loudness));
-    return NoteAddress{&output, output.notes.size() - 1};
+    return output.attack(target(), sound.note, start, duration, stagger, loudness, at);
 }
 
 std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Location at) {
@@ -370,7 +339,7 @@ std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Lo
     if (match == cursor.ties.end()) return {};
     auto address = match->note;
     cursor.ties.erase(match);
-    address.note().duration = std::max(0, tick(end, diagnostics, at) - address.note().time);
+    address.release_at(tick(end, diagnostics, at));
     return address;
 }
 
@@ -400,7 +369,7 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
             }
         }
         if (address && played.tie) {
-            played.note = address->note().pitch;
+            played.note = address->pitch();
             next_ties.push_back({played, *address, atom.at});
         }
     }
@@ -736,19 +705,7 @@ void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
     const auto number = midi_integer(args, 0, midi_max, diagnostics, at);
     const auto value  = midi_integer(args, 0, midi_max, diagnostics, at);
     const auto time   = tick(cursor.time + (in_field ? 0 : 1), diagnostics, at);
-    auto&      output = track(effects.channel);
-    output.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(value));
-    if (number != 64) return;
-    const auto key = std::pair{cursor.lane, effects.channel};
-    if (value >= 64)
-        pedal_starts.try_emplace(key, &output, time);
-    else if (auto pedal = pedal_starts.extract(key); !pedal.empty()) {
-        const auto [owner, start] = pedal.mapped();
-        if (time >= start)
-            owner->pedals.emplace_back(start, time - start);
-        else
-            diagnostics.warn(at, "backward-pedal", "ignored pedal release before its press");
-    }
+    output.control(target(), time, number, value, at);
 }
 
 void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
@@ -867,8 +824,7 @@ void VoicePlayer::lyrics(std::string_view text, Location at) {
         }
         auto syllable = std::string(text.substr(0, split));
         std::ranges::replace(syllable, '~', ' ');
-        auto address = line_notes[index++];
-        address.track->lyrics.emplace_back(address.note().time, std::move(syllable));
+        line_notes[index++].lyric(std::move(syllable));
         if (split == text.npos) return;
         text.remove_prefix(split + (text[split] == '-'));
     }
@@ -937,9 +893,7 @@ Performance VoicePlayer::render(const PlayOrder& order) {
     orphan_grace(end);
     if (tuplet.left)
         diagnostics.warn(tuplet.at, "unfinished-tuplet", "tuplet has fewer notes than declared");
-    for (auto& [key, value] : tracks) {
-        if (!value.empty()) result.tracks.push_back(std::move(value));
-    }
+    output.finish(result.tracks);
     accompaniment.finish(result.tracks, cursor.time, end);
     return std::move(result);
 }
