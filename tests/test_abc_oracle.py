@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -109,6 +110,34 @@ CASES = {
 }
 
 
+# Compare all events for these upstream samples without redistributing them.
+# Keep feature gaps out of the passing list; pin intentional differences in a
+# separate focused test, rather than removing fields from every comparison.
+UPSTREAM_SAMPLES = (
+    "araber",
+    "barcheck_long_warning",
+    "barfly_aliases",
+    "barfly_barcheck",
+    "barfly_missing_bar_lines",
+    "barfly_option",
+    "barfly_rhythm",
+    "barfly_split_bar",
+    "barloc_long",
+    "beatstring",
+    "demo",
+    "decoration_bar_line",
+    "drums",
+    "fermata_bars",
+    "gchord_codes",
+    "gchord_inversion",
+    "key_unknown_word",
+    "partdemo",
+    "part_pickup",
+    "text_fields",
+    "words",
+)
+
+
 def performed_track(track: Track) -> dict:
     events = {
         "program": track.program,
@@ -187,6 +216,39 @@ def test_live_upstream_matches_snapshot(
     exit_code = 1 if name in RECOVERED else 0
     score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
     assert performed(score) == golden[name]
+
+
+@pytest.fixture(scope="module")
+def upstream_samples(upstream: Path) -> Path:
+    if source := os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE"):
+        samples = Path(source) / "samples"
+        assert samples.is_dir(), f"upstream samples not found: {samples}"
+        return samples
+    pytest.skip("set SYMUSIC_TEST_ABCMIDI_SOURCE to use the upstream sample corpus")
+
+
+@pytest.mark.parametrize("name", UPSTREAM_SAMPLES)
+def test_upstream_sample(
+    name: str, upstream: Path, upstream_samples: Path, tmp_path: Path
+):
+    abc = (upstream_samples / f"{name}.abc").read_text(encoding="utf-8-sig")
+    if len(re.findall(r"^X\s*:", abc, re.MULTILINE)) > 1:
+        with pytest.warns(UserWarning, match=r"\[extra-tunes\]"):
+            native = Score.from_abc(abc)
+    else:
+        native = Score.from_abc(abc)
+    assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
+
+
+@pytest.mark.parametrize("index", range(7))
+def test_upstream_part_pickups(
+    index: int, upstream: Path, upstream_samples: Path, tmp_path: Path
+):
+    abc = (upstream_samples / "part_pickup.abc").read_text(encoding="utf-8")
+    tune = re.split(r"(?=^X:)", abc, flags=re.MULTILINE)[index + 1]
+    assert performed(Score.from_abc(tune)) == performed(
+        oracle_score(upstream, tune, tmp_path)
+    )
 
 
 @pytest.mark.parametrize("kind", ["single voice", "dense chords", "issue 78"])

@@ -115,7 +115,10 @@ jobs:
           git -C "$reference" checkout --detach FETCH_HEAD
           cmake -S "$reference" -B "$reference/build" -G Ninja
           cmake --build "$reference/build" --target abc2midi
-          echo "SYMUSIC_TEST_ABC2MIDI=$reference/build/abc2midi" >> "$GITHUB_ENV"
+          {
+            echo "SYMUSIC_TEST_ABC2MIDI=$reference/build/abc2midi"
+            echo "SYMUSIC_TEST_ABCMIDI_SOURCE=$reference"
+          } >> "$GITHUB_ENV"
       - name: Test
         run: python -m pytest -n auto tests ${{ matrix.coverage && '--cov=symusic --cov-report=xml' || '' }}
       - name: Upload coverage
