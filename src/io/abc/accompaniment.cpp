@@ -166,16 +166,21 @@ void Accompaniment::chord_type(std::string_view args, Location at) {
     custom_chords.insert_or_assign(name, std::move(intervals));
 }
 
+std::optional<int> slash_bass(std::string_view bass, Location at, Diagnostics& diagnostics) {
+    const auto note = root_note(bass);
+    if (note && bass.empty()) return note;
+    diagnostics.warn(at, "invalid-chord-bass", "ignored an invalid slash-chord bass note");
+    return {};
+}
+
 void Accompaniment::harmony(std::string_view symbol, int transpose, Location at) {
     const auto root = root_note(symbol);
     if (!root) return;   // quoted annotations are not chord symbols
-    const auto slash     = symbol.find('/');
-    const auto name      = symbol.substr(0, slash);
-    auto       inversion = slash == symbol.npos ? std::string_view{} : symbol.substr(slash + 1);
-    const auto bass_note = root_note(inversion);
-    if (slash != symbol.npos && (!bass_note || !inversion.empty())) {
-        diagnostics.warn(at, "invalid-chord-bass", "ignored an invalid slash-chord bass note");
-    }
+    const auto slash       = symbol.find('/');
+    const auto name        = symbol.substr(0, slash);
+    const auto bass_note   = slash == symbol.npos ?
+                                 std::nullopt :
+                                 slash_bass(symbol.substr(slash + 1), at, diagnostics);
     const auto fundamental = bass_note.value_or(*root);
     const auto custom      = custom_chords.find(name);
     const auto standard    = std::ranges::find(chord_types, name, &ChordType::name);
@@ -192,7 +197,7 @@ void Accompaniment::harmony(std::string_view symbol, int transpose, Location at)
     Chord next{36 + fundamental + transpose, {}};
     for (const auto interval : intervals) {
         auto note = *root + interval;
-        if (slash != symbol.npos && note < fundamental
+        if (bass_note && note < fundamental
             && std::ranges::find(intervals, (fundamental - *root + 12) % 12) != intervals.end())
             note += 12;
         next.pitches.push_back(48 + note + transpose);

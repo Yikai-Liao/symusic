@@ -10,6 +10,8 @@
 #include <set>
 #include <span>
 
+#include <utf8.h>
+
 #include "settings.h"
 
 namespace symusic::abc {
@@ -160,25 +162,47 @@ vec<VoiceLane> partition(vec<WrittenNote> notes, ExportIssues& issues, std::stri
     return lanes;
 }
 
+// Charge an upper bound on the work our output will require on import. Each
+// emitted atom costs one step plus up to three units per member (pitch, tie and
+// attack). There are no repeat, grace or accompaniment expansions in this ABC.
+class ExportBudget {
+public:
+    void spend(size_t work, std::string_view where) {
+        if (work > remaining) {
+            ExportIssues::invalid(
+                where, "[expansion-limit] output exceeds the ABC playback work limit"
+            );
+        }
+        remaining -= work;
+    }
+
+private:
+    size_t remaining = detail::playback_work_limit;
+};
+
 class VoiceWriter {
 public:
-    VoiceWriter(std::string& output, Timeline timeline) :
-        output(output), timeline(std::move(timeline)) {}
+    VoiceWriter(
+        std::string& output, Timeline timeline, ExportBudget& budget, std::string_view where
+    ) : output(output), timeline(std::move(timeline)), budget(budget), where(where) {}
     void write(int id, std::string_view name, int program, bool drums);
 
 private:
     std::string&               output;
     Timeline                   timeline;
+    ExportBudget&              budget;
+    std::string_view           where;
     std::map<int, WrittenNote> active;
     int                        velocity = 0;
     size_t                     columns  = 0;
 
-    void token(std::string_view text);
+    void token(std::string_view text, size_t steps = 1);
     void interval(i32 start, i32 end);
     void moment(const Moment& change);
 };
 
-void VoiceWriter::token(std::string_view text) {
+void VoiceWriter::token(std::string_view text, size_t steps) {
+    budget.spend(steps + detail::text_work(text), where);
     if (columns > 76) {
         output += '\n';
         columns = 0;
@@ -191,8 +215,9 @@ void VoiceWriter::token(std::string_view text) {
 void VoiceWriter::interval(i32 start, i32 end) {
     const auto [prefix, suffix] = length(end - start);
     std::string text            = prefix;
+    const auto  steps           = prefix.empty() ? 1 : 2;
     if (active.empty()) {
-        token(text + 'z' + suffix);
+        token(text + 'z' + suffix, steps);
         return;
     }
     const auto chord = active.size() > 1;
@@ -203,7 +228,7 @@ void VoiceWriter::interval(i32 start, i32 end) {
         if (note.end > end) text += '-';
     }
     if (chord) text += ']' + suffix;
-    token(text);
+    token(text, steps + 3 * active.size());
 }
 
 void VoiceWriter::moment(const Moment& change) {
@@ -217,9 +242,12 @@ void VoiceWriter::moment(const Moment& change) {
 }
 
 void VoiceWriter::write(int id, std::string_view name, int program, bool drums) {
-    output += fmt::format("V:{}", id);
-    if (!name.empty()) output += fmt::format(" name=\"{}\"", escape_text(name));
+    auto declaration = fmt::format("V:{}", id);
+    if (!name.empty()) declaration += fmt::format(" name=\"{}\"", escape_text(name));
+    budget.spend(1 + detail::text_work(declaration), where);
+    output += declaration;
     output += '\n';
+    token("[I:MIDI gchordoff]");
     if (drums) token("[I:MIDI channel 10]");
     token(fmt::format("[I:MIDI program {}]", program));
     token("[I:MIDI chordattack 0]");
@@ -231,7 +259,7 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
         previous = time;
     }
     // A one-tick tail allows the final expanded note to release before EOF.
-    token("(15:2:1z/64");
+    token("(15:2:1z/64", 2);
     token("|]");
     output += '\n';
 }
@@ -244,14 +272,16 @@ public:
 private:
     const Score<Tick>& score;
     ExportIssues       issues;
+    ExportBudget       budget;
     std::string        output;
     Timeline           global;
     int                voices       = 0;
     int                start_offset = 0;
 
-    i32              scale(int64_t time, std::string_view where);
-    vec<WrittenNote> notes(const Track<Tick>& track, std::string_view where);
-    void add_controls(Timeline& timeline, const Track<Tick>& track, std::string_view where);
+    i32                      scale(int64_t time, std::string_view where);
+    vec<WrittenNote>         notes(const Track<Tick>& track, std::string_view where);
+    Timeline                 controls(const Track<Tick>& track, std::string_view where);
+    vec<std::pair<i32, i32>> pedals(const Track<Tick>& track, std::string_view where);
     void add_pedals(Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where);
     void limitations(const Track<Tick>& track, std::string_view where);
     void header();
@@ -386,10 +416,21 @@ bool conflicting_pedals(const Track<Tick>& track) {
     return intervals != pedal_intervals(*track.controls);
 }
 
-void ScoreWriter::add_controls(
-    Timeline& timeline, const Track<Tick>& track, std::string_view where
-) {
-    bool has_pedal_control = false;
+vec<std::pair<i32, i32>> ScoreWriter::pedals(const Track<Tick>& track, std::string_view where) {
+    vec<std::pair<i32, i32>> intervals;
+    for (const auto& pedal : *track.pedals) {
+        if (pedal.duration < 0) ExportIssues::invalid(where, "pedal duration cannot be negative");
+        const auto start = scale(pedal.time, where);
+        const auto end   = scale(static_cast<int64_t>(pedal.time) + pedal.duration, where);
+        if (start != end) intervals.emplace_back(start, end);
+    }
+    return intervals;
+}
+
+Timeline ScoreWriter::controls(const Track<Tick>& track, std::string_view where) {
+    Timeline timeline;
+    auto     intervals         = pedals(track, where);
+    bool     has_pedal_control = false;
     for (const auto& event : *track.controls) {
         if (event.number > midi_max || event.value > midi_max)
             ExportIssues::invalid(where, "control number and value must be in MIDI range 0–127");
@@ -398,24 +439,16 @@ void ScoreWriter::add_controls(
             fmt::format("[I:MIDI control {} {}]", event.number, event.value)
         );
     }
-    if (has_pedal_control) {
-        // Keep the explicit message stream: it can carry half-pedal values.
-        if (conflicting_pedals(track))
-            issues.warn(
-                where,
-                "pedal-conflict",
-                "pedal intervals disagree with CC64; kept the explicit controls"
-            );
-        return;
-    }
-    vec<std::pair<i32, i32>> pedals;
-    for (const auto& pedal : *track.pedals) {
-        if (pedal.duration < 0) ExportIssues::invalid(where, "pedal duration cannot be negative");
-        const auto start = scale(pedal.time, where);
-        const auto end   = scale(static_cast<int64_t>(pedal.time) + pedal.duration, where);
-        if (start != end) pedals.emplace_back(start, end);
-    }
-    add_pedals(timeline, std::move(pedals), where);
+    // Prefer explicit CC64: it can carry half-pedal values.
+    if (!has_pedal_control)
+        add_pedals(timeline, std::move(intervals), where);
+    else if (conflicting_pedals(track))
+        issues.warn(
+            where,
+            "pedal-conflict",
+            "pedal intervals disagree with CC64; kept the explicit controls"
+        );
+    return timeline;
 }
 
 void ScoreWriter::add_pedals(
@@ -450,13 +483,17 @@ int ScoreWriter::next_voice(std::string_view where) {
 }
 
 void ScoreWriter::track(const Track<Tick>& track, size_t index) {
-    const auto where = fmt::format("track {} ('{}')", index + 1, track.name);
+    if (!utf8::is_valid(track.name.begin(), track.name.end()))
+        ExportIssues::invalid(fmt::format("track {}", index + 1), "track name must be valid UTF-8");
+    const auto where = fmt::format("track {} ('{}')", index + 1, escape_text(track.name));
     if (track.program > midi_max)
         ExportIssues::invalid(where, "program must be in MIDI range 0–127");
     limitations(track, where);
-    auto lanes = partition(notes(track, where), issues, where);
+    auto       lanes          = partition(notes(track, where), issues, where);
+    const auto control_fields = controls(track, where);
     for (auto& lane : lanes) {
-        add_controls(lane.timeline, track, where);
+        for (const auto& [tick, change] : control_fields)
+            lane.timeline[tick].fields = change.fields;
         if (lane.timeline.empty()) continue;
         if (voices == 0) {
             for (const auto& [tick, change] : global) {
@@ -464,7 +501,7 @@ void ScoreWriter::track(const Track<Tick>& track, size_t index) {
                 fields.insert(fields.begin(), change.fields.begin(), change.fields.end());
             }
         }
-        VoiceWriter(output, std::move(lane.timeline))
+        VoiceWriter(output, std::move(lane.timeline), budget, where)
             .write(next_voice(where), track.name, track.program, track.is_drum);
     }
 }
@@ -495,7 +532,7 @@ Result<std::string> ScoreWriter::write() {
     header();
     start_offset = onset_offset();
     for (size_t i = 0; i < score.tracks->size(); ++i) track(*(*score.tracks)[i], i);
-    if (voices == 0) VoiceWriter(output, std::move(global)).write(1, "", 0, false);
+    if (voices == 0) VoiceWriter(output, std::move(global), budget, "score").write(1, "", 0, false);
     return {std::move(output), issues.take()};
 }
 

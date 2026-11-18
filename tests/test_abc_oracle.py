@@ -16,6 +16,12 @@ from tests.test_abc import HEADER, note_rows, roundtrip_score
 from tests.utils import TESTCASES_PATH
 
 SNAPSHOT = TESTCASES_PATH / "abc_oracle.json"
+RECOVERED = {
+    "rising_sun_stray_coda": (
+        TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc",
+        "ignored-decoration",
+    ),
+}
 CASES = {
     "straight": HEADER + "C D E F | G A B c |",
     "rests": HEADER + "C z2 D | x E2 z |",
@@ -24,12 +30,23 @@ CASES = {
     "chords_ties": HEADER + "[CEG] [D2F3A]2 | [FA]-[FA] C-C |",
     "grace": HEADER + "{DE}F {G}A B c |",
     "repeat_endings": HEADER + "C |: D E |1 F :|2 G | A |: B :|",
+    "final_numbered_ending": HEADER + "|: C2 [1-2 D2 :| [3 E2 |]",
+    "broken_dynamic": HEADER + "C>[K:G]!p!F G A |",
+    "overlay_tie": HEADER + "C2 & E2- | D2 & E2 |",
     "implicit_repeat": HEADER + "C4 || D4 :| E4 |",
     "inline_tempo": HEADER + "C [Q:1/8=100] D E F |",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
     "voices": HEADER + 'V:one name="Lead"\n%%MIDI program 4\nC D E F |\n'
     'V:two name="Bass"\n%%MIDI program 8\nC,2 D,2 |\n[V:one] G A B c |',
     "overlay": HEADER + "C D & E2 | F G A B |",
+    "chord_tie_changes_pitch": HEADER + "[CE]-[DF] GA |",
+    "consecutive_naturals": HEADER.replace("K:C", "K:D =F =C clef=treble =G =B")
+    + "C F G B |",
+    "overlay_midi_channel": HEADER + "(& C D & [I:MIDI channel 10] E F &) G A |",
+    "header_midi_state": HEADER.replace(
+        "K:C", "%%MIDI program 24\nV:lead\nV:bass\n%%MIDI program 8\nK:C"
+    )
+    + "[V:lead] CDEF|\n[V:bass] C,D,E,F,|",
     "explicit_overlay": HEADER + "C D & E2 | F (& A B & c2 &) G |",
     "overlay_clocks": HEADER + "C (& D E & c2 &) G | A (& B c & d2 &) d |",
     "directives": HEADER + "%%MIDI program 24\n%%MIDI control 7 50\n"
@@ -43,6 +60,7 @@ CASES = {
         path.stem: path.read_text(encoding="utf-8")
         for path in sorted((TESTCASES_PATH / "abc_files").glob("*.abc"))
     },
+    **{name: path.read_text(encoding="utf-8") for name, (path, _) in RECOVERED.items()},
 }
 
 
@@ -105,14 +123,21 @@ def upstream() -> Path:
 
 @pytest.mark.parametrize("name", CASES)
 def test_abc_performance_matches_upstream_snapshot(name: str, golden: dict):
-    assert performed(Score.from_abc(CASES[name] + "\n")) == golden[name]
+    if name in RECOVERED:
+        with pytest.warns(UserWarning, match=rf"\[{RECOVERED[name][1]}\]"):
+            score = Score.from_abc(CASES[name] + "\n")
+    else:
+        score = Score.from_abc(CASES[name] + "\n")
+    assert performed(score) == golden[name]
 
 
 @pytest.mark.parametrize("name", CASES)
 def test_live_upstream_matches_snapshot(
     name: str, golden: dict, upstream: Path, tmp_path: Path
 ):
-    assert performed(oracle_score(upstream, CASES[name], tmp_path)) == golden[name]
+    exit_code = 1 if name in RECOVERED else 0
+    score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
+    assert performed(score) == golden[name]
 
 
 @pytest.mark.parametrize("kind", ["single voice", "dense chords", "issue 78"])
@@ -128,26 +153,23 @@ def test_upstream_plays_native_exports(kind: str, upstream: Path, tmp_path: Path
         score.tracks.append(track)
     else:
         score = roundtrip_score()
-    assert note_rows(oracle_score(upstream, score.dumps_abc(), tmp_path)) == note_rows(
-        score
-    )
-
-
-def test_upstream_recoverable_tune(upstream: Path, tmp_path: Path):
-    source = TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc"
-    with pytest.warns(UserWarning, match=r"\[ignored-decoration\]"):
-        native = Score(source)
-    expected = oracle_score(
-        upstream, source.read_text(encoding="utf-8"), tmp_path, expected_exit=1
-    )
-    assert performed(native) == performed(expected)
+    played = oracle_score(upstream, score.dumps_abc(), tmp_path)
+    assert note_rows(played) == note_rows(score)
+    if kind == "single voice":
+        assert played.tracks[0].program == score.tracks[0].program
+        assert played.time_signatures == score.time_signatures
+        assert played.tempos == score.tempos
 
 
 def refresh(executable: Path, revision: str) -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         cases = {
-            name: performed(oracle_score(executable, abc, root))
+            name: performed(
+                oracle_score(
+                    executable, abc, root, expected_exit=int(name in RECOVERED)
+                )
+            )
             for name, abc in CASES.items()
         }
     # One case per line keeps fixture updates compact and independently diffable.

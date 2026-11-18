@@ -8,6 +8,7 @@
 
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/extra/parse_tree.hpp>
+#include <utf8.h>
 
 namespace symusic::abc::detail {
 
@@ -543,13 +544,35 @@ PhysicalLine take_line(std::string_view& text) {
     return {line, end != text.npos};
 }
 
-bool read_logical_line(TuneLines& tune, std::string_view& text, size_t& line) {
+bool continuation(std::string_view part) {
+    size_t count = 0;
+    while (part.ends_with(char(92))) {
+        part.remove_suffix(1);
+        ++count;
+    }
+    return count % 2 != 0;
+}
+
+void validate_line(std::string_view line, size_t number, Diagnostics& diagnostics) {
+    const auto invalid  = utf8::find_invalid(line.begin(), line.end());
+    const auto bad_byte = static_cast<size_t>(invalid - line.begin());
+    const auto nul      = line.find('\0');
+    if (nul <= bad_byte && nul != line.npos)
+        diagnostics.error({number, nul + 1}, "invalid-text", "ABC text cannot contain a NUL byte");
+    if (invalid != line.end())
+        diagnostics.error({number, bad_byte + 1}, "invalid-text", "ABC text must be valid UTF-8");
+}
+
+bool read_logical_line(
+    TuneLines& tune, std::string_view& text, size_t& line, Diagnostics& diagnostics
+) {
     vec<Fragment> fragments;
     std::string   joined;
     do {
         const auto [raw, newline] = take_line(text);
-        const auto part           = trim(raw.starts_with("%%") ? raw : without_comment(raw));
-        const bool continues      = newline && part.ends_with('\\');
+        validate_line(raw, line, diagnostics);
+        const auto part      = trim(raw.starts_with("%%") ? raw : without_comment(raw));
+        const bool continues = newline && continuation(part);
         if (!continues && fragments.empty()) return tune.line(raw, line++);
         fragments.push_back({joined.size(), line++});
         if (continues)
@@ -569,7 +592,7 @@ Tune tokenize(std::string_view text, Diagnostics& diagnostics) {
     if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
     TuneLines tune(diagnostics);
     size_t    line = 1;
-    while (!text.empty() && read_logical_line(tune, text, line)) {}
+    while (!text.empty() && read_logical_line(tune, text, line, diagnostics)) {}
     return tune.finish({line, 1});
 }
 

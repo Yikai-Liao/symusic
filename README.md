@@ -38,7 +38,7 @@ restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 
 ## Features
 
-- **I/O:** MIDI read and write; ABC through the bundled `abc2midi` and `midi2abc`; pickle support.
+- **I/O:** Native MIDI and ABC read and write; pickle support.
 - **Time units:** every score, track and event exists in `tick`, `quarter` and `second`, converted through the tempo map.
 - **Transformations:** shift time, pitch and velocity; clip, trim, sort, filter, resample and adjust time, each as a copy or in place.
 - **Analysis:** beat and downbeat grids, structure-of-arrays NumPy export and import, and piano rolls.

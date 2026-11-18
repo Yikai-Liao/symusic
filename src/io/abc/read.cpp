@@ -11,7 +11,6 @@ namespace {
 
 struct Header {
     TuneSettings     settings;
-    vec<Token>       common;
     std::string_view order;
     Location         order_at;
 };
@@ -30,8 +29,6 @@ void header_field(Header& header, Field field, const Token& token, Diagnostics& 
         header.order    = value;
         header.order_at = token.at;
         break;
-    case 'I':
-    case 'U': header.common.push_back(token); break;
     default: break;
     }
 }
@@ -49,8 +46,7 @@ Header read_header(const Tune& tune, Diagnostics& diagnostics) {
             case 'M': saw_meter = true; [[fallthrough]];
             default: header_field(header, *field, token, diagnostics); break;
             }
-        } else
-            header.common.push_back(token);
+        }
     }
     if (!saw_meter) diagnostics.warn(tune.key, "default-meter", "no M: field; using 4/4");
     header.settings.unit
@@ -75,16 +71,19 @@ class Voices {
 public:
     Voices(const Tune& tune, Diagnostics& diagnostics);
     [[nodiscard]] const auto& all() const { return voices; }
+    [[nodiscard]] const auto& preamble() const { return common; }
 
 private:
     Diagnostics&         diagnostics;
     vec<Voice>           voices;
+    vec<Token>           common;
     size_t               selected = 0;
     std::optional<Token> current_part;
 
 
     size_t find_voice(std::string_view id, Location at);
     bool   select(const Token& token);
+    void   header(const Token& token);
     void   append(const Token& token);
 };
 
@@ -128,9 +127,28 @@ void Voices::append(const Token& token) {
     music.push_back(token);
 }
 
+void Voices::header(const Token& token) {
+    if (select(token)) return;
+    std::string_view command;
+    if (const auto* directive = std::get_if<Directive>(&token.value))
+        command = directive->value;
+    else {
+        const auto& field = std::get<Field>(token.value);
+        if (field.kind == 'U') common.push_back(token);
+        if (field.kind != 'I') return;
+        command = field.value;
+    }
+    // MIDI commands before the first V: belong to the initial voice, just
+    // like commands after a later voice declaration belong to that voice.
+    if (word(command) == "MIDI")
+        append(token);
+    else
+        common.push_back(token);
+}
+
 Voices::Voices(const Tune& tune, Diagnostics& diagnostics) : diagnostics(diagnostics) {
     voices.push_back({});
-    for (const auto& token : tune.header) select(token);
+    for (const auto& token : tune.header) header(token);
     selected = 0;
     for (const auto& token : tune.body) {
         const auto* field = std::get_if<Field>(&token.value);
@@ -189,8 +207,8 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
     for (const auto& voice : voices.all()) {
         auto      order = play_order(voice.music, header.order, header.order_at, diagnostics);
         PlayOrder with_header;
-        with_header.reserve(header.common.size() + order.size());
-        for (const auto& token : header.common) with_header.push_back({&token});
+        with_header.reserve(voices.preamble().size() + order.size());
+        for (const auto& token : voices.preamble()) with_header.push_back({&token});
         with_header.insert(with_header.end(), order.begin(), order.end());
         auto name = voice.name.empty() ? (music.tracks.empty() ? settings.title : std::string{}) :
                                          unquote_text(voice.name);

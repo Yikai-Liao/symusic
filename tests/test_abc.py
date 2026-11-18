@@ -78,6 +78,54 @@ def test_missing_key_not_recovered():
         Score.from_abc("X:1\nM:4/4\nCDEF\n")
 
 
+@pytest.mark.parametrize("bad_byte", [b"\xff", b"\x00"])
+def test_abc_rejects_invalid_text_at_its_byte_column(tmp_path: Path, bad_byte: bytes):
+    path = tmp_path / "bad text.abc"
+    path.write_bytes(HEADER.encode() + '"雪"!'.encode() + bad_byte + b"! CDEF")
+    with pytest.raises(ValueError, match=r"bad text\.abc:7:7: ABC \[invalid-text\]"):
+        Score(path)
+
+
+def test_abc_warns_on_second_tune_and_recovers_nonbinary_duration():
+    text = HEADER + "C/3 D/3\n\n" + HEADER.replace("X:1", "X:2") + "GAB"
+    with pytest.warns(
+        UserWarning, match=r"\[(non-binary-length|extra-tunes)\]"
+    ) as warnings:
+        score = Score.from_abc(text)
+    assert [str(w.message).split(": ABC ")[0] for w in warnings] == [
+        "<string>:7:2",
+        "<string>:7:6",
+        "<string>:9:1",
+    ]
+    assert [row[:3] for row in note_rows(score)] == [(1, 119, 60), (121, 119, 62)]
+
+
+def test_abc_rejects_negative_pedal_even_with_explicit_cc64():
+    score = roundtrip_score()
+    score.tracks[0].pedals.append(Pedal(10, -1))
+    score.tracks[0].controls.append(ControlChange(10, 64, 127))
+    with pytest.raises(ValueError, match="pedal duration cannot be negative"):
+        score.dumps_abc()
+
+
+def test_abc_warn_as_error_leaves_output_untouched(tmp_path: Path):
+    score = roundtrip_score()
+    score.tracks[0].notes.append(Note(0, 10, 62, 80))
+    path = tmp_path / "score.abc"
+    path.write_text("untouched", encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(UserWarning, match=r"\[note-start-offset\]"):
+            score.dump_abc(path, warn=True)
+    assert path.read_text(encoding="utf-8") == "untouched"
+
+
+def test_abc_malformed_slash_bass_uses_the_chord_root():
+    with pytest.warns(UserWarning, match=r"<string>:7:1: ABC \[invalid-chord-bass\]"):
+        score = Score.from_abc(HEADER + '"C/Eextra"CDEF|')
+    assert [n.pitch for n in score.tracks[1].notes] == [36, 36]
+
+
 def test_abc_continued_chord_reports_physical_location():
     with pytest.warns(UserWarning, match=r"<string>:8:5: ABC \[stray-chord-close\]"):
         score = Score.from_abc(HEADER + "[CE\\\r\nG]  ]F")
@@ -117,6 +165,22 @@ def test_abc_broken_pair_places_intervening_field_at_correct_time():
     assert [row[:3] for row in note_rows(score)] == [(1, 719, 60), (721, 239, 66)]
 
 
+def test_abc_overlay_keeps_ties_and_restores_primary_key():
+    score = Score.from_abc(HEADER + "C2 & [K:G]F2- | F2 & F2 |")
+    main, overlay = score.tracks
+    assert [(n.time, n.pitch) for n in main.notes] == [(1, 60), (961, 65)]
+    assert [(n.time, n.duration, n.pitch) for n in overlay.notes] == [(1, 1919, 66)]
+
+
+def test_abc_overlay_effects_persist_only_on_their_own_lane():
+    score = Score.from_abc(HEADER + "C2 & !p!F2 & F2 | F2 & F2 & F2 |")
+    assert [[n.velocity for n in lane.notes] for lane in score.tracks] == [
+        [105, 105],
+        [60, 60],
+        [105, 105],
+    ]
+
+
 def test_abc_orphan_broken_mark_reports_its_location():
     with pytest.warns(
         UserWarning, match=r"<string>:7:5: ABC \[unfinished-broken-rhythm\]"
@@ -141,6 +205,18 @@ def test_abc_first_voice_keeps_preamble_and_music():
     assert [note.time for note in track.notes] == [1, 961]
 
 
+def test_abc_aligns_lyrics_to_attacks_on_their_music_line():
+    score = Score.from_abc(
+        HEADER + "[CEG] z D E |\nw: One * three\nF G |\nw: Four five"
+    )
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "One"),
+        (1441, "three"),
+        (1921, "Four"),
+        (2401, "five"),
+    ]
+
+
 def test_abc_pedals_are_not_paired_across_overlay_lanes():
     score = Score.from_abc(
         HEADER + "(& C D [I:MIDI control 64 127] & [I:MIDI control 64 0] E F &) G A"
@@ -158,6 +234,13 @@ def test_abc_backing_cannot_overflow_note_end():
 
 def test_abc_playback_budget_counts_chord_members():
     text = HEADER.replace("K:C", "P:((A32)32)32\nK:C") + "P:A\n[" + "C" * 64 + "]"
+    with pytest.raises(ValueError, match=r"<string>:9:1: ABC \[expansion-limit\]"):
+        Score.from_abc(text)
+
+
+def test_abc_playback_budget_counts_replayed_text():
+    text = HEADER.replace("K:C", "P:A20000\nK:C")
+    text += "P:A\n%%MIDI beatstring " + "f" * 6400 + "\nC |"
     with pytest.raises(ValueError, match=r"<string>:9:1: ABC \[expansion-limit\]"):
         Score.from_abc(text)
 
@@ -269,6 +352,24 @@ def test_abc_export_partitions_large_polyphony():
     text = score.dumps_abc()
     assert len(Score.from_abc(text).tracks) == 3
     assert note_rows(Score.from_abc(text)) == note_rows(score)
+
+
+def test_abc_export_keeps_the_meter_after_a_backslash_in_the_title():
+    score = roundtrip_score()
+    score.tracks[0].name = "ending in a backslash\\"
+    score.time_signatures[0] = TimeSignature(0, 3, 8)
+    loaded = Score.from_abc(score.dumps_abc())
+    assert loaded.tracks[0].name == score.tracks[0].name
+    assert loaded.time_signatures == score.time_signatures
+
+
+def test_abc_export_rejects_output_beyond_the_work_limit():
+    score = Score(480)
+    track = Track("Many onsets")
+    track.notes.extend(Note(1 + i * 480, 480, 60, 80) for i in range(252_000))
+    score.tracks.append(track)
+    with pytest.raises(ValueError, match=r"ABC export track 1.*\[expansion-limit\]"):
+        score.dumps_abc()
 
 
 def test_abc_export_rejects_too_many_voices():

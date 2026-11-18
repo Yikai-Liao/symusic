@@ -20,10 +20,10 @@ struct Mark {
     std::array<int, 3> beat;
 };
 constexpr std::array marks{
-    Mark{"ppp", {30, 20, 15}},
-    Mark{"pp", {45, 35, 30}},
-    Mark{"p", {60, 50, 45}},
-    Mark{"mp", {75, 65, 60}},
+    Mark{"ppp", {30, 20, 10}},
+    Mark{"pp", {45, 35, 20}},
+    Mark{"p", {60, 50, 35}},
+    Mark{"mp", {75, 65, 50}},
     Mark{"mf", {90, 80, 65}},
     Mark{"f", {105, 95, 80}},
     Mark{"ff", {120, 110, 95}},
@@ -40,21 +40,23 @@ void Expression::shift(int amount) {
     for (auto& level : beat) level = std::clamp(level + amount, 0, midi_max);
 }
 
-bool Expression::dynamic(std::string_view name) {
+std::optional<Dynamic> dynamic_mark(std::string_view name) {
     const auto mark = std::ranges::find(marks, name, &Mark::name);
-    if (mark != marks.end()) {
-        beat = mark->beat;
-        return true;
-    }
+    if (mark != marks.end()) return mark->beat;
     constexpr std::array louder{"crescendo("sv, "crescendo)"sv, "<("sv, "<)"sv};
     constexpr std::array softer{"diminuendo("sv, "diminuendo)"sv, ">("sv, ">)"sv};
-    if (std::ranges::find(louder, name) != louder.end())
-        shift(delta);
-    else if (std::ranges::find(softer, name) != softer.end())
-        shift(-delta);
-    else
-        return false;
-    return true;
+    if (std::ranges::find(louder, name) != louder.end()) return LoudnessShift::louder;
+    if (std::ranges::find(softer, name) != softer.end()) return LoudnessShift::softer;
+    return {};
+}
+
+void Expression::apply(Dynamic mark) {
+    if (const auto* levels = std::get_if<std::array<int, 3>>(&mark)) {
+        beat      = *levels;
+        beat_step = 1;
+    } else {
+        shift(std::get<LoudnessShift>(mark) == LoudnessShift::louder ? delta : -delta);
+    }
 }
 
 int Expression::string_velocity(long double position, long double pulse) const {

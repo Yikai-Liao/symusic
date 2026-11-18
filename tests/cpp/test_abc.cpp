@@ -1,3 +1,4 @@
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "symusic/io/abc.h"
@@ -66,4 +67,28 @@ TEST_CASE("ABC ornament neighbors use the key signature", "[abc]") {
     CHECK(notes[0] == Note<Tick>{1, 239, 80, 105});
     CHECK(notes[1] == Note<Tick>{241, 59, 79, 80});
     CHECK(notes[2] == Note<Tick>{301, 179, 78, 80});
+}
+
+
+TEST_CASE("ABC export reports loss and still emits readable notation", "[abc]") {
+    auto [score, warnings] = abc::read("X:1\nM:4/4\nL:1/4\nK:C\nCDEF");
+    REQUIRE(warnings.empty());
+    score.tracks->front()->notes->front().time = 0;
+    const auto written                         = abc::write(score);
+    REQUIRE(written.warnings.size() == 1);
+    CHECK(written.warnings.front().starts_with("ABC export score [note-start-offset]"));
+    const auto reparsed = abc::read(written.value);
+    REQUIRE(reparsed.value.note_num() == 4);
+    CHECK(reparsed.value.tracks->front()->notes->front().time == 1);
+    score.tracks->front()->notes->front().duration = -1;
+    CHECK_THROWS_WITH(
+        abc::write(score), "ABC export track 1 (''): note duration cannot be negative"
+    );
+}
+
+TEST_CASE("ABC diagnostics reject invalid file bytes before playback", "[abc]") {
+    CHECK_THROWS_WITH(
+        abc::read("X:1\nK:C\n!\xff! CDEF", "legacy.abc"),
+        "legacy.abc:3:2: ABC [invalid-text]: ABC text must be valid UTF-8"
+    );
 }

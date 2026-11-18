@@ -6,9 +6,8 @@
 namespace symusic::abc::detail {
 namespace {
 
-constexpr size_t expansion_limit = 1'000'000;
-constexpr int    max_passes      = 32;
-using Section                    = std::span<const Token>;
+constexpr int max_passes = 32;
+using Section            = std::span<const Token>;
 
 class PartOrder {
 public:
@@ -36,7 +35,7 @@ int PartOrder::count() {
     while (!text.empty() && digit(text.front())) pop();
     if (begin.size() == text.size()) return 1;
     const auto count = integer(begin.substr(0, begin.size() - text.size()));
-    if (!count || *count < 1 || *count > static_cast<int>(expansion_limit)) {
+    if (!count || *count < 1 || *count > static_cast<int>(playback_work_limit)) {
         diagnostics.error(
             at, "part-count-range", "part repeat count must be between 1 and 1000000"
         );
@@ -57,7 +56,8 @@ std::string PartOrder::parse(int depth) {
             );
         const auto group  = c == '(' ? parse(depth + 1) : std::string(1, upper(c));
         const auto copies = count();
-        if (group.size() * copies > expansion_limit - labels.size()) {
+        if (group.empty()) continue;
+        if (group.size() * copies > playback_work_limit - labels.size()) {
             diagnostics.error(
                 at, "expansion-limit", "part order exceeds the playback expansion limit"
             );
@@ -152,7 +152,10 @@ private:
     };
 
     std::optional<size_t> next_ending_close(size_t from) const;
-    Closing               closing(size_t first) const;
+    Closing               closing(size_t first, size_t first_bar) const;
+    int                   final_pass(size_t first_bar, size_t last_bar) const;
+    void                  reserve_steps(size_t count, size_t index) const;
+    void                  step(size_t index, Flow flow);
     void                  slice(size_t first, size_t end);
     void                  region(size_t first, size_t first_bar, size_t last_bar, int passes);
     void                  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
@@ -169,7 +172,7 @@ std::optional<size_t> RepeatOrder::next_ending_close(size_t from) const {
     return {};
 }
 
-RepeatOrder::Closing RepeatOrder::closing(size_t first) const {
+RepeatOrder::Closing RepeatOrder::closing(size_t first, size_t first_bar) const {
     Closing result{first, std::max(2, bars[first].endings.last_pass)};
     while (!bars[result.last].bar.repeat_start) {
         const auto next = next_ending_close(result.last);
@@ -179,16 +182,39 @@ RepeatOrder::Closing RepeatOrder::closing(size_t first) const {
         result.last   = *next;
         result.passes = std::max(result.passes, 2 + static_cast<int>(*next != first));
     }
+    result.passes = std::max(result.passes, final_pass(first_bar, result.last));
     return result;
+}
+
+int RepeatOrder::final_pass(size_t first_bar, size_t last_bar) const {
+    if (last_bar + 1 == bars.size() || bars[last_bar].bar.repeat_start) return 0;
+    const auto& tail = bars[last_bar + 1];
+    if (tail.index != bars[last_bar].index + 1 || !tail.endings.mask) return 0;
+    // A trailing ending can request the next pass after the contiguous endings
+    // already covered by the closing repeat bars.
+    uint64_t covered = 0;
+    for (size_t i = first_bar; i <= last_bar; ++i) covered |= bars[i].endings.mask;
+    int next = 1;
+    while (next < max_passes && (covered & (uint64_t{1} << next))) ++next;
+    return tail.endings.has(next) ? next : 0;
+}
+
+void RepeatOrder::reserve_steps(size_t count, size_t index) const {
+    if (count > playback_work_limit - output.size()) {
+        diagnostics.error(
+            source[index].at, "expansion-limit", "expanded music exceeds the playback token limit"
+        );
+    }
+}
+
+void RepeatOrder::step(size_t index, Flow flow) {
+    reserve_steps(1, index);
+    output.push_back({&source[index], flow});
 }
 
 void RepeatOrder::slice(size_t first, size_t end) {
     if (first == end) return;
-    if (output.size() >= expansion_limit || end - first > expansion_limit - output.size()) {
-        diagnostics.error(
-            source[first].at, "expansion-limit", "expanded music exceeds the playback token limit"
-        );
-    }
+    reserve_steps(end - first, first);
     for (size_t i = first; i < end; ++i) output.push_back({&source[i]});
 }
 
@@ -202,7 +228,7 @@ void RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int
         if (boundary.bar.repeat_end) {
             if (playing || selected) {
                 const auto mode = selected ? Flow::hard_bar : Flow::soft_bar;
-                output.push_back({&source[boundary.index], mode});
+                step(boundary.index, mode);
             }
             if (playing && b != last_bar) return;
         } else if (selected || (playing && boundary.endings.mask == 0))
@@ -212,9 +238,9 @@ void RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int
 }
 
 void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int passes) {
-    output.push_back({&source[first], Flow::enter_repeat});
+    step(first, Flow::enter_repeat);
     for (int pass = 1; pass <= passes; ++pass) {
-        if (pass > 1) output.push_back({&source[first], Flow::jump_repeat});
+        if (pass > 1) step(first, Flow::jump_repeat);
         play_pass(first, first_bar, last_bar, pass);
     }
 }
@@ -225,7 +251,7 @@ void RepeatOrder::append() {
     for (size_t b = 0; b < bars.size(); ++b) {
         const auto& marker = bars[b];
         if (marker.bar.repeat_end) {
-            const auto close = closing(b);
+            const auto close = closing(b, first_bar);
             region(first, first_bar, close.last, close.passes);
             b = close.last;
         } else if (marker.bar.repeat_start) {

@@ -6,6 +6,10 @@ namespace symusic::abc::detail {
 
 int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at);
 
+enum class LoudnessShift { louder, softer };
+using Dynamic = std::variant<std::array<int, 3>, LoudnessShift>;
+std::optional<Dynamic> dynamic_mark(std::string_view name);
+
 // MIDI expression is evaluated on a voice's performed clock. It never changes
 // pitch or meter, and its articulation changes the gate, not the next onset.
 struct Expression {
@@ -23,7 +27,7 @@ struct Expression {
     bool directive(
         std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
     );
-    bool        dynamic(std::string_view name);
+    void        apply(Dynamic mark);
     int         velocity(long double position, Meter meter) const;
     long double gate(long double duration, long double unit, bool slur, bool staccato) const;
 

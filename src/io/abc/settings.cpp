@@ -133,8 +133,9 @@ std::optional<int> clef_octave(std::string_view value) {
 
 std::pair<std::string_view, std::string_view> option(std::string_view& options) {
     options = trim(options);
-    const auto key
-        = options.substr(0, options.find_first_of("= \t", options.starts_with('=') ? 1 : 0));
+    if (options.starts_with('=') || options.starts_with('^') || options.starts_with('_'))
+        return {word(options), {}};
+    const auto key = options.substr(0, options.find_first_of("= 	"));
     options.remove_prefix(key.size());
     options = trim(options);
     if (!options.starts_with('=')) return {key, {}};
