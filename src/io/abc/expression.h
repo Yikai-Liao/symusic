@@ -14,7 +14,6 @@ struct Expression {
     std::array<int, 3> beat{105, 95, 80};
     std::string_view   beat_string;
     int                beat_step     = 0;
-    int                chord_attack  = 10;
     int                delta         = 15;
     int                grace_divider = 4;
     bool               accents       = true;
@@ -28,12 +27,16 @@ struct Expression {
         std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
     );
     void        apply(Dynamic mark);
+    void        arpeggiate_next_chord() { arpeggio = true; }
+    int         take_chord_spread();
     long double broken_factor(Broken mark) const;
     long double fermata(long double duration, long double unit) const;
     int         velocity(long double position, Meter meter) const;
     long double gate(long double duration, long double unit, bool slur, bool staccato) const;
 
 private:
+    int  chord_attack = 10;
+    bool arpeggio     = false;
     void shift(int amount);
     void set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
     int  string_velocity(long double position, long double pulse) const;

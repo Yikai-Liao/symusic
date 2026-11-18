@@ -100,6 +100,7 @@ struct Atom {
     Length     length;
     bool       measure_rest = false;
     bool       tie          = false;
+    bool       chord        = false;
     size_t     music_line   = 0;   // identity shared across physical continuations
 };
 

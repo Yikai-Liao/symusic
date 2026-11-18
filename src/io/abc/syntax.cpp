@@ -411,7 +411,7 @@ void MusicLine::emit(const Node& node, grammar::chord) {
         = suffix ? length(suffix) : (notes.empty() ? Length{} : notes.front().length);
     if (notes.empty())
         diagnostics.warn(location(node), "empty-chord", "empty chord treated as a rest");
-    push(node, Atom{std::move(notes), duration, false, child<grammar::tie>(node) != nullptr});
+    push(node, Atom{std::move(notes), duration, false, child<grammar::tie>(node) != nullptr, true});
 }
 
 void MusicLine::emit(const Node& node, grammar::broken) {

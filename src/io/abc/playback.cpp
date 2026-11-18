@@ -288,12 +288,13 @@ private:
     long double atom_duration(const Atom& atom, Location at);
     void        play(const Prepared& atom);
     long double play_grace(const Prepared& atom);
-    void        play_notes(const Prepared& atom, long double start, long double duration);
-    void        emit_chord(
+    void play_notes(const Prepared& atom, long double start, long double duration, int spread);
+    void emit_chord(
         const Prepared&         atom,
         const vec<ChordMember>& members,
         long double             start,
-        long double             audible
+        long double             audible,
+        int                     spread
     );
     void play_trill(
         Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
@@ -470,7 +471,9 @@ vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double en
     return members;
 }
 
-void VoicePlayer::play_notes(const Prepared& atom, long double start, long double duration) {
+void VoicePlayer::play_notes(
+    const Prepared& atom, long double start, long double duration, int spread
+) {
     const auto audible
         = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
     const auto members = resolve_chord(atom, start + audible);
@@ -486,16 +489,20 @@ void VoicePlayer::play_notes(const Prepared& atom, long double start, long doubl
             return;
         }
     }
-    emit_chord(atom, members, start, audible);
+    emit_chord(atom, members, start, audible, spread);
 }
 
 void VoicePlayer::emit_chord(
-    const Prepared& atom, const vec<ChordMember>& members, long double start, long double audible
+    const Prepared&         atom,
+    const vec<ChordMember>& members,
+    long double             start,
+    long double             audible,
+    int                     spread
 ) {
     const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
     const auto has_ties = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
-    const auto attack   = has_ties ? 0 : lane().expression.chord_attack;
+    const auto attack   = has_ties ? 0 : spread;
     const auto max_stagger
         = std::max(0, tick(audible, diagnostics, atom.at) - PlaybackGrid::release_trim);
     int          stagger       = 0;
@@ -589,6 +596,7 @@ void VoicePlayer::play_trill(
 
 void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     const auto& pitches = atom.atom->pitches;
+    const auto  spread  = atom.atom->chord ? lane().expression.take_chord_spread() : 0;
     if (pitches.empty()) {
         report_ties(lane().ties, diagnostics);
         return;
@@ -600,7 +608,7 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     // Grace attacks, including an Irish cut, break the incoming tie. A
     // trill or roll is instead an attribute of an attack that may not occur.
     if (lead_in > 0) lane().ties.clear();
-    play_notes(atom, lane().time + lead_in, duration - lead_in);
+    play_notes(atom, lane().time + lead_in, duration - lead_in, spread);
 }
 
 void VoicePlayer::play(const Prepared& atom) {
@@ -680,6 +688,12 @@ bool Ornament::* ornament_flag(DecorationMark mark) {
     return feature == features.end() ? nullptr : feature->flag;
 }
 
+std::optional<int> pedal_mark(std::string_view mark) {
+    if (mark == "ped" || mark == "ped(") return midi_max;
+    if (mark == "ped-up" || mark == "ped)" || mark == "ped-end") return 0;
+    return {};
+}
+
 void VoicePlayer::visit(const Decoration& decoration, Location at) {
     const auto resolved = decoration_mark(decoration);
     const auto mark     = resolved.name;
@@ -699,14 +713,14 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
         lane().expression.apply(*change);
         return;
     }
-    if (mark == "ped" || mark == "ped(") {
+    if (const auto pedal = pedal_mark(mark)) {
         flush();
-        output.control(lanes.id(), at_tick(at), 64, 127, at);
+        output.control(lanes.id(), at_tick(at), 64, *pedal, at);
         return;
     }
-    if (mark == "ped-up" || mark == "ped)") {
+    if (mark == "arpeggio") {
         flush();
-        output.control(lanes.id(), at_tick(at), 64, 0, at);
+        lane().expression.arpeggiate_next_chord();
         return;
     }
     constexpr std::array marks{

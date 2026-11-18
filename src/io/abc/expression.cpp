@@ -74,6 +74,10 @@ int trill_attacks(
     return count;
 }
 
+int Expression::take_chord_spread() {
+    return std::exchange(arpeggio, false) ? 3 * chord_attack : chord_attack;
+}
+
 void Expression::shift(int amount) {
     for (auto& level : beat) level = std::clamp(level + amount, 0, midi_max);
 }
