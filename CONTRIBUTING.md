@@ -98,6 +98,18 @@ Test public behavior, the [contracts](docs/design/architecture.md#contracts), hi
 
 Keep test function names short: use `test_<subject>_<case>` and let the test file supply context. For example, `test_core_lto` or `test_rename_paths`; avoid sentence-length names that repeat setup and expected results. Put input variants in parametrization and state expected behavior in assertions.
 
+#### ABC compatibility fixtures
+
+The default suite compares performed events to a checked-in snapshot from abc2midi. To verify it against a separately built upstream checkout, set `SYMUSIC_TEST_ABC2MIDI` to the executable and run `pytest tests/test_abc_oracle.py`. The live tests also play native exports with that executable. Neither the normal test run nor the library builds or installs abcmidi.
+
+To refresh the snapshot, build the latest [upstream](https://github.com/sshlien/abcmidi) checkout, then run:
+
+```sh
+python -m tests.test_abc_oracle /path/to/abc2midi "$(git -C /path/to/abcmidi rev-parse HEAD)"
+```
+
+Review changed events against the upstream behavior before committing the snapshot.
+
 ### Code and comments
 
 Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Use the project aliases (`i32`, `vec`, `shared`, `pyvec`) in the core. Comments explain invariants, units, ownership and non-obvious choices; they do not narrate history or keep commented-out code. Write all code, comments, logs and documentation in English.

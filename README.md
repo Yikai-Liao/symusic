@@ -79,7 +79,7 @@ symusic was presented as an [ISMIR 2024 late-breaking demo](https://ismir2024pro
 - [prestosynth](https://github.com/lzqlzzq/prestosynth): SoundFont synthesis.
 - [nanobind](https://github.com/wjakob/nanobind): C++/Python binding.
 - [zpp_bits](https://github.com/eyalz800/zpp_bits): serialization for pickling.
-- [abcmidi](https://github.com/sshlien/abcmidi): ABC conversion.
+- [PEGTL](https://github.com/taocpp/PEGTL) (Boost Software License 1.0): ABC grammar and parse trees.
 - [geek_time_cpp](https://github.com/adah1972/geek_time_cpp): `metamacro.h` for repetitive code.
 - [utfcpp](https://github.com/nemtrif/utfcpp): UTF-8 handling.
 

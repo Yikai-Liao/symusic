@@ -7,8 +7,8 @@ symusic is a C++20 library for note-level symbolic music with a nanobind Python 
 | Layer | Location | Owns |
 |---|---|---|
 | Core library | `include/symusic/`, `src/` | Data model, transformations, time conversion, MIDI and pickle I/O, piano rolls, synthesis glue |
-| Binding | `py_src/` | The `symusic.core` extension: one class per C++ type and time unit, docstrings, NumPy and pickle bridges, external-process calls for ABC |
-| Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`), bundled `abc2midi`/`midi2abc` paths |
+| Binding | `py_src/` | The `symusic.core` extension: one class per C++ type and time unit, docstrings, NumPy and pickle bridges |
+| Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`) |
 | Type stubs | `scripts/lift_generic_stubs.py`, `py_src/CMakeLists.txt`, `cmake/LiftStubs.cmake.in` | `symusic/core.pyi`, generated at install time |
 
 Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core knows nothing about Python except the `pyvec` container. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer only dispatches.
@@ -38,7 +38,7 @@ Each container exists in two representations:
 |---|---|
 | MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
-| ABC read/write | The binding writes a temporary MIDI or ABC file and runs the bundled `abc2midi`/`midi2abc` (`py_src/utils/process_runner.cpp`). `symusic.factory` exports their paths as `SYMUSIC_ABC2MIDI`/`SYMUSIC_MIDI2ABC`. A non-zero exit raises `RuntimeError`; `abc2midi` exits non-zero on any parse error, even one it recovers from. The core has no ABC parser |
+| ABC read/write | The PEGTL grammar in `src/io/abc/syntax.cpp` builds located music tokens. Navigation expands parts and repeats; playback renders notes, tracks and global events directly to `Score<Tick>`. Export walks a tick event timeline to write ABC voices. The binding handles paths, time units and Python warnings. |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |

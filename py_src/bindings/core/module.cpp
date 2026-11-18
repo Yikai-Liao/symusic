@@ -68,8 +68,6 @@ NB_MODULE(core, m) {
     m.attr("_nanobind_mem_leak_warning") = true;
 #endif
 
-    m.attr("_MIDI2ABC") = std::string("");
-
     auto time_unit_t    = nb::type_var("TimeUnitT");
     auto event_t        = nb::type_var("EventT");
     m.attr("TimeUnitT") = time_unit_t;

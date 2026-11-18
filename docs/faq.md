@@ -20,15 +20,9 @@ Free-threaded CPython builds (`3.13t`, `3.14t`) are not supported: the extension
 
 The file contains a data byte above 127, which MIDI does not allow. `Score(path, sanitize_data=True)` and `Score.from_midi(data, sanitize_data=True)` clamp such bytes to the 7-bit range before parsing. Other damage, such as an unknown status byte, still raises `RuntimeError`.
 
-### An ABC tune raises `RuntimeError: Process exited with code 1`
+### An ABC tune warns or raises `ValueError`
 
-ABC import runs the bundled `abc2midi`, which exits with status 1 whenever it reports an error, including errors it recovers from. Its messages are printed to the terminal with line and character positions; fix the reported lines. Accepting recovered conversions is planned in the {doc}`ROADMAP`.
-
-## Saving files
-
-### `dump_abc` produces irregular notation
-
-`dump_abc` writes the score as MIDI and converts it with `midi2abc`, which infers note lengths and bar lines from the timing. A score that is not quantized to a regular grid gives tuplets, ties and odd lengths.
+Use the reported line and column to find the problem. See {doc}`concepts/abc` for which problems are recoverable and how to handle warnings.
 
 ## Performance
 

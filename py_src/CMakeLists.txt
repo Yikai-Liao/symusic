@@ -26,7 +26,6 @@ endif()
 add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/FIcstdio,SHELL:-include cstdio>>")
 nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
     bindings/core/module.cpp
-    utils/process_runner.cpp
     bindings/events/register_events.cpp
     bindings/events/register_events_notes.cpp
     bindings/events/register_events_controls.cpp
@@ -54,5 +53,5 @@ else()
     install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/LiftStubs.cmake")
 endif()
 
-add_subdirectory("${PROJECT_SOURCE_DIR}/cmake/abcmidi" "${PROJECT_BINARY_DIR}/abcmidi")
-install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+# PEGTL headers are compiled into the native ABC reader.
+install(FILES "${PROJECT_SOURCE_DIR}/3rdparty/pegtl/LICENSE_1_0.txt" DESTINATION symusic/licenses RENAME PEGTL.txt)

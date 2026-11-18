@@ -27,6 +27,7 @@ add_library(symusic
     src/io/abc/read.cpp
     src/io/abc/settings.cpp
     src/io/abc/syntax.cpp
+    src/io/abc/write.cpp
     src/io/common.cpp
     src/io/midi.cpp
     src/io/zpp.cpp

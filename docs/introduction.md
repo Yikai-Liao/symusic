@@ -14,7 +14,7 @@ On top of loading and dumping, symusic provides:
 - piano rolls;
 - audio rendering from SF2 and SF3 SoundFonts.
 
-ABC import and export run the bundled `abc2midi` and `midi2abc` converters from [abcmidi](https://github.com/sshlien/abcmidi). MusicXML is not supported.
+ABC import and export run in the C++ core without a converter executable. MusicXML is not supported.
 
 ## Benchmarks
 

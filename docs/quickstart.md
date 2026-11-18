@@ -102,7 +102,7 @@ score.dump_midi("out.mid")
 score.dump_abc("out.abc")
 ```
 
-`dump_midi` writes a score in any time unit; quarters and seconds are converted to ticks first. `dump_abc` writes a MIDI file and runs `midi2abc` on it, which infers note lengths and bar lines from the timing, so a score that is not quantized produces irregular notation.
+`dump_midi` and `dump_abc` accept all three time units. For ABC, pass `warn=True` to report lossy conversions. See {doc}`concepts/abc` for the timing and diagnostic rules.
 
 ## Pickle
 

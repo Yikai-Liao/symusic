@@ -5,8 +5,7 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdio>
-#include <cstdlib>
+#include <cctype>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -20,7 +19,7 @@
 #include <nanobind/stl/string.h>
 
 #include "../../utils/python_helpers.h"
-#include "../../utils/process_runner.h"
+#include "symusic/io/abc.h"
 #include "../core/binding_common.h"
 #include "../docstring_helpers.h"
 
@@ -91,18 +90,18 @@ Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controlle
 clamped into the MIDI-safe range.
 )pbdoc";
 constexpr const char* kScoreFromAbcDoc      = R"pbdoc(
-Parse an ABC notation string into a score. Requires the ``SYMUSIC_ABC2MIDI`` environment variable
-to point to the abc2midi executable.
+Read the first tune in an ABC notation string. Recoverable problems issue UserWarning; malformed
+headers or music that cannot be interpreted raise ValueError with a source location.
 )pbdoc";
 constexpr const char* kScoreDumpMidiDoc
     = R"pbdoc(Write the score to a MIDI file using the current ticks-per-quarter resolution.)pbdoc";
 constexpr const char* kScoreDumpsMidiDoc
     = R"pbdoc(Serialize the score into MIDI bytes for in-memory workflows.)pbdoc";
 constexpr const char* kScoreDumpAbcDoc = R"pbdoc(
-Dump the score to an ABC file via midi2abc. Temporary MIDI files are cleaned up automatically.
+Write playable ABC notation to a file. Set warn=True to report lossy conversions as UserWarning.
 )pbdoc";
 constexpr const char* kScoreDumpsAbcDoc
-    = R"pbdoc(Return the score as an ABC notation string. Set *warn* to ``False`` to silence stderr.)pbdoc";
+    = R"pbdoc(Return playable ABC notation. Set warn=True to report lossy conversions as UserWarning.)pbdoc";
 constexpr const char* kScoreGetBeatsDoc     = R"pbdoc(
 Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
 PrettyMIDI heuristic of grouping every three denominator notes into one beat.
@@ -212,124 +211,66 @@ void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) 
     write_file(path, data);
 }
 
-template<TType T>
-void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
-    const auto midi2abc_env = std::getenv("SYMUSIC_MIDI2ABC");
-    if (!midi2abc_env) {
-        throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set");
+inline void emit_abc_warnings(const vec<std::string>& warnings) {
+    for (const auto& warning : warnings) {
+        if (PyErr_WarnEx(PyExc_UserWarning, warning.c_str(), 1) != 0) throw nb::python_error();
     }
-    const std::filesystem::path midi2abc = midi2abc_env;
-    if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
-
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_midi_path = temp_dir.path() / "input.mid";
-#ifdef _WIN32
-    const auto  temp_abc_path         = temp_dir.path() / "output.abc";
-    const auto& converter_output_path = temp_abc_path;
-#else
-    const auto& converter_output_path = path;
-#endif
-
-    dump_midi(self, temp_midi_path);
-    process_runner::run_process_checked(
-        midi2abc, {temp_midi_path, std::filesystem::path("-o"), converter_output_path}, !warn
-    );
-
-    if (!std::filesystem::exists(converter_output_path)) {
-        throw std::runtime_error(
-            fmt::format("midi2abc did not create {}", path_to_utf8_string(path))
-        );
-    }
-
-#ifdef _WIN32
-    std::error_code error;
-    std::filesystem::copy_file(
-        converter_output_path, path, std::filesystem::copy_options::overwrite_existing, error
-    );
-    if (error) {
-        throw std::runtime_error(
-            fmt::format(
-                "Failed to copy ABC output to {}: {}", path_to_utf8_string(path), error.message()
-            )
-        );
-    }
-#endif
 }
 
 template<TType T>
-void dump_abc_path(
-    const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn
-) {
-    dump_abc_fs<T>(self, path, warn);
+std::string dumps_abc(const shared<Score<T>>& self, bool warn) {
+    auto result = [&] {
+        if constexpr (std::is_same_v<T, Tick>)
+            return abc::write(*self);
+        else
+            return abc::write(convert<Tick>(*self));
+    }();
+    if (warn) emit_abc_warnings(result.warnings);
+    return std::move(result.value);
 }
 
 template<TType T>
-std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_abc_path = temp_dir.path() / "output.abc";
-    dump_abc_fs(self, temp_abc_path, warn);
-    const auto data = read_file(temp_abc_path);
-    return std::string(reinterpret_cast<const char*>(data.data()), data.size());
+void dump_abc_path(const shared<Score<T>>& self, const std::filesystem::path& path, bool warn) {
+    const auto text = dumps_abc(self, warn);
+    write_file(path, std::span(reinterpret_cast<const u8*>(text.data()), text.size()));
+}
+
+inline void lower_format(std::string& value) {
+    std::ranges::transform(value, value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
 }
 
 inline std::string get_format(const std::filesystem::path& path) {
-    const auto ext = path.extension().string();
-    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") { return "midi"; }
-    if (ext == ".abc") { return "abc"; }
+    auto extension = path.extension().string();
+    lower_format(extension);
+    if (extension == ".mid" || extension == ".midi") return "midi";
+    if (extension == ".abc") return "abc";
     throw std::invalid_argument("Unknown file format");
 }
 
 template<TType T>
-shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
-    const auto abc2midi_env = std::getenv("SYMUSIC_ABC2MIDI");
-    if (!abc2midi_env) { throw std::runtime_error("abc2midi not found"); }
-    const std::filesystem::path abc2midi = abc2midi_env;
-    if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
-
-    process_runner::ScopedTempDir temp_dir;
-#ifdef _WIN32
-    const auto      temp_abc_path = temp_dir.path() / "input.abc";
-    std::error_code copy_error;
-    std::filesystem::copy_file(
-        path, temp_abc_path, std::filesystem::copy_options::overwrite_existing, copy_error
-    );
-    if (copy_error) {
-        throw std::runtime_error(
-            fmt::format(
-                "Failed to stage ABC input {}: {}", path_to_utf8_string(path), copy_error.message()
-            )
-        );
-    }
-    const auto& converter_input_path = temp_abc_path;
-#else
-    const auto& converter_input_path = path;
-#endif
-    const auto midi_path = temp_dir.path() / "output.mid";
-    process_runner::run_process_checked(
-        abc2midi,
-        {
-            converter_input_path,
-            std::filesystem::path("-o"),
-            midi_path,
-            std::filesystem::path("-silent"),
-        },
-        false
-    );
-    if (!std::filesystem::exists(midi_path)) {
-        throw std::runtime_error(fmt::format("abc2midi did not create {}", midi_path.string()));
-    }
-
-    const auto data = read_file(midi_path);
-    auto       s    = Score<T>::template parse<DataFormat::MIDI>(data);
-    return std::make_shared<Score<T>>(std::move(s));
+shared<Score<T>> read_abc(std::string_view text, std::string_view source) {
+    auto result = abc::read(text, source);
+    emit_abc_warnings(result.warnings);
+    if constexpr (std::is_same_v<T, Tick>)
+        return std::make_shared<Score<T>>(std::move(result.value));
+    else
+        return std::make_shared<Score<T>>(convert<T>(result.value));
 }
 
 template<TType T>
-shared<Score<T>> from_abc(const std::string& abc) {
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_abc_path = temp_dir.path() / "input.abc";
-    write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
-    return from_abc_file<T>(temp_abc_path);
+shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
+    const auto data = read_file(path);
+    const auto text = data.empty() ?
+                          std::string_view{} :
+                          std::string_view(reinterpret_cast<const char*>(data.data()), data.size());
+    return read_abc<T>(text, path_to_utf8_string(path));
+}
+
+template<TType T>
+shared<Score<T>> from_abc(const std::string& text) {
+    return read_abc<T>(text, "<string>");
 }
 
 template<TType T>
@@ -342,7 +283,7 @@ shared<Score<T>> from_file(
     if (format_.empty()) {
         format_ = get_format(path);
     } else {
-        std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
+        lower_format(format_);
     }
 
     if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path, sanitize_data); }

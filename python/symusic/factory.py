@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os.path
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
@@ -26,27 +25,6 @@ __all__ = [
     "TimeUnit",
     "Track",
 ]
-
-_HERE = Path(__file__).parent
-_BIN = _HERE / "bin"
-# for win
-if os.name == "nt":
-    _MIDI2ABC = _BIN / "midi2abc.exe"
-    _ABC2MIDI = _BIN / "abc2midi.exe"
-# for linux
-else:
-    _MIDI2ABC = _BIN / "midi2abc"
-    _ABC2MIDI = _BIN / "abc2midi"
-
-if not _MIDI2ABC.exists():
-    msg_ = f"{_MIDI2ABC} does not exist"
-    raise FileNotFoundError(msg_)
-if not _ABC2MIDI.exists():
-    msg_ = f"{_ABC2MIDI} does not exist"
-    raise FileNotFoundError(msg_)
-# set env var SYMUSIC_MIDI2ABC
-os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
-os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
 
 """
 All the Factory classes are initialized when the module is imported.
