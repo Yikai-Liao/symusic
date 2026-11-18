@@ -425,6 +425,17 @@ def test_abc_malformed_detune(invalid: str):
     assert list(score.tracks[0].pitch_bends) == [PitchBend(1, 410), PitchBend(481, 0)]
 
 
+@pytest.mark.parametrize(
+    "command",
+    ["temperamentequal 0", "temperamentequal 31 0", "temperamentlinear inf 702"],
+)
+def test_abc_malformed_scale(command: str):
+    abc = HEADER + "%%MIDI C 61\n" + f"%%MIDI {command}\nCDEF|"
+    with pytest.warns(UserWarning, match=r"<string>:8:1: ABC \[invalid-temperament\]"):
+        score = Score.from_abc(abc)
+    assert [note.pitch for note in score.tracks[0].notes] == [61, 63, 65, 66]
+
+
 def test_abc_rejects_zero_microtone_divisor():
     with pytest.raises(ValueError, match=r"<string>:7:3: ABC \[invalid-microtone\]"):
         Score.from_abc(HEADER + "C ^1/0D EF |")

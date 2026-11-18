@@ -108,9 +108,8 @@ struct PlaybackLane {
     Accidentals         accidentals;
     vec<TieNote>        ties;
     Expression          expression;
-    int                 slur       = 0;
-    int                 channel    = 1;
-    int                 base_pitch = 60;
+    int                 slur    = 0;
+    int                 channel = 1;
     std::array<int, 16> programs{};
     // Re-entry uses the previous primary bar boundary, not an inner barline.
     long double                reentry_bar = 0;
@@ -401,9 +400,7 @@ Sound VoicePlayer::sound(Pitch pitch, Location at, bool tie) {
 }
 
 Sound VoicePlayer::resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie) {
-    auto midi = tuning.pitch(
-        pitch.letter, pitch.octave + written.tone.octave, lane().base_pitch, alteration, at
-    );
+    auto midi = tuning.pitch(pitch.letter, pitch.octave + written.tone.octave, alteration, at);
     midi.note += sounding_shift();
     return {
         midi,
@@ -802,7 +799,7 @@ void VoicePlayer::program(std::string_view args, Location at) {
 
 void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
-    if (name == PitchTuning::reset_command) return;   // Already compiled in source order.
+    if (PitchTuning::handles_midi(name)) return;   // Already compiled in source order.
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
     const auto value
         = [&](int low, int high) { return midi_integer(command, low, high, diagnostics, at); };
@@ -810,8 +807,6 @@ void VoicePlayer::midi(std::string_view command, Location at) {
         program(command, at);
     else if (name == "channel")
         lane().channel = value(1, 16);
-    else if (name == "C" || name == "c")
-        lane().base_pitch = value(0, midi_max);
     else if (
         !lane().expression.directive(name, command, at, diagnostics)
         && !output.effect(name, command, target(), at_tick(at), at)

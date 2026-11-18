@@ -118,6 +118,21 @@ CASES = {
     "microtone_tie": HEADER + "^/C4- | C4 | D4 |",
     "microtone_key": HEADER.replace("K:C", "K:G _/B _3/4e _3/4A")
     + "B e A G|_/B _3/4e _3/4A G|",
+    "temperament_linear": HEADER + "%%MIDI temperamentlinear 1200 702\n"
+    "CD _22/100E G|\n%%MIDI temperamentnormal\nCDEF|",
+    "temperament_equal": HEADER
+    + "%%MIDI temperamentequal 31\nC ^/C ^C ^3C D _/D _D _3D|",
+    "temperament_equal_steps": HEADER
+    + "%%MIDI temperamentequal 11 1200 7 1\nC __D _D D ^D ^^D E G|",
+    "temperament_stretched_octave": HEADER
+    + "%%MIDI temperamentequal 19 1205\nCDEFGABc|",
+    "middle_c_header": HEADER.replace("K:C", "%%MIDI C 61\nK:C") + "CDEF|",
+    "middle_c_file": "%%MIDI C 61\n" + HEADER + "CDEF|",
+    "middle_c_repeat": HEADER + "|: CDEF|\n%%MIDI C 63\nGABc:|",
+    "middle_c_voices": HEADER
+    + "V:one\nCDEF|\n%%MIDI C 63\nV:two\nCDEF|z4|\nV:one\nGABc|",
+    "middle_c_temperament_reset": HEADER + "%%MIDI C 61\nCDEF|\n"
+    "%%MIDI temperamentlinear 1200 702\nCDEF|\n%%MIDI C 61\nCD [I:MIDI temperamentnormal] EF|",
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")

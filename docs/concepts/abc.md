@@ -4,7 +4,7 @@ Symusic reads ABC as performed music, not as an engraving. Use `Score.from_abc(t
 
 The reader follows `abc2midi` playback where practical. That includes a one-tick initial note offset, beat accents, grace-note timing, voice overlays, and MIDI accompaniment from chord symbols and supported directives. Backing instruments and instrument changes may appear on separate tracks. Lyrics are kept when they can be aligned to notes. Layout and references to external files do not affect playback. Some advanced MIDI directives and jumps such as coda and segno are not performed.
 
-Fractional accidentals in notes and key signatures produce MIDI pitch bends. Bends are shared by notes on a track: if overlapping notes require different bends, the reader warns and retains the channel's bend changes. Per-pitch-class offsets from `%%temperament` also produce bends; they apply in written order across voices and repeats. Linear and equal-division temperament directives are not performed.
+Fractional accidentals in notes and key signatures produce MIDI pitch bends. Bends are shared by notes on a track: if overlapping notes require different bends, the reader warns and retains the channel's bend changes. Per-pitch-class offsets from `%%temperament` also produce bends; they apply in written order across voices and repeats. The reader also supports `%%MIDI temperamentlinear`, `%%MIDI temperamentequal`, and `%%MIDI temperamentnormal`.
 
 ## Diagnostics
 
