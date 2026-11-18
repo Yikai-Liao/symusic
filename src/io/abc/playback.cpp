@@ -99,9 +99,14 @@ struct Cursor {
 
 struct OverlayState {
     std::optional<Cursor> main;
-    long double           start;
     bool                  explicit_group;
     int                   lane = 0;
+};
+
+struct OverlayClock {
+    long double                time;
+    long double                bar;
+    std::optional<long double> primary_until;
 };
 
 class VoicePlayer {
@@ -123,6 +128,11 @@ private:
     std::array<std::string_view, 128>                                 symbols;
     Expression                                                        expression;
     Cursor                                                            cursor;
+    long double                                                       written_bar = 0;
+    std::map<int, OverlayClock>                                       overlay_clocks;
+    void                                                              record_lane();
+    void                                                              advance_lanes();
+    void                                                              switch_lane(Location at);
     std::optional<OverlayState>                                       overlay;
     TupletState                                                       tuplet;
     std::optional<Prepared>                                           pending;
@@ -179,6 +189,11 @@ private:
     void                       midi(std::string_view command, Location at, bool in_field);
     void                       information(std::string_view value, Location at);
     void                       lyrics(std::string_view text, Location at);
+    void                       change_key(std::string_view value, Location at);
+    void                       change_meter(std::string_view value, Location at);
+    void                       change_tempo(std::string_view value, Location at);
+    void                       change_voice(std::string_view value, Location at);
+    void                       articulation(const Prepared& atom, long double duration);
     void                       visit(const Directive& command, Location at);
     void                       visit(const Field& field, Location at);
     void                       visit(const Atom& atom, Location at) { push(atom, at); }
@@ -416,6 +431,23 @@ void VoicePlayer::play_trill(
     }
 }
 
+void VoicePlayer::articulation(const Prepared& atom, long double duration) {
+    const auto& pitches = atom.atom->pitches;
+    if (pitches.empty()) {
+        report_ties();
+        return;
+    }
+    const auto grace_time = play_grace(atom);
+    const auto onset      = cursor.time + grace_time;
+    const auto remaining  = duration - grace_time;
+    if (atom.ornament.roll && pitches.size() == 1)
+        play_roll(pitches.front(), atom, onset, remaining);
+    else if (atom.ornament.trill && pitches.size() == 1)
+        play_trill(pitches.front(), atom, onset, remaining);
+    else
+        play_chord(atom, onset, remaining);
+}
+
 void VoicePlayer::play(const Prepared& atom) {
     const auto duration = atom.ornament.fermata ? atom.duration * 2 : atom.duration;
     const auto end      = cursor.time + duration;
@@ -425,20 +457,7 @@ void VoicePlayer::play(const Prepared& atom) {
         line_notes.clear();
         music_line = atom.at.line;
     }
-    const auto note_count = atom.atom->pitches.size();
-    if (note_count == 0)
-        report_ties();
-    else {
-        const auto grace_time = play_grace(atom);
-        const auto start      = cursor.time + grace_time;
-        const auto remaining  = duration - grace_time;
-        if (atom.ornament.roll && note_count == 1)
-            play_roll(atom.atom->pitches.front(), atom, start, remaining);
-        else if (atom.ornament.trill && note_count == 1)
-            play_trill(atom.atom->pitches.front(), atom, start, remaining);
-        else
-            play_chord(atom, start, remaining);
-    }
+    articulation(atom, duration);
     cursor.time = end;
 }
 
@@ -545,42 +564,65 @@ void VoicePlayer::visit(Broken next, Location at) {
         );
 }
 
+void VoicePlayer::record_lane() {
+    auto& clock = overlay_clocks.at(cursor.lane);
+    clock.time  = cursor.time;
+    report_ties();
+}
+
+void VoicePlayer::advance_lanes() {
+    for (auto& [lane, clock] : overlay_clocks) {
+        clock.time += cursor.time - clock.primary_until.value_or(written_bar);
+        clock.bar = clock.time;
+        clock.primary_until.reset();
+    }
+    written_bar = cursor.time;
+}
+
 void VoicePlayer::finish_overlay(Location at, bool unconditional) {
     if (!overlay || (!unconditional && overlay->explicit_group)) return;
     if (overlay->main) {
-        report_ties();
+        record_lane();
         cursor = std::move(*overlay->main);
+        for (int lane = 1; lane <= overlay->lane; ++lane)
+            overlay_clocks.at(lane).primary_until = cursor.time;
     }
-    if (overlay->explicit_group && unconditional)
+    if (overlay->explicit_group)
         diagnostics.warn(at, "unterminated-overlay", "closed overlay at the end of the voice");
     overlay.reset();
 }
 
+void VoicePlayer::switch_lane(Location at) {
+    if (!overlay) overlay = OverlayState{};
+    if (!overlay->main)
+        overlay->main = std::move(cursor);
+    else
+        record_lane();
+    if (++overlay->lane >= max_voice_lanes)
+        diagnostics.error(at, "overlay-limit", "too many overlay lanes");
+    auto& clock = overlay_clocks.try_emplace(overlay->lane, written_bar, written_bar).first->second;
+    cursor      = Cursor{.time = clock.time, .bar = clock.bar, .lane = overlay->lane};
+}
+
 void VoicePlayer::visit(Overlay change, Location at) {
     flush();
-    if (change == Overlay::end) {
-        if (!overlay)
-            diagnostics.warn(at, "unexpected-overlay-end", "ignored '&)' without an overlay");
-        else {
-            overlay->explicit_group = false;
-            finish_overlay(at, true);
-        }
+    if (change == Overlay::split) {
+        switch_lane(at);
         return;
     }
     if (change == Overlay::start) {
         if (overlay)
             diagnostics.error(at, "nested-overlay", "nested overlays have no unambiguous playback");
-        overlay = OverlayState{{}, cursor.time, true};
+        overlay = OverlayState{.explicit_group = true};
         return;
     }
-    if (!overlay) overlay = OverlayState{{}, cursor.bar, false};
-    if (!overlay->main)
-        overlay->main = std::move(cursor);
-    else
-        report_ties();
-    if (++overlay->lane >= max_voice_lanes)
-        diagnostics.error(at, "overlay-limit", "too many overlay lanes");
-    cursor = Cursor{.time = overlay->start, .bar = overlay->start, .lane = overlay->lane};
+    if (!overlay) {
+        diagnostics.warn(at, "unexpected-overlay-end", "ignored '&)' without an overlay");
+        return;
+    }
+    overlay->explicit_group = false;
+    finish_overlay(at, true);
+    cursor.bar = cursor.time;
 }
 
 void VoicePlayer::finish_rhythm() {
@@ -605,7 +647,10 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     const auto length = cursor.time - cursor.bar;
     if (soft && !cursor.first_bar && length + epsilon < meter.measure()) return;
     if (length > epsilon) cursor.first_bar = false;
-    if (cursor.lane == 0) accompaniment.bar(cursor.time);
+    if (cursor.lane == 0) {
+        advance_lanes();
+        accompaniment.bar(cursor.time);
+    }
     cursor.bar = cursor.time;
 }
 
@@ -705,50 +750,50 @@ void VoicePlayer::visit(const Directive& command, Location at) {
         information(command.value, at);
 }
 
+void VoicePlayer::change_key(std::string_view value, Location at) {
+    const auto change = key(value, tone, diagnostics, at, false);
+    if (!change) return;
+    tone = *change;
+    cursor.accidentals.reset();
+    result.keys.emplace_back(
+        KeySignature<Tick>(at_tick(at), static_cast<i8>(tone.fifths), static_cast<i8>(tone.minor)),
+        at
+    );
+}
+
+void VoicePlayer::change_meter(std::string_view value, Location at) {
+    meter = detail::meter(value, diagnostics, at);
+    accompaniment.meter(meter, cursor.time);
+    result.meters.emplace_back(
+        TimeSignature<Tick>(
+            at_tick(at), static_cast<u8>(meter.numerator), static_cast<u8>(meter.denominator)
+        ),
+        at
+    );
+}
+
+void VoicePlayer::change_tempo(std::string_view value, Location at) {
+    if (const auto usec = tempo(value, unit, diagnostics, at)) {
+        result.tempos.emplace_back(Tempo<Tick>(tick(cursor.time + 1, diagnostics, at), usec), at);
+    }
+}
+
+void VoicePlayer::change_voice(std::string_view value, Location at) {
+    const auto voice = voice_spec(value, diagnostics, at);
+    if (voice.transpose) tone.transpose = *voice.transpose;
+    if (voice.octave) tone.octave = *voice.octave;
+}
+
 void VoicePlayer::visit(const Field& field, Location at) {
     flush();
     const auto value = field.value;
-    const auto time  = at_tick(at);
     switch (field.kind) {
-    case 'K': {
-        const auto change = key(value, tone, diagnostics, at, false);
-        if (!change) break;
-        tone = *change;
-        cursor.accidentals.reset();
-        result.keys.emplace_back(
-            KeySignature<Tick>(time, static_cast<i8>(tone.fifths), static_cast<i8>(tone.minor)), at
-        );
-        break;
-    }
-    case 'Q':
-        if (const auto usec = tempo(value, unit, diagnostics, at)) {
-            result.tempos.emplace_back(
-                Tempo<Tick>(tick(cursor.time + 1, diagnostics, at), usec), at
-            );
-        }
-        break;
-    case 'M':
-        meter = detail::meter(value, diagnostics, at);
-        accompaniment.meter(meter, cursor.time);
-        result.meters.emplace_back(
-            TimeSignature<Tick>(
-                time, static_cast<u8>(meter.numerator), static_cast<u8>(meter.denominator)
-            ),
-            at
-        );
-        break;
-    case 'L':
-        unit = whole * ratio(value, diagnostics, at, "unit note length").fraction();
-        if (unit <= 0)
-            diagnostics.error(at, "invalid-unit-length", "L: needs a positive unit note length");
-        break;
+    case 'K': change_key(value, at); break;
+    case 'Q': change_tempo(value, at); break;
+    case 'M': change_meter(value, at); break;
+    case 'L': unit = unit_length(value, diagnostics, at); break;
     case 'P': visit(Bar{}, at); break;
-    case 'V': {
-        const auto voice = voice_spec(value, diagnostics, at);
-        if (voice.transpose) tone.transpose = *voice.transpose;
-        if (voice.octave) tone.octave = *voice.octave;
-        break;
-    }
+    case 'V': change_voice(value, at); break;
     case 'I': information(value, at); break;
     case 'U': set_symbols(value, at); break;
     case 'w': lyrics(value, at); break;

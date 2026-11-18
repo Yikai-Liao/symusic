@@ -42,30 +42,20 @@ Header read_header(const Tune& tune, Diagnostics& diagnostics) {
     const Token* speed     = nullptr;
     bool         saw_meter = false;
     for (const auto& token : tune.header) {
-        const auto* field = std::get_if<Field>(&token.value);
-        if (!field) {
+        if (const auto* field = std::get_if<Field>(&token.value)) {
+            switch (field->kind) {
+            case 'Q': speed = &token; break;
+            case 'L': unit = &token; break;
+            case 'M': saw_meter = true; [[fallthrough]];
+            default: header_field(header, *field, token, diagnostics); break;
+            }
+        } else
             header.common.push_back(token);
-            continue;
-        }
-        if (field->kind == 'Q')
-            speed = &token;
-        else if (field->kind == 'L')
-            unit = &token;
-        else
-            header_field(header, *field, token, diagnostics);
-        saw_meter = saw_meter || field->kind == 'M';
     }
     if (!saw_meter) diagnostics.warn(tune.key, "default-meter", "no M: field; using 4/4");
-    header.settings.unit = header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8;
-    if (unit) {
-        const auto written = std::get<Field>(unit->value).value;
-        header.settings.unit
-            = whole * ratio(written, diagnostics, unit->at, "unit note length").fraction();
-        if (header.settings.unit <= 0)
-            diagnostics.error(
-                unit->at, "invalid-unit-length", "L: needs a positive unit note length"
-            );
-    }
+    header.settings.unit
+        = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
+                 (header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8);
     if (speed) {
         const auto usec = tempo(
             std::get<Field>(speed->value).value, header.settings.unit, diagnostics, speed->at

@@ -214,6 +214,13 @@ Length ratio(
     return {*numerator, *denominator};
 }
 
+long double unit_length(std::string_view text, Diagnostics& diagnostics, Location at) {
+    const auto value = ratio(text, diagnostics, at, "unit note length");
+    if (value.numerator == 0)
+        diagnostics.error(at, "invalid-unit-length", "L: needs a positive unit note length");
+    return whole * value.fraction();
+}
+
 namespace {
 
 int meter_numerator(std::string_view numerator, Diagnostics& diagnostics, Location at) {

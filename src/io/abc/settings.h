@@ -46,6 +46,7 @@ Length ratio(
     std::string_view text, Diagnostics& diagnostics, Location at, std::string_view context
 );
 Meter              meter(std::string_view text, Diagnostics& diagnostics, Location at);
+long double        unit_length(std::string_view text, Diagnostics& diagnostics, Location at);
 std::optional<Key> key(
     std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
 );
