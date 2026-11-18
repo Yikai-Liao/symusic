@@ -37,13 +37,14 @@ public:
     VoiceOutput& operator=(const VoiceOutput&) = delete;
 
     std::optional<NoteAddress> attack(
-        int         lane,
-        MidiPitch   pitch,
-        long double start,
-        long double duration,
-        int         stagger,
-        int         velocity,
-        Location    at
+        int                   lane,
+        MidiPitch             pitch,
+        long double           start,
+        long double           duration,
+        int                   stagger,
+        int                   velocity,
+        Location              at,
+        std::optional<size_t> chord_member = 0
     );
     int  selected_channel(int lane) const { return routing[lane].selected; }
     void select_channel(int lane, int channel) { routing[lane].selected = channel; }
@@ -63,9 +64,18 @@ private:
         int program;
     };
 
+    static constexpr int midi_channels      = 16;
+    static constexpr int max_chord_channels = 9;
     struct Routing {
-        int                 selected = 1;
-        std::array<int, 16> programs{};
+        int    selected       = 1;
+        int    chord_base     = 1;
+        size_t extra_channels = 0;
+        // The extra slots have independent wheels and programs, but their
+        // real MIDI channel numbers are not part of the Score contract.
+        std::array<int, midi_channels + max_chord_channels> programs{};
+
+        void attack_on(size_t chord_member);
+        void allocate_chord_channels(size_t count);
     };
     std::array<Routing, max_voice_lanes> routing;
 

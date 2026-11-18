@@ -22,6 +22,7 @@ RECOVERED = {
     "decoration_line_end": "orphan-decoration",
     "rising_sun_stray_coda": "ignored-decoration",
 }
+WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
 CASES = {
     "straight": HEADER + "C D E F | G A B c |",
     "rests": HEADER + "C z2 D | x E2 z |",
@@ -122,6 +123,16 @@ CASES = {
     "microtone_tie": HEADER + "^/C4- | C4 | D4 |",
     "microtone_key": HEADER.replace("K:C", "K:G _/B _3/4e _3/4A")
     + "B e A G|_/B _3/4e _3/4A G|",
+    "chord_channels": HEADER
+    + "%%MIDI makechordchannels 2\n[^/C E _/G] ^/C [C^/EFG] D|",
+    "chord_channels_programs": HEADER + "%%MIDI program 3\n%%MIDI makechordchannels 2\n"
+    "[CEG]\n%%MIDI program 4\n[CEG] CD|",
+    "chord_channels_controls": HEADER + "%%MIDI makechordchannels 2\n"
+    "[^/C E _/G] [I:MIDI control 7 40] [CEG] F G|",
+    "chord_channels_voices": HEADER + "V:1\n%%MIDI makechordchannels 2\n[CEG] C D E|"
+    "\nV:2\n[CEG] C D E|",
+    "chord_channels_temperament": HEADER + "%%MIDI temperamentlinear 1200 702\n"
+    "%%MIDI makechordchannels 3\n[C_22/100EG]2 z [CEG] |",
     "temperament_linear": HEADER + "%%MIDI temperamentlinear 1200 702\n"
     "CD _22/100E G|\n%%MIDI temperamentnormal\nCDEF|",
     "temperament_equal": HEADER
@@ -270,8 +281,8 @@ def upstream() -> Path:
 
 @pytest.mark.parametrize("name", CASES)
 def test_abc_performance_matches_upstream_snapshot(name: str, golden: dict):
-    if name in RECOVERED:
-        with pytest.warns(UserWarning, match=rf"\[{RECOVERED[name]}\]"):
+    if name in WARNINGS:
+        with pytest.warns(UserWarning, match=rf"\[{WARNINGS[name]}\]"):
             score = Score.from_abc(CASES[name] + "\n")
     else:
         score = Score.from_abc(CASES[name] + "\n")

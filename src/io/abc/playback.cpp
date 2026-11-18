@@ -468,12 +468,17 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
     const auto max_stagger
         = std::max(0, tick(audible, diagnostics, atom.at) - PlaybackGrid::release_trim);
     int          stagger       = 0;
+    size_t       chord_member  = 0;
     bool         aligned_lyric = false;
     vec<TieNote> next_ties;
     for (const auto& [played, continuation] : resolve_chord(atom, start + audible)) {
         auto address = continuation;
         if (!address) {
-            address = note(played, start, audible, stagger, loudness, atom.at);
+            // Converted tie attacks keep the selected channel in abc2midi.
+            const auto member = played.tie ? std::nullopt : std::optional{chord_member++};
+            address           = output.attack(
+                lanes.id(), played.pitch, start, audible, stagger, loudness, atom.at, member
+            );
             stagger = static_cast<int>(
                 std::min<int64_t>(max_stagger, stagger + static_cast<int64_t>(attack))
             );

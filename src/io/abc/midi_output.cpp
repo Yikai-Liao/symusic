@@ -17,9 +17,22 @@ void NoteAddress::lyric(std::string text) const {
 VoiceOutput::VoiceOutput(std::string name, Diagnostics& diagnostics) :
     name(std::move(name)), diagnostics(diagnostics) {}
 
+void VoiceOutput::Routing::attack_on(size_t chord_member) {
+    if (extra_channels == 0) return;
+    selected = chord_member > 0 && chord_member <= extra_channels ?
+                   midi_channels + static_cast<int>(chord_member) :
+                   chord_base;
+}
+
+void VoiceOutput::Routing::allocate_chord_channels(size_t count) {
+    chord_base     = selected;
+    extra_channels = count;
+    std::fill_n(programs.begin() + midi_channels, count, programs[selected - 1]);
+}
+
 VoiceOutput::Target VoiceOutput::target(int lane) const {
-    const auto& [selected, programs] = routing[lane];
-    return {lane, selected, programs[selected - 1]};
+    const auto& route = routing[lane];
+    return {lane, route.selected, route.programs[route.selected - 1]};
 }
 
 VoiceOutput::ChannelOutput& VoiceOutput::channel(Target target) {
@@ -47,19 +60,21 @@ void VoiceOutput::tune(
 }
 
 std::optional<NoteAddress> VoiceOutput::attack(
-    int         lane,
-    MidiPitch   pitch,
-    long double start,
-    long double duration,
-    int         stagger,
-    int         velocity,
-    Location    at
+    int                   lane,
+    MidiPitch             pitch,
+    long double           start,
+    long double           duration,
+    int                   stagger,
+    int                   velocity,
+    Location              at,
+    std::optional<size_t> chord_member
 ) {
     if (pitch.note < 0 || pitch.note > midi_max) {
         diagnostics.error(
             at, "pitch-range", fmt::format("pitch {} is outside MIDI range 0–127", pitch.note)
         );
     }
+    if (chord_member) routing[lane].attack_on(*chord_member);
     if (velocity == 0) return {};
     const auto time = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
     const auto gate
@@ -101,22 +116,26 @@ void VoiceOutput::control(int lane, i32 time, int number, int value, Location at
 }
 
 void VoiceOutput::program(int lane, std::string_view args, Location at) {
-    const auto first           = midi_integer(args, 0, midi_max, diagnostics, at);
-    auto& [selected, programs] = routing[lane];
+    const auto first = midi_integer(args, 0, midi_max, diagnostics, at);
+    auto&      route = routing[lane];
     if (trim(args).empty()) {
-        programs[selected - 1] = first;
+        route.programs[route.selected - 1] = first;
         return;
     }
-    if (first < 1 || first > 16)
+    if (first < 1 || first > midi_channels)
         diagnostics.error(at, "invalid-midi-channel", "program channel must be between 1 and 16");
-    programs[first - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
+    route.programs[first - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
 }
 
 bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, Location at) {
     if (name == "program")
         program(lane, args, at);
     else if (name == "channel")
-        select_channel(lane, midi_integer(args, 1, 16, diagnostics, at));
+        select_channel(lane, midi_integer(args, 1, midi_channels, diagnostics, at));
+    else if (name == "makechordchannels")
+        routing[lane].allocate_chord_channels(
+            midi_integer(args, 1, max_chord_channels, diagnostics, at)
+        );
     else
         return false;
     return true;
