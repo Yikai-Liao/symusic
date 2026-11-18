@@ -32,6 +32,9 @@ SCENARIOS = Path(__file__).resolve().parent / "scenarios.py"
 
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+    # Keep stdout for the result table: tool chatter goes to stderr.
+    if "capture_output" not in kwargs:
+        kwargs.setdefault("stdout", sys.stderr)
     return subprocess.run(cmd, check=True, text=True, **kwargs)
 
 
@@ -89,7 +92,9 @@ def sample(exe: Path, samples: int, only: str) -> dict[str, list[float]]:
         only,
     ]
     # The native library may print diagnostics; the JSON document is the last line.
-    return json.loads(run(cmd, capture_output=True).stdout.strip().splitlines()[-1])["samples_us"]
+    return json.loads(run(cmd, capture_output=True).stdout.strip().splitlines()[-1])[
+        "samples_us"
+    ]
 
 
 def table(base: list[dict], head: list[dict], base_name: str, head_name: str) -> str:
@@ -148,7 +153,7 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     if args.local:
-        return run(
+        return subprocess.run(
             [
                 sys.executable,
                 str(SCENARIOS),
@@ -156,7 +161,8 @@ def main(argv: list[str]) -> int:
                 str(args.samples),
                 "--only",
                 args.only,
-            ]
+            ],
+            check=True,
         ).returncode
     if not (args.base and args.head):
         parser.error("give BASE and HEAD, or --local")
