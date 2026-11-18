@@ -94,6 +94,7 @@ struct overlay : sor<string<'(', '&'>, string<'&', ')'>, chars<'&'>> {};
 struct harmony : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'"'>> {};
 struct named_decoration : sor<seq<chars<'!'>, plus<not_one<'!'>>, chars<'!'>>,
                               seq<chars<'+'>, plus<not_one<'+'>>, chars<'+'>>> {};
+struct spacing : seq<chars<'y'>, opt<length>> {};
 struct decoration : sor<named_decoration, chars<'.', '~'>, alpha> {};
 struct slur : chars<'(', ')'> {};
 struct invalid : any {};
@@ -111,6 +112,7 @@ using token  = sor<
     broken,
     overlay,
     harmony,
+    spacing,
     decoration,
     slur,
     tie,
@@ -461,6 +463,7 @@ class TuneLines {
 public:
     explicit TuneLines(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
     bool line(LogicalLine line);
+    bool skip_layout(std::string_view raw, size_t line);
     bool joined(std::string text, std::span<const Fragment> fragments);
     Tune finish(Location end);
 
@@ -471,6 +474,11 @@ private:
     bool         in_body       = false;
     bool         saw_music     = false;
     bool         ended         = false;
+    struct LayoutBlock {
+        std::string_view end;
+        Location         opened_at;
+    };
+    std::optional<LayoutBlock> layout;
 
     bool metadata(Field value, Location at);
     bool content(LogicalLine line, std::string_view text);
@@ -499,6 +507,23 @@ bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
     return line(
         {tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments}
     );
+}
+
+bool TuneLines::skip_layout(std::string_view raw, size_t number) {
+    auto text = trim(raw);
+    if (!text.starts_with("%%")) return layout.has_value();
+    const auto column = static_cast<size_t>(text.data() - raw.data()) + 1;
+    text.remove_prefix(2);
+    const auto command = word(text);
+    if (layout) {
+        if (command == layout->end) layout.reset();
+        return true;
+    }
+    if (command == "begintext")
+        layout = {"endtext", {number, column}};
+    else if (command == "beginps")
+        layout = {"endps", {number, column}};
+    return layout.has_value();
 }
 
 bool TuneLines::line(LogicalLine line) {
@@ -535,6 +560,12 @@ bool TuneLines::content(LogicalLine line, std::string_view content) {
 }
 
 Tune TuneLines::finish(Location end) {
+    if (layout)
+        diagnostics.warn(
+            layout->opened_at,
+            "unclosed-layout",
+            fmt::format("ignored layout through end of file; expected %%{}", layout->end)
+        );
     if (!in_body) diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
     if (!saw_reference)
         diagnostics.error(tune.key, "missing-reference", "expected an X: field before K:");
@@ -569,6 +600,14 @@ bool continuation(std::string_view part) {
     return count % 2 != 0;
 }
 
+std::optional<size_t> continued_prefix(PhysicalLine line) {
+    if (!line.has_newline) return {};
+    const auto raw     = line.text;
+    const auto content = trim(raw.starts_with("%%") ? raw : without_comment(raw));
+    if (!continuation(content)) return {};
+    return static_cast<size_t>(content.data() - raw.data()) + content.size() - 1;
+}
+
 void validate_line(std::string_view line, size_t number, Diagnostics& diagnostics) {
     const auto invalid  = utf8::find_invalid(line.begin(), line.end());
     const auto bad_byte = static_cast<size_t>(invalid - line.begin());
@@ -585,19 +624,18 @@ bool read_logical_line(
     vec<Fragment> fragments;
     std::string   joined;
     do {
-        const auto [raw, newline] = take_line(text);
+        const auto physical = take_line(text);
+        const auto raw      = physical.text;
         validate_line(raw, line, diagnostics);
-        const auto part      = trim(raw.starts_with("%%") ? raw : without_comment(raw));
-        const bool continues = newline && continuation(part);
-        if (!continues && fragments.empty()) return tune.line({raw, line++});
+        if (fragments.empty() && tune.skip_layout(raw, line)) {
+            ++line;
+            return true;
+        }
+        const auto prefix = continued_prefix(physical);
+        if (!prefix && fragments.empty()) return tune.line({raw, line++});
         fragments.push_back({joined.size(), line++});
-        if (continues)
-            joined.append(
-                raw.substr(0, static_cast<size_t>(part.data() - raw.data()) + part.size() - 1)
-            );
-        else
-            joined.append(raw);
-        if (!continues) break;
+        joined.append(raw.substr(0, prefix.value_or(raw.size())));
+        if (!prefix) break;
     } while (!text.empty());
     return tune.joined(std::move(joined), fragments);
 }

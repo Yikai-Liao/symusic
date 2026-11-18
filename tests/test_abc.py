@@ -398,6 +398,15 @@ def test_abc_warns_on_bending_a_continuation(chord: str):
     assert list(track.pitch_bends) == [PitchBend(1, 2048), PitchBend(481, 0)]
 
 
+def test_abc_unclosed_layout():
+    abc = HEADER + "CDEF|\n  %%begintext\nX:99\nK:G\nGABc|"
+    with pytest.warns(
+        UserWarning, match=r"<string>:8:3: ABC \[unclosed-layout\].*%%endtext"
+    ):
+        score = Score.from_abc(abc)
+    assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
+
+
 @pytest.mark.parametrize("invalid", ["0 0 0", "0 0 nan", "201 0 0 0 0 0 0 0 0 0 0 0"])
 def test_abc_malformed_detune(invalid: str):
     tuning = "%%temperament 0 0 10 0 0 0 0 0 0 0 0 0\n"

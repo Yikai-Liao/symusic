@@ -25,6 +25,9 @@ RECOVERED = {
 CASES = {
     "straight": HEADER + "C D E F | G A B c |",
     "rests": HEADER + "C z2 D | x E2 z |",
+    "engraving_blocks": "%%begintext justify\nThis is not music.\nK:None\n%%endtext\n"
+    + HEADER
+    + "C y2 D y E y/ F|\n%%beginps\nK:D\nCzC \\\n%%endps\nGABc|",
     "tuplets": HEADER + "(3CDE (5:4:5 FGABc |",
     "broken_rhythm": HEADER + "C>D E<F G>>A B<<c |",
     "chords_ties": HEADER + "[CEG] [D2F3A]2 | [FA]-[FA] C-C |",
