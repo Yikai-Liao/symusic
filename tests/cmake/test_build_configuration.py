@@ -108,3 +108,42 @@ def test_cross_stub(tmp_path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux" or shutil.which("cmake") is None,
+    reason="Compile-command checks run on Linux with CMake installed",
+)
+def test_sanitize_option(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+
+    def commands(*options: str) -> list[str]:
+        subprocess.run(
+            [
+                "cmake",
+                "-S",
+                str(root),
+                "-B",
+                str(tmp_path),
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                *options,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        entries = json.loads((tmp_path / "compile_commands.json").read_text())
+        return [
+            entry["command"]
+            for entry in entries
+            if Path(entry["file"]).is_relative_to(root / "src")
+        ]
+
+    plain = commands("-DSYMUSIC_SANITIZE=")
+    assert plain
+    assert all("-fsanitize" not in command for command in plain)
+
+    sanitized = commands("-DSYMUSIC_SANITIZE=address;undefined")
+    assert all("-fsanitize=address,undefined" in command for command in sanitized)
+    assert all("-fno-omit-frame-pointer" in command for command in sanitized)
+    assert all("-fno-sanitize-recover=undefined" in command for command in sanitized)

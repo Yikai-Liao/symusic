@@ -42,6 +42,7 @@ Project CMake settings use the `SYMUSIC_` prefix:
 | `SYMUSIC_ENABLE_COVERAGE` | OFF | C++ coverage instrumentation |
 | `SYMUSIC_FAST_BUILD` | OFF | O1 and no LTO for iteration |
 | `SYMUSIC_WARN_ON_LEAKS` | OFF | nanobind shutdown leak reports |
+| `SYMUSIC_SANITIZE` | empty | Sanitizers for GCC or Clang, such as `address;undefined`; UBSan errors abort; disables LTO |
 | `SYMUSIC_TIME_BUILD_RULES` | OFF | Per-rule compile and link timings |
 | `SYMUSIC_PYTHON_STUB` | empty | Generated `core.pyi` from the same revision, required for cross builds |
 

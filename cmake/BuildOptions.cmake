@@ -24,6 +24,7 @@ option(SYMUSIC_FAST_BUILD "Use O1 and disable LTO for local iteration" OFF)
 option(SYMUSIC_WARN_ON_LEAKS "Enable nanobind leak reports at Python shutdown" OFF)
 option(SYMUSIC_ENABLE_COVERAGE "Enable C++ code coverage" OFF)
 option(SYMUSIC_TIME_BUILD_RULES "Time individual compile and link rules" OFF)
+set(SYMUSIC_SANITIZE "" CACHE STRING "Semicolon-separated sanitizers, for example address;undefined")
 
 if(MSVC)
     add_compile_options(/utf-8 "$<$<COMPILE_LANGUAGE:CXX>:/bigobj>" "$<$<COMPILE_LANGUAGE:CXX>:/Gm->")
@@ -52,6 +53,25 @@ if(SYMUSIC_ENABLE_COVERAGE)
         string(APPEND CMAKE_EXE_LINKER_FLAGS " --coverage")
     else()
         message(WARNING "Code coverage requires GCC or Clang")
+    endif()
+endif()
+
+if(SYMUSIC_SANITIZE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        # Directory-wide so that the core, tests, bindings and dependencies share
+        # one runtime; mixing instrumented and plain objects hides errors.
+        # Undefined behavior aborts instead of printing and continuing.
+        list(JOIN SYMUSIC_SANITIZE "," _symusic_sanitize_list)
+        set(_symusic_sanitize_flags "-fsanitize=${_symusic_sanitize_list}" -fno-omit-frame-pointer)
+        if("undefined" IN_LIST SYMUSIC_SANITIZE)
+            list(APPEND _symusic_sanitize_flags -fno-sanitize-recover=undefined)
+        endif()
+        add_compile_options(${_symusic_sanitize_flags})
+        add_link_options(${_symusic_sanitize_flags})
+        # LTO and sanitizers interact poorly; keep sanitized builds simple.
+        set(SYMUSIC_ENABLE_LTO OFF)
+    else()
+        message(FATAL_ERROR "SYMUSIC_SANITIZE requires GCC or Clang")
     endif()
 endif()
 
