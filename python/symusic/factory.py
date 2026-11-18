@@ -536,6 +536,7 @@ class ScoreFactory:
         ttype: smt.GeneralTimeUnit = "tick",
         fmt: str | None = None,
         sanitize_data: bool = False,
+        min_dur: float | None = None,
     ) -> smt.Score:
         if isinstance(x, (str, Path)):
             return self.from_file(x, ttype, fmt, sanitize_data=sanitize_data)
@@ -545,7 +546,7 @@ class ScoreFactory:
         if isinstance(x, int):
             return self.from_tpq(x, ttype)
         if isinstance(x, self):  # type: ignore
-            return self.from_other(x, ttype)
+            return self.from_other(x, ttype, min_dur)
         msg = f"Invalid type: {type(x)}"
         raise TypeError(msg)
 
@@ -599,8 +600,9 @@ class ScoreFactory:
         self,
         other: smt.Score,
         ttype: smt.GeneralTimeUnit = "tick",
-        min_dur: int | None = None,
+        min_dur: float | None = None,
     ) -> smt.Score:
+        """Return a deep copy of ``other`` in ``ttype``; ``min_dur`` works as in ``Score.to``."""
         if other.ticks_per_quarter <= 0:
             msg = (
                 f"ticks_per_quarter must be positive, but got {other.ticks_per_quarter}"
@@ -608,7 +610,7 @@ class ScoreFactory:
             raise ValueError(
                 msg,
             )
-        return self.__core_classes.dispatch(ttype)(other, min_dur)
+        return other.to(ttype, min_dur)
 
     def __instancecheck__(self, instance) -> bool:
         return isinstance(instance, self.__core_classes)  # type: ignore
