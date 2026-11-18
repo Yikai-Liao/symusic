@@ -1,0 +1,223 @@
+#include "symusic/io/abc.h"
+
+#include <map>
+
+#include "playback.h"
+#include "symusic/utils.h"
+
+namespace symusic::abc {
+namespace detail {
+namespace {
+
+struct Header {
+    TuneSettings     settings;
+    vec<Token>       common;
+    std::string_view order;
+    Location         order_at;
+};
+
+void header_field(Header& header, Field field, const Token& token, Diagnostics& diagnostics) {
+    const auto value = field.value;
+    switch (field.kind) {
+    case 'M': header.settings.meter = meter(value, diagnostics, token.at); break;
+    case 'K':
+        header.settings.key = key(value, header.settings.key, diagnostics, token.at, true);
+        break;
+    case 'T':
+        if (header.settings.title.empty()) header.settings.title = unquote_text(value);
+        break;
+    case 'P':
+        header.order    = value;
+        header.order_at = token.at;
+        break;
+    case 'I':
+    case 'U': header.common.push_back(token); break;
+    default: break;
+    }
+}
+
+Header read_header(const Tune& tune, Diagnostics& diagnostics) {
+    Header       header;
+    const Token* unit      = nullptr;
+    const Token* speed     = nullptr;
+    bool         saw_meter = false;
+    for (const auto& token : tune.header) {
+        const auto* field = std::get_if<Field>(&token.value);
+        if (!field) {
+            header.common.push_back(token);
+            continue;
+        }
+        if (field->kind == 'Q')
+            speed = &token;
+        else if (field->kind == 'L')
+            unit = &token;
+        else
+            header_field(header, *field, token, diagnostics);
+        saw_meter = saw_meter || field->kind == 'M';
+    }
+    if (!saw_meter) diagnostics.warn(tune.key, "default-meter", "no M: field; using 4/4");
+    header.settings.unit = header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8;
+    if (unit) {
+        const auto written = std::get<Field>(unit->value).value;
+        header.settings.unit
+            = whole * ratio(written, diagnostics, unit->at, "unit note length").fraction();
+        if (header.settings.unit <= 0)
+            diagnostics.error(
+                unit->at, "invalid-unit-length", "L: needs a positive unit note length"
+            );
+    }
+    if (speed) {
+        const auto usec = tempo(
+            std::get<Field>(speed->value).value, header.settings.unit, diagnostics, speed->at
+        );
+        if (usec) header.settings.tempo = usec;
+    }
+    return header;
+}
+
+struct Voice {
+    std::string_view id;
+    std::string_view name;
+    vec<Token>       music;
+};
+
+class Voices {
+public:
+    Voices(const Tune& tune, Diagnostics& diagnostics);
+    [[nodiscard]] const auto& all() const { return voices; }
+
+private:
+    Diagnostics&         diagnostics;
+    vec<Voice>           voices;
+    size_t               selected = 0;
+    std::optional<Token> current_part;
+    vec<Token>           shared;
+
+    bool select(const Token& token);
+    void append(const Token& token);
+};
+
+bool Voices::select(const Token& token) {
+    const auto* field = std::get_if<Field>(&token.value);
+    if (!field || field->kind != 'V') return false;
+    const auto spec  = voice_spec(field->value, diagnostics, token.at);
+    auto       match = std::ranges::find(voices, spec.id, &Voice::id);
+    if (match == voices.end()) {
+        if (voices.size() >= max_voice_lanes)
+            diagnostics.error(token.at, "voice-limit", "too many voices");
+        if (voices.size() == 1 && voices.front().id.empty() && voices.front().music.empty())
+            voices.clear();
+        voices.push_back({spec.id, spec.name, shared});
+        match = voices.end() - 1;
+    }
+    selected = static_cast<size_t>(match - voices.begin());
+    if (!spec.name.empty()) match->name = spec.name;
+    append(token);
+    return true;
+}
+
+void Voices::append(const Token& token) {
+    auto& music = voices[selected].music;
+    if (current_part) {
+        const auto part_at  = current_part->at;
+        const bool has_part = std::ranges::binary_search(music, part_at, {}, &Token::at);
+        if (!has_part) music.push_back(*current_part);
+    }
+    music.push_back(token);
+}
+
+Voices::Voices(const Tune& tune, Diagnostics& diagnostics) : diagnostics(diagnostics) {
+    voices.push_back({});
+    for (const auto& token : tune.header) select(token);
+    selected = 0;
+    for (const auto& token : tune.body) {
+        const auto* field = std::get_if<Field>(&token.value);
+        if (field && field->kind == 'P')
+            current_part = token;
+        else if (!select(token))
+            append(token);
+    }
+}
+
+template<class Event>
+vec<Event> global_events(
+    Event initial, vec<Located<Event>>& input, Diagnostics& diagnostics, std::string_view label
+) {
+    std::ranges::stable_sort(input, {}, [](const auto& item) { return item.first.time; });
+    vec<Event> result{initial};
+    Location   previous{};
+    for (auto& [event, at] : input) {
+        if (result.back().time != event.time)
+            result.push_back(std::move(event));
+        else if (result.back() != event) {
+            if (previous.line != 1)
+                diagnostics.warn(
+                    at,
+                    "conflicting-metadata",
+                    fmt::format(
+                        "conflicting {} at tick {}; kept the first value", label, event.time
+                    )
+                );
+            else
+                result.back() = std::move(event);
+        }
+        previous = at;
+    }
+    return result;
+}
+
+void merge(Performance& all, Performance voice) {
+    const auto append = [](auto& into, auto& from) {
+        into.insert(
+            into.end(), std::make_move_iterator(from.begin()), std::make_move_iterator(from.end())
+        );
+    };
+    append(all.tracks, voice.tracks);
+    append(all.tempos, voice.tempos);
+    append(all.meters, voice.meters);
+    append(all.keys, voice.keys);
+    append(all.markers, voice.markers);
+}
+
+ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
+    const auto   header   = read_header(tune, diagnostics);
+    const auto&  settings = header.settings;
+    const Voices voices(tune, diagnostics);
+    Performance  music;
+    for (const auto& voice : voices.all()) {
+        auto      order = play_order(voice.music, header.order, header.order_at, diagnostics);
+        PlayOrder with_header;
+        with_header.reserve(header.common.size() + order.size());
+        for (const auto& token : header.common) with_header.push_back(&token);
+        with_header.insert(with_header.end(), order.begin(), order.end());
+        auto name = voice.name.empty() ? (music.tracks.empty() ? settings.title : std::string{}) :
+                                         unquote_text(voice.name);
+        merge(music, perform(settings, with_header, std::move(name), diagnostics));
+    }
+    ScoreNative<Tick> score(tpq);
+    const auto [numerator, denominator, free] = settings.meter;
+    const auto initial_meter
+        = TimeSignature<Tick>(0, static_cast<u8>(numerator), static_cast<u8>(denominator));
+    const auto initial_key = KeySignature<Tick>(
+        0, static_cast<i8>(settings.key.fifths), static_cast<i8>(settings.key.minor)
+    );
+    score.time_signatures
+        = global_events(initial_meter, music.meters, diagnostics, "meter changes");
+    score.key_signatures = global_events(initial_key, music.keys, diagnostics, "key changes");
+    score.tempos
+        = global_events(Tempo<Tick>(0, settings.tempo), music.tempos, diagnostics, "tempo changes");
+    score.tracks  = std::move(music.tracks);
+    score.markers = std::move(music.markers);
+    return score;
+}
+
+}   // namespace
+}   // namespace detail
+
+Result<Score<Tick>> read(std::string_view text, std::string_view source) {
+    detail::Diagnostics diagnostics(source);
+    const auto          tune = detail::tokenize(text, diagnostics);
+    return {to_shared(detail::score_from_tune(tune, diagnostics)), diagnostics.take()};
+}
+
+}   // namespace symusic::abc

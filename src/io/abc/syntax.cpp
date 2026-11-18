@@ -1,0 +1,472 @@
+#include "syntax.h"
+
+#include <bit>
+#include <limits>
+#include <stdexcept>
+#include <utility>
+
+#include <tao/pegtl.hpp>
+#include <tao/pegtl/extra/parse_tree.hpp>
+
+namespace symusic::abc::detail {
+
+std::string Diagnostics::format(
+    Location at, std::string_view code, std::string_view message
+) const {
+    return fmt::format("{}:{}:{}: ABC [{}]: {}", source, at.line, at.column, code, message);
+}
+
+void Diagnostics::error(Location at, std::string_view code, std::string_view message) const {
+    throw std::invalid_argument(format(at, code, message));
+}
+
+void Diagnostics::warn(Location at, std::string_view code, std::string_view message) {
+    warnings.emplace(at, code, message);
+}
+
+vec<std::string> Diagnostics::take() {
+    vec<std::string> result;
+    result.reserve(warnings.size());
+    for (const auto& [at, code, message] : warnings) result.push_back(format(at, code, message));
+    return result;
+}
+
+namespace {
+
+namespace peg = tao::pegtl;
+namespace grammar {
+
+using namespace peg;
+
+template<char... Cs>
+using chars = one<Cs...>;
+template<char C>
+using repeated = plus<chars<C>>;
+template<char End>
+using until   = star<not_one<End>>;
+using ws      = chars<' ', '\t', '\r', '\f', '\v'>;
+using escaped = seq<chars<'\\'>, any>;
+
+struct number : plus<peg::digit> {};
+struct slashes : repeated<'/'> {};
+struct fraction : seq<slashes, opt<number>> {};
+struct length : sor<seq<number, opt<fraction>>, fraction> {};
+struct octave : plus<chars<',', '\''>> {};
+struct accidental : sor<string<'^', '^'>, string<'_', '_'>, chars<'^', '_', '='>> {};
+struct letter : ranges<'a', 'g', 'A', 'G'> {};
+struct tie : chars<'-'> {};
+struct pitch : seq<opt<accidental>, letter, opt<octave>, opt<length>, opt<tie>> {};
+
+struct rest_letter : chars<'x', 'z', 'X', 'Z'> {};
+struct rest : seq<rest_letter, opt<length>> {};
+struct chord : seq<chars<'['>, star<sor<pitch, rest, ws>>, chars<']'>, opt<length>, opt<tie>> {};
+struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<pitch, ws>>, chars<'}'>> {};
+
+using field_key = seq<sor<alpha, chars<'+'>>, chars<':'>>;
+struct field : seq<field_key, until<']'>> {};
+using inline_field = seq<chars<'['>, field, chars<']'>>;
+struct endings : seq<number, star<seq<chars<',', '-'>, number>>> {};
+struct repeat_both : sor<string<':', ':'>, string<':', '|', ':'>, string<':', '|', '|', ':'>> {};
+struct repeat_start : sor<string<'|', '|', ':'>, string<'|', ':'>> {};
+struct repeat_end : sor<string<':', '|', '|'>, string<':', '|'>, string<':', ']'>> {};
+struct section : sor<string<'|', ']'>, string<'|', '|'>> {};
+struct plain_bar : sor<string<'[', '|'>, chars<'|'>> {};
+struct bar : seq<sor<repeat_both, repeat_end, repeat_start, section, plain_bar>,
+                 opt<seq<opt<chars<'['>>, endings>>> {};
+struct ending : seq<chars<'['>, endings> {};
+
+struct tuplet : seq<chars<'('>, number, rep_max<2, chars<':'>, opt<number>>> {};
+struct broken : sor<repeated<'>'>, repeated<'<'>> {};
+struct overlay : sor<string<'(', '&'>, string<'&', ')'>, chars<'&'>> {};
+struct harmony : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'"'>> {};
+struct named_decoration : sor<seq<chars<'!'>, plus<not_one<'!'>>, chars<'!'>>,
+                              seq<chars<'+'>, plus<not_one<'+'>>, chars<'+'>>> {};
+struct decoration : sor<named_decoration, chars<'.', '~'>, alpha> {};
+struct slur : chars<'(', ')'> {};
+struct invalid : any {};
+using layout = sor<chars<'$', '`'>, seq<chars<'\\', '!'>, eof>, ws>;
+using token  = sor<
+    inline_field,
+    ending,
+    bar,
+    chord,
+    grace,
+    pitch,
+    rest,
+    tuplet,
+    broken,
+    overlay,
+    harmony,
+    decoration,
+    slur,
+    tie,
+    layout,
+    invalid>;
+using music = seq<star<token>, eof>;
+
+}   // namespace grammar
+
+// Select only rules that carry values; PEGTL owns matching, disambiguation and
+// discarding partial matches. The playback engine never sees the parse tree.
+template<class Rule>
+using Select = peg::parse_tree::selector<
+    Rule,
+    peg::parse_tree::store_content::on<
+        grammar::pitch,
+        grammar::rest,
+        grammar::chord,
+        grammar::grace,
+        grammar::accidental,
+        grammar::letter,
+        grammar::octave,
+        grammar::tie,
+        grammar::length,
+        grammar::field,
+        grammar::bar,
+        grammar::repeat_both,
+        grammar::repeat_start,
+        grammar::repeat_end,
+        grammar::section,
+        grammar::endings,
+        grammar::ending,
+        grammar::tuplet,
+        grammar::broken,
+        grammar::overlay,
+        grammar::harmony,
+        grammar::decoration,
+        grammar::slur,
+        grammar::invalid>>;
+
+using Input = peg::view_input<>;
+using Node  = peg::parse_tree::node_t<Input>;
+
+bool is_field(std::string_view text) {
+    return text.size() >= 2 && (letter(text[0]) || text[0] == '+') && text[1] == ':';
+}
+
+std::string_view without_comment(std::string_view line) {
+    bool quoted = false;
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == '"') quoted = !quoted;
+        if (line[i] == '%' && !quoted) return line.substr(0, i);
+        if (line[i] == '\\' && quoted && i + 1 < line.size()) ++i;
+    }
+    return line;
+}
+
+Field field(std::string_view text) { return {text[0], trim(text.substr(2))}; }
+
+class MusicLine {
+public:
+    MusicLine(std::string_view text, Location start, Diagnostics& diagnostics, vec<Token>& output) :
+        text(text), start(start), diagnostics(diagnostics), output(output) {}
+
+    void read();
+
+private:
+    std::string_view text;
+    Location         start;
+    Diagnostics&     diagnostics;
+    vec<Token>&      output;
+
+    Location location(const Node& node) const {
+        return {start.line, start.column + static_cast<size_t>(node.data.data() - text.data())};
+    }
+    template<class Rule>
+    static const Node* child(const Node& node) {
+        const auto found = std::ranges::find_if(node.children, [](const auto& candidate) {
+            return candidate->template is_type<Rule>();
+        });
+        return found == node.children.end() ? nullptr : found->get();
+    }
+    int        number(std::string_view value, Location at, int fallback = 0) const;
+    Length     length(const Node* node) const;
+    Pitch      pitch(const Node& node) const;
+    int        octave(const Node& node) const;
+    Bar        bar(const Node& node) const;
+    Tuplet     tuplet(const Node& node) const;
+    vec<Pitch> members(const Node& node) const;
+    void       invalid(const Node& node);
+
+    template<class T>
+    void push(const Node& node, T value) {
+        output.push_back({location(node), std::move(value)});
+    }
+
+    void emit(const Node& node, grammar::pitch);
+    void emit(const Node& node, grammar::rest);
+    void emit(const Node& node, grammar::chord);
+    void emit(const Node& node, grammar::grace) { push(node, Grace{members(node)}); }
+    void emit(const Node& node, grammar::field) { push(node, field(node.data)); }
+    void emit(const Node& node, grammar::bar) { push(node, bar(node)); }
+    void emit(const Node& node, grammar::ending) { push(node, bar(node)); }
+    void emit(const Node& node, grammar::tuplet) { push(node, tuplet(node)); }
+    void emit(const Node& node, grammar::broken);
+    void emit(const Node& node, grammar::overlay);
+    void emit(const Node& node, grammar::harmony) {
+        push(node, Harmony{node.data.substr(1, node.data.size() - 2)});
+    }
+    void emit(const Node& node, grammar::decoration);
+    void emit(const Node& node, grammar::slur) { push(node, Slur{node.data.front() == '('}); }
+    void emit(const Node& node, grammar::tie) { push(node, Tie{}); }
+    void emit(const Node& node, grammar::invalid) { invalid(node); }
+};
+
+int MusicLine::number(std::string_view value, Location at, int fallback) const {
+    if (value.empty()) return fallback;
+    if (const auto parsed = integer(value)) return *parsed;
+    diagnostics.error(at, "number-range", "expected an integer in range");
+}
+
+Length MusicLine::length(const Node* node) const {
+    if (!node) return {};
+    const auto at          = location(*node);
+    const auto value       = node->data;
+    const auto first_slash = value.find('/');
+    const auto numerator   = number(value.substr(0, first_slash), at, 1);
+    if (first_slash == value.npos) return {numerator, 1};
+    const auto last_slash  = value.find_last_of('/');
+    const auto denominator = number(value.substr(last_slash + 1), at, 2);
+    if (denominator == 0) diagnostics.error(at, "zero-length-divisor", "duration divides by zero");
+    const auto power         = std::bit_ceil(static_cast<uint64_t>(denominator));
+    const auto extra_slashes = last_slash - first_slash;
+    if (extra_slashes > 30 || (power << extra_slashes) > std::numeric_limits<int>::max()) {
+        diagnostics.error(at, "length-range", "duration denominator is too large");
+    }
+    if (denominator != static_cast<int64_t>(power)) {
+        diagnostics.warn(
+            at,
+            "non-binary-length",
+            fmt::format("rounded duration denominator {} up to {}", denominator, power)
+        );
+    }
+    return {numerator, static_cast<int>(power << extra_slashes)};
+}
+
+int MusicLine::octave(const Node& node) const {
+    auto value = child<grammar::octave>(node);
+    if (!value) return 0;
+    if (value->data.size() > 32)
+        diagnostics.error(location(*value), "pitch-range", "too many octave marks");
+    return static_cast<int>(
+        2 * std::ranges::count(value->data, '\'') - static_cast<ptrdiff_t>(value->data.size())
+    );
+}
+
+Pitch MusicLine::pitch(const Node& node) const {
+    const auto         name = child<grammar::letter>(node)->data.front();
+    std::optional<int> alteration;
+    if (const auto prefix = child<grammar::accidental>(node)) {
+        const auto width = static_cast<int>(prefix->data.size());
+        const auto sign  = prefix->data.front();
+        alteration       = sign == '=' ? 0 : (sign == '_' ? -width : width);
+    }
+    return {
+        upper(name),
+        octave(node) + lower(name),
+        alteration,
+        child<grammar::tie>(node) != nullptr,
+        length(child<grammar::length>(node))
+    };
+}
+
+vec<Pitch> MusicLine::members(const Node& node) const {
+    vec<Pitch> notes;
+    for (const auto& member : node.children) {
+        if (member->is_type<grammar::pitch>()) notes.push_back(pitch(*member));
+    }
+    return notes;
+}
+
+Bar MusicLine::bar(const Node& node) const {
+    const auto ending = child<grammar::endings>(node);
+    const auto both   = child<grammar::repeat_both>(node);
+    return {
+        bool(both || child<grammar::repeat_start>(node)),
+        bool(both || child<grammar::repeat_end>(node)),
+        !node.is_type<grammar::ending>(),
+        child<grammar::section>(node) != nullptr,
+        ending ? ending->data : std::string_view{}
+    };
+}
+
+Tuplet MusicLine::tuplet(const Node& node) const {
+    auto       text     = node.data.substr(1);
+    const auto argument = [&](int fallback) {
+        const auto colon = text.find(':');
+        const auto count = number(text.substr(0, colon), location(node), fallback);
+        text.remove_prefix(colon == text.npos ? text.size() : colon + 1);
+        return count;
+    };
+    const auto count      = argument(0);
+    const auto in_time_of = argument(0);
+    return {count, in_time_of, argument(0)};
+}
+
+void MusicLine::invalid(const Node& node) {
+    const auto at = location(node);
+    const char c  = node.data.front();
+    using namespace std::literals;
+    if ("[{\"!+"sv.find(c) != std::string_view::npos) {
+        diagnostics.error(
+            at, "malformed-group", fmt::format("unclosed or malformed group starting with '{}'", c)
+        );
+    }
+    if (c == ']')
+        diagnostics.warn(at, "stray-chord-close", "ignored ']' outside a chord");
+    else if (c == '\\')
+        diagnostics.warn(at, "stray-continuation", "ignored a line continuation inside music");
+    else
+        diagnostics.warn(at, "unexpected-character", "ignored an unexpected music character");
+}
+
+void MusicLine::emit(const Node& node, grammar::pitch) {
+    const auto note = pitch(node);
+    push(node, Atom{{note}, note.length, false, note.tie});
+}
+
+void MusicLine::emit(const Node& node, grammar::rest) {
+    push(node, Atom{{}, length(child<grammar::length>(node)), !lower(node.data.front())});
+}
+
+void MusicLine::emit(const Node& node, grammar::chord) {
+    auto       notes  = members(node);
+    const auto suffix = child<grammar::length>(node);
+    const auto duration
+        = suffix ? length(suffix) : (notes.empty() ? Length{} : notes.front().length);
+    if (notes.empty())
+        diagnostics.warn(location(node), "empty-chord", "empty chord treated as a rest");
+    push(node, Atom{std::move(notes), duration, false, child<grammar::tie>(node) != nullptr});
+}
+
+void MusicLine::emit(const Node& node, grammar::broken) {
+    if (node.data.size() > 30) {
+        diagnostics.error(location(node), "rhythm-range", "too many broken rhythm marks");
+    }
+    push(node, Broken{node.data.front() == '>' ? 1 : -1, static_cast<int>(node.data.size())});
+}
+
+void MusicLine::emit(const Node& node, grammar::overlay) {
+    push(
+        node,
+        node.data == "(&" ? Overlay::start : (node.data == "&)" ? Overlay::end : Overlay::split)
+    );
+}
+
+void MusicLine::emit(const Node& node, grammar::decoration) {
+    const auto value = node.data;
+    push(node, Decoration{value.size() == 1 ? value : value.substr(1, value.size() - 2)});
+}
+
+void MusicLine::read() {
+    Input      input(text);
+    const auto root = peg::parse_tree::parse<grammar::music, Select>(input);
+    if (!root) diagnostics.error(start, "invalid-music", "could not read the music line");
+    for (const auto& node : root->children) {
+        const auto dispatch = [&]<class... Rule>(std::tuple<Rule...>) {
+            return ((node->is_type<Rule>() && (emit(*node, Rule{}), true)) || ...);
+        };
+        dispatch(
+            std::tuple<
+                grammar::pitch,
+                grammar::rest,
+                grammar::chord,
+                grammar::grace,
+                grammar::field,
+                grammar::bar,
+                grammar::ending,
+                grammar::tuplet,
+                grammar::broken,
+                grammar::overlay,
+                grammar::harmony,
+                grammar::decoration,
+                grammar::slur,
+                grammar::tie,
+                grammar::invalid>{}
+        );
+    }
+}
+
+class TuneLines {
+public:
+    explicit TuneLines(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
+    bool line(std::string_view raw, size_t number);
+    Tune finish(Location end);
+
+private:
+    Diagnostics& diagnostics;
+    Tune         tune;
+    bool         saw_reference = false;
+    bool         in_body       = false;
+    bool         saw_music     = false;
+    bool         ended         = false;
+
+    bool metadata(Field value, Location at);
+};
+
+bool TuneLines::metadata(Field value, Location at) {
+    if (value.kind == 'X') {
+        if (in_body) {
+            diagnostics.warn(at, "extra-tunes", "only the first tune was read");
+            return false;
+        }
+        if (saw_reference) diagnostics.error(at, "missing-key", "first tune has no K: field");
+        saw_reference = true;
+        if (!integer(value.value))
+            diagnostics.warn(at, "bad-reference", "expected an integer after X:");
+    }
+    (in_body ? tune.body : tune.header).push_back({at, value});
+    if (value.kind == 'K' && !in_body) {
+        in_body  = true;
+        tune.key = at;
+    }
+    return true;
+}
+
+bool TuneLines::line(std::string_view raw, size_t number) {
+    const auto start = raw.find_first_not_of(whitespace);
+    if (start == raw.npos) {
+        ended = ended || saw_music;
+        return true;
+    }
+    const Location at{number, start + 1};
+    const auto     text = trim(raw);
+    if (ended && !text.starts_with("X:")) return true;
+    if (text.starts_with("%%")) {
+        (in_body ? tune.body : tune.header)
+            .push_back({at, Directive{trim(without_comment(text.substr(2)))}});
+        return true;
+    }
+    const auto content = trim(without_comment(text));
+    if (content.empty()) return true;
+    if (is_field(content)) return metadata(field(content), at);
+    if (!in_body) diagnostics.error(at, "missing-key", "expected K: before the music");
+    MusicLine(content, at, diagnostics, tune.body).read();
+    saw_music = true;
+    return true;
+}
+
+Tune TuneLines::finish(Location end) {
+    if (!in_body) diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
+    if (!saw_reference)
+        diagnostics.error(tune.key, "missing-reference", "expected an X: field before K:");
+    return std::move(tune);
+}
+
+}   // namespace
+
+Tune tokenize(std::string_view text, Diagnostics& diagnostics) {
+    if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
+    TuneLines tune(diagnostics);
+    size_t    line = 1;
+    while (!text.empty()) {
+        const auto end = text.find_first_of("\r\n");
+        if (!tune.line(text.substr(0, end), line) || end == text.npos) break;
+        const auto newline = text.substr(end).starts_with("\r\n") ? 2 : 1;
+        text.remove_prefix(end + newline);
+        ++line;
+    }
+    return tune.finish({line, 1});
+}
+
+}   // namespace symusic::abc::detail

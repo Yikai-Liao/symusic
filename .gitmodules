@@ -30,3 +30,6 @@
 [submodule "3rdparty/Catch2"]
 	path = 3rdparty/Catch2
 	url = https://github.com/catchorg/Catch2.git
+[submodule "3rdparty/pegtl"]
+	path = 3rdparty/pegtl
+	url = https://github.com/taocpp/PEGTL.git

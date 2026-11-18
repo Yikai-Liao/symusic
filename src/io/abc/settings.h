@@ -1,0 +1,58 @@
+#pragma once
+
+#include <array>
+
+#include "syntax.h"
+
+namespace symusic::abc::detail {
+
+// Playback uses fractional ticks; only emitted events are quantized.
+inline constexpr i32 tpq             = 480;
+inline constexpr i32 whole           = 4 * tpq;
+inline constexpr int midi_max        = 127;
+inline constexpr int max_voice_lanes = 64;
+
+inline constexpr std::array<int, 7> natural_pitch{9, 11, 0, 2, 4, 5, 7};
+inline constexpr size_t letter_index(char note) { return static_cast<size_t>(note - 'A'); }
+
+struct Meter {
+    int                       numerator   = 4;
+    int                       denominator = 4;
+    bool                      free        = false;
+    [[nodiscard]] long double beat() const { return static_cast<long double>(whole) / denominator; }
+    [[nodiscard]] long double measure() const { return numerator * beat(); }
+    [[nodiscard]] bool        compound() const {
+        return denominator >= 8 && numerator >= 6 && numerator % 3 == 0;
+    }
+    [[nodiscard]] int accent_beats() const;
+};
+
+struct Key {
+    int                fifths    = 0;
+    int                minor     = 0;
+    int                transpose = 0;
+    int                octave    = 0;
+    std::array<int, 7> alterations{};
+};
+
+struct VoiceSpec {
+    std::string_view   id;
+    std::string_view   name;
+    std::optional<int> transpose;
+    std::optional<int> octave;
+};
+
+Length ratio(
+    std::string_view text, Diagnostics& diagnostics, Location at, std::string_view context
+);
+Meter meter(std::string_view text, Diagnostics& diagnostics, Location at);
+Key   key(
+    std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
+);
+i32       tempo(std::string_view text, long double unit, Diagnostics& diagnostics, Location at);
+VoiceSpec voice_spec(std::string_view text, Diagnostics& diagnostics, Location at);
+std::string_view key_name(int fifths, bool minor);
+std::string      unquote_text(std::string_view text);
+i32              tick(long double time, Diagnostics& diagnostics, Location at);
+
+}   // namespace symusic::abc::detail

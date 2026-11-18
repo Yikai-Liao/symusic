@@ -20,6 +20,13 @@ include(cmake/Dependencies.cmake)
 add_library(symusic
     src/conversion.cpp
     src/event.cpp
+    src/io/abc/accompaniment.cpp
+    src/io/abc/expression.cpp
+    src/io/abc/navigation.cpp
+    src/io/abc/playback.cpp
+    src/io/abc/read.cpp
+    src/io/abc/settings.cpp
+    src/io/abc/syntax.cpp
     src/io/common.cpp
     src/io/midi.cpp
     src/io/zpp.cpp
@@ -34,7 +41,7 @@ target_include_directories(symusic
     PUBLIC include 3rdparty 3rdparty/pdqsort
     PRIVATE 3rdparty/zpp_bits
 )
-target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi prestosynth pyvec)
+target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi prestosynth pyvec PRIVATE taocpp::pegtl)
 set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION ${SYMUSIC_CORE_LTO})
 if(SYMUSIC_CORE_LTO)
     # Consumers must link the core's LTO objects, without enabling IPO on

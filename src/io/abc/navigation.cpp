@@ -1,0 +1,273 @@
+#include "navigation.h"
+
+#include <map>
+#include <span>
+
+namespace symusic::abc::detail {
+namespace {
+
+constexpr size_t expansion_limit = 1'000'000;
+constexpr int    max_passes      = 32;
+using Section                    = std::span<const Token>;
+
+class PartOrder {
+public:
+    PartOrder(std::string_view text, Location at, Diagnostics& diagnostics) :
+        text(text), at(at), diagnostics(diagnostics) {}
+    std::string parse(int depth = 0);
+
+private:
+    std::string_view text;
+    Location         at;
+    Diagnostics&     diagnostics;
+
+    char pop();
+    int  count();
+};
+
+char PartOrder::pop() {
+    const auto next = text.front();
+    text.remove_prefix(1);
+    return next;
+}
+
+int PartOrder::count() {
+    const auto begin = text;
+    while (!text.empty() && digit(text.front())) pop();
+    if (begin.size() == text.size()) return 1;
+    const auto count = integer(begin.substr(0, begin.size() - text.size()));
+    if (!count || *count < 1 || *count > max_passes) {
+        diagnostics.error(at, "part-count-range", "part repeat count must be between 1 and 32");
+    }
+    return *count;
+}
+
+std::string PartOrder::parse(int depth) {
+    if (depth > 32) diagnostics.error(at, "part-depth", "too many nested groups in P: order");
+    std::string labels;
+    while (!text.empty()) {
+        const auto c = pop();
+        if (c == ')' && depth != 0) return labels;
+        if (whitespace.find(c) != whitespace.npos || c == '.') continue;
+        if (!letter(c) && c != '(')
+            diagnostics.error(
+                at, "invalid-parts", "P: order needs part letters, groups or repeat counts"
+            );
+        const auto group  = c == '(' ? parse(depth + 1) : std::string(1, upper(c));
+        const auto copies = count();
+        if (group.size() * copies > expansion_limit - labels.size()) {
+            diagnostics.error(
+                at, "expansion-limit", "part order exceeds the playback expansion limit"
+            );
+        }
+        for (int n = 0; n < copies; ++n) labels += group;
+    }
+    if (depth) diagnostics.error(at, "invalid-parts", "missing ')' in P: order");
+    return labels;
+}
+
+struct Endings {
+    uint64_t mask      = 0;
+    int      last_pass = 0;
+    bool     has(int pass) const { return (mask & (uint64_t{1} << pass)) != 0; }
+};
+
+int ending_pass(std::string_view text, const Token& token, Diagnostics& diagnostics) {
+    const auto n = integer(text);
+    if (!n || *n < 1 || *n > max_passes) {
+        diagnostics.error(
+            token.at, "ending-range", "repeat ending number must be between 1 and 32"
+        );
+    }
+    return *n;
+}
+
+Endings endings(const Token& token, std::string_view text, Diagnostics& diagnostics) {
+    Endings result;
+    while (!text.empty()) {
+        const auto comma  = text.find(',');
+        const auto range  = text.substr(0, comma);
+        const auto hyphen = range.find('-');
+        const auto first  = ending_pass(range.substr(0, hyphen), token, diagnostics);
+        const auto last   = hyphen == range.npos ?
+                                first :
+                                ending_pass(range.substr(hyphen + 1), token, diagnostics);
+        if (first > last)
+            diagnostics.error(token.at, "invalid-ending", "repeat ending range is reversed");
+        for (int i = first; i <= last; ++i) result.mask |= uint64_t{1} << i;
+        result.last_pass = std::max(result.last_pass, last);
+        text.remove_prefix(comma == text.npos ? text.size() : comma + 1);
+    }
+    return result;
+}
+
+struct Boundary {
+    size_t  index;
+    Bar     bar;
+    Endings endings;
+};
+
+vec<Boundary> boundaries(Section source, Diagnostics& diagnostics) {
+    vec<Boundary> result;
+    bool          opened = false;
+    for (size_t i = 0; i < source.size(); ++i) {
+        const auto* bar = std::get_if<Bar>(&source[i].value);
+        if (!bar) continue;
+        auto normalized = *bar;
+        if (bar->repeat_start && !bar->repeat_end && opened) {
+            diagnostics.warn(
+                source[i].at,
+                "nested-repeat",
+                "treated a nested repeat start as an end followed by a new start"
+            );
+            normalized.repeat_end = true;
+        }
+        if (normalized.repeat_end) opened = false;
+        if (normalized.repeat_start) opened = true;
+        result.push_back({i, normalized, endings(source[i], bar->endings, diagnostics)});
+    }
+    return result;
+}
+
+// A repeat region may have several closing bars in successive numbered endings.
+// A region is replayed once per selected pass; intermediate endings are skipped.
+class RepeatOrder {
+public:
+    RepeatOrder(Section source, PlayOrder& output, Diagnostics& diagnostics) :
+        source(source), bars(boundaries(source, diagnostics)), output(output),
+        diagnostics(diagnostics) {}
+    void append();
+
+private:
+    Section       source;
+    vec<Boundary> bars;
+    PlayOrder&    output;
+    Diagnostics&  diagnostics;
+
+    struct Closing {
+        size_t last;
+        int    passes;
+    };
+
+    Closing closing(size_t first) const;
+    void    slice(size_t first, size_t end);
+    void    region(size_t first, size_t first_bar, size_t last_bar, int passes);
+    size_t  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
+};
+
+RepeatOrder::Closing RepeatOrder::closing(size_t first) const {
+    Closing result{first, std::max(2, bars[first].endings.last_pass)};
+    while (bars[result.last].endings.mask != 0 && !bars[result.last].bar.repeat_start) {
+        size_t i = result.last + 1;
+        while (i < bars.size() && !bars[i].bar.repeat_end && !bars[i].bar.repeat_start
+               && !bars[i].bar.section)
+            ++i;
+        if (i == bars.size() || !bars[i].bar.repeat_end || bars[i].endings.mask == 0) break;
+        result = {i, std::max(result.passes, bars[i].endings.last_pass)};
+    }
+    return result;
+}
+
+void RepeatOrder::slice(size_t first, size_t end) {
+    if (end - first > expansion_limit - output.size()) {
+        diagnostics.error(
+            source[first].at, "expansion-limit", "expanded music exceeds the playback token limit"
+        );
+    }
+    for (size_t i = first; i < end; ++i) output.push_back(&source[i]);
+}
+
+size_t RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int pass) {
+    bool playing = true;
+    for (size_t b = first_bar; b <= last_bar; ++b) {
+        const auto& boundary = bars[b];
+        if (playing) slice(first, boundary.index);
+        if (playing || boundary.endings.has(pass)) slice(boundary.index, boundary.index + 1);
+        first = boundary.index + 1;
+        if (boundary.bar.repeat_end && playing && boundary.endings.mask
+            && !boundary.endings.has(pass)) {
+            return first;
+        }
+        if (boundary.endings.mask) playing = boundary.endings.has(pass);
+    }
+    return first;
+}
+
+void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int passes) {
+    for (int pass = 1; pass <= passes; ++pass) play_pass(first, first_bar, last_bar, pass);
+}
+
+void RepeatOrder::append() {
+    size_t first     = 0;
+    size_t first_bar = 0;
+    for (size_t b = 0; b < bars.size(); ++b) {
+        const auto& marker = bars[b];
+        if (marker.bar.repeat_end) {
+            const auto close = closing(b);
+            region(first, first_bar, close.last, close.passes);
+            b         = close.last;
+            first     = bars[b].index + 1;
+            first_bar = b + 1;
+        } else if (marker.bar.repeat_start || marker.bar.section) {
+            slice(first, marker.index + 1);
+            first     = marker.index + 1;
+            first_bar = b + 1;
+        }
+    }
+    slice(first, source.size());
+}
+
+using Parts = std::map<char, Section>;
+
+Parts split_parts(Section source, Diagnostics& diagnostics) {
+    Parts  parts;
+    char   label = '\0';
+    size_t start = 0;
+    for (size_t i = 0; i < source.size(); ++i) {
+        const auto* field = std::get_if<Field>(&source[i].value);
+        if (!field || field->kind != 'P') continue;
+        if (field->value.size() != 1 || !letter(field->value.front())) {
+            diagnostics.warn(
+                source[i].at, "invalid-part-label", "ignored a P: label that is not a single letter"
+            );
+            continue;
+        }
+        if (!parts.try_emplace(label, source.subspan(start, i - start)).second) {
+            diagnostics.error(
+                source[i].at, "duplicate-part", "part label is repeated in this voice"
+            );
+        }
+        label = upper(field->value.front());
+        start = i;
+    }
+    if (!parts.try_emplace(label, source.subspan(start)).second) {
+        diagnostics.error(
+            source[start].at, "duplicate-part", "part label is repeated in this voice"
+        );
+    }
+    return parts;
+}
+
+}   // namespace
+
+PlayOrder play_order(
+    const vec<Token>& source, std::string_view parts, Location at, Diagnostics& diagnostics
+) {
+    PlayOrder tokens;
+    if (parts.empty()) {
+        RepeatOrder(source, tokens, diagnostics).append();
+        return tokens;
+    }
+    const auto sections = split_parts(source, diagnostics);
+    RepeatOrder(sections.at('\0'), tokens, diagnostics).append();
+    for (const auto label : PartOrder(parts, at, diagnostics).parse()) {
+        const auto section = sections.find(label);
+        if (section == sections.end())
+            diagnostics.warn(at, "missing-part", fmt::format("no music found for part {}", label));
+        else
+            RepeatOrder(section->second, tokens, diagnostics).append();
+    }
+    return tokens;
+}
+
+}   // namespace symusic::abc::detail
