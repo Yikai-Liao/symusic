@@ -3,6 +3,7 @@
 #ifndef LIBSYMUSIC_EVENT_H
 #define LIBSYMUSIC_EVENT_H
 
+#include <stdexcept>
 #include <string>
 #include <span>
 #include <cmath>
@@ -180,8 +181,14 @@ struct Tempo : TimeStamp<T> {
     // store mspq (i32) instead of qpm (f64) to avoid floating point error
     i32 mspq{};   // microseconds per quarter note
 
-    static constexpr i32 qpm2mspq(const f64 qpm) {
-        return static_cast<i32>(std::round(60000000. / qpm));
+    // qpm must be positive and finite, and the rounded mspq must be in [1, INT32_MAX].
+    static i32 qpm2mspq(const f64 qpm) {
+        if (!(qpm > 0.) || std::isinf(qpm)) {
+            throw std::invalid_argument("qpm must be positive and finite");
+        }
+        const i32 mspq = details::round_to_i32(60000000. / qpm);
+        if (mspq < 1) { throw std::invalid_argument("qpm is too large: mspq would be zero"); }
+        return mspq;
     }
 
     static constexpr f64 mspq2qpm(const i32 mspq) { return 60000000. / static_cast<f64>(mspq); }

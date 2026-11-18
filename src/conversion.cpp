@@ -102,18 +102,8 @@ Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 mi
     Score<Tick> ans(tpq);
     const f64   scale_rate = static_cast<f64>(tpq) / static_cast<f64>(score.ticks_per_quarter);
 
-    auto f64toi32 = [](const f64 x) {
-        if (x > static_cast<f64>(std::numeric_limits<i32>::max())) {
-            throw std::overflow_error(
-                "symusic::resample: time after resample (" + std::to_string(x)
-                + ") is out of int32 range"
-            );
-        }
-        return static_cast<i32>(std::round(x));
-    };
-
-    auto convert = [f64toi32, scale_rate](const Tick::unit t) -> Tick::unit {
-        return f64toi32(scale_rate * static_cast<f64>(t));
+    auto convert = [scale_rate](const Tick::unit t) -> Tick::unit {
+        return details::round_to_i32(scale_rate * static_cast<f64>(t));
     };
 
     ans.time_signatures = resample_time(*score.time_signatures, convert);

@@ -112,7 +112,11 @@ struct SecondTimeConverter {
         factors.push_back(cur_factor);
 
         for (size_t index = 1; index < tempos.size(); ++index) {
-            pivot_to   = self->get_time(tempos[index].time, pivot_to, pivot_from, cur_factor);
+            // The last boundary is the maximum time, which is not representable in the target
+            // unit; range_index never selects its segment, so its pivot is never read.
+            if (index + 1 < tempos.size()) {
+                pivot_to = self->get_time(tempos[index].time, pivot_to, pivot_from, cur_factor);
+            }
             pivot_from = tempos[index].time;
             cur_factor = self->get_factor(tempos[index]);
             to_times.push_back(pivot_to);
@@ -249,7 +253,7 @@ struct Quarter2TickConverter : SimpleTimeConverter<Quarter2TickConverter, Tick, 
         SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Tick::unit time(const Quarter::unit value) const {
-        return static_cast<Tick::unit>(std::round(value * tpq));
+        return round_to_i32(static_cast<f64>(value * tpq));
     }
 };
 
@@ -283,7 +287,7 @@ struct Second2TickConverter : SecondTimeConverter<Second2TickConverter, Tick, Se
         const Second::unit pivot_from,
         const f64          factor
     ) {
-        return pivot_to + static_cast<Tick::unit>(std::round(factor * (time - pivot_from)));
+        return add_time(pivot_to, round_to_i32(factor * (time - pivot_from)));
     }
 };
 

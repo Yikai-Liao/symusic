@@ -130,3 +130,60 @@ def test_second_conversion_at_range_edges():
     assert notes[1].start == pytest.approx(-0.5)
     assert notes[1].duration == pytest.approx(0.5)
     assert notes[0].duration == 0
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("bad", [1.0e10, -1.0e10, math.inf, -math.inf])
+def test_to_tick_out_of_range(ttype: str, bad: float):
+    score = Score(480, ttype=ttype)
+    score.tracks.append(Track(notes=[Note(bad, 1.0, 60, 80, ttype)], ttype=ttype))
+    with pytest.raises(OverflowError):
+        score.to("tick")
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_to_tick_nan(ttype: str):
+    score = Score(480, ttype=ttype)
+    score.tracks.append(Track(notes=[Note(math.nan, 1.0, 60, 80, ttype)], ttype=ttype))
+    with pytest.raises(ValueError, match="NaN"):
+        score.to("tick")
+
+
+def test_to_tick_zero_mspq():
+    score = Score(480, ttype="second")
+    score.tempos.append(Tempo(0.0, mspq=0, ttype="second"))
+    score.tracks.append(Track(notes=[Note(1.0, 1.0, 60, 80, "second")], ttype="second"))
+    with pytest.raises((OverflowError, ValueError)):
+        score.to("tick")
+
+
+@pytest.mark.parametrize("qpm", [0, -1, -math.inf, math.inf, math.nan, 1e300, 1e9])
+def test_tempo_qpm_invalid(qpm: float):
+    with pytest.raises(ValueError, match="qpm"):
+        Tempo(0, qpm)
+    tempo = Tempo(0, 120)
+    with pytest.raises(ValueError, match="qpm"):
+        tempo.qpm = qpm
+    assert tempo.mspq == 500000
+
+
+@pytest.mark.parametrize("qpm", [1e-3, 1e-300])
+def test_tempo_qpm_tiny(qpm: float):
+    with pytest.raises(OverflowError):
+        Tempo(0, qpm)
+
+
+def test_tempo_qpm_bounds():
+    assert Tempo(0, 120).mspq == 500000
+    assert Tempo(0, 60_000_000).mspq == 1
+
+
+@pytest.mark.parametrize("time", [1_000_000, -1_000_000])
+def test_resample_extreme_factor(time: int):
+    score = tick_score(Note(time, 10, 60, 80, "tick"))
+    with pytest.raises(OverflowError):
+        score.resample(INT_MAX)
+    assert (
+        tick_score(Note(2, 480, 60, 80, "tick")).resample(960).tracks[0].notes[0].start
+        == 4
+    )

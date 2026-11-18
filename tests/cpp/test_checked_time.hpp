@@ -172,4 +172,79 @@ TEST_CASE("Conversion with extreme ticks", "[symusic][checked_time]") {
     }
 }
 
+TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
+    constexpr f64 kNan  = std::numeric_limits<f64>::quiet_NaN();
+    constexpr f64 kInf  = std::numeric_limits<f64>::infinity();
+    constexpr f32 kInff = std::numeric_limits<f32>::infinity();
+
+    SECTION("qpm2mspq") {
+        REQUIRE(Tempo<Tick>::qpm2mspq(120.0) == 500000);
+        REQUIRE(Tempo<Tick>::qpm2mspq(60000000.0) == 1);
+        for (const f64 qpm : {0.0, -1.0, -kInf, kInf, kNan, 1.0e300, 1.0e9}) {
+            REQUIRE_THROWS_AS(Tempo<Tick>::qpm2mspq(qpm), std::invalid_argument);
+        }
+        for (const f64 qpm : {1.0e-3, 1.0e-300, 5.0e-324}) {
+            REQUIRE_THROWS_AS(Tempo<Tick>::qpm2mspq(qpm), std::overflow_error);
+        }
+        Tempo<Second> tempo(0.0f, 500000);
+        REQUIRE_THROWS_AS(tempo.set_qpm(kNan), std::invalid_argument);
+        REQUIRE(tempo.mspq == 500000);
+    }
+
+    SECTION("Quarter to Tick") {
+        Score<Quarter> score(480);
+        auto           track = std::make_shared<Track<Quarter>>("t", 0, false);
+        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks->push_back(track);
+        REQUIRE(convert<Tick>(score).tracks->at(0)->notes->at(0).duration == 480);
+        for (const f32 bad : {1.0e10f, -1.0e10f, kInff, -kInff}) {
+            track->notes->at(0).time = bad;
+            REQUIRE_THROWS_AS(convert<Tick>(score), std::overflow_error);
+        }
+        track->notes->at(0).time = std::numeric_limits<f32>::quiet_NaN();
+        REQUIRE_THROWS_AS(convert<Tick>(score), std::invalid_argument);
+    }
+
+    SECTION("Second to Tick") {
+        Score<Second> score(480);
+        auto          track = std::make_shared<Track<Second>>("t", 0, false);
+        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks->push_back(track);
+        REQUIRE(convert<Tick>(score).tracks->at(0)->notes->at(0).time == 960);
+        for (const f32 bad : {1.0e10f, -1.0e10f, kInff, -kInff}) {
+            track->notes->at(0).time = bad;
+            REQUIRE_THROWS_AS(convert<Tick>(score), std::overflow_error);
+        }
+        track->notes->at(0).time = std::numeric_limits<f32>::quiet_NaN();
+        REQUIRE_THROWS_AS(convert<Tick>(score), std::invalid_argument);
+    }
+
+    SECTION("Second to Tick with a zero mspq tempo") {
+        Score<Second> score(480);
+        score.tempos->emplace_back(0.0f, 0);
+        auto track = std::make_shared<Track<Second>>("t", 0, false);
+        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks->push_back(track);
+        REQUIRE_THROWS(convert<Tick>(score));
+    }
+
+    SECTION("resample") {
+        Score<Tick> score(480);
+        auto        track = std::make_shared<Track<Tick>>("t", 0, false);
+        track->notes->emplace_back(2, 480, 60, 80);
+        score.tracks->push_back(track);
+        REQUIRE(resample<Tick>(score, 960).tracks->at(0)->notes->at(0).time == 4);
+        // Upscaling beyond the tick range
+        track->notes->at(0).time = 1000000;
+        REQUIRE_THROWS_AS(
+            resample<Tick>(score, std::numeric_limits<i32>::max()), std::overflow_error
+        );
+        // Lower bound
+        track->notes->at(0).time = -1000000;
+        REQUIRE_THROWS_AS(
+            resample<Tick>(score, std::numeric_limits<i32>::max()), std::overflow_error
+        );
+    }
+}
+
 #endif   // SYMUSIC_TEST_CHECKED_TIME_HPP

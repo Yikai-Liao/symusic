@@ -19,9 +19,7 @@ Workarounds and unsupported configurations with current toolchains.
 
 ## Memory safety
 
-Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which is undefined behavior in C++. The policy for invalid times (throw, skip or clamp) is not yet defined; decide it once and apply it at every site below.
-
-- **Float-to-integer narrowing.** `Tempo::qpm2mspq()`, `Quarter2Tick::time()`, `Second2Tick::get_time()` and `resample_inner()` cast rounded floats to `i32` without checking finiteness or both bounds. Route them through one checked helper.
+- **Negative tick times in conversion and export.** `SecondTimeConverter` inserts a tempo at tick 0 in front of a tempo with a negative time, which leaves its boundary list unsorted, and `src/io/midi.cpp` passes `i32` times to `minimidi` as `uint32_t` without a sign check. Both come from reading the code; neither has a regression test.
 - **Python tests under ASan.** CI runs the C++ tests with ASan and UBSan, but not pytest. A sanitized extension needs `LD_PRELOAD` of `libasan` and `libubsan` even at install time, because the build runs nanobind's stub generator, which imports the extension (without it the install fails with "ASan runtime does not come first"). Preloading for the whole `uv pip install` process exhausted resources and was killed. Untried: build the extension with `SYMUSIC_BUILD_PYTHON=ON` and `SYMUSIC_PYTHON_STUB` pointing at a stub from a normal build to skip generation, then run pytest with the preload and `ASAN_OPTIONS=detect_leaks=0`.
 
 ## Behavior defects
@@ -40,7 +38,7 @@ Found while checking the guide against the package. Each fix needs a test that f
 
 ## Test coverage
 
-- **Boundary inputs.** The memory-safety items above need regression tests for large ticks and offsets, extreme tempos and malformed MIDI durations.
+- **Boundary inputs.** Malformed MIDI durations and negative tick times have no regression tests.
 
 ## Architecture
 
