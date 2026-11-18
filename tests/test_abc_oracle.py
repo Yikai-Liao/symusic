@@ -22,6 +22,7 @@ DETUNE = "%%temperament +00 -06 -04.5 -02 -08 +02 -08 -02 -04 -06 +00 -10\n"
 RECOVERED = {
     "decoration_line_end": "orphan-decoration",
     "rising_sun_stray_coda": "ignored-decoration",
+    "hornpipe_unsupported_meter": "hornpipe-meter",
 }
 WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
 CASES = {
@@ -83,6 +84,22 @@ CASES = {
     "[I:MIDI control 7 30]cBAG|",
     "beatstring_positions": HEADER.replace("L:1/4", "L:1/8")
     + "%%MIDI beatstring pFmPffmP\nC D E F G A B c |",
+    "hornpipe_eighths": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "R:hornpipe\nK:C"
+    )
+    + "C| DEFG ABcd | C>D E<F G>A B<c |",
+    "hornpipe_sixteenths": HEADER.replace("M:4/4", "M:2/4").replace(
+        "K:C", "R:Hornpipe\nK:C"
+    )
+    + "C//D//E//F// G//A//B//c//| C<D E>F|",
+    "hornpipe_chords_and_tuplets": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "R:hornpipe\nK:C"
+    )
+    + 'CzE[FG] {A}Bcd|C (3DEF G/A/ Bc| C D "C"E F G "C"A B c|',
+    "hornpipe_unsupported_meter": HEADER.replace("M:4/4", "M:6/8")
+    .replace("L:1/4", "L:1/8")
+    .replace("K:C", "R:hornpipe\nK:C")
+    + "C<D E>F G<A|",
     "rhythm_ratio": HEADER + "%%MIDI ratio 2 1\nC>D E<F| G>>A B<<c|",
     "fermata_modes": HEADER + "%%MIDI fermatafixed\nHC2 D Hz |\n"
     "%%MIDI fermataproportional\nH[EG]2 F G|",

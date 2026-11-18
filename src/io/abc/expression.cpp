@@ -74,6 +74,24 @@ int trill_attacks(
     return count;
 }
 
+RhythmStyle rhythm_style(std::string_view name) {
+    return name.starts_with("hornpipe") || name.starts_with("Hornpipe") ? RhythmStyle::hornpipe :
+                                                                          RhythmStyle::straight;
+}
+
+bool hornpipe_meter(Meter meter) {
+    return !meter.free && meter.denominator == 4 && (meter.numerator == 2 || meter.numerator == 4);
+}
+
+Expression::Expression(RhythmStyle rhythm) :
+    rhythm(rhythm), broken_short(rhythm == RhythmStyle::hornpipe ? 2.L / 3 : 0.5L) {}
+
+bool Expression::starts_swing_pair(Meter meter, long double offset, long double duration) const {
+    if (rhythm != RhythmStyle::hornpipe || !hornpipe_meter(meter)) return false;
+    const auto short_note = static_cast<long double>(whole) * meter.numerator / 32;
+    return std::fabs(duration - short_note) < 0.0000001L && aligned(offset, 2 * short_note);
+}
+
 int Expression::take_chord_spread() {
     return std::exchange(arpeggio, false) ? 3 * chord_attack : chord_attack;
 }

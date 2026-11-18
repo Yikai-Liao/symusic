@@ -1,5 +1,6 @@
 #pragma once
 
+#include "expression.h"
 #include "navigation.h"
 #include "pitch_tuning.h"
 #include "symusic/score.h"
@@ -13,6 +14,7 @@ struct TuneSettings {
     i32                               tempo      = 500000;
     long double                       unit       = whole / 8;
     int                               midi_shift = 0;
+    RhythmStyle                       rhythm     = RhythmStyle::straight;
     std::string                       title;
     std::array<std::string_view, 128> symbols{};
 };

@@ -112,7 +112,7 @@ struct PlaybackLane {
     bool         first_bar = true;
     Accidentals  accidentals;
     vec<TieNote> ties;
-    Expression   expression;
+    Expression   expression{};
     int          slur = 0;
     // Re-entry uses the previous primary bar boundary, not an inner barline.
     long double                reentry_bar = 0;
@@ -136,7 +136,8 @@ void report_ties(vec<TieNote>& ties, Diagnostics& diagnostics) {
 // Only the written fields are restored on joining the primary lane.
 class OverlayLanes {
 public:
-    explicit OverlayLanes(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
+    OverlayLanes(RhythmStyle rhythm, Diagnostics& diagnostics) :
+        diagnostics(diagnostics), rhythm(rhythm), lanes{new_lane(0)} {}
     PlaybackLane&      active() { return lanes[selected]; }
     [[nodiscard]] int  id() const { return static_cast<int>(selected); }
     void               control(Overlay command, WrittenState& written, Location at);
@@ -153,13 +154,15 @@ private:
     };
 
     Diagnostics&         diagnostics;
-    vec<PlaybackLane>    lanes{PlaybackLane{}};
+    const RhythmStyle    rhythm;
+    vec<PlaybackLane>    lanes;
     size_t               selected         = 0;
     long double          last_primary_bar = 0;
     std::optional<Group> group;
 
-    void split(WrittenState& written, Location at);
-    void join(WrittenState& written);
+    PlaybackLane new_lane(long double time) const;
+    void         split(WrittenState& written, Location at);
+    void         join(WrittenState& written);
 };
 
 void OverlayLanes::control(Overlay command, WrittenState& written, Location at) {
@@ -181,14 +184,16 @@ void OverlayLanes::control(Overlay command, WrittenState& written, Location at) 
     }
 }
 
+PlaybackLane OverlayLanes::new_lane(long double time) const {
+    return {.time = time, .expression = Expression(rhythm), .reentry_bar = time};
+}
+
 void OverlayLanes::split(WrittenState& written, Location at) {
     if (!group) group.emplace();
     if (!group->primary_fields) group->primary_fields = written;
     if (++selected >= max_voice_lanes)
         diagnostics.error(at, "overlay-limit", "too many overlay lanes");
-    if (selected == lanes.size()) {
-        lanes.push_back(PlaybackLane{.time = last_primary_bar, .reentry_bar = last_primary_bar});
-    }
+    if (selected == lanes.size()) { lanes.push_back(new_lane(last_primary_bar)); }
     active().reenter();
 }
 
@@ -236,8 +241,9 @@ public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
         diagnostics(diagnostics), output(std::move(name), diagnostics), tuning(settings.tuning),
         written{settings.meter, settings.key, settings.unit},
-        accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics),
-        tempo_unit(settings.unit), initial_tempo(settings.tempo), midi_shift(settings.midi_shift) {}
+        accompaniment(settings.meter, diagnostics), symbols(settings.symbols),
+        lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
+        initial_tempo(settings.tempo), midi_shift(settings.midi_shift) {}
 
     Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
@@ -284,6 +290,7 @@ private:
     void        push(const Atom& atom, Location at);
     void        flush();
     void        orphan_grace(Location at);
+    bool        swing_candidate();
     void        broken_pair(Prepared& next);
     long double atom_duration(const Atom& atom, Location at);
     void        play(const Prepared& atom);
@@ -342,7 +349,19 @@ void VoicePlayer::orphan_grace(Location) {
     grace = {};
 }
 
+bool swing_note(const Prepared& note) { return !note.atom->chord && !note.atom->pitches.empty(); }
+
+bool VoicePlayer::swing_candidate() {
+    return pending && swing_note(*pending)
+           && lane().expression.starts_swing_pair(
+               written.meter, lane().time - lane().bar, pending->duration
+           );
+}
+
 void VoicePlayer::broken_pair(Prepared& next) {
+    if (swing_candidate() && swing_note(next) && !next.grace.notes
+        && std::fabs(pending->duration - next.duration) < epsilon)
+        broken = std::pair{Broken{1, 1}, next.at};
     if (!broken) return;
     const auto [mark, marked_at] = std::exchange(broken, {}).value();
     if (!pending) {
@@ -983,7 +1002,7 @@ void VoicePlayer::visit_step(PlayStep step) {
     case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
     case Flow::hard_bar: visit(Bar{}, token.at); break;
     case Flow::token:
-        if (broken && can_defer(token))
+        if ((broken || swing_candidate()) && can_defer(token))
             timed_effects.push_back(&token);
         else
             visit_token(token);

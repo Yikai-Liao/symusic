@@ -14,6 +14,7 @@ struct Header {
     TuneSettings     settings;
     std::string_view order;
     Location         order_at;
+    Location         rhythm_at;
 };
 
 void header_field(Header& header, Field field, const Token& token, Diagnostics& diagnostics) {
@@ -25,6 +26,10 @@ void header_field(Header& header, Field field, const Token& token, Diagnostics& 
         break;
     case 'T':
         if (header.settings.title.empty()) header.settings.title = unquote_text(value);
+        break;
+    case 'R':
+        header.settings.rhythm = rhythm_style(value);
+        header.rhythm_at       = token.at;
         break;
     case 'P':
         header.order    = value;
@@ -50,6 +55,10 @@ Header read_header(const Tune& tune, Diagnostics& diagnostics) {
         }
     }
     if (!saw_meter) diagnostics.warn(tune.key, "default-meter", "no M: field; using 4/4");
+    if (header.settings.rhythm == RhythmStyle::hornpipe && !hornpipe_meter(header.settings.meter))
+        diagnostics.warn(
+            header.rhythm_at, "hornpipe-meter", "automatic hornpipe rhythm requires 2/4 or 4/4"
+        );
     header.settings.unit
         = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
                  (header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8);
