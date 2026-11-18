@@ -228,6 +228,14 @@ long double tempo_beat(
 
 }   // namespace
 
+int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at) {
+    const auto number = integer(word(args));
+    if (number && *number >= low && *number <= high) return *number;
+    diagnostics.error(
+        at, "invalid-midi-value", fmt::format("expected a MIDI value between {} and {}", low, high)
+    );
+}
+
 bool midi_transposition(
     std::string_view name, std::string_view args, int& shift, Diagnostics& diagnostics, Location at
 ) {

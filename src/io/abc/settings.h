@@ -9,6 +9,7 @@ namespace symusic::abc::detail {
 // Playback uses fractional ticks; only emitted events are quantized.
 inline constexpr i32 tpq               = 480;
 inline constexpr i32 whole             = 4 * tpq;
+inline constexpr int midi_bend_center  = 8192;
 inline constexpr int midi_drum_channel = 10;
 inline constexpr int midi_max          = 127;
 inline constexpr int max_voice_lanes   = 64;
@@ -42,6 +43,8 @@ struct VoiceSpec {
     std::optional<int> transpose;
     std::optional<int> octave;
 };
+
+int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at);
 
 // MIDI transpose shifts sounding pitches independently of K:/V: transposition.
 // A handled directive updates the current MIDI shift; other commands are untouched.

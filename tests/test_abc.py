@@ -10,6 +10,7 @@ from symusic import (
     KeySignature,
     Note,
     Pedal,
+    PitchBend,
     Score,
     Tempo,
     TimeSignature,
@@ -370,6 +371,25 @@ def test_abc_export_preserves_tempo_keys_meter_polyphony_and_controls():
         assert channel.program == 24
         assert track.controls[0] in channel.controls
         assert channel.pedals == track.pedals
+
+
+def test_abc_export_preserves_pitch_bends():
+    score = roundtrip_score()
+    track = score.tracks[0]
+    track.pitch_bends.extend(
+        [PitchBend(0, -8192), PitchBend(143, 8191), PitchBend(480, 0)]
+    )
+    loaded = Score.from_abc(score.dumps_abc(warn=True))
+    assert loaded.tracks[0].pitch_bends == track.pitch_bends
+    assert note_rows(loaded) == note_rows(score)
+
+
+@pytest.mark.parametrize("value", [-8193, 8192, 2**31 - 1])
+def test_abc_export_rejects_out_of_range_pitch_bend(value: int):
+    score = roundtrip_score()
+    score.tracks[0].pitch_bends.append(PitchBend(0, value))
+    with pytest.raises(ValueError, match="pitch bend must be in MIDI range"):
+        score.dumps_abc()
 
 
 def test_abc_export_merges_overlapping_pedals():

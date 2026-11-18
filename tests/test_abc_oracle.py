@@ -77,6 +77,10 @@ CASES = {
     "relative_transpose": HEADER.replace("K:C", "K:C transpose=3")
     + "C\n%%MIDI transpose 2\nD\n%%MIDI rtranspose -1\nE [K:G transpose=5] F|",
     "transpose_percussion": HEADER + "%%MIDI channel 10\n%%MIDI transpose 2\nCDEF|",
+    "channel_setup": (
+        HEADER.replace("K:C", "%%MIDI pitchbendrange 5\n%%MIDI portamento 12\nK:C")
+        + "CDEF|"
+    ),
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")
@@ -216,6 +220,18 @@ def test_live_upstream_matches_snapshot(
     exit_code = 1 if name in RECOVERED else 0
     score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
     assert performed(score) == golden[name]
+
+
+def test_pitchbend_does_not_shift_note_clock(upstream: Path, tmp_path: Path):
+    abc = HEADER + "C [I:MIDI pitchbend 12 69] D E F |"
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert native.tracks[0].pitch_bends == actual.tracks[0].pitch_bends
+    assert [(bend.time, bend.value) for bend in native.tracks[0].pitch_bends] == [
+        (480, 652)
+    ]
+    assert [note.time for note in native.tracks[0].notes] == [1, 481, 961, 1441]
+    assert [note.time for note in actual.tracks[0].notes] == [1, 480, 960, 1440]
 
 
 @pytest.fixture(scope="module")

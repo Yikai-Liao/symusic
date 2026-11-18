@@ -51,6 +51,11 @@ public:
         Location    at
     );
     void control(MidiTarget target, i32 time, int number, int value, Location at);
+    // Map channel-effect directives onto Score events; leave unrelated MIDI
+    // commands to the playback and accompaniment state owners.
+    bool effect(
+        std::string_view name, std::string_view args, MidiTarget target, i32 time, Location at
+    );
     void finish(vec<TrackNative<Tick>>& tracks);
 
 private:

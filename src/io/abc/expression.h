@@ -4,8 +4,6 @@
 
 namespace symusic::abc::detail {
 
-int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at);
-
 enum class LoudnessShift { louder, softer };
 using Dynamic = std::variant<std::array<int, 3>, LoudnessShift>;
 std::optional<Dynamic> dynamic_mark(std::string_view name);

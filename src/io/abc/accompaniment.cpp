@@ -61,15 +61,6 @@ std::optional<int> root_note(std::string_view& symbol) {
     return (12 + note) % 12;
 }
 
-int directive_int(std::string_view& args, int lo, int hi, Location at, Diagnostics& diagnostics) {
-    const auto value = integer(word(args));
-    if (value && *value >= lo && *value <= hi) return *value;
-    diagnostics.error(
-        at,
-        "invalid-backing-directive",
-        fmt::format("expected a MIDI backing value between {} and {}", lo, hi)
-    );
-}
 
 void add_if_audible(TrackNative<Tick>& track, i32 time, i32 duration, int pitch, int velocity) {
     if (pitch < 0 || pitch > midi_max || velocity <= 0) return;
@@ -162,12 +153,12 @@ void Accompaniment::drum_pattern(std::string_view args, long double time, Locati
     // Omitted values default independently for each strike, not each slot.
     for (auto& step : steps) {
         if (step.kind != 'd') continue;
-        step.pitch    = trim(args).empty() ? 35 : directive_int(args, 0, midi_max, at, diagnostics);
+        step.pitch    = trim(args).empty() ? 35 : midi_integer(args, 0, midi_max, diagnostics, at);
         step.velocity = 80;
     }
     for (auto& step : steps) {
         if (trim(args).empty()) break;
-        if (step.kind == 'd') step.velocity = directive_int(args, 1, midi_max, at, diagnostics);
+        if (step.kind == 'd') step.velocity = midi_integer(args, 1, midi_max, diagnostics, at);
     }
     if (!trim(args).empty())
         diagnostics.warn(at, "extra-drum-values", "ignored values beyond the drum strikes");
@@ -179,7 +170,7 @@ void Accompaniment::chord_type(std::string_view args, Location at) {
     vec<int>         intervals;
     constexpr size_t max_intervals = 10;
     while (!trim(args).empty() && intervals.size() < max_intervals)
-        intervals.push_back(directive_int(args, -48, 48, at, diagnostics));
+        intervals.push_back(midi_integer(args, -48, 48, diagnostics, at));
     if (intervals.empty() || !trim(args).empty()) {
         diagnostics.warn(
             at, "invalid-chord-name", "ignored chordname without one to ten intervals"
@@ -347,7 +338,7 @@ void Accompaniment::drone_settings(std::string_view args, long double time, Loca
           &drone.velocity[0],
           &drone.velocity[1]}) {
         if (trim(args).empty()) break;
-        const auto next = directive_int(args, -127, midi_max, at, diagnostics);
+        const auto next = midi_integer(args, -127, midi_max, diagnostics, at);
         if (next > 0) *value = next;
     }
     if (playing) drone.start = time;
@@ -362,7 +353,7 @@ bool Accompaniment::pattern_directive(
     else if (name == "drum")
         drum_pattern(args, time, at);
     else if (name == "gchordbars" || name == "drumbars") {
-        pattern.bars = directive_int(args, 1, 32, at, diagnostics);
+        pattern.bars = midi_integer(args, 1, 32, diagnostics, at);
         pattern.reset(time);
     } else if (name == "gchordon" || name == "gchordoff" || name == "drumon" || name == "drumoff") {
         const bool on = name.ends_with("on");
@@ -380,13 +371,13 @@ bool Accompaniment::instrument_directive(
     if (name == "chordname")
         chord_type(args, at);
     else if (name == "bassprog" || name == "chordprog") {
-        instrument.program = directive_int(args, 0, midi_max, at, diagnostics);
+        instrument.program = midi_integer(args, 0, midi_max, diagnostics, at);
         if (auto options = word(args); options.starts_with("octave=")) {
             auto octave       = options.substr(7);
-            instrument.octave = directive_int(octave, -2, 2, at, diagnostics);
+            instrument.octave = midi_integer(octave, -2, 2, diagnostics, at);
         }
     } else if (name == "bassvol" || name == "chordvol")
-        instrument.velocity = directive_int(args, 0, midi_max, at, diagnostics);
+        instrument.velocity = midi_integer(args, 0, midi_max, diagnostics, at);
     else
         return false;
     return true;

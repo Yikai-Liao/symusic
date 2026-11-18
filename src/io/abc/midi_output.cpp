@@ -78,6 +78,31 @@ void VoiceOutput::control(MidiTarget target, i32 time, int number, int value, Lo
     if (number == 64) sustain({target.lane, target.channel}, owner, time, value, at);
 }
 
+bool VoiceOutput::effect(
+    std::string_view name, std::string_view args, MidiTarget target, i32 time, Location at
+) {
+    const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
+    const auto cc   = [&](int number, int value) { control(target, time, number, value, at); };
+    if (name == "pitchbend") {
+        const int low  = byte();
+        const int high = trim(args).empty() ? 0 : byte();
+        track(target).pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
+    } else if (name == "pitchbendrange") {
+        const int semitones = byte();
+        cc(101, 0);
+        cc(6, semitones);
+        cc(38, 0);
+    } else if (name == "portamento") {
+        const int speed = midi_integer(args, 0, 63, diagnostics, at);
+        cc(65, 127);
+        cc(5, speed);
+    } else if (name == "noportamento")
+        cc(65, 0);
+    else
+        return false;
+    return true;
+}
+
 void VoiceOutput::finish(vec<TrackNative<Tick>>& tracks) {
     for (auto& [key, track] : output) {
         if (!track.empty()) tracks.push_back(std::move(track));

@@ -304,7 +304,7 @@ private:
 
     i32                      scale(int64_t time, std::string_view where);
     vec<WrittenNote>         notes(const Track<Tick>& track, std::string_view where);
-    Timeline                 controls(const Track<Tick>& track, std::string_view where);
+    Timeline                 channel_events(const Track<Tick>& track, std::string_view where);
     vec<std::pair<i32, i32>> pedals(const Track<Tick>& track, std::string_view where);
     void add_pedals(Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where);
     void limitations(const Track<Tick>& track, std::string_view where);
@@ -425,8 +425,6 @@ void ScoreWriter::limitations(const Track<Tick>& track, std::string_view where) 
         issues.warn(
             where, "omitted-lyrics", "ABC export does not represent arbitrary timed lyrics"
         );
-    if (!track.pitch_bends->empty())
-        issues.warn(where, "omitted-pitch-bends", "ABC export does not represent pitch bends");
     if (track.is_drum && track.program != 0)
         issues.warn(where, "drum-program", "other ABC readers may ignore the drum program");
 }
@@ -469,7 +467,14 @@ vec<std::pair<i32, i32>> ScoreWriter::pedals(const Track<Tick>& track, std::stri
     return intervals;
 }
 
-Timeline ScoreWriter::controls(const Track<Tick>& track, std::string_view where) {
+std::string bend_field(int value, std::string_view where) {
+    if (value < -detail::midi_bend_center || value >= detail::midi_bend_center)
+        ExportIssues::invalid(where, "pitch bend must be in MIDI range −8192–8191");
+    const auto wire = value + detail::midi_bend_center;
+    return fmt::format("[I:MIDI pitchbend {} {}]", wire & midi_max, wire >> 7);
+}
+
+Timeline ScoreWriter::channel_events(const Track<Tick>& track, std::string_view where) {
     Timeline timeline;
     auto     intervals         = pedals(track, where);
     bool     has_pedal_control = false;
@@ -481,6 +486,8 @@ Timeline ScoreWriter::controls(const Track<Tick>& track, std::string_view where)
             fmt::format("[I:MIDI control {} {}]", event.number, event.value)
         );
     }
+    for (const auto& bend : *track.pitch_bends)
+        timeline[scale(bend.time, where)].fields.push_back(bend_field(bend.value, where));
     // Prefer explicit CC64: it can carry half-pedal values.
     if (!has_pedal_control)
         add_pedals(timeline, std::move(intervals), where);
@@ -532,7 +539,7 @@ void ScoreWriter::track(const Track<Tick>& track, size_t index) {
         ExportIssues::invalid(where, "program must be in MIDI range 0–127");
     limitations(track, where);
     auto       lanes          = partition(notes(track, where), issues, where);
-    const auto control_fields = controls(track, where);
+    const auto control_fields = channel_events(track, where);
     for (auto& lane : lanes) {
         for (const auto& [tick, change] : control_fields)
             lane.timeline[tick].fields = change.fields;

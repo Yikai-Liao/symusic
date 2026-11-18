@@ -785,6 +785,7 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
         lane().base_pitch = value(0, midi_max);
     else if (
         !lane().expression.directive(name, command, at, diagnostics)
+        && !output.effect(name, command, target(), at_tick(at), at)
         && !accompaniment.directive(name, command, lane().time, at)
     ) {
         diagnostics.warn(at, "unsupported-midi", fmt::format("ignored MIDI directive '{}'", name));

@@ -4,14 +4,6 @@
 
 namespace symusic::abc::detail {
 
-int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at) {
-    const auto number = integer(word(args));
-    if (number && *number >= low && *number <= high) return *number;
-    diagnostics.error(
-        at, "invalid-midi-value", fmt::format("expected a MIDI value between {} and {}", low, high)
-    );
-}
-
 namespace {
 
 using namespace std::literals;
