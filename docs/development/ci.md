@@ -24,7 +24,7 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 |---|---|---|
 | `lint` | Always | `prek run --all-files` (whitespace, YAML/TOML, Ruff, clice format), action pin check, CI script tests |
 | `python` | Core, binding, package, tests, build files | `pytest` on Linux CPython 3.12 with Python coverage, and on Windows CPython 3.15 |
-| `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, with C++ coverage |
+| `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, with C++ coverage; a separate `sanitize` job runs the same tests with ASan and UBSan |
 | `docs` | `docs/`, `CONTRIBUTING.md`, `ROADMAP.md`, binding, package, build files | Sphinx HTML with warnings as errors |
 | `wheels` | Build, packaging, dependency and CI configuration | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
 
@@ -33,6 +33,8 @@ Changes to `.github/workflows/` or `.github/scripts/` select every lane. Root Ma
 Ordinary core changes select the Python and C++ lanes without rebuilding documentation or running Docker packaging tests. Binding changes also select docs because the API reference imports the extension. Matrices and path routing both live in `ci_changes.py`.
 
 The C++ lane also compiles examples when their sources or shared CMake configuration change. Full runs compile them on every selected platform; ordinary core PRs keep them off.
+
+The `sanitize` job builds the Catch2 tests with `-DSYMUSIC_SANITIZE="address;undefined"` (GCC, Debug, Ninja) and runs CTest with `halt_on_error`, stack traces and leak detection. UBSan findings abort. It shares the sccache setup described under [compiler caches](#compiler-caches), so only changed objects rebuild. Reproduce it locally with the same CMake options and `ASAN_OPTIONS`/`UBSAN_OPTIONS` from `ci.yml`. The Python tests do not run under ASan yet; see the [roadmap](../ROADMAP.md#memory-safety).
 
 ## Compatibility checks
 
@@ -59,7 +61,7 @@ The full build keeps every interpreter for one platform in the same job. It buil
 
 Three caches keep compiler output across runs. Each is keyed so that it never mixes incompatible toolchains.
 
-- The `python`, `docs` and `cpp` jobs use sccache with the GitHub Actions cache backend (`mozilla-actions/sccache-action`) and hand it to CMake through the `CMAKE_C_COMPILER_LAUNCHER` and `CMAKE_CXX_COMPILER_LAUNCHER` environment variables, which scikit-build-core and CMake both honor. sccache hashes the compiler, flags and preprocessed source of every object, so entries from different toolchains, operating systems or Python versions simply miss. The `python` and `docs` Linux builds share entries because they compile identical objects. Pull requests read entries written on `main` and write only to their own scope, so they cannot overwrite or evict cache written by `main`. The post step prints hit statistics.
+- The `python`, `docs`, `cpp` and `sanitize` jobs use sccache with the GitHub Actions cache backend (`mozilla-actions/sccache-action`) and hand it to CMake through the `CMAKE_C_COMPILER_LAUNCHER` and `CMAKE_CXX_COMPILER_LAUNCHER` environment variables, which scikit-build-core and CMake both honor. sccache hashes the compiler, flags and preprocessed source of every object, so entries from different toolchains, operating systems or Python versions simply miss. The `python` and `docs` Linux builds share entries because they compile identical objects. Pull requests read entries written on `main` and write only to their own scope, so they cannot overwrite or evict cache written by `main`. The post step prints hit statistics.
 - The Windows `python` build runs sccache through Ninja (the generator the MSVC developer shell selects). The extension is built with `/O1` and no `/Zi`, which sccache cannot cache. The `cpp` job skips the cache on Windows because its Debug configuration uses `/Zi`.
 - The `smoke` wheel job keeps ccache's directory on the host and mounts it into the manylinux container with cibuildwheel's `CIBW_CONTAINER_ENGINE` `create_args`. `actions/cache` restores it before the build and saves it afterwards, only on pushes to `main` and manual runs. The key names the OS, architecture and libc of the container image, so the cache never crosses those boundaries; the newest entry with that prefix is restored.
 

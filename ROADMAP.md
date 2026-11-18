@@ -27,7 +27,7 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 - **Float-to-integer narrowing.** `Tempo::qpm2mspq()`, `Quarter2Tick::time()`, `Second2Tick::get_time()` and `resample_inner()` cast rounded floats to `i32` without checking finiteness or both bounds. Route them through one checked helper.
 - **Null container elements.** Equality and containment helpers in `py_src/utils/vector_bindings.h` dereference `shared_ptr` elements without null checks. Reject `None` at the binding boundary.
 - **Padding in pickles.** Events are pickled with `zpp::bits::as_bytes`, which copies struct padding; the padding is uninitialized, so pickling the same score twice can give different bytes. Zero the padding or serialize members explicitly, keeping old pickles loadable.
-- **Sanitizers in CI.** Run ASan/UBSan builds in CI rather than only locally.
+- **Python tests under ASan.** CI runs the C++ tests with ASan and UBSan, but not pytest. A sanitized extension needs `LD_PRELOAD` of `libasan` and `libubsan` even at install time, because the build runs nanobind's stub generator, which imports the extension (without it the install fails with "ASan runtime does not come first"). Preloading for the whole `uv pip install` process exhausted resources and was killed. Untried: build the extension with `SYMUSIC_BUILD_PYTHON=ON` and `SYMUSIC_PYTHON_STUB` pointing at a stub from a normal build to skip generation, then run pytest with the preload and `ASAN_OPTIONS=detect_leaks=0`.
 
 ## Test coverage
 
