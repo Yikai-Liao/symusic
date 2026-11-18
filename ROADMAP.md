@@ -29,5 +29,4 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 
 ## Test coverage
 
-- **Resample through Python.** Rounding on downsampling and upsampling is tested only in C++ (`tests/cpp/test_conversion.hpp`).
 - **Boundary inputs.** The memory-safety items above need regression tests for large ticks and offsets, extreme tempos and malformed MIDI durations.
