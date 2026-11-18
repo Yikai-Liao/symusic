@@ -220,6 +220,34 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
         );
     }
 
+    SECTION("Padded events inside a track and score") {
+        const auto build = [](unsigned char fill) {
+            Score<Tick> score;
+            score.ticks_per_quarter = 480;
+            score.time_signatures->emplace_back(0, 3, 4);
+            score.key_signatures->emplace_back(0, -2, 1);
+            auto track = std::make_shared<Track<Tick>>();
+            for (int i = 0; i < 3; ++i) track->notes->emplace_back(i * 10, 5, 60 + i, 80);
+            track->controls->emplace_back(0, 7, 100);
+            const auto dirty = [fill](auto& events, size_t payload) {
+                for (auto& e : events) {
+                    auto* raw = reinterpret_cast<unsigned char*>(&e);
+                    std::memset(raw + payload, fill, sizeof(e) - payload);
+                }
+            };
+            dirty(*track->notes, 10);
+            dirty(*track->controls, 6);
+            dirty(*score.time_signatures, 6);
+            dirty(*score.key_signatures, 6);
+            score.tracks->push_back(track);
+            return score;
+        };
+        const auto first  = build(0xAA).dumps<DataFormat::ZPP>();
+        const auto second = build(0x55).dumps<DataFormat::ZPP>();
+        REQUIRE(first == second);
+        REQUIRE(Score<Tick>::parse<DataFormat::ZPP>(first) == build(0x00));
+    }
+
     SECTION("Padding bytes are zero and the layout is unchanged") {
         const auto bytes
             = dumps_in_filled_storage<Note<Tick>>(0xAA, [] { return Note<Tick>(1, 2, 3, 4); }, 10);

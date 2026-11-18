@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <span>
 
@@ -78,6 +79,72 @@ constexpr auto serialize(auto& archive, const symusic::KeySignature<T>& d) {
     return serialize_zeroed_padding(archive, d, d.time, d.key, d.tonality);
 }
 
+// Per-element serialization of a whole `vec<E>` costs one archive call per
+// event, several times slower than the bulk copy zpp_bits uses for plain
+// trivially copyable elements. `zeroed(vec)` restores a bulk path for output:
+// it writes the same `u32 size` prefix and element images as zpp_bits would,
+// then zeroes the padding tail of each image inside the output buffer. No
+// scratch copy is made, because allocating one per call dominated the cost.
+// `payload` is the number of leading bytes that hold members; the tail is two
+// bytes, which a single constant store clears (a memset call per event did not
+// inline and cost more than the copy).
+template<class E>
+inline constexpr std::size_t padded_payload = 0;
+template<class T>
+inline constexpr std::size_t padded_payload<Note<T>> = 2 * sizeof(typename T::unit) + 2;
+template<class T>
+inline constexpr std::size_t padded_payload<ControlChange<T>> = sizeof(typename T::unit) + 2;
+template<class T>
+inline constexpr std::size_t padded_payload<TimeSignature<T>> = sizeof(typename T::unit) + 2;
+template<class T>
+inline constexpr std::size_t padded_payload<KeySignature<T>> = sizeof(typename T::unit) + 2;
+
+template<class E>
+struct ZeroedPaddingVec {
+    const vec<E>& events;
+};
+
+template<class E>
+constexpr auto serialize(auto& archive, const ZeroedPaddingVec<E>& zeroed_vec) {
+    const auto&           events  = zeroed_vec.events;
+    constexpr std::size_t payload = padded_payload<E>;
+    static_assert(sizeof(E) - payload == 2, "padding is a 2-byte tail");
+    const std::size_t count  = events.size();
+    auto              result = archive(
+        static_cast<zpp::bits::default_size_type>(count),
+        zpp::bits::bytes(std::span<const E>(events))
+    );
+    // zpp_bits also instantiates this with a type-probing archive that has no buffer.
+    if constexpr (std::is_same_v<decltype(result), zpp::bits::errc>) {
+        if (zpp::bits::failure(result)) return result;
+        auto* tail
+            = archive.processed_data().data() + archive.position() - count * sizeof(E) + payload;
+        for (std::size_t left = count; left != 0; --left, tail += sizeof(E)) {
+            constexpr std::uint16_t kZero = 0;
+            std::memcpy(tail, &kZero, sizeof(kZero));
+        }
+    }
+    return result;
+}
+
+template<class V>
+constexpr bool is_padded_vec = false;
+template<class E>
+constexpr bool is_padded_vec<vec<E>> = padded_payload<E> > 0;
+
+// Const (output) padded vectors take the bulk path; everything else, including
+// the mutable (input) side, is passed through unchanged.
+template<class V>
+constexpr decltype(auto) zeroed(V&& value) {
+    if constexpr (
+        std::is_const_v<std::remove_reference_t<V>> && is_padded_vec<std::remove_cvref_t<V>>
+    ) {
+        return ZeroedPaddingVec<typename std::remove_cvref_t<V>::value_type>{value};
+    } else {
+        return (value);
+    }
+}
+
 #define HELPER(X) X
 #define SERIALIZE_COMMON(...) HELPER(SERIALIZE_COMMON_INNER(__VA_ARGS__))
 #define SERIALIZE_COMMON_INNER(STRUCT, DATA, ...)                             \
@@ -99,8 +166,8 @@ SERIALIZE_COMMON(
     d.name,
     d.program,
     d.is_drum,
-    d.notes,
-    d.controls,
+    zeroed(d.notes),
+    zeroed(d.controls),
     d.pitch_bends,
     d.pedals,
     d.lyrics
@@ -111,8 +178,8 @@ SERIALIZE_COMMON(
     d,
     d.ticks_per_quarter,
     d.tracks,
-    d.time_signatures,
-    d.key_signatures,
+    zeroed(d.time_signatures),
+    zeroed(d.key_signatures),
     d.tempos,
     d.markers
 )
