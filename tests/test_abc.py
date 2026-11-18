@@ -552,3 +552,12 @@ def test_abc_discards_overlong_chord_definition():
     with pytest.warns(UserWarning, match=r":7:1: ABC \[invalid-chord-name\]"):
         result = Score.from_abc(source)
     assert len(result.tracks[2].notes) == 6
+
+
+def test_one_slot_drum_pattern_does_not_duplicate_strikes():
+    score = Score.from_abc(HEADER + "%%MIDI drum d 35 80\n%%MIDI drumon\nCDEF|GAB|")
+    drums = next(track for track in score.tracks if track.is_drum)
+    assert [(note.time, note.duration, note.pitch) for note in drums.notes] == [
+        (1, 1919, 35),
+        (1921, 1440, 35),
+    ]

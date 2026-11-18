@@ -769,7 +769,10 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     lane().accidentals.reset();
     const bool soft   = bar.repeat_start || bar.repeat_end || bar.section;
     const auto length = lane().time - lane().bar;
-    if (soft && !lane().first_bar && length + epsilon < written.meter.measure()) return;
+    if (soft
+        && (written.meter.free
+            || (!lane().first_bar && length + epsilon < written.meter.measure())))
+        return;
     if (length > epsilon) lane().first_bar = false;
     if (lanes.id() == 0) {
         lanes.primary_bar();

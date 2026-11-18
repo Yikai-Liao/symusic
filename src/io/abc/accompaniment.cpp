@@ -1,6 +1,7 @@
 #include "accompaniment.h"
 
 #include <cmath>
+#include <limits>
 #include <span>
 
 namespace symusic::abc::detail {
@@ -65,6 +66,11 @@ std::optional<int> root_note(std::string_view& symbol) {
 void add_if_audible(TrackNative<Tick>& track, i32 time, i32 duration, int pitch, int velocity) {
     if (pitch < 0 || pitch > midi_max || velocity <= 0) return;
     track.notes.emplace_back(time, duration, static_cast<i8>(pitch), static_cast<i8>(velocity));
+}
+
+void close_backing(TrackNative<Tick>& track, i32 end) {
+    for (auto& note : track.notes)
+        note.duration = std::min(note.duration, std::max(0, end - note.time));
 }
 
 }   // namespace
@@ -253,9 +259,11 @@ void Accompaniment::Instrument::play(int pitch, i32 time, i32 duration) {
     add_if_audible(track, time, duration, pitch + 12 * octave, velocity);
 }
 
-void Accompaniment::Instrument::finish(vec<TrackNative<Tick>>& output) {
+void Accompaniment::Instrument::finish(vec<TrackNative<Tick>>& output, i32 end) {
     for (auto& [program, track] : tracks) {
-        if (!track.empty()) output.push_back(std::move(track));
+        if (track.empty()) continue;
+        close_backing(track, end);
+        output.push_back(std::move(track));
     }
 }
 
@@ -407,9 +415,19 @@ bool Accompaniment::directive(
 
 void Accompaniment::finish(vec<TrackNative<Tick>>& tracks, long double end, Location at) {
     close_drone(end, at);
-    bass.finish(tracks);
-    chord.finish(tracks);
-    if (!drum_track.empty()) tracks.push_back(std::move(drum_track));
+    // An unfinished pattern releases at the end of the melody, not at
+    // the next scheduled backing step.
+    const auto stop = tick(
+        std::min<long double>(end + PlaybackGrid::attack_offset, std::numeric_limits<i32>::max()),
+        diagnostics,
+        at
+    );
+    bass.finish(tracks, stop);
+    chord.finish(tracks, stop);
+    if (!drum_track.empty()) {
+        close_backing(drum_track, stop);
+        tracks.push_back(std::move(drum_track));
+    }
     for (auto& [program, track] : drone.tracks) {
         if (!track.empty()) tracks.push_back(std::move(track));
     }

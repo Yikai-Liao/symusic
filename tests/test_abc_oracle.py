@@ -123,6 +123,11 @@ CASES = {
     "microtone_tie": HEADER + "^/C4- | C4 | D4 |",
     "microtone_key": HEADER.replace("K:C", "K:G _/B _3/4e _3/4A")
     + "B e A G|_/B _3/4e _3/4A G|",
+    "free_meter_soft_bars": HEADER.replace("M:4/4", "M:none")
+    + "CDEF||GABc|dcBA||GFED|",
+    "backing_partial_final_bar": HEADER + "%%MIDI gchord fc\n"
+    "%%MIDI drum dd 35 42 80 81\n%%MIDI drumon\n"
+    '"C"CDEF|"G"GAB|',
     "chord_channels": HEADER
     + "%%MIDI makechordchannels 2\n[^/C E _/G] ^/C [C^/EFG] D|",
     "chord_channels_programs": HEADER + "%%MIDI program 3\n%%MIDI makechordchannels 2\n"
@@ -200,6 +205,7 @@ UPSTREAM_SAMPLES = (
     "demo",
     "decoration_bar_line",
     "decoration_space",
+    "dergasn",
     "detune",
     "detune_accidentals",
     "drums",
@@ -211,6 +217,7 @@ UPSTREAM_SAMPLES = (
     "microtone_wide",
     "partdemo",
     "part_pickup",
+    "temperament",
     "tempo_tracks",
     "text_fields",
     "words",

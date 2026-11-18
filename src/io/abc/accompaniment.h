@@ -50,7 +50,7 @@ private:
         std::map<int, TrackNative<Tick>> tracks;
 
         void play(int pitch, i32 time, i32 duration);
-        void finish(vec<TrackNative<Tick>>& output);
+        void finish(vec<TrackNative<Tick>>& output, i32 end);
     };
 
     struct Chord {
