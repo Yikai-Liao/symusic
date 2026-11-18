@@ -27,11 +27,13 @@ struct Expression {
     bool               accents       = true;
     bool               fixed_fermata = false;
     long double        grace_ratio   = 0;
-    long double        trim          = 0;
-    long double        expand        = 0;
 
     bool directive(
-        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+        std::string_view name,
+        std::string_view args,
+        long double      unit,
+        Location         at,
+        Diagnostics&     diagnostics
     );
     void        apply(Dynamic mark);
     void        arpeggiate_next_chord() { arpeggio = true; }
@@ -40,8 +42,8 @@ struct Expression {
     bool        starts_swing_pair(Meter meter, long double offset, long double duration) const;
     long double fermata(long double duration, long double unit) const;
     int         attack_velocity(long double position, Meter meter);
-    long double gate(long double duration, long double unit, bool slur, bool staccato) const;
-    long double tied_gate(long double duration, long double unit) const;
+    long double gate(long double duration, bool slur, bool staccato) const;
+    long double tied_gate(long double duration, bool staccato) const;
 
 private:
     bool note_volume(
@@ -49,6 +51,8 @@ private:
     );
     std::optional<int> next_volume;
     int                next_volume_delta = 0;
+    long double        trim_ticks        = 0;
+    long double        expand_ticks      = 0;
     RhythmStyle        rhythm;
     long double        broken_short;
     int                chord_attack = 10;
@@ -58,10 +62,18 @@ private:
     int  beat_velocity(long double position, Meter meter) const;
     int  string_velocity(long double position, long double pulse) const;
     bool timing(
-        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+        std::string_view name,
+        std::string_view args,
+        long double      unit,
+        Location         at,
+        Diagnostics&     diagnostics
     );
     bool articulation(
-        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+        std::string_view name,
+        std::string_view args,
+        long double      unit,
+        Location         at,
+        Diagnostics&     diagnostics
     );
 };
 

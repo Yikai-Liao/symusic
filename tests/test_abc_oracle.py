@@ -139,6 +139,10 @@ CASES = {
     + "%%MIDI trim 1/5\n.C .D/ .[EG] .F// G/8 A B|",
     "trim_tied_notes": HEADER + "%%MIDI trim 1/5\nC-C D E| F-F-F G|",
     "expand_slurred_notes": HEADER + "%%MIDI expand 1/5\n(C D) .E z|",
+    "staccato_at_tie_end": HEADER + "%%MIDI trim 1/5\nC-.C D E|",
+    "trim_precedes_expand": HEADER
+    + "[I:MIDI expand 1/8] C [I:MIDI trim 1/4] D/8 E F z4|",
+    "trim_uses_directive_unit": HEADER + "%%MIDI trim 1/5\nC [L:1/8] D2E2F2|",
     "expand_after_trim": HEADER + "%%MIDI trim 1/8\nC\n%%MIDI expand 1/8\nD E F z |",
     "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
     "breath": HEADER + "C !breath!D !breath![EG] F |",

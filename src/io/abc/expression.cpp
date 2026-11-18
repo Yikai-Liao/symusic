@@ -141,19 +141,16 @@ int Expression::beat_velocity(long double position, Meter meter) const {
     return beat[aligned(position, period) ? 1 : 2];
 }
 
-long double Expression::gate(
-    long double duration, long double unit, bool slur, bool staccato
-) const {
+long double Expression::gate(long double duration, bool slur, bool staccato) const {
     const auto sounding = staccato ? duration / 2 : duration;
-    const auto gap      = unit * trim;
-    if (!slur && gap > 0 && gap < sounding) return sounding - gap;
-    return tied_gate(sounding, unit);
+    if (!slur && trim_ticks > 0) return trim_ticks < sounding ? sounding - trim_ticks : sounding;
+    return sounding + expand_ticks;
 }
 
-long double Expression::tied_gate(long double duration, long double unit) const {
-    // Ties sustain through trim. Native export still relies on expand to
+long double Expression::tied_gate(long double duration, bool staccato) const {
+    // The terminal note's notated gate still applies. Export uses expand to
     // compensate for the one-tick release trim, including across ties.
-    return duration + unit * expand;
+    return (staccato ? duration / 2 : duration) + (trim_ticks == 0 ? expand_ticks : 0);
 }
 
 void Expression::set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics) {
@@ -183,7 +180,11 @@ bool Expression::note_volume(
 }
 
 bool Expression::directive(
-    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    std::string_view name,
+    std::string_view args,
+    long double      unit,
+    Location         at,
+    Diagnostics&     diagnostics
 ) {
     const auto value
         = [&](int min, int max) { return midi_integer(args, min, max, diagnostics, at); };
@@ -202,12 +203,16 @@ bool Expression::directive(
         accents = true;
     else
         return note_volume(name, args, at, diagnostics)
-               || articulation(name, args, at, diagnostics);
+               || articulation(name, args, unit, at, diagnostics);
     return true;
 }
 
 bool Expression::articulation(
-    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    std::string_view name,
+    std::string_view args,
+    long double      unit,
+    Location         at,
+    Diagnostics&     diagnostics
 ) {
     const auto value
         = [&](int min, int max) { return midi_integer(args, min, max, diagnostics, at); };
@@ -219,18 +224,22 @@ bool Expression::articulation(
         grace_divider = value(1, 1024);
         grace_ratio   = 0;
     } else
-        return timing(name, args, at, diagnostics);
+        return timing(name, args, unit, at, diagnostics);
     return true;
 }
 
 bool Expression::timing(
-    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    std::string_view name,
+    std::string_view args,
+    long double      unit,
+    Location         at,
+    Diagnostics&     diagnostics
 ) {
     if (name == "trim")
-        trim = ratio(args, diagnostics, at, "trim").fraction();
+        trim_ticks = unit * ratio(args, diagnostics, at, "trim").fraction();
     else if (name == "expand") {
-        expand = ratio(args, diagnostics, at, "expand").fraction();
-        if (expand > 0) trim = 0;
+        expand_ticks = unit * ratio(args, diagnostics, at, "expand").fraction();
+        if (expand_ticks > 0) trim_ticks = 0;
     } else if (name == "fermatafixed" || name == "fermataproportional")
         fixed_fermata = name == "fermatafixed";
     else if (name == "ratio") {

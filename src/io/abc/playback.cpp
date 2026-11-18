@@ -508,8 +508,9 @@ void VoicePlayer::play_notes(
     const Prepared& atom, long double start, long double duration, int spread
 ) {
     const auto& expression = lane().expression;
-    const auto audible = expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
-    const auto members = resolve_chord(atom, start + expression.tied_gate(duration, written.unit));
+    const auto  audible    = expression.gate(duration, atom.slur, atom.ornament.staccato);
+    const auto  members
+        = resolve_chord(atom, start + expression.tied_gate(duration, atom.ornament.staccato));
     if (members.size() == 1 && !members.front().continuation) {
         const auto pitch = atom.atom->pitches.front();
         const auto main  = members.front().sound;
@@ -869,7 +870,7 @@ void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
     if (PitchTuning::handles_midi(name)) return;   // Already compiled in source order.
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
-    if (!lane().expression.directive(name, command, at, diagnostics)
+    if (!lane().expression.directive(name, command, written.unit, at, diagnostics)
         && !output.effect(name, command, lanes.id(), at_tick(at), at)
         && !accompaniment.directive(name, command, lane().time, at)) {
         diagnostics.warn(at, "unsupported-midi", fmt::format("ignored MIDI directive '{}'", name));
