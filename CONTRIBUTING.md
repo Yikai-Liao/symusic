@@ -119,6 +119,8 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 | Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/` |
 | Planned work and accepted debt | [`ROADMAP.md`](ROADMAP.md) |
 
+Write what a symusic user cannot infer from the name or the code: semantics, units, defaults, errors, whether an operation copies or mutates, and the pitfalls. Check each claim against the code, including supported versions and platforms, and run every example against the installed package. Leave out general Python or machine-learning advice, performance adjectives without a measurement, prose that restates the example beside it, and closing summaries. Link to the page that owns a topic instead of explaining it again. Docstrings follow the same rule, and code comments state invariants, units and ownership.
+
 Edit the existing page that owns a topic before adding a new one. Delete obsolete instructions instead of marking them legacy; Git history keeps superseded decisions, so do not add separate decision records or dated reports. New Markdown paragraphs occupy one line. The website includes this file and `ROADMAP.md` directly; edit their root sources. Read the Docs runs `readthedocs.yml`, which installs the package from source, builds the site with warnings as errors and indexes it with Pagefind; `./build_docs_with_pagefind.sh` reproduces that locally.
 
 ## Commits and pull requests
