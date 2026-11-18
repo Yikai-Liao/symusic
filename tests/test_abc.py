@@ -181,6 +181,23 @@ def test_abc_overlay_effects_persist_only_on_their_own_lane():
     ]
 
 
+def test_abc_overlay_reentry_keeps_route_clock_and_backing():
+    score = Score.from_abc(
+        HEADER
+        + "%%MIDI drum dd 36 42\nC2 & [I:MIDI drumon] !p!E- & G2 | F2 & E2 & B | C2 |"
+    )
+    assert [track.is_drum for track in score.tracks] == [False, False, False, True]
+    assert [
+        [(n.time, n.duration, n.pitch, n.velocity) for n in track.notes]
+        for track in score.tracks
+    ] == [
+        [(1, 959, 60, 105), (961, 959, 65, 105), (1921, 959, 60, 105)],
+        [(1, 1439, 64, 60)],
+        [(1, 959, 67, 105), (961, 479, 71, 105)],
+        [(961, 959, 36, 80), (1921, 959, 36, 80)],
+    ]
+
+
 def test_abc_orphan_broken_mark_reports_its_location():
     with pytest.warns(
         UserWarning, match=r"<string>:7:5: ABC \[unfinished-broken-rhythm\]"

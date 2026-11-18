@@ -83,57 +83,147 @@ struct TupletState {
     Location                   at{};
 };
 
-struct Cursor {
-    long double  time      = 0;
-    long double  bar       = 0;
-    int          lane      = 0;
-    bool         first_bar = true;
-    Accidentals  accidentals;
-    vec<TieNote> ties;
-};
-
-// Written fields follow the ABC source within an overlay group. Playback effects
-// and ties belong to the lane and survive when that lane next becomes active.
+// Written notation can change while reading an overlay, but the primary
+// lane resumes with the fields it had at the first split.
 struct WrittenState {
     Meter       meter;
     Key         tone;
     long double unit;
 };
 
-struct LaneEffects {
+struct PlaybackLane {
+    long double         time      = 0;
+    long double         bar       = 0;
+    bool                first_bar = true;
+    Accidentals         accidentals;
+    vec<TieNote>        ties;
     Expression          expression;
     int                 slur       = 0;
     int                 channel    = 1;
     int                 base_pitch = 60;
     std::array<int, 16> programs{};
-};
-
-struct PrimaryLane {
-    Cursor       cursor;
-    WrittenState written;
-    LaneEffects  effects;
-};
-
-struct OverlayState {
-    std::optional<PrimaryLane> main;
-    bool                       explicit_group = false;
-    int                        lane           = 0;
-};
-
-struct OverlayLane {
-    long double                time;
-    long double                bar;
+    // Re-entry uses the previous primary bar boundary, not an inner barline.
+    long double                reentry_bar = 0;
     std::optional<long double> primary_until;
-    vec<TieNote>               ties;
-    LaneEffects                effects;
+
+    void reenter() {
+        first_bar   = true;
+        accidentals = {};
+        bar         = reentry_bar;
+    }
 };
+
+void report_ties(vec<TieNote>& ties, Diagnostics& diagnostics) {
+    for (const auto& tie : ties)
+        diagnostics.warn(tie.at, "unmatched-tie", "tie has no matching next note");
+    ties.clear();
+}
+
+// Owns every lane for the lifetime of a written voice. A split selects another
+// clock; it never copies playback state between active and suspended lanes.
+// Only the written fields are restored on joining the primary lane.
+class OverlayLanes {
+public:
+    explicit OverlayLanes(Diagnostics& diagnostics) : diagnostics(diagnostics) {}
+    PlaybackLane&     active() { return lanes[selected]; }
+    [[nodiscard]] int id() const { return static_cast<int>(selected); }
+    void              control(Overlay command, WrittenState& written, Location at);
+    void              close_implicit(WrittenState& written);
+    void              finish_voice(WrittenState& written, Location at);
+    void              primary_bar();
+    void              break_ties();
+
+private:
+    struct Group {
+        bool                        explicit_group = false;
+        std::optional<WrittenState> primary_fields;
+    };
+
+    Diagnostics&         diagnostics;
+    vec<PlaybackLane>    lanes{PlaybackLane{}};
+    size_t               selected         = 0;
+    long double          last_primary_bar = 0;
+    std::optional<Group> group;
+
+    void split(WrittenState& written, Location at);
+    void join(WrittenState& written);
+};
+
+void OverlayLanes::control(Overlay command, WrittenState& written, Location at) {
+    switch (command) {
+    case Overlay::split: split(written, at); break;
+    case Overlay::start:
+        if (group)
+            diagnostics.error(at, "nested-overlay", "nested overlays have no unambiguous playback");
+        group = Group{.explicit_group = true};
+        break;
+    case Overlay::end:
+        if (!group) {
+            diagnostics.warn(at, "unexpected-overlay-end", "ignored '&)' without an overlay");
+            return;
+        }
+        join(written);
+        active().bar = active().time;
+        break;
+    }
+}
+
+void OverlayLanes::split(WrittenState& written, Location at) {
+    if (!group) group.emplace();
+    if (!group->primary_fields) group->primary_fields = written;
+    if (++selected >= max_voice_lanes)
+        diagnostics.error(at, "overlay-limit", "too many overlay lanes");
+    if (selected == lanes.size()) {
+        lanes.push_back(PlaybackLane{.time = last_primary_bar, .reentry_bar = last_primary_bar});
+    }
+    active().reenter();
+}
+
+void OverlayLanes::join(WrittenState& written) {
+    if (group->primary_fields) {
+        written = *group->primary_fields;
+        for (size_t lane = 1; lane <= selected; ++lane)
+            lanes[lane].primary_until = lanes.front().time;
+    }
+    selected = 0;
+    group.reset();
+}
+
+void OverlayLanes::close_implicit(WrittenState& written) {
+    if (group && !group->explicit_group) join(written);
+}
+
+void OverlayLanes::finish_voice(WrittenState& written, Location at) {
+    if (!group) return;
+    if (group->explicit_group)
+        diagnostics.warn(at, "unterminated-overlay", "closed overlay at the end of the voice");
+    join(written);
+}
+
+void OverlayLanes::primary_bar() {
+    const auto now = lanes.front().time;
+    for (size_t index = 1; index < lanes.size(); ++index) {
+        auto& lane = lanes[index];
+        if (!lane.primary_until && now > last_primary_bar) report_ties(lane.ties, diagnostics);
+        lane.time += now - lane.primary_until.value_or(last_primary_bar);
+        lane.reentry_bar = lane.time;
+        lane.primary_until.reset();
+    }
+    last_primary_bar = now;
+}
+
+void OverlayLanes::break_ties() {
+    // A suspended primary lane is outside a secondary lane's repeat jump.
+    for (size_t index = selected == 0 ? 0 : 1; index < lanes.size(); ++index)
+        report_ties(lanes[index].ties, diagnostics);
+}
 
 class VoicePlayer {
 public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
         diagnostics(diagnostics), output(std::move(name), diagnostics),
         written{settings.meter, settings.key, settings.unit},
-        accompaniment(settings.meter, diagnostics), symbols(settings.symbols) {}
+        accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics) {}
 
     Performance render(const PlayOrder& order);
 
@@ -143,14 +233,8 @@ private:
     WrittenState                               written;
     Accompaniment                              accompaniment;
     std::array<std::string_view, 128>          symbols;
-    LaneEffects                                effects;
-    Cursor                                     cursor;
-    long double                                written_bar = 0;
-    std::map<int, OverlayLane>                 overlay_clocks;
-    void                                       record_lane();
-    void                                       advance_lanes();
-    void                                       switch_lane(Location at);
-    std::optional<OverlayState>                overlay;
+    OverlayLanes                               lanes;
+    PlaybackLane&                              lane() { return lanes.active(); }
     TupletState                                tuplet;
     std::optional<Prepared>                    pending;
     std::optional<std::pair<Broken, Location>> broken;
@@ -172,20 +256,19 @@ private:
     bool              can_defer(const Token& token) const;
     void              visit_token(const Token& token);
     void              visit_step(PlayStep step);
-    void              jump_repeat(Location at);
+    void              jump_repeat();
     void              finish_rhythm();
 
-    MidiTarget target() const {
-        return {cursor.lane, effects.channel, effects.programs[effects.channel - 1]};
+    MidiTarget target() {
+        return {lanes.id(), lane().channel, lane().programs[lane().channel - 1]};
     }
-    i32 at_tick(Location at) const { return tick(cursor.time, diagnostics, at); }
-    int velocity(long double at) const {
-        return effects.expression.velocity(at - cursor.bar, written.meter);
+    i32 at_tick(Location at) { return tick(lane().time, diagnostics, at); }
+    int velocity(long double at) {
+        return lane().expression.velocity(at - lane().bar, written.meter);
     }
     void        push(const Atom& atom, Location at);
     void        flush();
     void        orphan_grace(Location at);
-    void        finish_overlay(Location at, bool unconditional);
     void        broken_pair(Prepared& next);
     long double atom_duration(const Atom& atom, Location at);
     void        play(const Prepared& atom);
@@ -193,14 +276,13 @@ private:
     void        play_chord(const Prepared& atom, long double start, long double duration);
     void  play_trill(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    Sound ornament_neighbor(Pitch pitch) const;
-    Sound resolve_sound(Pitch pitch, int semitone, bool tie) const;
+    Sound ornament_neighbor(Pitch pitch);
+    Sound resolve_sound(Pitch pitch, int semitone, bool tie);
     Sound sound(Pitch pitch, bool tie);
     std::optional<NoteAddress> note(
         Sound sound, long double start, long double duration, int stagger, int loudness, Location at
     );
     std::optional<NoteAddress> sustain(Sound sound, long double end, Location at);
-    void                       report_ties(vec<TieNote>& ties);
     void                       set_symbols(std::string_view value, Location at);
     void                       control(std::string_view args, Location at, bool in_field);
     void                       program(std::string_view args, Location at);
@@ -225,12 +307,6 @@ private:
     void                       visit(Overlay change, Location at);
     void                       visit(const Bar& bar, Location at);
 };
-
-void VoicePlayer::report_ties(vec<TieNote>& ties) {
-    for (const auto& tie : ties)
-        diagnostics.warn(tie.at, "unmatched-tie", "tie has no matching next note");
-    ties.clear();
-}
 
 void VoicePlayer::orphan_grace(Location) {
     if (grace)
@@ -284,7 +360,7 @@ void VoicePlayer::push(const Atom& atom, Location at) {
         std::exchange(grace, nullptr),
         std::exchange(ornament, {}),
         atom.tie,
-        effects.slur > 0
+        lane().slur > 0
     };
     broken_pair(next);
     flush();
@@ -300,13 +376,13 @@ void VoicePlayer::flush() {
 }
 
 Sound VoicePlayer::sound(Pitch pitch, bool tie) {
-    return resolve_sound(pitch, cursor.accidentals.resolve(pitch, written.tone), tie);
+    return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), tie);
 }
 
-Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) const {
+Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) {
     const auto index = letter_index(pitch.letter);
     return {
-        effects.base_pitch + natural_pitch[index] + 12 * (pitch.octave + written.tone.octave)
+        lane().base_pitch + natural_pitch[index] + 12 * (pitch.octave + written.tone.octave)
             + semitone + written.tone.transpose,
         static_cast<int>(index),
         pitch.octave,
@@ -315,7 +391,7 @@ Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) const {
     };
 }
 
-Sound VoicePlayer::ornament_neighbor(Pitch pitch) const {
+Sound VoicePlayer::ornament_neighbor(Pitch pitch) {
     if (pitch.letter == 'B') ++pitch.octave;
     pitch.letter = pitch.letter == 'G' ? 'A' : static_cast<char>(pitch.letter + 1);
     pitch.accidental.reset();
@@ -331,27 +407,27 @@ std::optional<NoteAddress> VoicePlayer::note(
 }
 
 std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Location at) {
-    auto match = std::ranges::find_if(cursor.ties, [&](const TieNote& pending) {
+    auto match = std::ranges::find_if(lane().ties, [&](const TieNote& pending) {
         return sound.note == pending.sound.note
                || (!sound.explicit_accidental && sound.letter == pending.sound.letter
                    && sound.written_octave == pending.sound.written_octave);
     });
-    if (match == cursor.ties.end()) return {};
+    if (match == lane().ties.end()) return {};
     auto address = match->note;
-    cursor.ties.erase(match);
+    lane().ties.erase(match);
     address.release_at(tick(end, diagnostics, at));
     return address;
 }
 
 void VoicePlayer::play_chord(const Prepared& atom, long double start, long double duration) {
-    diagnostics.spend(atom.atom->pitches.size() + cursor.ties.size(), atom.at);
+    diagnostics.spend(atom.atom->pitches.size() + lane().ties.size(), atom.at);
     vec<TieNote> next_ties;
     const auto   audible
-        = effects.expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
+        = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
     const auto loudness = velocity(start);
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
     const auto has_ties      = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
-    const auto attack        = has_ties ? 0 : effects.expression.chord_attack;
+    const auto attack        = has_ties ? 0 : lane().expression.chord_attack;
     const auto max_stagger   = std::max(0, tick(audible, diagnostics, atom.at) - 1);
     int        stagger       = 0;
     bool       aligned_lyric = false;
@@ -374,7 +450,7 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
         }
     }
     // abc2midi treats a dash between unlike pitches as an ordinary attack.
-    cursor.ties = std::move(next_ties);
+    lane().ties = std::move(next_ties);
 }
 
 long double VoicePlayer::play_grace(const Prepared& atom) {
@@ -383,9 +459,9 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
     long double weights = 0;
     for (const auto& pitch : pitches) weights += pitch.length.fraction();
     if (weights == 0) return 0;
-    const auto length = effects.expression.grace_ratio > 0 ?
-                            atom.duration * effects.expression.grace_ratio / weights :
-                            written.unit / effects.expression.grace_divider;
+    const auto length = lane().expression.grace_ratio > 0 ?
+                            atom.duration * lane().expression.grace_ratio / weights :
+                            written.unit / lane().expression.grace_divider;
     const auto total  = length * weights;
     if (total + epsilon >= atom.duration) {
         diagnostics.warn(
@@ -395,7 +471,7 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
         );
         return 0;
     }
-    auto start = cursor.time;
+    auto start = lane().time;
     for (const auto& pitch : pitches) {
         const auto duration = pitch.length.fraction() * length;
         note(sound(pitch, false), start, duration, 0, velocity(start), atom.at);
@@ -407,7 +483,7 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
 void VoicePlayer::play_roll(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
-    const auto ornament_length = written.unit / effects.expression.grace_divider;
+    const auto ornament_length = written.unit / lane().expression.grace_divider;
     if (ornament_length + epsilon >= duration) {
         play_chord(atom, start, duration);
         return;
@@ -433,11 +509,11 @@ void VoicePlayer::play_trill(
 void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     const auto& pitches = atom.atom->pitches;
     if (pitches.empty()) {
-        report_ties(cursor.ties);
+        report_ties(lane().ties, diagnostics);
         return;
     }
     const auto grace_time = play_grace(atom);
-    const auto onset      = cursor.time + grace_time;
+    const auto onset      = lane().time + grace_time;
     const auto remaining  = duration - grace_time;
     if (atom.ornament.roll && pitches.size() == 1)
         play_roll(pitches.front(), atom, onset, remaining);
@@ -449,15 +525,15 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
 
 void VoicePlayer::play(const Prepared& atom) {
     const auto duration = atom.ornament.fermata ? atom.duration * 2 : atom.duration;
-    const auto end      = cursor.time + duration;
+    const auto end      = lane().time + duration;
     (void)tick(end, diagnostics, atom.at);
-    if (cursor.lane == 0) accompaniment.advance(end, atom.at);
+    if (lanes.id() == 0) accompaniment.advance(end, atom.at);
     if (music_line != atom.at.line) {
         line_notes.clear();
         music_line = atom.at.line;
     }
     articulation(atom, duration);
-    cursor.time = end;
+    lane().time = end;
 }
 
 void VoicePlayer::visit(const Grace& next, Location at) {
@@ -469,16 +545,16 @@ void VoicePlayer::visit(const Grace& next, Location at) {
 void VoicePlayer::visit(const Harmony& chord, Location at) {
     flush();
     diagnostics.spend(text_work(chord.symbol), at);
-    if (cursor.lane == 0) accompaniment.harmony(chord.symbol, written.tone.transpose, at);
+    if (lanes.id() == 0) accompaniment.harmony(chord.symbol, written.tone.transpose, at);
 }
 
 void VoicePlayer::visit(Slur change, Location at) {
     if (change.start)
-        ++effects.slur;
-    else if (effects.slur == 0)
+        ++lane().slur;
+    else if (lane().slur == 0)
         diagnostics.warn(at, "unmatched-slur", "ignored ')' without a matching slur");
     else
-        --effects.slur;
+        --lane().slur;
 }
 
 void VoicePlayer::visit(Tie, Location at) {
@@ -514,7 +590,7 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
     }
     if (const auto change = dynamic_mark(mark)) {
         flush();
-        effects.expression.apply(*change);
+        lane().expression.apply(*change);
         return;
     }
     if (mark == "ped" || mark == "ped(") {
@@ -580,76 +656,12 @@ void VoicePlayer::visit(Broken next, Location at) {
         );
 }
 
-void VoicePlayer::record_lane() {
-    auto& lane   = overlay_clocks.at(cursor.lane);
-    lane.time    = cursor.time;
-    lane.ties    = std::move(cursor.ties);
-    lane.effects = effects;
-}
-
-void VoicePlayer::advance_lanes() {
-    for (auto& [lane, clock] : overlay_clocks) {
-        if (!clock.primary_until && cursor.time > written_bar) report_ties(clock.ties);
-        clock.time += cursor.time - clock.primary_until.value_or(written_bar);
-        clock.bar = clock.time;
-        clock.primary_until.reset();
-    }
-    written_bar = cursor.time;
-}
-
-void VoicePlayer::finish_overlay(Location at, bool unconditional) {
-    if (!overlay || (!unconditional && overlay->explicit_group)) return;
-    if (overlay->main) {
-        record_lane();
-        cursor = std::move(overlay->main->cursor);
-        // The accompaniment clock never left the primary lane.
-        written = overlay->main->written;
-        effects = overlay->main->effects;
-        for (int lane = 1; lane <= overlay->lane; ++lane)
-            overlay_clocks.at(lane).primary_until = cursor.time;
-    }
-    if (overlay->explicit_group)
-        diagnostics.warn(at, "unterminated-overlay", "closed overlay at the end of the voice");
-    overlay.reset();
-}
-
-void VoicePlayer::switch_lane(Location at) {
-    if (!overlay) overlay = OverlayState{};
-    if (!overlay->main)
-        overlay->main = PrimaryLane{std::move(cursor), written, effects};
-    else
-        record_lane();
-    if (++overlay->lane >= max_voice_lanes)
-        diagnostics.error(at, "overlay-limit", "too many overlay lanes");
-    auto& clock = overlay_clocks.try_emplace(overlay->lane, written_bar, written_bar).first->second;
-    cursor      = Cursor{
-        .time = clock.time, .bar = clock.bar, .lane = overlay->lane, .ties = std::move(clock.ties)
-    };
-    effects = clock.effects;
-}
-
 void VoicePlayer::visit(Overlay change, Location at) {
     flush();
     finish_rhythm();
     orphan_grace(at);
     ornament = {};
-    if (change == Overlay::split) {
-        switch_lane(at);
-        return;
-    }
-    if (change == Overlay::start) {
-        if (overlay)
-            diagnostics.error(at, "nested-overlay", "nested overlays have no unambiguous playback");
-        overlay = OverlayState{.explicit_group = true};
-        return;
-    }
-    if (!overlay) {
-        diagnostics.warn(at, "unexpected-overlay-end", "ignored '&)' without an overlay");
-        return;
-    }
-    overlay->explicit_group = false;
-    finish_overlay(at, true);
-    cursor.bar = cursor.time;
+    lanes.control(change, written, at);
 }
 
 void VoicePlayer::finish_rhythm() {
@@ -668,17 +680,17 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     orphan_grace(at);
     ornament = {};
     if (!bar.resets_measure) return;
-    finish_overlay(at, false);
-    cursor.accidentals.reset();
+    lanes.close_implicit(written);
+    lane().accidentals.reset();
     const bool soft   = bar.repeat_start || bar.repeat_end || bar.section;
-    const auto length = cursor.time - cursor.bar;
-    if (soft && !cursor.first_bar && length + epsilon < written.meter.measure()) return;
-    if (length > epsilon) cursor.first_bar = false;
-    if (cursor.lane == 0) {
-        advance_lanes();
-        accompaniment.bar(cursor.time);
+    const auto length = lane().time - lane().bar;
+    if (soft && !lane().first_bar && length + epsilon < written.meter.measure()) return;
+    if (length > epsilon) lane().first_bar = false;
+    if (lanes.id() == 0) {
+        lanes.primary_bar();
+        accompaniment.bar(lane().time);
     }
-    cursor.bar = cursor.time;
+    lane().bar = lane().time;
 }
 
 void VoicePlayer::set_symbols(std::string_view value, Location at) {
@@ -702,18 +714,18 @@ void VoicePlayer::set_symbols(std::string_view value, Location at) {
 void VoicePlayer::program(std::string_view args, Location at) {
     auto target = midi_integer(args, 0, midi_max, diagnostics, at);
     if (trim(args).empty()) {
-        effects.programs[effects.channel - 1] = target;
+        lane().programs[lane().channel - 1] = target;
         return;
     }
     if (target < 1 || target > 16)
         diagnostics.error(at, "invalid-midi-channel", "program channel must be between 1 and 16");
-    effects.programs[target - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
+    lane().programs[target - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
 }
 
 void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
     const auto number = midi_integer(args, 0, midi_max, diagnostics, at);
     const auto value  = midi_integer(args, 0, midi_max, diagnostics, at);
-    const auto time   = tick(cursor.time + (in_field ? 0 : 1), diagnostics, at);
+    const auto time   = tick(lane().time + (in_field ? 0 : 1), diagnostics, at);
     output.control(target(), time, number, value, at);
 }
 
@@ -724,7 +736,7 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
     if (name == "program")
         program(command, at);
     else if (name == "channel")
-        effects.channel = value(1, 16);
+        lane().channel = value(1, 16);
     else if (name == "control")
         control(command, at, in_field);
     else if (name == "transpose")
@@ -732,10 +744,10 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
     else if (name == "rtranspose")
         written.tone.transpose = std::clamp(written.tone.transpose + value(-127, 127), -127, 127);
     else if (name == "C" || name == "c")
-        effects.base_pitch = value(0, midi_max);
+        lane().base_pitch = value(0, midi_max);
     else if (
-        !effects.expression.directive(name, command, at, diagnostics)
-        && !accompaniment.directive(name, command, cursor.time, at)
+        !lane().expression.directive(name, command, at, diagnostics)
+        && !accompaniment.directive(name, command, lane().time, at)
     ) {
         diagnostics.warn(at, "unsupported-midi", fmt::format("ignored MIDI directive '{}'", name));
     }
@@ -746,7 +758,7 @@ void VoicePlayer::information(std::string_view value, Location at) {
     if (command == "MIDI")
         midi(value, at, true);
     else if (command == "propagate-accidentals")
-        cursor.accidentals.propagation(trim(value), at, diagnostics);
+        lane().accidentals.propagation(trim(value), at, diagnostics);
     else if (command == "abc-include" || command == "include") {
         diagnostics.warn(
             at,
@@ -770,7 +782,7 @@ void VoicePlayer::change_key(std::string_view value, Location at) {
     const auto change = key(value, written.tone, diagnostics, at, false);
     if (!change) return;
     written.tone = *change;
-    cursor.accidentals.reset();
+    lane().accidentals.reset();
     result.keys.emplace_back(
         KeySignature<Tick>(
             at_tick(at), static_cast<i8>(written.tone.fifths), static_cast<i8>(written.tone.minor)
@@ -781,7 +793,7 @@ void VoicePlayer::change_key(std::string_view value, Location at) {
 
 void VoicePlayer::change_meter(std::string_view value, Location at) {
     written.meter = detail::meter(value, diagnostics, at);
-    if (cursor.lane == 0) accompaniment.meter(written.meter, cursor.time);
+    if (lanes.id() == 0) accompaniment.meter(written.meter, lane().time);
     result.meters.emplace_back(
         TimeSignature<Tick>(
             at_tick(at),
@@ -794,7 +806,7 @@ void VoicePlayer::change_meter(std::string_view value, Location at) {
 
 void VoicePlayer::change_tempo(std::string_view value, Location at) {
     if (const auto usec = tempo(value, written.unit, diagnostics, at)) {
-        result.tempos.emplace_back(Tempo<Tick>(tick(cursor.time + 1, diagnostics, at), usec), at);
+        result.tempos.emplace_back(Tempo<Tick>(tick(lane().time + 1, diagnostics, at), usec), at);
     }
 }
 
@@ -841,17 +853,16 @@ void VoicePlayer::lyrics(std::string_view text, Location at) {
         diagnostics.warn(at, "extra-lyrics", "more lyric syllables than notes on the music line");
 }
 
-void VoicePlayer::jump_repeat(Location at) {
+void VoicePlayer::jump_repeat() {
     flush();
-    finish_overlay(at, false);
-    report_ties(cursor.ties);
-    for (auto& [lane, clock] : overlay_clocks) report_ties(clock.ties);
+    lanes.close_implicit(written);
+    lanes.break_ties();
     finish_rhythm();
-    cursor.accidentals.reset();
-    effects.slur    = 0;
-    written.tone    = repeat_entry->tone;
-    written.unit    = repeat_entry->unit;
-    effects.channel = repeat_entry->channel;
+    lane().accidentals.reset();
+    lane().slur    = 0;
+    written.tone   = repeat_entry->tone;
+    written.unit   = repeat_entry->unit;
+    lane().channel = repeat_entry->channel;
 }
 
 bool VoicePlayer::can_defer(const Token& token) const {
@@ -874,9 +885,9 @@ void VoicePlayer::visit_step(PlayStep step) {
     switch (step.flow) {
     case Flow::enter_repeat:
         flush();
-        repeat_entry = {written.tone, written.unit, effects.channel};
+        repeat_entry = {written.tone, written.unit, lane().channel};
         break;
-    case Flow::jump_repeat: jump_repeat(token.at); break;
+    case Flow::jump_repeat: jump_repeat(); break;
     case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
     case Flow::hard_bar: visit(Bar{}, token.at); break;
     case Flow::token:
@@ -896,14 +907,13 @@ Performance VoicePlayer::render(const PlayOrder& order) {
     }
     flush();
     finish_rhythm();
-    finish_overlay(end, true);
-    report_ties(cursor.ties);
-    for (auto& [lane, clock] : overlay_clocks) report_ties(clock.ties);
+    lanes.finish_voice(written, end);
+    lanes.break_ties();
     orphan_grace(end);
     if (tuplet.left)
         diagnostics.warn(tuplet.at, "unfinished-tuplet", "tuplet has fewer notes than declared");
     output.finish(result.tracks);
-    accompaniment.finish(result.tracks, cursor.time, end);
+    accompaniment.finish(result.tracks, lane().time, end);
     return std::move(result);
 }
 
