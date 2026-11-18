@@ -121,7 +121,7 @@ test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
 test-skip = "pp*"
 
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "11.0"
+MACOSX_DEPLOYMENT_TARGET = "13.0"
 
 [tool.cibuildwheel.windows]
 environment = { CMAKE_GENERATOR = "Ninja" }
