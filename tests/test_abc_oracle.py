@@ -23,6 +23,7 @@ RECOVERED = {
     "decoration_line_end": "orphan-decoration",
     "rising_sun_stray_coda": "ignored-decoration",
     "hornpipe_unsupported_meter": "hornpipe-meter",
+    "invalid_key_accidental_letter": "invalid-accidental",
 }
 WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
 CASES = {
@@ -64,6 +65,11 @@ CASES = {
     "drum_tempo": HEADER
     + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nCDEF|[Q:90]GABc|",
     "inline_tempo": HEADER + "C [Q:1/8=100] D E F |",
+    "bagpipe_key": HEADER.replace("K:C", "K:HP") + "CDEF| [K:Hp] CDEF|",
+    "invalid_key_accidental_letter": HEADER.replace("K:C", "K:C ^1/4H") + "CDEF|",
+    "half_note_meter_accents": HEADER.replace("M:4/4", "M:6/2") + "C4 C2 C2 C4|",
+    "odd_meter_accents": HEADER.replace("M:4/4", "M:7/8").replace("L:1/4", "L:1/8")
+    + "CDEFGAB|",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
     "voices": HEADER + 'V:one name="Lead"\n%%MIDI program 4\nC D E F |\n'
     'V:two name="Bass"\n%%MIDI program 8\nC,2 D,2 |\n[V:one] G A B c |',

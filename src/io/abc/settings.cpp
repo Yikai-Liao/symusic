@@ -74,18 +74,14 @@ int tonic(std::string_view& name) {
     return fifths;
 }
 
-bool bagpipe(std::string_view name, Key& result) {
-    if (name != "HP" && name != "Hp") return false;
-    if (name == "Hp") {
-        result.alterations[letter_index('F')] = Alteration{1};
-        result.alterations[letter_index('C')] = Alteration{1};
-    }
-    return true;
-}
-
 bool parse_signature(std::string_view& options, Key& result) {
-    auto name = word(options);
-    if (ascii_lower(name) == "none" || bagpipe(name, result)) return true;
+    auto       name    = word(options);
+    const auto special = ascii_lower(name);
+    if (special == "none") return true;
+    if (special == "hp") {
+        set_signature(result, 2);
+        return true;
+    }
     const auto fifths = tonic(name);
     if (fifths == 100) return false;
     auto        remaining = options;
@@ -101,9 +97,13 @@ bool parse_signature(std::string_view& options, Key& result) {
 }
 
 bool custom_accidental(std::string_view word, Key& key, Diagnostics& diagnostics, Location at) {
-    if (word.size() < 2 || !note_letter(word.back())
-        || !word.starts_with('^') && !word.starts_with('_') && !word.starts_with('='))
-        return false;
+    if (word.empty() || std::string_view("^_=").find(word.front()) == word.npos) return false;
+    if (word.size() < 2 || !note_letter(word.back())) {
+        diagnostics.warn(
+            at, "invalid-accidental", fmt::format("key accidental '{}' needs a note A to G", word)
+        );
+        return true;
+    }
     if (const auto value = accidental(word.substr(0, word.size() - 1), at, diagnostics))
         key.alterations[letter_index(upper(word.back()))] = *value;
     return true;
@@ -245,9 +245,8 @@ bool midi_transposition(
 }
 
 int Meter::accent_beats() const {
-    if (compound()) return 3;
-    if (numerator == 4) return 2;
-    if (numerator == 7 && denominator == 8) return 6;
+    if (numerator % 3 == 0) return 3;
+    if (numerator % 2 == 0) return 2;
     return numerator;
 }
 

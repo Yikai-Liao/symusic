@@ -131,8 +131,7 @@ int Expression::velocity(long double position, Meter meter) const {
     if (!beat_string.empty())
         return string_velocity(position, meter.measure() / beat_string.size());
     if (position < 0.0000001L) return beat[0];
-    long double period = meter.beat() * (beat_step == 0 ? meter.accent_beats() : beat_step);
-    if (meter.denominator == 2 && beat_step == 0) period *= 2;
+    const auto period = meter.beat() * (beat_step == 0 ? meter.accent_beats() : beat_step);
     return beat[aligned(position, period) ? 1 : 2];
 }
 
