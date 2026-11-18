@@ -25,6 +25,10 @@ RECOVERED = {
 CASES = {
     "straight": HEADER + "C D E F | G A B c |",
     "rests": HEADER + "C z2 D | x E2 z |",
+    "engraving_block_after_continuation": HEADER
+    + "CD\\\n%%begintext\nGABc|\n%%endtext% comment\nEF|",
+    "tuning_after_continuation": HEADER + "C\\\n" + DETUNE + "DEF|",
+    "engraving_spacers_in_groups": HEADER + "[Cy2E] D {Fy/G} A B|",
     "engraving_blocks": "%%begintext justify\nThis is not music.\nK:None\n%%endtext\n"
     + HEADER
     + "C y2 D y E y/ F|\n%%beginps\nK:D\nCzC \\\n%%endps\nGABc|",

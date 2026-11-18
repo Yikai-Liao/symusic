@@ -58,7 +58,8 @@ using escaped = seq<chars<'\\'>, any>;
 struct number : plus<peg::digit> {};
 struct slashes : repeated<'/'> {};
 struct fraction : seq<slashes, opt<number>> {};
-struct length : sor<seq<number, opt<fraction>>, fraction> {};
+using duration = sor<seq<number, opt<fraction>>, fraction>;
+struct length : duration {};
 struct octave : plus<chars<',', '\''>> {};
 using shift_sign = chars<'^', '_'>;
 using accidental_sign
@@ -70,8 +71,10 @@ struct pitch : seq<opt<accidental>, letter, opt<octave>, opt<length>, opt<tie>> 
 
 struct rest_letter : chars<'x', 'z', 'X', 'Z'> {};
 struct rest : seq<rest_letter, opt<length>> {};
-struct chord : seq<chars<'['>, star<sor<pitch, rest, ws>>, chars<']'>, opt<length>, opt<tie>> {};
-struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<pitch, ws>>, chars<'}'>> {};
+struct spacing : seq<chars<'y'>, opt<duration>> {};
+struct chord
+    : seq<chars<'['>, star<sor<pitch, rest, spacing, ws>>, chars<']'>, opt<length>, opt<tie>> {};
+struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<pitch, spacing, ws>>, chars<'}'>> {};
 
 using field_key = seq<sor<alpha, chars<'+'>>, chars<':'>>;
 struct field : seq<field_key, until<']'>> {};
@@ -94,7 +97,6 @@ struct overlay : sor<string<'(', '&'>, string<'&', ')'>, chars<'&'>> {};
 struct harmony : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'"'>> {};
 struct named_decoration : sor<seq<chars<'!'>, plus<not_one<'!'>>, chars<'!'>>,
                               seq<chars<'+'>, plus<not_one<'+'>>, chars<'+'>>> {};
-struct spacing : seq<chars<'y'>, opt<length>> {};
 struct decoration : sor<named_decoration, chars<'.', '~', '\''>, alpha> {};
 struct slur : chars<'(', ')'> {};
 struct invalid : any {};
@@ -172,6 +174,10 @@ std::string_view without_comment(std::string_view line) {
         if (line[i] == '\\' && i + 1 < line.size() && (quoted || line[i + 1] == '%')) ++i;
     }
     return line;
+}
+
+std::string_view directive_text(std::string_view text) {
+    return trim(without_comment(text.substr(2)));
 }
 
 Field field(std::string_view text) {
@@ -512,9 +518,9 @@ bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
 bool TuneLines::skip_layout(std::string_view raw, size_t number) {
     auto text = trim(raw);
     if (!text.starts_with("%%")) return layout.has_value();
-    const auto column = static_cast<size_t>(text.data() - raw.data()) + 1;
-    text.remove_prefix(2);
-    const auto command = word(text);
+    const auto column  = static_cast<size_t>(text.data() - raw.data()) + 1;
+    auto       args    = directive_text(text);
+    const auto command = word(args);
     if (layout) {
         if (command == layout->end) layout.reset();
         return true;
@@ -535,7 +541,7 @@ bool TuneLines::line(LogicalLine line) {
     if (ended && !text.starts_with("X:")) return true;
     if (text.starts_with("%%")) {
         (in_body ? tune.body : tune.header)
-            .push_back({line.where(text), Directive{trim(without_comment(text.substr(2)))}});
+            .push_back({line.where(text), Directive{directive_text(text)}});
         return true;
     }
     const auto content = trim(without_comment(text));
@@ -603,7 +609,7 @@ bool continuation(std::string_view part) {
 std::optional<size_t> continued_prefix(PhysicalLine line) {
     if (!line.has_newline) return {};
     const auto raw     = line.text;
-    const auto content = trim(raw.starts_with("%%") ? raw : without_comment(raw));
+    const auto content = trim(without_comment(raw));
     if (!continuation(content)) return {};
     return static_cast<size_t>(content.data() - raw.data()) + content.size() - 1;
 }
@@ -624,13 +630,20 @@ bool read_logical_line(
     vec<Fragment> fragments;
     std::string   joined;
     do {
-        const auto physical = take_line(text);
-        const auto raw      = physical.text;
+        auto       remainder = text;
+        const auto physical  = take_line(remainder);
+        const auto raw       = physical.text;
+        const bool directive = trim(raw).starts_with("%%");
+        // Deliver any pending music first. A directive is never part of a
+        // joined music line and must be visited at its own physical location.
+        if (directive && !fragments.empty()) break;
+        text = remainder;
         validate_line(raw, line, diagnostics);
-        if (fragments.empty() && tune.skip_layout(raw, line)) {
+        if (tune.skip_layout(raw, line)) {
             ++line;
             return true;
         }
+        if (directive) return tune.line({raw, line++});
         const auto prefix = continued_prefix(physical);
         if (!prefix && fragments.empty()) return tune.line({raw, line++});
         fragments.push_back({joined.size(), line++});
