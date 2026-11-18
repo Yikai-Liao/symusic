@@ -1,0 +1,37 @@
+name: Bench
+
+# On-demand A/B comparison of two git refs; see CONTRIBUTING.md#benchmarks.
+# Nothing is stored and no result gates a merge.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Baseline git ref
+        default: main
+      head:
+        description: Git ref under test
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - name: Compare
+        env:
+          BASE: ${{ inputs.base }}
+          HEAD: ${{ inputs.head }}
+          WORKDIR: ${{ runner.temp }}/symusic-bench
+        run: |
+          python3 benchmarks/ab.py "$BASE" "$HEAD" --workdir "$WORKDIR" --summary "$GITHUB_STEP_SUMMARY"

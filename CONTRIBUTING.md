@@ -76,6 +76,20 @@ clice lint
 
 It is not yet a CI gate; do not add findings in code you touch. Report which commands you ran and what you left to CI.
 
+### Benchmarks
+
+symusic has no performance targets and keeps no benchmark history. `benchmarks/` holds a small on-demand A/B check that shows a change did not slow the hot paths down:
+
+```sh
+python benchmarks/scenarios.py                    # time the installed package
+python benchmarks/ab.py --local                   # same, through the runner
+python benchmarks/ab.py origin/main HEAD          # build both refs in Release mode and compare
+```
+
+`ab.py` checks each ref out under `--workdir` (default `~/.cache/symusic-bench`, always outside the source tree), builds it in its own virtual environment and alternates the scenarios between the two builds. It prints per-scenario medians, the head/base ratio and the lowest and highest per-round ratio. Run it on a quiet machine, and compare a ratio against the spread of an A/A run (`ab.py origin/main origin/main`) before calling it a change. A slowdown never fails the script. The manual **Bench** workflow (`bench.yml`) runs the same comparison on a GitHub runner, whose noise is larger.
+
+Pull requests that touch hot paths in `src/` or `include/` (time conversion, parsing, dumping, sorting, container operations) attach the A/B table to the description. Scenarios use the fixtures in `tests/testcases/`; add a scenario to `benchmarks/scenarios.py` when a change targets an operation no scenario covers.
+
 ### Tests
 
 Test public behavior, the [contracts](docs/design/architecture.md#contracts), historical bugs and malformed input. Prefer one round-trip test plus focused boundary cases over repeating the same assertion at every layer. Cover all three time units when behavior depends on the unit. A test without assertions is not a test: record missing coverage in the [roadmap](ROADMAP.md) instead of committing a placeholder. Regression files go in `tests/testcases/`, named after the issue they reproduce.
