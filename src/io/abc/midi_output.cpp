@@ -98,7 +98,10 @@ bool VoiceOutput::effect(
 ) {
     const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
     const auto cc   = [&](int number, int value) { control(target, time, number, value, at); };
-    if (name == "pitchbend") {
+    if (name == "control") {
+        const int number = byte();
+        cc(number, byte());
+    } else if (name == "pitchbend") {
         const int low  = byte();
         const int high = trim(args).empty() ? 0 : byte();
         channel(target).track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);

@@ -302,9 +302,8 @@ private:
     std::optional<NoteAddress> sustain(Sound& sound, i32 end);
     vec<ChordMember>           resolve_chord(const Prepared& atom, long double end);
     void                       set_symbols(std::string_view value, Location at);
-    void                       control(std::string_view args, Location at, bool in_field);
     void                       program(std::string_view args, Location at);
-    void                       midi(std::string_view command, Location at, bool in_field);
+    void                       midi(std::string_view command, Location at);
     void                       information(std::string_view value, Location at);
     void                       lyrics(std::string_view text, Location at);
     void                       change_key(std::string_view value, Location at);
@@ -801,14 +800,7 @@ void VoicePlayer::program(std::string_view args, Location at) {
     lane().programs[target - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
 }
 
-void VoicePlayer::control(std::string_view args, Location at, bool in_field) {
-    const auto number = midi_integer(args, 0, midi_max, diagnostics, at);
-    const auto value  = midi_integer(args, 0, midi_max, diagnostics, at);
-    const auto time   = tick(lane().time + (in_field ? 0 : 1), diagnostics, at);
-    output.control(target(), time, number, value, at);
-}
-
-void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
+void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
     if (name == PitchTuning::reset_command) return;   // Already compiled in source order.
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
@@ -818,8 +810,6 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
         program(command, at);
     else if (name == "channel")
         lane().channel = value(1, 16);
-    else if (name == "control")
-        control(command, at, in_field);
     else if (name == "C" || name == "c")
         lane().base_pitch = value(0, midi_max);
     else if (
@@ -834,7 +824,7 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
 void VoicePlayer::information(std::string_view value, Location at) {
     const auto command = word(value);
     if (command == "MIDI")
-        midi(value, at, true);
+        midi(value, at);
     else if (command == "propagate-accidentals")
         lane().accidentals.propagation(trim(value), at, diagnostics);
     else if (command == "abc-include" || command == "include") {
@@ -848,12 +838,8 @@ void VoicePlayer::information(std::string_view value, Location at) {
 
 void VoicePlayer::visit(const Directive& command, Location at) {
     flush();
-    auto value = command.value;
-    diagnostics.spend(PlaybackWork::text(value), at);
-    if (word(value) == "MIDI")
-        midi(value, at, false);
-    else
-        information(command.value, at);
+    diagnostics.spend(PlaybackWork::text(command.value), at);
+    information(command.value, at);
 }
 
 void VoicePlayer::change_key(std::string_view value, Location at) {

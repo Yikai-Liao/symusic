@@ -63,8 +63,10 @@ CASES = {
     + "[V:lead] CDEF|\n[V:bass] C,D,E,F,|",
     "explicit_overlay": HEADER + "C D & E2 | F (& A B & c2 &) G |",
     "overlay_clocks": HEADER + "C (& D E & c2 &) G | A (& B c & d2 &) d |",
-    "directives": HEADER + "%%MIDI program 24\n%%MIDI control 7 50\n"
+    "directives": HEADER + "%%MIDI program 24\n"
     "%%MIDI beat 90 80 60 2\nC D E F |\n%%MIDI program 7\n%%MIDI channel 10\nC D E F |",
+    "controllers": HEADER + "%%MIDI control 7 50\nCDEF|\n%%MIDI control 7 40\nGABc|"
+    "[I:MIDI control 7 30]cBAG|",
     "beatstring_positions": HEADER.replace("L:1/4", "L:1/8")
     + "%%MIDI beatstring pFmPffmP\nC D E F G A B c |",
     "rhythm_ratio": HEADER + "%%MIDI ratio 2 1\nC>D E<F| G>>A B<<c|",
@@ -163,6 +165,7 @@ UPSTREAM_SAMPLES = (
     "barfly_split_bar",
     "barloc_long",
     "beatstring",
+    "control_tracks",
     "daramud",
     "demo",
     "decoration_bar_line",
@@ -263,6 +266,17 @@ def test_live_upstream_matches_snapshot(
     exit_code = 1 if name in RECOVERED else 0
     score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
     assert performed(score) == golden[name]
+
+
+def test_control_after_program(upstream: Path, tmp_path: Path):
+    abc = HEADER + "%%MIDI program 24\n%%MIDI control 7 50\nCDEF|"
+    native = performed_track(Score.from_abc(abc).tracks[0])
+    actual = performed_track(oracle_score(upstream, abc, tmp_path).tracks[0])
+    # MIDI writes the program on the pickup tick; the controller inherits
+    # that delta in abc2midi. Native controllers use the written clock.
+    assert native.pop("controls") == [[0, 7, 50]]
+    assert actual.pop("controls") == [[1, 7, 50]]
+    assert native == actual
 
 
 def test_bad_key_accidental(upstream: Path, tmp_path: Path):
