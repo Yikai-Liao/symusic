@@ -63,6 +63,8 @@ Issues = "https://github.com/Yikai-Liao/symusic/issues"
 [tool.scikit-build]
 cmake.version = ">=3.26.1"
 ninja.version = ">=1.11"
+# libsamplerate's config.* ignore rule also matches its tracked CMake input.
+sdist.include = ["3rdparty/prestosynth/3rdparty/libsamplerate/config.h.cmake"]
 # The extension uses the stable ABI from 3.12 on, so one cp312-abi3 wheel covers
 # every later CPython; older versions still get version-specific wheels.
 wheel.py-api = "cp312"

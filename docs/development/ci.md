@@ -8,7 +8,7 @@ CI runs on GitHub Actions. Every pull request reports an aggregate check, `ci-ok
 |---|---|---|
 | `ci.yml` | Pull requests, pushes to `main`, weekly, manual | Small daily checks; the compatibility matrix runs weekly or on request |
 | `pr-title.yml` | Pull requests | Checks the title against the [commit convention](../CONTRIBUTING.md#commits-and-pull-requests) |
-| `wheels.yml` | Manual, called by the other workflows | Builds and tests every wheel and the sdist with cibuildwheel |
+| `wheels.yml` | Manual, called by the other workflows | Builds and tests wheels with cibuildwheel and builds a wheel from the sdist |
 | `release.yml` | GitHub release published | Runs the full wheel build and uploads to PyPI |
 | `bench.yml` | Manual | On-demand [A/B benchmark](../CONTRIBUTING.md#benchmarks) of two git refs on Linux; writes the table to the job summary |
 | `cross-validation.yml` | Manual Wheels run with `cross_validation` enabled | Experimental xclang builds on Linux, executed on native target runners |
