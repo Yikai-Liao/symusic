@@ -474,9 +474,9 @@ vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double en
 void VoicePlayer::play_notes(
     const Prepared& atom, long double start, long double duration, int spread
 ) {
-    const auto audible
-        = lane().expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
-    const auto members = resolve_chord(atom, start + audible);
+    const auto& expression = lane().expression;
+    const auto audible = expression.gate(duration, written.unit, atom.slur, atom.ornament.staccato);
+    const auto members = resolve_chord(atom, start + expression.tied_gate(duration, written.unit));
     if (members.size() == 1 && !members.front().continuation) {
         const auto pitch = atom.atom->pitches.front();
         const auto main  = members.front().sound;
@@ -643,8 +643,11 @@ void VoicePlayer::visit(Slur change, Location at) {
         ++lane().slur;
     else if (lane().slur == 0)
         diagnostics.warn(at, "unmatched-slur", "ignored ')' without a matching slur");
-    else
+    else {
         --lane().slur;
+        // The closing note of a melodic slur still receives normal articulation.
+        if (lane().slur == 0 && pending && !pending->atom->chord) pending->slur = false;
+    }
 }
 
 void VoicePlayer::visit(Tie, Location at) {

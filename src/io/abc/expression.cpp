@@ -121,10 +121,15 @@ int Expression::velocity(long double position, Meter meter) const {
 long double Expression::gate(
     long double duration, long double unit, bool slur, bool staccato
 ) const {
-    if (staccato) return duration / 2;
-    if (slur) return duration;
-    const auto gap = unit * trim;
-    if (gap > 0) return gap >= duration ? duration / 2 : duration - gap;
+    const auto sounding = staccato ? duration / 2 : duration;
+    const auto gap      = unit * trim;
+    if (!slur && gap > 0 && gap < sounding) return sounding - gap;
+    return tied_gate(sounding, unit);
+}
+
+long double Expression::tied_gate(long double duration, long double unit) const {
+    // Ties sustain through trim. Native export still relies on expand to
+    // compensate for the one-tick release trim, including across ties.
     return duration + unit * expand;
 }
 

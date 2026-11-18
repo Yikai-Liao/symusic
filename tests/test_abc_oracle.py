@@ -96,6 +96,11 @@ CASES = {
     "trill_unit_change": HEADER + "CDEF|[L:1/16]TC TD2 TE3 TF10|",
     "staccatissimo_mark": HEADER + "' C ' [DE] F G|",
     "trill_beat": HEADER + "TCDE|TC2DE|",
+    "trim_and_slurs": HEADER + "%%MIDI trim 1/5\n(C/D/) (.EF) (G .A) z2|",
+    "trim_staccato_and_short_notes": HEADER
+    + "%%MIDI trim 1/5\n.C .D/ .[EG] .F// G/8 A B|",
+    "trim_tied_notes": HEADER + "%%MIDI trim 1/5\nC-C D E| F-F-F G|",
+    "expand_slurred_notes": HEADER + "%%MIDI expand 1/5\n(C D) .E z|",
     "expand_after_trim": HEADER + "%%MIDI trim 1/8\nC\n%%MIDI expand 1/8\nD E F z |",
     "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
     "breath": HEADER + "C !breath!D !breath![EG] F |",

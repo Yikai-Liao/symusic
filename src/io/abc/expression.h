@@ -33,6 +33,7 @@ struct Expression {
     long double fermata(long double duration, long double unit) const;
     int         velocity(long double position, Meter meter) const;
     long double gate(long double duration, long double unit, bool slur, bool staccato) const;
+    long double tied_gate(long double duration, long double unit) const;
 
 private:
     int  chord_attack = 10;
