@@ -76,12 +76,23 @@ struct Length {
     }
 };
 
+// A denominator of zero denotes a conventional accidental. A positive
+// denominator retains ABC's explicit fractional notation, even for ^1.
+struct Alteration {
+    int numerator   = 0;
+    int denominator = 0;
+};
+
+// Parse an accidental prefix (without the note letter), including ABC's
+// fractional shortcuts. An ambiguous prefix warns and leaves the pitch unchanged.
+std::optional<Alteration> accidental(std::string_view text, Location at, Diagnostics& diagnostics);
+
 struct Pitch {
-    char               letter;
-    int                octave;
-    std::optional<int> accidental;
-    bool               tie;
-    Length             length;
+    char                      letter;
+    int                       octave;
+    std::optional<Alteration> accidental;
+    bool                      tie;
+    Length                    length;
 };
 
 struct Atom {

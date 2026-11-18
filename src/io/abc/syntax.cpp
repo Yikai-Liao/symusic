@@ -60,7 +60,10 @@ struct slashes : repeated<'/'> {};
 struct fraction : seq<slashes, opt<number>> {};
 struct length : sor<seq<number, opt<fraction>>, fraction> {};
 struct octave : plus<chars<',', '\''>> {};
-struct accidental : sor<string<'^', '^'>, string<'_', '_'>, chars<'^', '_', '='>> {};
+using shift_sign = chars<'^', '_'>;
+using accidental_sign
+    = sor<string<'^', '^'>, string<'_', '_'>, seq<chars<'='>, opt<shift_sign>>, shift_sign>;
+struct accidental : seq<accidental_sign, opt<length>> {};
 struct letter : ranges<'a', 'g', 'A', 'G'> {};
 struct tie : chars<'-'> {};
 struct pitch : seq<opt<accidental>, letter, opt<octave>, opt<length>, opt<tie>> {};
@@ -262,18 +265,29 @@ int MusicLine::number(std::string_view value, Location at, int fallback) const {
     diagnostics.error(at, "number-range", "expected an integer in range");
 }
 
+struct FractionFields {
+    std::string_view numerator;
+    std::string_view denominator;
+    size_t           slashes;
+};
+
+FractionFields fraction_fields(std::string_view text) {
+    const auto first = text.find('/');
+    if (first == text.npos) return {text, {}, 0};
+    const auto end = std::min(text.size(), text.find_first_not_of('/', first));
+    return {text.substr(0, first), text.substr(end), end - first};
+}
+
 Length MusicLine::length(const Node* node) const {
     if (!node) return {};
-    const auto at          = location(*node);
-    const auto value       = node->data;
-    const auto first_slash = value.find('/');
-    const auto numerator   = number(value.substr(0, first_slash), at, 1);
-    if (first_slash == value.npos) return {numerator, 1};
-    const auto last_slash  = value.find_last_of('/');
-    const auto denominator = number(value.substr(last_slash + 1), at, 2);
+    const auto at        = location(*node);
+    const auto parts     = fraction_fields(node->data);
+    const auto numerator = number(parts.numerator, at, 1);
+    if (parts.slashes == 0) return {numerator, 1};
+    const auto denominator = number(parts.denominator, at, 2);
     if (denominator == 0) diagnostics.error(at, "zero-length-divisor", "duration divides by zero");
     const auto power         = std::bit_ceil(static_cast<uint64_t>(denominator));
-    const auto extra_slashes = last_slash - first_slash;
+    const auto extra_slashes = parts.slashes - 1;
     if (extra_slashes > 30 || (power << extra_slashes) > std::numeric_limits<int>::max()) {
         diagnostics.error(at, "length-range", "duration denominator is too large");
     }
@@ -298,13 +312,10 @@ int MusicLine::octave(const Node& node) const {
 }
 
 Pitch MusicLine::pitch(const Node& node) const {
-    const auto         name = child<grammar::letter>(node)->data.front();
-    std::optional<int> alteration;
-    if (const auto prefix = child<grammar::accidental>(node)) {
-        const auto width = static_cast<int>(prefix->data.size());
-        const auto sign  = prefix->data.front();
-        alteration       = sign == '=' ? 0 : (sign == '_' ? -width : width);
-    }
+    const auto                name = child<grammar::letter>(node)->data.front();
+    std::optional<Alteration> alteration;
+    if (const auto prefix = child<grammar::accidental>(node))
+        alteration = accidental(prefix->data, location(*prefix), diagnostics);
     return {
         upper(name),
         octave(node) + lower(name),
@@ -592,6 +603,49 @@ bool read_logical_line(
 }
 
 }   // namespace
+
+namespace {
+
+int accidental_quantity(
+    std::string_view text, int fallback, Location at, Diagnostics& diagnostics
+) {
+    if (text.empty()) return fallback;
+    const auto number = integer(text);
+    if (!number || *number < 0)
+        diagnostics.error(at, "invalid-microtone", "expected an accidental such as ^/ or _3/4");
+    return *number;
+}
+
+Alteration microtone(std::string_view text, int direction, Location at, Diagnostics& diagnostics) {
+    const auto parts     = fraction_fields(text);
+    const auto numerator = accidental_quantity(parts.numerator, 1, at, diagnostics);
+    if (parts.slashes > 31)
+        diagnostics.error(at, "microtone-range", "microtone denominator is too large");
+    const auto denominator
+        = parts.slashes == 0 ?
+              1 :
+              static_cast<int64_t>(accidental_quantity(parts.denominator, 2, at, diagnostics))
+                  << (parts.slashes - 1);
+    if (denominator == 0) diagnostics.error(at, "invalid-microtone", "microtone divides by zero");
+    if (denominator > std::numeric_limits<int>::max() || numerator / denominator > 127)
+        diagnostics.error(at, "microtone-range", "microtone quantity is too large");
+    return {direction * numerator, static_cast<int>(denominator)};
+}
+
+}   // namespace
+
+std::optional<Alteration> accidental(std::string_view text, Location at, Diagnostics& diagnostics) {
+    using namespace std::literals;
+    constexpr std::array normal{"__"sv, "_"sv, "="sv, "^"sv, "^^"sv};
+    if (const auto found = std::ranges::find(normal, text); found != normal.end())
+        return Alteration{static_cast<int>(found - normal.begin()) - 2};
+    if (text.find_first_not_of("^_=") == 1 && text.front() != '=')
+        return microtone(text.substr(1), text.front() == '_' ? -1 : 1, at, diagnostics);
+    diagnostics.warn(
+        at, "invalid-accidental", "ignored ambiguous accidental; use a single sign for microtones"
+    );
+    return {};
+}
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics) {
     if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);

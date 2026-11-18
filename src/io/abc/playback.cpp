@@ -16,27 +16,27 @@ using namespace std::literals;
 constexpr long double epsilon = 0.0000001L;
 
 struct Sound {
-    int  note;
-    int  letter;
-    int  written_octave;
-    bool explicit_accidental;
-    bool tie;
+    MidiPitch pitch;
+    int       letter;
+    int       written_octave;
+    bool      explicit_accidental;
+    bool      tie;
 };
 
 enum class AccidentalScope { pitch, octave, none };
 
 class Accidentals {
 public:
-    int  resolve(Pitch pitch, const Key& key);
-    void reset() { measure.clear(); }
-    void propagation(std::string_view value, Location at, Diagnostics& diagnostics);
+    Alteration resolve(Pitch pitch, const Key& key);
+    void       reset() { measure.clear(); }
+    void       propagation(std::string_view value, Location at, Diagnostics& diagnostics);
 
 private:
-    AccidentalScope                     scope = AccidentalScope::pitch;
-    std::map<std::pair<char, int>, int> measure;
+    AccidentalScope                            scope = AccidentalScope::pitch;
+    std::map<std::pair<char, int>, Alteration> measure;
 };
 
-int Accidentals::resolve(Pitch pitch, const Key& key) {
+Alteration Accidentals::resolve(Pitch pitch, const Key& key) {
     if (scope == AccidentalScope::none)
         return pitch.accidental.value_or(key.alterations[letter_index(pitch.letter)]);
     const auto slot = std::pair{pitch.letter, scope == AccidentalScope::pitch ? 0 : pitch.octave};
@@ -282,12 +282,12 @@ private:
     void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_cut(Pitch pitch, const Prepared& atom, long double start, long double duration);
     Sound ornament_neighbor(Pitch pitch, int direction = 1);
-    Sound resolve_sound(Pitch pitch, int semitone, bool tie);
+    Sound resolve_sound(Pitch pitch, Alteration alteration, bool tie);
     Sound sound(Pitch pitch, bool tie);
     std::optional<NoteAddress> note(
         Sound sound, long double start, long double duration, int stagger, int loudness, Location at
     );
-    std::optional<NoteAddress> sustain(Sound sound, long double end, Location at);
+    std::optional<NoteAddress> sustain(Sound& sound, long double end, Location at);
     void                       set_symbols(std::string_view value, Location at);
     void                       control(std::string_view args, Location at, bool in_field);
     void                       program(std::string_view args, Location at);
@@ -388,11 +388,12 @@ Sound VoicePlayer::sound(Pitch pitch, bool tie) {
     return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), tie);
 }
 
-Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) {
+Sound VoicePlayer::resolve_sound(Pitch pitch, Alteration alteration, bool tie) {
     const auto index = letter_index(pitch.letter);
+    const int  base  = lane().base_pitch + natural_pitch[index]
+                       + 12 * (pitch.octave + written.tone.octave) + sounding_shift();
     return {
-        lane().base_pitch + natural_pitch[index] + 12 * (pitch.octave + written.tone.octave)
-            + semitone + sounding_shift(),
+        altered_pitch(base, alteration),
         static_cast<int>(index),
         pitch.octave,
         pitch.accidental.has_value(),
@@ -416,17 +417,18 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch, int direction) {
 std::optional<NoteAddress> VoicePlayer::note(
     Sound sound, long double start, long double duration, int stagger, int loudness, Location at
 ) {
-    return output.attack(target(), sound.note, start, duration, stagger, loudness, at);
+    return output.attack(target(), sound.pitch, start, duration, stagger, loudness, at);
 }
 
-std::optional<NoteAddress> VoicePlayer::sustain(Sound sound, long double end, Location at) {
+std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, long double end, Location at) {
     auto match = std::ranges::find_if(lane().ties, [&](const TieNote& pending) {
-        return sound.note == pending.sound.note
+        return sound.pitch == pending.sound.pitch
                || (!sound.explicit_accidental && sound.letter == pending.sound.letter
                    && sound.written_octave == pending.sound.written_octave);
     });
     if (match == lane().ties.end()) return {};
     auto address = match->note;
+    sound.pitch  = match->sound.pitch;
     lane().ties.erase(match);
     address.release_at(tick(end, diagnostics, at));
     return address;
@@ -458,10 +460,7 @@ void VoicePlayer::play_chord(const Prepared& atom, long double start, long doubl
                 aligned_lyric = true;
             }
         }
-        if (address && played.tie) {
-            played.note = address->pitch();
-            next_ties.push_back({played, *address, atom.at});
-        }
+        if (address && played.tie) next_ties.push_back({played, *address, atom.at});
     }
     // abc2midi treats a dash between unlike pitches as an ordinary attack.
     lane().ties = std::move(next_ties);

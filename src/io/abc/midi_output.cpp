@@ -4,11 +4,25 @@
 
 namespace symusic::abc::detail {
 
-int NoteAddress::pitch() const { return note().pitch; }
+MidiPitch altered_pitch(int base, Alteration alteration) {
+    const auto [numerator, denominator] = alteration;
+    if (denominator == 0) return {base + numerator, 0};
+    const auto divisor = static_cast<int64_t>(denominator);
+    // Keep the natural note number inside the wheel's range; otherwise put
+    // the whole semitone shift in the note and use the wheel for the remainder.
+    const bool wide     = numerator >= 2 * divisor || numerator < -2 * divisor;
+    const auto fraction = wide ? numerator % divisor : numerator;
+    const auto steps    = (midi_bend_center * std::abs(fraction) + divisor) / (2 * divisor);
+    const auto wheel    = std::clamp<int64_t>(
+        fraction < 0 ? -steps : steps, -midi_bend_center, midi_bend_center - 1
+    );
+    return {base + (wide ? numerator / denominator : 0), static_cast<int>(wheel)};
+}
 
 void NoteAddress::release_at(i32 end) const {
     auto& event    = note();
     event.duration = std::max(0, end - event.time);
+    *gate          = std::max(*gate, end);
 }
 
 void NoteAddress::lyric(std::string text) const {
@@ -18,7 +32,7 @@ void NoteAddress::lyric(std::string text) const {
 VoiceOutput::VoiceOutput(std::string name, Diagnostics& diagnostics) :
     name(std::move(name)), diagnostics(diagnostics) {}
 
-TrackNative<Tick>& VoiceOutput::track(MidiTarget target) {
+VoiceOutput::ChannelOutput& VoiceOutput::channel(MidiTarget target) {
     const auto [lane, channel, program] = target;
     return output
         .try_emplace(
@@ -30,18 +44,30 @@ TrackNative<Tick>& VoiceOutput::track(MidiTarget target) {
         .first->second;
 }
 
+void VoiceOutput::tune(
+    ChannelOutput& owner, MidiTarget target, MidiPitch pitch, i32 time, Location at
+) {
+    if (target.channel == midi_drum_channel || owner.wheel == pitch.wheel) return;
+    if (time < owner.sounding_until)
+        diagnostics.warn(
+            at, "shared-pitch-wheel", "pitch bend also affects overlapping notes on this voice"
+        );
+    owner.wheel = pitch.wheel;
+    owner.track.pitch_bends.emplace_back(time, pitch.wheel);
+}
+
 std::optional<NoteAddress> VoiceOutput::attack(
     MidiTarget  target,
-    int         pitch,
+    MidiPitch   pitch,
     long double start,
     long double duration,
     int         stagger,
     int         velocity,
     Location    at
 ) {
-    if (pitch < 0 || pitch > midi_max) {
+    if (pitch.note < 0 || pitch.note > midi_max) {
         diagnostics.error(
-            at, "pitch-range", fmt::format("pitch {} is outside MIDI range 0–127", pitch)
+            at, "pitch-range", fmt::format("pitch {} is outside MIDI range 0–127", pitch.note)
         );
     }
     if (velocity == 0) return {};
@@ -51,9 +77,13 @@ std::optional<NoteAddress> VoiceOutput::attack(
     if (gate > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
     diagnostics.spend(PlaybackWork::attack, at);
-    auto& owner = track(target);
-    owner.notes.emplace_back(time, gate, static_cast<i8>(pitch), static_cast<i8>(velocity));
-    return NoteAddress(owner, owner.notes.size() - 1);
+    auto& owner = channel(target);
+    tune(owner, target, pitch, time, at);
+    owner.sounding_until = std::max(owner.sounding_until, time + gate);
+    owner.track.notes.emplace_back(
+        time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
+    );
+    return NoteAddress(owner.track, owner.track.notes.size() - 1, owner.sounding_until);
 }
 
 void VoiceOutput::sustain(
@@ -73,7 +103,7 @@ void VoiceOutput::sustain(
 }
 
 void VoiceOutput::control(MidiTarget target, i32 time, int number, int value, Location at) {
-    auto& owner = track(target);
+    auto& owner = channel(target).track;
     owner.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(value));
     if (number == 64) sustain({target.lane, target.channel}, owner, time, value, at);
 }
@@ -86,7 +116,7 @@ bool VoiceOutput::effect(
     if (name == "pitchbend") {
         const int low  = byte();
         const int high = trim(args).empty() ? 0 : byte();
-        track(target).pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
+        channel(target).track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
     } else if (name == "pitchbendrange") {
         const int semitones = byte();
         cc(101, 0);
@@ -104,8 +134,8 @@ bool VoiceOutput::effect(
 }
 
 void VoiceOutput::finish(vec<TrackNative<Tick>>& tracks) {
-    for (auto& [key, track] : output) {
-        if (!track.empty()) tracks.push_back(std::move(track));
+    for (auto& [key, owner] : output) {
+        if (!owner.track.empty()) tracks.push_back(std::move(owner.track));
     }
 }
 

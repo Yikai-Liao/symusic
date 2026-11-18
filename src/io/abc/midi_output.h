@@ -13,22 +13,31 @@ struct MidiTarget {
     int program;
 };
 
+struct MidiPitch {
+    int  note;
+    int  wheel;
+    auto operator<=>(const MidiPitch&) const = default;
+};
+
+MidiPitch altered_pitch(int base, Alteration alteration);
+
 class VoiceOutput;
 
 // A stable note handle until its voice finishes; note vectors may grow in between.
 class NoteAddress {
 public:
-    [[nodiscard]] int pitch() const;
-    void              release_at(i32 end) const;
-    void              lyric(std::string text) const;
+    void release_at(i32 end) const;
+    void lyric(std::string text) const;
 
 private:
     friend class VoiceOutput;
-    NoteAddress(TrackNative<Tick>& track, size_t index) : track(&track), index(index) {}
+    NoteAddress(TrackNative<Tick>& track, size_t index, i32& gate) :
+        track(&track), index(index), gate(&gate) {}
     [[nodiscard]] Note<Tick>& note() const { return track->notes[index]; }
 
     TrackNative<Tick>* track;
     size_t             index;
+    i32*               gate;
 };
 
 // Collects one notation voice's performed MIDI events. Routes attacks and
@@ -43,7 +52,7 @@ public:
 
     std::optional<NoteAddress> attack(
         MidiTarget  target,
-        int         pitch,
+        MidiPitch   pitch,
         long double start,
         long double duration,
         int         stagger,
@@ -62,12 +71,22 @@ private:
     using TrackKey   = std::tuple<int, int, int>;
     using ChannelKey = std::pair<int, int>;
 
+    struct ChannelOutput {
+        ChannelOutput(std::string name, u8 program, bool drums) :
+            track(std::move(name), program, drums) {}
+
+        TrackNative<Tick> track;
+        i32               sounding_until = 0;
+        int               wheel          = 0;
+    };
+
     std::string                                              name;
     Diagnostics&                                             diagnostics;
-    std::map<TrackKey, TrackNative<Tick>>                    output;
+    std::map<TrackKey, ChannelOutput>                        output;
     std::map<ChannelKey, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
 
-    TrackNative<Tick>& track(MidiTarget target);
+    ChannelOutput& channel(MidiTarget target);
+    void tune(ChannelOutput& owner, MidiTarget target, MidiPitch pitch, i32 time, Location at);
     void sustain(ChannelKey channel, TrackNative<Tick>& track, i32 time, int value, Location at);
 };
 

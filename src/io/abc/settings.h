@@ -30,11 +30,11 @@ struct Meter {
 };
 
 struct Key {
-    int                fifths = 0;
-    int                minor  = 0;
-    std::optional<int> transpose;
-    int                octave = 0;
-    std::array<int, 7> alterations{};
+    int                       fifths = 0;
+    int                       minor  = 0;
+    std::optional<int>        transpose;
+    int                       octave = 0;
+    std::array<Alteration, 7> alterations{};
 };
 
 struct VoiceSpec {

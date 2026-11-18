@@ -81,6 +81,12 @@ CASES = {
         HEADER.replace("K:C", "%%MIDI pitchbendrange 5\n%%MIDI portamento 12\nK:C")
         + "CDEF|"
     ),
+    "microtone_carry": HEADER + "^/F F _3/4E E | F E ^/4F =F |",
+    "microtone_wide": HEADER.replace("M:4/4", "M:1/4")
+    + "^9/4F|_9/4F|^3/2F|^2F|^3F|_3F|",
+    "microtone_tie": HEADER + "^/C4- | C4 | D4 |",
+    "microtone_key": HEADER.replace("K:C", "K:G _/B _3/4e _3/4A")
+    + "B e A G|_/B _3/4e _3/4A G|",
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")
@@ -128,13 +134,16 @@ UPSTREAM_SAMPLES = (
     "barfly_split_bar",
     "barloc_long",
     "beatstring",
+    "daramud",
     "demo",
     "decoration_bar_line",
     "drums",
     "fermata_bars",
     "gchord_codes",
     "gchord_inversion",
+    "key_microtone",
     "key_unknown_word",
+    "microtone_wide",
     "partdemo",
     "part_pickup",
     "text_fields",

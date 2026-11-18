@@ -379,6 +379,18 @@ def test_abc_export_preserves_tempo_keys_meter_polyphony_and_controls():
         assert channel.pedals == track.pedals
 
 
+def test_abc_warns_on_incompatible_chord_bends():
+    with pytest.warns(UserWarning, match=r"<string>:7:1: ABC \[shared-pitch-wheel\]"):
+        score = Score.from_abc(HEADER + "[^/CE] F G A|")
+    assert len(score.tracks[0].notes) == 5
+    assert list(score.tracks[0].pitch_bends) == [PitchBend(1, 2048), PitchBend(11, 0)]
+
+
+def test_abc_rejects_zero_microtone_divisor():
+    with pytest.raises(ValueError, match=r"<string>:7:3: ABC \[invalid-microtone\]"):
+        Score.from_abc(HEADER + "C ^1/0D EF |")
+
+
 def test_abc_export_preserves_pitch_bends():
     score = roundtrip_score()
     track = score.tracks[0]

@@ -56,10 +56,10 @@ const Mode* mode_of(std::string_view name) {
 
 void set_signature(Key& key, int fifths) {
     key.fifths = fifths;
-    key.alterations.fill(0);
+    key.alterations.fill({});
     const auto order = fifths < 0 ? flat_order : sharp_order;
     for (const auto c : order.substr(0, static_cast<size_t>(std::abs(fifths)))) {
-        key.alterations[letter_index(c)] = fifths < 0 ? -1 : 1;
+        key.alterations[letter_index(c)] = Alteration{fifths < 0 ? -1 : 1};
     }
 }
 
@@ -77,8 +77,8 @@ int tonic(std::string_view& name) {
 bool bagpipe(std::string_view name, Key& result) {
     if (name != "HP" && name != "Hp") return false;
     if (name == "Hp") {
-        result.alterations[letter_index('F')] = 1;
-        result.alterations[letter_index('C')] = 1;
+        result.alterations[letter_index('F')] = Alteration{1};
+        result.alterations[letter_index('C')] = Alteration{1};
     }
     return true;
 }
@@ -100,13 +100,12 @@ bool parse_signature(std::string_view& options, Key& result) {
     return true;
 }
 
-bool custom_accidental(std::string_view word, Key& key) {
-    if (word.size() < 2 || !note_letter(word.back())) return false;
-    const auto           prefix = word.substr(0, word.size() - 1);
-    constexpr std::array tokens{"__"sv, "_"sv, "="sv, "^"sv, "^^"sv};
-    const auto           pos = std::ranges::find(tokens, prefix);
-    if (pos == tokens.end()) return false;
-    key.alterations[letter_index(upper(word.back()))] = static_cast<int>(pos - tokens.begin()) - 2;
+bool custom_accidental(std::string_view word, Key& key, Diagnostics& diagnostics, Location at) {
+    if (word.size() < 2 || !note_letter(word.back())
+        || !word.starts_with('^') && !word.starts_with('_') && !word.starts_with('='))
+        return false;
+    if (const auto value = accidental(word.substr(0, word.size() - 1), at, diagnostics))
+        key.alterations[letter_index(upper(word.back()))] = *value;
     return true;
 }
 
@@ -162,7 +161,7 @@ void key_options(std::string_view options, Key& result, Diagnostics& diagnostics
             octave = shift_value(value, diagnostics, at, name, 16);
         else if (name == "clef")
             from_clef = clef_octave(value);
-        else if (!custom_accidental(name, result) && value.empty()) {
+        else if (!custom_accidental(name, result, diagnostics, at) && value.empty()) {
             if (auto oct = clef_octave(name)) from_clef = oct;
         }
     }
@@ -320,7 +319,7 @@ std::optional<Key> key(
 ) {
     Key  result  = previous;
     auto options = text;
-    result.alterations.fill(0);
+    result.alterations.fill({});
     result.fifths = result.minor = 0;
     if (!parse_signature(options, result)) {
         const auto first = text.substr(0, text.find_first_of("= \t"));
