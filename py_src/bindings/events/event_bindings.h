@@ -368,7 +368,7 @@ auto bind_note(nb::module_& m, const std::string& name_) {
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
-            [](self_t& self, unit value) { self->duration = value - self->time;},
+            [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time);},
             event_docstrings::kEndDoc)
         .def("empty", [](const self_t& self) { return self->empty(); }, event_docstrings::kNoteEmptyDoc)
         .def("ent_time", [](const self_t& self) { return self->end(); }, "Return ``end``. Misspelled; use ``end``.")
@@ -508,7 +508,7 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
-            [](self_t& self, unit value) { self->duration = value - self->time; },
+            [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time); },
             event_docstrings::kEndDoc)
         .def("__init__", &pyinit<Pedal<T>, unit, unit>,
             nb::arg("time"), nb::arg("duration"))

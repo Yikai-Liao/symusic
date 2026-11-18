@@ -10,6 +10,7 @@
 #include "symusic/mtype.h"
 #include "symusic/io/iodef.h"
 #include "symusic/time_unit.h"
+#include "symusic/utils.h"
 #include "iostream"
 
 namespace symusic {
@@ -92,7 +93,7 @@ struct Note : TimeStamp<T> {
         TimeStamp<T>{time}, duration{duration}, pitch{other.pitch}, velocity{other.velocity} {}
 
     [[nodiscard]] unit start() const { return this->time; }
-    [[nodiscard]] unit end() const { return this->time + duration; }
+    [[nodiscard]] unit end() const { return details::add_time(this->time, duration); }
 
     [[nodiscard]] bool empty() const { return duration <= 0 || velocity <= 0; }
 
@@ -118,7 +119,7 @@ struct Pedal : TimeStamp<T> {
         TimeStamp<T>{time}, duration{duration} {}
 
     [[nodiscard]] unit start() const { return this->time; }
-    [[nodiscard]] unit end() const { return this->time + duration; }
+    [[nodiscard]] unit end() const { return details::add_time(this->time, duration); }
 
     auto default_key() const { return std::tie(this->time, duration); }
 };

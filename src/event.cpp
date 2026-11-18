@@ -35,7 +35,7 @@ inline i8 safe_add(const i8 a, const i8 b) {
 #define SHIFT_TIME(__COUNT, NAME)                                                \
     template<TType T>                                                            \
     inline NAME<T>& NAME<T>::shift_time_inplace(const typename T::unit offset) { \
-        this->time += offset;                                                    \
+        this->time = details::add_time(this->time, offset);                      \
         return *this;                                                            \
     }                                                                            \
     template<TType T>                                                            \

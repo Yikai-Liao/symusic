@@ -57,7 +57,7 @@ Refactors keep these behaviors unless a change is explicitly about them:
 - **Copy and in-place pairs.** C++ transformations come as `foo()` returning a new value and `foo_inplace()` mutating. Python methods take `inplace=False`; with `inplace=True` they mutate and return `self`.
 - **Reference stability.** Python references to events, tracks and lists stay valid as described under [data model](#data-model).
 - **Round trips.** MIDI read/write and pickle preserve the shared data model; a pickled score loads in the same version. Pickle bytes depend only on event values: struct padding is written as zeros.
-- **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values) rather than coercing silently. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
+- **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values such as NaN, `OverflowError` for a tick result outside `int32`) rather than coercing silently. Tick arithmetic and float-to-tick conversion go through the checked helpers in `include/symusic/utils.h`. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
 - **Stable ABI.** On GIL-enabled CPython 3.12 and later the extension uses only the limited C API (nanobind `STABLE_ABI`), so one `abi3` wheel per platform serves later GIL-enabled CPython 3 versions. Free-threaded builds require a different ABI and are not supported yet. Do not call CPython APIs outside the limited API in the binding; `abi3audit` in the wheel build rejects them.
 - **Thin Python layer.** Hot paths stay in C++; the Python package does not reimplement core logic.
 

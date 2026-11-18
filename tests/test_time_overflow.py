@@ -1,0 +1,132 @@
+"""Tick arithmetic and float-to-tick conversion at the edges of the int32 range."""
+
+from __future__ import annotations
+
+import math
+
+import pytest
+from symusic import Note, Pedal, Score, Tempo, Track
+
+from tests.test_malformed_midi import build_single_track_midi
+
+INT_MAX = 2**31 - 1
+INT_MIN = -(2**31)
+
+
+def tick_score(*notes: Note) -> Score:
+    score = Score(480)
+    score.tracks.append(Track(notes=list(notes), ttype="tick"))
+    return score
+
+
+def test_end_overflow():
+    assert Note(INT_MAX - 5, 5, 60, 80, "tick").end == INT_MAX
+    with pytest.raises(OverflowError):
+        _ = Note(INT_MAX - 5, 6, 60, 80, "tick").end
+    with pytest.raises(OverflowError):
+        _ = Pedal(INT_MAX, 1, "tick").end
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_end_float_units_do_not_raise(ttype: str):
+    assert Note(3.0e38, 3.0e38, 60, 80, ttype).end == math.inf
+
+
+def test_end_setter_overflow():
+    note = Note(INT_MIN, 1, 60, 80, "tick")
+    with pytest.raises(OverflowError):
+        note.end = INT_MAX
+    assert note.duration == 1
+
+
+@pytest.mark.parametrize("make", [Note, Pedal])
+def test_shift_time_overflow(make):
+    args = (INT_MAX, 1, 60, 80) if make is Note else (INT_MAX, 1)
+    event = make(*args, "tick")
+    with pytest.raises(OverflowError):
+        event.shift_time(1)
+    with pytest.raises(OverflowError):
+        event.shift_time(1, inplace=True)
+    assert event.start == INT_MAX
+    assert event.shift_time(-1).start == INT_MAX - 1
+
+
+def test_shift_time_event_is_applied():
+    note = Note(10, 5, 60, 80, "tick")
+    assert note.shift_time(5).start == 15
+    assert note.start == 10
+    assert note.shift_time(5, inplace=True).start == 15
+    assert note.start == 15
+
+
+def test_track_score_overflow():
+    note = Note(INT_MAX, 1, 60, 80, "tick")
+    score = tick_score(note)
+    with pytest.raises(OverflowError):
+        score.tracks[0].end()
+    with pytest.raises(OverflowError):
+        score.end()
+    with pytest.raises(OverflowError):
+        score.shift_time(1)
+    with pytest.raises(OverflowError):
+        score.to("second")
+    with pytest.raises(OverflowError):
+        score.dumps_midi()
+
+
+def test_clip_trim_extreme():
+    track = Track(
+        notes=[Note(INT_MAX - 10, 100, 60, 80, "tick"), Note(0, 10, 60, 80, "tick")],
+        ttype="tick",
+    )
+    clipped = track.clip(0, INT_MAX, clip_end=True)
+    assert [n.start for n in clipped.notes] == [0]
+
+    trimmed = track.trim(0, INT_MAX, start_mode="retain", end_mode="truncate")
+    assert sorted((n.start, n.duration) for n in trimmed.notes) == [
+        (0, 10),
+        (INT_MAX - 10, 10),
+    ]
+
+    assert track.trim(0, INT_MAX).notes[0].start == 0
+    assert len(track.trim(0, INT_MAX).notes) == 1
+
+
+def test_adjust_time_overflow():
+    track = Track(notes=[Note(1, 0, 60, 80, "tick")], ttype="tick")
+    with pytest.raises(OverflowError):
+        track.adjust_time([0, 1], [INT_MIN, INT_MAX])
+
+
+def _spacer() -> bytes:
+    # Maximal 28-bit delta (0x0FFFFFFF) followed by an empty text meta event.
+    return bytes([0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0x01, 0x00])
+
+
+def test_midi_event_time_overflow():
+    # Nine maximal deltas pass INT32_MAX.
+    body = _spacer() * 9 + bytes([0x00, 0xFF, 0x2F, 0x00])
+    with pytest.raises(RuntimeError, match="32-bit tick range"):
+        Score.from_midi(build_single_track_midi(body))
+
+
+def test_midi_duration_in_range():
+    # 7 * 0x0FFFFFFF < INT32_MAX: a note spanning most of the range still loads.
+    body = (
+        bytes([0x00, 0x90, 0x3C, 0x40])
+        + _spacer() * 7
+        + bytes([0x00, 0x80, 0x3C, 0x40, 0x00, 0xFF, 0x2F, 0x00])
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    assert score.tracks[0].notes[0].duration == 7 * 0x0FFFFFFF
+
+
+def test_second_conversion_at_range_edges():
+    score = tick_score(
+        Note(INT_MAX, 0, 60, 80, "tick"), Note(-480, 480, 60, 80, "tick")
+    )
+    score.tempos.append(Tempo(0, mspq=500000))
+    notes = score.to("second").tracks[0].notes
+    assert notes[1].start == pytest.approx(-0.5)
+    assert notes[1].duration == pytest.approx(0.5)
+    assert notes[0].duration == 0

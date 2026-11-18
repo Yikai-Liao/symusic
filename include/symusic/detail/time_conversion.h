@@ -4,6 +4,7 @@
 #define LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <limits>
 #include <span>
@@ -11,6 +12,7 @@
 #include <utility>
 
 #include "symusic/score.h"
+#include "symusic/utils.h"
 
 namespace symusic::details {
 
@@ -181,16 +183,20 @@ struct SecondTimeConverter {
             update_state(state, end_time);
             const auto end
                 = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
-            converted.emplace_back(start, std::max(min_dur, end - start), event);
+            converted.emplace_back(start, std::max(min_dur, sub_time<to_unit>(end, start)), event);
         }
         return pyvec<Event<To>>(std::move(converted));
     }
 
 private:
     [[nodiscard]] size_t range_index(const from_unit time) const {
-        return static_cast<size_t>(
-            std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin() - 1
-        );
+        // Segment i spans [from_times[i], from_times[i + 1]). Times before the first boundary
+        // (negative) extrapolate the first segment; the last boundary is the maximum time itself,
+        // so a time equal to it belongs to the last segment.
+        const auto pos
+            = std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin();
+        const auto last = static_cast<std::ptrdiff_t>(from_times.size()) - 2;
+        return static_cast<size_t>(std::clamp<std::ptrdiff_t>(pos - 1, 0, last));
     }
 
     [[nodiscard]] RangeState initial_state() const {
