@@ -498,7 +498,7 @@ std::string_view VoicePlayer::decoration_name(const Decoration& decoration) cons
 }
 
 bool Ornament::* ornament_flag(std::string_view mark) {
-    if (mark == ".") return &Ornament::staccato;
+    if (mark == "." || mark == "breath") return &Ornament::staccato;
     if (mark == "fermata" || mark == "H") return &Ornament::fermata;
     if (mark == "trill" || mark == "T") return &Ornament::trill;
     if (mark == "~") return &Ornament::roll;
@@ -517,13 +517,22 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
         effects.expression.apply(*change);
         return;
     }
+    if (mark == "ped" || mark == "ped(") {
+        flush();
+        output.control(target(), at_tick(at), 64, 127, at);
+        return;
+    }
+    if (mark == "ped-up" || mark == "ped)") {
+        flush();
+        output.control(target(), at_tick(at), 64, 0, at);
+        return;
+    }
     constexpr std::array marks{
         "coda"sv,
         "segno"sv,
         "accent"sv,
         ">"sv,
         "tenuto"sv,
-        "breath"sv,
         "downbow"sv,
         "upbow"sv,
         "P"sv,
@@ -722,7 +731,7 @@ void VoicePlayer::midi(std::string_view command, Location at, bool in_field) {
         written.tone.transpose = value(-127, 127);
     else if (name == "rtranspose")
         written.tone.transpose = std::clamp(written.tone.transpose + value(-127, 127), -127, 127);
-    else if (name == "c")
+    else if (name == "C" || name == "c")
         effects.base_pitch = value(0, midi_max);
     else if (
         !effects.expression.directive(name, command, at, diagnostics)

@@ -51,6 +51,9 @@ CASES = {
     "overlay_clocks": HEADER + "C (& D E & c2 &) G | A (& B c & d2 &) d |",
     "directives": HEADER + "%%MIDI program 24\n%%MIDI control 7 50\n"
     "%%MIDI beat 90 80 60 2\nC D E F |\n%%MIDI program 7\n%%MIDI channel 10\nC D E F |",
+    "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
+    "breath": HEADER + "C !breath!D !breath![EG] F |",
+    "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
     "harmony": HEADER + '"C/E"C D E F | "G7"G A B c |',
     "drums": HEADER.replace("M:4/4", "M:2/4").replace("L:1/4", "L:1/8")
     + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nC D E F |",
@@ -77,6 +80,20 @@ CASES = {
 }
 
 
+def performed_track(track: Track) -> dict:
+    events = {
+        "program": track.program,
+        "drums": track.is_drum,
+        "notes": sorted([n.time, n.duration, n.pitch, n.velocity] for n in track.notes),
+        "controls": [[e.time, e.number, e.value] for e in track.controls],
+    }
+    if track.pedals:
+        events["pedals"] = [[e.time, e.duration] for e in track.pedals]
+    if track.pitch_bends:
+        events["bends"] = [[e.time, e.value] for e in track.pitch_bends]
+    return events
+
+
 def performed(score: Score) -> dict:
     """Compare music events, not MIDI track titles, ordering or file bytes."""
     return {
@@ -89,17 +106,7 @@ def performed(score: Score) -> dict:
         "keys": [
             [event.time, event.key, event.tonality] for event in score.key_signatures
         ],
-        "tracks": [
-            {
-                "program": track.program,
-                "drums": track.is_drum,
-                "notes": sorted(
-                    [n.time, n.duration, n.pitch, n.velocity] for n in track.notes
-                ),
-                "controls": [[e.time, e.number, e.value] for e in track.controls],
-            }
-            for track in score.tracks
-        ],
+        "tracks": [performed_track(track) for track in score.tracks],
     }
 
 
