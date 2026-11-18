@@ -6,7 +6,7 @@ namespace symusic::abc::detail {
 
 // The score clock only moves forward. Repeat jumps restore written state, not
 // emitted notes, the accent clock, or running MIDI effects.
-enum class Flow { token, enter_repeat, jump_repeat, soft_bar, hard_bar };
+enum class Flow { token, enter_part, enter_repeat, jump_repeat, soft_bar, hard_bar };
 struct PlayStep {
     const Token* token;
     Flow         flow = Flow::token;

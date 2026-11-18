@@ -53,6 +53,12 @@ CASES = {
     "final_numbered_ending": HEADER + "|: C2 [1-2 D2 :| [3 E2 |]",
     "broken_dynamic": HEADER + "C>[K:G]!p!F G A |",
     "overlay_tie": HEADER + "C2 & E2- | D2 & E2 |",
+    "ordered_part_after_overlay": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "P:AB\nK:C"
+    )
+    + "P:A\nCDEF & E4\nP:B\nGABc & G4|",
+    "midbar_part_clears_pickup": HEADER.replace("L:1/4", "L:1/8")
+    + "CDEFGABc|\nP:A\nDE\nP:B\nFG |:ABcd:|",
     "part_label_inside_measure": HEADER.replace("K:C", "P:(AB)2\nK:C")
     + "P:A\nCDEF| G A\nP:B\nB c d e|",
     "implicit_repeat": HEADER + "C4 || D4 :| E4 |",

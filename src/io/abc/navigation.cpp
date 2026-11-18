@@ -144,6 +144,7 @@ public:
         source(source), bars(boundaries(source, diagnostics)), output(output),
         diagnostics(diagnostics) {}
     void append();
+    void append_part();
 
 private:
     Section       source;
@@ -250,6 +251,11 @@ void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int pa
     }
 }
 
+void RepeatOrder::append_part() {
+    step(0, Flow::enter_part);
+    append();
+}
+
 void RepeatOrder::append() {
     size_t first     = 0;
     size_t first_bar = 0;
@@ -332,7 +338,7 @@ PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
             continue;
         }
         auto [repeat, inserted] = repeats.try_emplace(label, section->second, tokens, diagnostics);
-        repeat->second.append();
+        repeat->second.append_part();
     }
     return tokens;
 }

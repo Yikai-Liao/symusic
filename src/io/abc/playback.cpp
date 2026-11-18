@@ -107,19 +107,19 @@ struct WrittenState {
 };
 
 struct PlaybackLane {
-    long double  time      = 0;
-    long double  bar       = 0;
-    bool         first_bar = true;
+    long double  time   = 0;
+    long double  bar    = 0;
+    bool         pickup = true;
     Accidentals  accidentals;
     vec<TieNote> ties;
     Expression   expression{};
     int          slur = 0;
-    // Re-entry uses the previous primary bar boundary, not an inner barline.
+    // Re-entry inherits the primary measure phase at the last synchronization.
     long double                reentry_bar = 0;
     std::optional<long double> primary_until;
 
     void reenter() {
-        first_bar   = true;
+        pickup      = true;
         accidentals = {};
         bar         = reentry_bar;
     }
@@ -137,13 +137,14 @@ void report_ties(vec<TieNote>& ties, Diagnostics& diagnostics) {
 class OverlayLanes {
 public:
     OverlayLanes(RhythmStyle rhythm, Diagnostics& diagnostics) :
-        diagnostics(diagnostics), rhythm(rhythm), lanes{new_lane(0)} {}
+        diagnostics(diagnostics), rhythm(rhythm), lanes{new_lane(0, 0)} {}
     PlaybackLane&      active() { return lanes[selected]; }
     [[nodiscard]] int  id() const { return static_cast<int>(selected); }
     void               control(Overlay command, WrittenState& written, Location at);
-    void               close_implicit(WrittenState& written);
+    bool               close_implicit(WrittenState& written);
+    void               enter_part(WrittenState& written);
     void               finish_voice(WrittenState& written, Location at);
-    void               primary_bar();
+    void               primary_boundary();
     void               break_ties();
     [[nodiscard]] bool has_secondary() const { return lanes.size() > 1; }
 
@@ -156,11 +157,11 @@ private:
     Diagnostics&         diagnostics;
     const RhythmStyle    rhythm;
     vec<PlaybackLane>    lanes;
-    size_t               selected         = 0;
-    long double          last_primary_bar = 0;
+    size_t               selected              = 0;
+    long double          last_primary_boundary = 0;
     std::optional<Group> group;
 
-    PlaybackLane new_lane(long double time) const;
+    PlaybackLane new_lane(long double time, long double bar) const;
     void         split(WrittenState& written, Location at);
     void         join(WrittenState& written);
 };
@@ -184,8 +185,8 @@ void OverlayLanes::control(Overlay command, WrittenState& written, Location at) 
     }
 }
 
-PlaybackLane OverlayLanes::new_lane(long double time) const {
-    return {.time = time, .expression = Expression(rhythm), .reentry_bar = time};
+PlaybackLane OverlayLanes::new_lane(long double time, long double bar) const {
+    return {.time = time, .expression = Expression(rhythm), .reentry_bar = bar};
 }
 
 void OverlayLanes::split(WrittenState& written, Location at) {
@@ -193,7 +194,9 @@ void OverlayLanes::split(WrittenState& written, Location at) {
     if (!group->primary_fields) group->primary_fields = written;
     if (++selected >= max_voice_lanes)
         diagnostics.error(at, "overlay-limit", "too many overlay lanes");
-    if (selected == lanes.size()) { lanes.push_back(new_lane(last_primary_bar)); }
+    if (selected == lanes.size()) {
+        lanes.push_back(new_lane(last_primary_boundary, lanes.front().bar));
+    }
     active().reenter();
 }
 
@@ -207,8 +210,18 @@ void OverlayLanes::join(WrittenState& written) {
     group.reset();
 }
 
-void OverlayLanes::close_implicit(WrittenState& written) {
-    if (group && !group->explicit_group) join(written);
+bool OverlayLanes::close_implicit(WrittenState& written) {
+    if (!group || group->explicit_group) return false;
+    join(written);
+    return true;
+}
+
+void OverlayLanes::enter_part(WrittenState& written) {
+    if (!close_implicit(written)) return;
+    // The melody resumes on a downbeat. Secondary lanes continue their
+    // existing measure rather than receiving the melody's reset.
+    primary_boundary();
+    active().bar = active().time;
 }
 
 void OverlayLanes::finish_voice(WrittenState& written, Location at) {
@@ -218,16 +231,17 @@ void OverlayLanes::finish_voice(WrittenState& written, Location at) {
     join(written);
 }
 
-void OverlayLanes::primary_bar() {
-    const auto now = lanes.front().time;
+void OverlayLanes::primary_boundary() {
+    const auto now   = lanes.front().time;
+    const auto phase = now - lanes.front().bar;
     for (size_t index = 1; index < lanes.size(); ++index) {
         auto& lane = lanes[index];
-        if (!lane.primary_until && now > last_primary_bar) report_ties(lane.ties, diagnostics);
-        lane.time += now - lane.primary_until.value_or(last_primary_bar);
-        lane.reentry_bar = lane.time;
+        if (!lane.primary_until && now > last_primary_boundary) report_ties(lane.ties, diagnostics);
+        lane.time += now - lane.primary_until.value_or(last_primary_boundary);
+        lane.reentry_bar = lane.time - phase;
         lane.primary_until.reset();
     }
-    last_primary_bar = now;
+    last_primary_boundary = now;
 }
 
 void OverlayLanes::break_ties() {
@@ -828,15 +842,14 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     const bool soft   = bar.repeat_start || bar.repeat_end || bar.section;
     const auto length = lane().time - lane().bar;
     if (soft
-        && (written.meter.free
-            || (!lane().first_bar && length + epsilon < written.meter.measure())))
+        && (written.meter.free || (!lane().pickup && length + epsilon < written.meter.measure())))
         return;
-    if (length > epsilon) lane().first_bar = false;
+    if (length > epsilon) lane().pickup = false;
+    lane().bar = lane().time;
     if (lanes.id() == 0) {
-        lanes.primary_bar();
+        lanes.primary_boundary();
         accompaniment.bar(lane().time);
     }
-    lane().bar = lane().time;
 }
 
 void VoicePlayer::set_symbols(std::string_view value, Location at) {
@@ -933,7 +946,7 @@ void VoicePlayer::visit(const Field& field, Location at) {
     case 'L': written.unit = unit_length(value, diagnostics, at); break;
     case 'P':
         // A part can start with a pickup, but its label is not a barline.
-        if (std::fabs(lane().time - lane().bar) < epsilon) lane().first_bar = true;
+        lane().pickup = std::fabs(lane().time - lane().bar) < epsilon;
         break;
     case 'V': change_voice(value, at); break;
     case 'I': information(value, at); break;
@@ -993,6 +1006,11 @@ void VoicePlayer::visit_step(PlayStep step) {
     const auto& token = *step.token;
     diagnostics.spend(PlaybackWork::token, token.at);
     switch (step.flow) {
+    case Flow::enter_part:
+        flush();
+        finish_rhythm();
+        lanes.enter_part(written);
+        break;
     case Flow::enter_repeat:
         flush();
         repeat_entry = {written.tone, written.unit, output.selected_channel(lanes.id())};
