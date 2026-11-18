@@ -57,3 +57,13 @@ TEST_CASE("ABC validates backing note endpoints", "[abc]") {
     CHECK_THROWS_AS(abc::read(input), std::invalid_argument);
     CHECK(abc::read("X:1\nM:4/4\nL:1/4\nK:C\nz1000001 C").value.note_num() == 1);
 }
+
+TEST_CASE("ABC ornament neighbors use the key signature", "[abc]") {
+    const auto [score, warnings] = abc::read("X:1\nM:2/4\nL:1/8\nK:D\n^g~f");
+    REQUIRE(warnings.empty());
+    const auto& notes = *score.tracks->front()->notes;
+    REQUIRE(notes.size() == 3);
+    CHECK(notes[0] == Note<Tick>{1, 239, 80, 105});
+    CHECK(notes[1] == Note<Tick>{241, 59, 79, 80});
+    CHECK(notes[2] == Note<Tick>{301, 179, 78, 80});
+}

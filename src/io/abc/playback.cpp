@@ -176,7 +176,8 @@ private:
     void        play_chord(const Prepared& atom, long double start, long double duration);
     void  play_trill(Pitch pitch, const Prepared& atom, long double start, long double duration);
     void  play_roll(Pitch pitch, const Prepared& atom, long double start, long double duration);
-    Pitch neighbor(Pitch pitch, int direction) const;
+    Sound ornament_neighbor(Pitch pitch) const;
+    Sound resolve_sound(Pitch pitch, int semitone, bool tie) const;
     Sound sound(Pitch pitch, bool tie);
     std::optional<NoteAddress> note(
         Sound sound, long double start, long double duration, int stagger, int loudness, Location at
@@ -293,8 +294,11 @@ void VoicePlayer::flush() {
 }
 
 Sound VoicePlayer::sound(Pitch pitch, bool tie) {
-    const auto semitone = cursor.accidentals.resolve(pitch, tone);
-    const auto index    = letter_index(pitch.letter);
+    return resolve_sound(pitch, cursor.accidentals.resolve(pitch, tone), tie);
+}
+
+Sound VoicePlayer::resolve_sound(Pitch pitch, int semitone, bool tie) const {
+    const auto index = letter_index(pitch.letter);
     return {
         base_pitch + natural_pitch[index] + 12 * (pitch.octave + tone.octave) + semitone
             + tone.transpose,
@@ -305,13 +309,13 @@ Sound VoicePlayer::sound(Pitch pitch, bool tie) {
     };
 }
 
-Pitch VoicePlayer::neighbor(Pitch pitch, int direction) const {
-    if (pitch.letter == 'B' && direction > 0) ++pitch.octave;
-    if (pitch.letter == 'C' && direction < 0) --pitch.octave;
-    pitch.letter = static_cast<char>('A' + (pitch.letter - 'A' + 7 + direction) % 7);
+Sound VoicePlayer::ornament_neighbor(Pitch pitch) const {
+    if (pitch.letter == 'B') ++pitch.octave;
+    pitch.letter = pitch.letter == 'G' ? 'A' : static_cast<char>(pitch.letter + 1);
     pitch.accidental.reset();
     pitch.tie = false;
-    return pitch;
+    // An inferred ornament uses the key, not the measure's accidental for its neighbor.
+    return resolve_sound(pitch, tone.alterations[letter_index(pitch.letter)], false);
 }
 
 std::optional<NoteAddress> VoicePlayer::note(
@@ -414,7 +418,7 @@ void VoicePlayer::play_roll(
         play_chord(atom, start, duration);
         return;
     }
-    note(sound(neighbor(pitch, 1), false), start, ornament_length, 0, velocity(start), atom.at);
+    note(ornament_neighbor(pitch), start, ornament_length, 0, velocity(start), atom.at);
     play_chord(atom, start + ornament_length, duration - ornament_length);
 }
 
@@ -423,7 +427,7 @@ void VoicePlayer::play_trill(
 ) {
     const auto count = std::clamp(static_cast<int>(std::min(256.L, duration / (unit / 8))), 2, 256);
     const auto step  = duration / count;
-    const auto higher = sound(neighbor(pitch, 1), false);
+    const auto higher = ornament_neighbor(pitch);
     const auto lower  = sound(pitch, false);
     for (int i = 0; i < count; ++i) {
         const auto onset = start + i * step;
