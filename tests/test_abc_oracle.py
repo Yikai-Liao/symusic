@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import tempfile
+from contextlib import nullcontext
 from itertools import groupby
 from pathlib import Path
 
@@ -248,45 +249,6 @@ CASES = {
 }
 
 
-# Compare all events for these upstream samples without redistributing them.
-# Keep feature gaps out of the passing list; pin intentional differences in a
-# separate focused test, rather than removing fields from every comparison.
-UPSTREAM_SAMPLES = (
-    "araber",
-    "barcheck_long_warning",
-    "barfly_aliases",
-    "barfly_barcheck",
-    "barfly_missing_bar_lines",
-    "barfly_option",
-    "barfly_rhythm",
-    "barfly_split_bar",
-    "barloc_long",
-    "beatstring",
-    "control_tracks",
-    "daramud",
-    "demo",
-    "decoration_bar_line",
-    "decoration_space",
-    "dergasn",
-    "detune",
-    "detune_accidentals",
-    "drums",
-    "fermata_bars",
-    "gchord_codes",
-    "gchord_inversion",
-    "key_microtone",
-    "key_unknown_word",
-    "microtone_wide",
-    "partdemo",
-    "part_pickup",
-    "temperament",
-    "tempo_tracks",
-    "text_fields",
-    "words",
-    "words_tempo",
-)
-
-
 def performed_track(track: Track) -> dict:
     events = {
         "program": track.program,
@@ -423,37 +385,107 @@ def test_pitchbend_does_not_shift_note_clock(upstream: Path, tmp_path: Path):
     assert [note.time for note in actual.tracks[0].notes] == [1, 480, 960, 1440]
 
 
-@pytest.fixture(scope="module")
-def upstream_samples(upstream: Path) -> Path:
-    if source := os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE"):
-        samples = Path(source) / "samples"
-        assert samples.is_dir(), f"upstream samples not found: {samples}"
-        return samples
-    pytest.skip("set SYMUSIC_TEST_ABCMIDI_SOURCE to use the upstream sample corpus")
+# Pin exceptions at the affected rows so the rest of each tune is still compared.
+SAMPLE_DIFFERENCES = {
+    # The body tempo at time zero supersedes the implicit default.
+    "baym_rebin/63": (("tempos",), [], [[0, 500000]]),
+    # The MIDI queue schedules the first full backing chord twice at the same tick.
+    "chordname_long/1": (
+        ("tracks", 1, "notes"),
+        [],
+        [[1, 1919, pitch, 75] for pitch in (48, 52, 55, 58, 62, 65, 69)],
+    ),
+    # Native controllers keep their written time; the MIDI program lands at tick 1.
+    "coleraine/8": (
+        ("tracks", 0, "controls"),
+        [[0, 7, 115], [0, 10, 67]],
+        [[1, 7, 115], [1, 10, 67]],
+    ),
+    # Two pitches start and release together in the score. The converter applies
+    # the program-change delta again for each drone note-on.
+    "demo/7": (
+        ("tracks", 1, "notes"),
+        [[1, 30719, 33, 90], [1, 30719, 45, 90]],
+        [[2, 30721, 45, 90], [3, 30720, 33, 90]],
+    ),
+    # G tied to B across a barline. Preserve both pitches rather than dropping B.
+    "demo/8": (
+        ("tracks", 0, "notes"),
+        [[12481, 1919, 67, 105], [14401, 959, 71, 105]],
+        [[12481, 2879, 67, 105]],
+    ),
+}
+SAMPLE_RECOVERY = {
+    "chordname_too_long/1": "invalid-chord-name",
+    "decoration_line_end/1": "orphan-decoration",
+    "microtone/1": "invalid-accidental",
+    "microtone_accidentals/1": "invalid-accidental",
+    "microtone_accidentals/2": "invalid-accidental",
+}
 
 
-@pytest.mark.parametrize("name", UPSTREAM_SAMPLES)
+def upstream_sample_tunes():
+    if not (source := os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE")):
+        return [
+            pytest.param(
+                None,
+                "",
+                "",
+                marks=pytest.mark.skip(reason="set SYMUSIC_TEST_ABCMIDI_SOURCE"),
+            )
+        ]
+    samples = Path(source) / "samples"
+    cases = []
+    for path in sorted(samples.glob("*.abc")):
+        abc = path.read_text(encoding="utf-8-sig")
+        header, *tunes = re.split(r"(?=^[ \t]*X\s*:)", abc, flags=re.MULTILINE)
+        for tune in tunes:
+            reference = re.match(r"\s*X\s*:\s*(\d+)", tune).group(1)
+            cases.append(
+                pytest.param(
+                    path, reference, header + tune, id=f"{path.stem}/{reference}"
+                )
+            )
+    assert cases, f"no upstream tunes found in {samples}"
+    return cases
+
+
+def drop_sample_rows(events: dict, path: tuple, rows: list[list[int]]) -> None:
+    for part in path:
+        events = events[part]
+    for row in rows:
+        events.remove(row)
+
+
+@pytest.mark.parametrize(("path", "reference", "abc"), upstream_sample_tunes())
 def test_upstream_sample(
-    name: str, upstream: Path, upstream_samples: Path, tmp_path: Path
+    path: Path, reference: str, abc: str, upstream: Path, tmp_path: Path
 ):
-    abc = (upstream_samples / f"{name}.abc").read_text(encoding="utf-8-sig")
-    if len(re.findall(r"^X\s*:", abc, re.MULTILINE)) > 1:
-        with pytest.warns(UserWarning, match=r"\[extra-tunes\]"):
-            native = Score.from_abc(abc)
-    else:
-        native = Score.from_abc(abc)
-    assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
-
-
-@pytest.mark.parametrize("index", range(7))
-def test_upstream_part_pickups(
-    index: int, upstream: Path, upstream_samples: Path, tmp_path: Path
-):
-    abc = (upstream_samples / "part_pickup.abc").read_text(encoding="utf-8")
-    tune = re.split(r"(?=^X:)", abc, flags=re.MULTILINE)[index + 1]
-    assert performed(Score.from_abc(tune)) == performed(
-        oracle_score(upstream, tune, tmp_path)
+    label = f"{path.stem}/{reference}"
+    output = tmp_path / "sample.mid"
+    result = subprocess.run(
+        [upstream.resolve(), path, reference, "-o", output, "-silent"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
     )
+    assert result.returncode == int(label in SAMPLE_RECOVERY), (
+        result.stdout + result.stderr
+    )
+    expected = performed(Score(output))
+    warning = SAMPLE_RECOVERY.get(label) or {"boys/3": "unexpected-character"}.get(
+        label
+    )
+    with (
+        pytest.warns(UserWarning, match=rf"\[{warning}\]") if warning else nullcontext()
+    ):
+        actual = performed(Score.from_abc(abc))
+    if difference := SAMPLE_DIFFERENCES.get(label):
+        location, native_rows, upstream_rows = difference
+        drop_sample_rows(expected, location, upstream_rows)
+        drop_sample_rows(actual, location, native_rows)
+    assert actual == expected
 
 
 @pytest.mark.parametrize("kind", ["single voice", "dense chords", "issue 78"])
