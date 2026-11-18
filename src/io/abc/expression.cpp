@@ -1,6 +1,7 @@
 #include "expression.h"
 
 #include <cmath>
+#include <limits>
 
 namespace symusic::abc::detail {
 
@@ -22,11 +23,56 @@ constexpr std::array marks{
     Mark{"fff", {127, 125, 110}},
 };
 
+constexpr int max_trill_attacks = static_cast<int>(PlaybackWork::limit);
+
+[[noreturn]] void trill_limit(Location at, Diagnostics& diagnostics) {
+    diagnostics.error(at, "expansion-limit", "trill exceeds the playback work limit");
+}
+
+int notated_trill_attacks(long double units, Location at, Diagnostics& diagnostics) {
+    // Rhythm transforms leave a rational number of reference units, e.g.
+    // 2/3 for a triplet. Use the reduced numerator, not a rounded tick count.
+    const auto tolerance = 8 * std::numeric_limits<long double>::epsilon() * std::max(1.L, units);
+    if (units <= tolerance) return 1;
+    long double previous_n = 0, n = 1;
+    long double previous_d = 1, d = 0;
+    auto        remainder = units;
+    for (;;) {
+        const auto term   = std::floor(remainder);
+        const auto next_n = term * n + previous_n;
+        const auto next_d = term * d + previous_d;
+        if (next_n > max_trill_attacks) trill_limit(at, diagnostics);
+        const auto fraction = remainder - term;
+        if (next_n >= 1 && (fraction == 0 || std::abs(next_n / next_d - units) <= tolerance))
+            return static_cast<int>(next_n);
+        previous_n = std::exchange(n, next_n);
+        previous_d = std::exchange(d, next_d);
+        remainder  = 1 / fraction;
+    }
+}
+
 bool aligned(long double position, long double every) {
     return std::fabs(std::remainder(position, every)) < 0.0000001L;
 }
 
 }   // namespace
+
+int trill_attacks(
+    long double  duration,
+    long double  unit,
+    i32          usec_per_quarter,
+    Location     at,
+    Diagnostics& diagnostics
+) {
+    if (duration == 0) return 0;
+    auto count = notated_trill_attacks(duration / unit, at, diagnostics);
+    while (std::floor(duration * usec_per_quarter / (count * static_cast<long double>(tpq)))
+           > 100'000) {
+        if (count > max_trill_attacks / 2) trill_limit(at, diagnostics);
+        count *= 2;
+    }
+    return count;
+}
 
 void Expression::shift(int amount) {
     for (auto& level : beat) level = std::clamp(level + amount, 0, midi_max);

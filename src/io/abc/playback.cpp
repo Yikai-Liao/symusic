@@ -235,7 +235,7 @@ public:
         diagnostics(diagnostics), output(std::move(name), diagnostics), tuning(settings.tuning),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, diagnostics), symbols(settings.symbols), lanes(diagnostics),
-        tempo_unit(settings.unit), midi_shift(settings.midi_shift) {}
+        tempo_unit(settings.unit), initial_tempo(settings.tempo), midi_shift(settings.midi_shift) {}
 
     Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
@@ -249,6 +249,7 @@ private:
     OverlayLanes                               lanes;
     PlaybackLane&                              lane() { return lanes.active(); }
     const long double                          tempo_unit;
+    const i32                                  initial_tempo;
     int                                        midi_shift;
     [[nodiscard]] int                          sounding_shift();
     TupletState                                tuplet;
@@ -549,8 +550,8 @@ void VoicePlayer::play_cut(
 void VoicePlayer::play_trill(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
-    const auto count
-        = std::clamp(static_cast<int>(std::min(256.L, duration / (written.unit / 8))), 2, 256);
+    const auto count = trill_attacks(duration, tempo_unit, initial_tempo, atom.at, diagnostics);
+    if (count == 0) return;
     const auto step   = duration / count;
     const auto higher = ornament_neighbor(pitch, atom.at);
     const auto lower  = sound(pitch, atom.at, false);
@@ -632,12 +633,23 @@ std::string_view VoicePlayer::decoration_name(const Decoration& decoration) cons
 }
 
 bool Ornament::* ornament_flag(std::string_view mark) {
-    if (mark == "." || mark == "breath") return &Ornament::staccato;
-    if (mark == "fermata" || mark == "H") return &Ornament::fermata;
-    if (mark == "trill" || mark == "T") return &Ornament::trill;
-    if (mark == "~") return &Ornament::cut;
-    if (mark == "R") return &Ornament::roll;
-    return nullptr;
+    struct Feature {
+        std::string_view name;
+        bool Ornament::* flag;
+    };
+    constexpr std::array features{
+        Feature{".", &Ornament::staccato},
+        Feature{"'", &Ornament::staccato},
+        Feature{"breath", &Ornament::staccato},
+        Feature{"fermata", &Ornament::fermata},
+        Feature{"H", &Ornament::fermata},
+        Feature{"trill", &Ornament::trill},
+        Feature{"T", &Ornament::trill},
+        Feature{"~", &Ornament::cut},
+        Feature{"R", &Ornament::roll}
+    };
+    const auto feature = std::ranges::find(features, mark, &Feature::name);
+    return feature == features.end() ? nullptr : feature->flag;
 }
 
 void VoicePlayer::visit(const Decoration& decoration, Location at) {
@@ -674,6 +686,8 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
         "accent"sv,
         ">"sv,
         "tenuto"sv,
+        "L"sv,
+        "wedge"sv,
         "downbow"sv,
         "upbow"sv,
         "P"sv,

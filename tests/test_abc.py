@@ -398,6 +398,13 @@ def test_abc_warns_on_bending_a_continuation(chord: str):
     assert list(track.pitch_bends) == [PitchBend(1, 2048), PitchBend(481, 0)]
 
 
+def test_abc_trill_expansion_limit():
+    with pytest.raises(
+        ValueError, match=r"<string>:7:3: ABC \[expansion-limit\].*trill"
+    ):
+        Score.from_abc(HEADER + "T C1000001|")
+
+
 def test_abc_unclosed_layout():
     abc = HEADER + "CDEF|\n  %%begintext\nX:99\nK:G\nGABc|"
     with pytest.warns(

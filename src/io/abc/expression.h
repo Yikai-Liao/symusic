@@ -45,6 +45,16 @@ private:
     );
 };
 
+// Subdivide the notated duration until each alternating attack fits the
+// upstream 100 ms trill pulse, bounded by the tune's expansion limit.
+int trill_attacks(
+    long double  duration,
+    long double  unit,
+    i32          usec_per_quarter,
+    Location     at,
+    Diagnostics& diagnostics
+);
+
 struct Ornament {
     bool staccato = false;
     bool fermata  = false;

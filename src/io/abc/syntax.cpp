@@ -95,7 +95,7 @@ struct harmony : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'
 struct named_decoration : sor<seq<chars<'!'>, plus<not_one<'!'>>, chars<'!'>>,
                               seq<chars<'+'>, plus<not_one<'+'>>, chars<'+'>>> {};
 struct spacing : seq<chars<'y'>, opt<length>> {};
-struct decoration : sor<named_decoration, chars<'.', '~'>, alpha> {};
+struct decoration : sor<named_decoration, chars<'.', '~', '\''>, alpha> {};
 struct slur : chars<'(', ')'> {};
 struct invalid : any {};
 using layout = sor<chars<'$', '`'>, seq<chars<'\\', '!'>, eof>, ws>;
