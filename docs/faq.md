@@ -1,92 +1,37 @@
-# FAQ & Troubleshooting
+# FAQ
 
-This page collects short answers to common setup and runtime issues when using Symusic.
+## Installation
 
-## Installation problems
+### `pip install symusic` compiles from source
 
-### `pip install symusic` falls back to a source build
+No wheel matches your interpreter or platform; {doc}`quickstart` lists the published wheels. The source build needs a C++20 compiler, and {doc}`CONTRIBUTING` lists the supported ones.
 
-Symusic publishes CPython wheels for Python 3.9 through 3.14 across the supported Linux, macOS, and
-Windows targets, including Windows ARM64. PyPy wheels are currently published for `pp311` on
-`manylinux_x86_64`, `macosx_x86_64`, and `macosx_arm64`. If `pip` starts compiling from source:
+### Importing symusic warns about the GIL
 
-- Check that your Python version is supported (`python -m pip debug --verbose` is helpful).
-- Upgrade `pip`, `setuptools`, and `wheel` in your environment.
-- On PyPy, musllinux, or less common platform combinations, a source build can still be expected.
-- On ARM or other less common platforms, prefer a recent CPython release before trying to build from source.
+Free-threaded CPython builds (`3.13t`, `3.14t`) are not supported: the extension re-enables the GIL and Python emits a `RuntimeWarning` on import. Use a regular CPython build.
 
-If a wheel is not available for your platform, follow the source build instructions in {doc}`/quickstart`.
+## Loading files
 
-### Compiler or toolchain errors when building from source
+### `ValueError: Unknown file format`
 
-Symusic requires a C++20-capable toolchain:
+`Score(path)` picks the format from the extension and only knows `.mid`, `.midi`, `.MID`, `.MIDI` and `.abc`. For other names, pass `fmt="midi"` or `fmt="abc"`.
 
-- GCC 11 or newer
-- Clang 15 or newer
-- MSVC 2022 on Windows
+### A MIDI file raises `RuntimeError: Get control_value=168` or similar
 
-When builds fail with compiler errors:
+The file contains a data byte above 127, which MIDI does not allow. `Score(path, sanitize_data=True)` and `Score.from_midi(data, sanitize_data=True)` clamp such bytes to the 7-bit range before parsing. Other damage, such as an unknown status byte, still raises `RuntimeError`.
 
-- Verify the compiler version with `g++ --version` / `clang++ --version` / `cl` and upgrade if needed.
-- On Linux without sudo, install `gcc` from conda and set `CC`/`CXX` as shown in {doc}`/introduction`.
-- Ensure the repository was cloned with submodules: `git clone --recursive ...`.
+### An ABC tune raises `RuntimeError: Process exited with code 1`
 
-### Importing `symusic` fails after installation
+ABC import runs the bundled `abc2midi`, which exits with status 1 whenever it reports an error, including errors it recovers from. Its messages are printed to the terminal with line and character positions; fix the reported lines. Accepting recovered conversions is planned in the {doc}`ROADMAP`.
 
-If `python -c "import symusic"` raises an `ImportError` or complains about missing extension modules:
+## Saving files
 
-- Confirm you are running the same Python interpreter that you used for `pip install`.
-- Check for multiple installations: `python -m pip show symusic` and `pip show symusic` should point to
-  the same environment.
-- Reinstall inside a clean virtual environment to rule out conflicts:
+### `dump_abc` produces irregular notation
 
-```bash
-python -m venv .venv-symusic
-source .venv-symusic/bin/activate
-pip install symusic
-python -c "import symusic; print(symusic.__version__)"
-```
+`dump_abc` writes the score as MIDI and converts it with `midi2abc`, which infers note lengths and bar lines from the timing. A score that is not quantized to a regular grid gives tuplets, ties and odd lengths.
 
-## Common runtime issues
+## Performance
 
-### File cannot be opened or parsed
+### Looping over notes in Python is slow
 
-Errors such as `FileNotFoundError`, `IOError`, or format errors when creating a `Score` usually trace
-back to one of:
-
-- Wrong path (relative vs. absolute). Use `Path` objects or `pathlib.Path.resolve()` for clarity.
-- Unsupported or corrupted files. Symusic focuses on MIDI and ABC; other formats may not be accepted.
-- Permission issues when reading from network drives or temporary directories.
-
-Printing `Path(path).resolve()` before loading often makes path issues obvious.
-
-### Confusion around time units
-
-Symusic works in three time domains: `tick`, `quarter`, and `second`. Mixing them accidentally can
-lead to surprising results (e.g., unexpected durations or densities).
-
-- Decide on a time unit at the start of a workflow and stick to it.
-- Use `Score(..., ttype="second")` when computing rates or densities over wall-clock time.
-- Convert explicitly with `score.to("second")` or `score.to("quarter")` before heavy analysis.
-
-See {doc}`concepts/time_units` for a deeper discussion.
-
-### Slow analysis over large datasets
-
-If a pipeline over thousands of MIDI files is slower than expected:
-
-- Avoid re-reading the same file repeatedly; reuse `Score` objects when possible.
-- Use multiprocessing as shown in {doc}`tutorials/data_processing`.
-- Prefer structured NumPy exports (`track.notes.numpy()`) over Python loops inside tight inner loops.
-
-## Getting help
-
-If you run into an issue that is not covered here:
-
-- Check the open and closed issues on the GitHub repository.
-- Open a new issue with:
-  - OS, Python, and compiler versions
-  - `symusic.__version__`
-  - A minimal script and, if possible, a small MIDI file that reproduces the problem.
-
-Clear, minimal reproductions make it much easier to fix bugs and improve the documentation.
+Every element read from an event list in Python creates a Python object. `track.notes.numpy()` exports all fields in one call; see {doc}`quickstart`.

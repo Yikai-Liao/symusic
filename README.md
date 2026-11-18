@@ -14,7 +14,7 @@
 pip install symusic
 ```
 
-Wheels cover CPython 3.10 and newer on Linux, macOS and Windows; from 3.12 on, one stable-ABI (`abi3`) wheel serves every CPython version. To build from source you need CMake and a C++20 compiler; see [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#set-up).
+Wheels cover CPython 3.10 and newer on Linux, macOS and Windows, and PyPy 3.11 on Linux x86_64 and macOS; from CPython 3.12 on, one stable-ABI (`abi3`) wheel serves every later version. Free-threaded builds are not supported. Building from source needs a C++20 compiler; see [CONTRIBUTING.md](https://github.com/Yikai-Liao/symusic/blob/main/CONTRIBUTING.md#set-up).
 
 ## Example
 
@@ -22,7 +22,7 @@ Wheels cover CPython 3.10 and newer on Linux, macOS and Windows; from 3.12 on, o
 import pickle
 from symusic import Score
 
-score = Score("song.mid")  # ticks by default; ABC with fmt="abc"
+score = Score("song.mid")  # format from the extension, time in ticks
 print(score)  # tracks and event counts
 
 shifted = score.shift_pitch(2)  # returns a new score
@@ -33,7 +33,7 @@ notes = seconds.tracks[0].notes.numpy()  # dict of NumPy arrays
 roll = score.tracks[0].pianoroll(modes=["onset", "frame"], pitch_range=(0, 128))
 
 score.dump_midi("out.mid")
-restored = pickle.loads(pickle.dumps(score))  # fast binary pickling
+restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 ```
 
 ## Features

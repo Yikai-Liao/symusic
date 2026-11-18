@@ -1,191 +1,130 @@
 # Quickstart
 
-This guide walks through the most common Python workflow: install Symusic, load a MIDI file, inspect
-and transform notes, and export the results. Every example runs on top of the same C++20 core that
-powers the library in production, so the snippets scale from a notebook to a training pipeline.
-
-## Install Symusic
-
-### Pre-built wheels
+## Install
 
 ```bash
 pip install symusic
 ```
 
-We publish CPython wheels for Python 3.9 through 3.14 across Linux, macOS, and Windows, including
-Windows ARM64. PyPy wheels are currently published for `pp311` on `manylinux_x86_64`,
-`macosx_x86_64`, and `macosx_arm64`.
+Wheels are published for:
 
-CPython 3.12 can still emit harmless nanobind leak warnings. If they become distracting during local
-work, use 3.11 until the upstream warning noise is reduced.
+- CPython 3.10 and later on Linux (manylinux and musllinux, x86_64 and aarch64), macOS 13 or later (x86_64 and arm64) and Windows (x64, x86 and ARM64). CPython 3.10 and 3.11 get one wheel each; from 3.12 on, one stable-ABI (`abi3`) wheel serves every later version.
+- PyPy 3.11 on manylinux x86_64 and macOS.
 
-### Build from source
-
-```bash
-pip install --no-binary symusic symusic  # from PyPI source distribution
-```
-
-or clone the repository if you need the latest commit:
-
-```bash
-git clone --recursive https://github.com/Yikai-Liao/symusic
-cd symusic
-pip install .
-```
-
-Symusic targets C++20. Minimum compiler versions: GCC 11, Clang 15, MSVC 2022. On Linux machines
-without sudo you can install the toolchain via conda and wire it in with `CC=... CXX=...`.
+Free-threaded CPython builds (`3.13t`, `3.14t`) are not supported. Elsewhere pip builds from the source distribution, which needs a C++20 compiler; pip fetches CMake and Ninja if they are missing. {doc}`CONTRIBUTING` describes building from a clone.
 
 ## Load a score
 
 ```python
 from symusic import Score
 
-score = Score("example.mid")  # format auto-detected
-score_abc = Score("example.abc", fmt="abc")
-```
-
-Passing a string or `Path` dispatches to `Score.from_file`. To work in a specific time unit, use the
-`ttype` argument or the convenience constructor names:
-
-```python
-from symusic import Score, TimeUnit
-
-score_tick = Score("example.mid", ttype="tick")
-score_quarter = Score("example.mid", ttype=TimeUnit.quarter)
-score_second = score_tick.to("second")  # convert after loading
-```
-
-- `tick` retains the raw MIDI ticks (int32).
-- `quarter` normalizes time so that a quarter note equals `1.0`.
-- `second` evaluates the tempo map and produces wall-clock seconds.
-
-The `Score.to(new_unit, min_dur=None)` method converts the entire hierarchy—tracks, notes, pedals,
-etc.—to a different unit. Use `min_dur` when converting to ticks to avoid rounding durations to zero.
-
-## Beat and downbeat helpers
-
-```python
-from symusic import Score
-
-score = Score("example.mid").to("quarter")
-beats = score.get_beats()
-downbeats = score.get_downbeats()
-```
-
-`get_beats()` returns the musical beat grid implied by the tempo and time-signature maps.
-`get_downbeats()` keeps only bar starts. Both helpers return NumPy arrays in the score's current
-time unit, so they work naturally in `tick`, `quarter`, or `second` workflows.
-
-## Save back to disk
-
-```python
 score = Score("example.mid")
-score.shift_pitch_inplace(1)
-score.dump_midi("example_shifted.mid")
-score.dump_abc("example.txt")
+abc = Score("example.abc")
 ```
 
-`dump_midi` internally works in ticks, so a score in quarters/seconds will be converted before
-writing. For ABC export, set `fmt="abc"` when loading so the parser sees the correct metadata.
+The format comes from the extension: `.mid`, `.midi`, `.MID` and `.MIDI` load as MIDI, `.abc` as ABC, and any other extension raises `ValueError`. Pass `fmt="midi"` or `fmt="abc"` to override it. `Score.from_midi(data)` and `Score.from_abc(text)` load from bytes and strings.
 
-## Pickling and multiprocessing
-
-Every container in Symusic is pickleable. We serialize through `zpp_bits`, which makes pickling far
-faster than writing out intermediate MIDI files.
+A score loads in ticks unless you pass `ttype`, and `to` converts it afterwards:
 
 ```python
-import multiprocessing as mp
+score_quarter = Score("example.mid", ttype="quarter")
+score_second = score.to("second")
+score_tick = score_second.to("tick", min_dur=1)
+```
+
+`to` returns a converted copy. Converting to ticks rounds times and durations; note and pedal durations shorter than `min_dur` are raised to it, so short notes do not round to zero. {doc}`concepts/time_units` covers the units and their rounding.
+
+## Inspect the hierarchy
+
+```python
+print(score)
+print(score.ticks_per_quarter, len(score.tracks))
+
+track = score.tracks[0]
+print(track.name, track.program, track.is_drum)
+print(len(track.notes), track.start(), track.end())
+```
+
+A `Score` holds the global `tempos`, `time_signatures`, `key_signatures` and `markers` lists and a list of `Track` objects. A `Track` holds `notes`, `controls`, `pitch_bends`, `pedals` and `lyrics`. The event lists behave like Python lists and add `sort`, `filter`, `adjust_time`, `copy` and `numpy`. {doc}`concepts/score`, {doc}`concepts/track` and {doc}`concepts/events` describe each type.
+
+## Transform
+
+```python
+shifted = score.shift_pitch(2)
+score.shift_time(480, inplace=True)
+```
+
+Transformations return a new object by default; `inplace=True` modifies the receiver instead.
+
+## Beats and downbeats
+
+```python
+beats = score_quarter.get_beats()
+downbeats = score_quarter.get_downbeats()
+```
+
+Both return NumPy arrays in the score's time unit, derived from the time signatures. Compound meters such as 6/8 count one beat per three eighth notes, following pretty_midi.
+
+## NumPy export
+
+```python
+from symusic import Note
+
+arrays = score.tracks[0].notes.numpy()
+print(arrays.keys())  # time, duration, pitch, velocity
+
+notes = Note.from_numpy(**arrays, ttype=score.ttype)
+assert notes == score.tracks[0].notes
+```
+
+`numpy()` returns one array per field, and `from_numpy` builds the list back. Every event type supports both.
+
+## Piano rolls
+
+```python
+small = score.resample(tpq=6, min_dur=1)
+score_roll = small.pianoroll(
+    modes=["onset", "frame"], pitch_range=(0, 128), encode_velocity=True
+)
+track_roll = small.tracks[0].pianoroll(
+    modes=["onset", "frame", "offset"], pitch_range=(24, 108)
+)
+print(score_roll.shape)  # (modes, tracks, pitches, time)
+print(track_roll.shape)  # (modes, pitches, time)
+```
+
+The time axis has one column per tick, so resample to a coarse resolution first. `pitch_range` is half-open, and `encode_velocity=True` stores velocities instead of ones. {doc}`tutorials/pianoroll` has the details.
+
+## Save
+
+```python
+score.dump_midi("out.mid")
+score.dump_abc("out.abc")
+```
+
+`dump_midi` writes a score in any time unit; quarters and seconds are converted to ticks first. `dump_abc` writes a MIDI file and runs `midi2abc` on it, which infers note lengths and bar lines from the timing, so a score that is not quantized produces irregular notation.
+
+## Pickle
+
+Scores, tracks, events and event lists support `pickle`. A pickle stores the binary representation, so it round-trips exactly, and it is how scores travel to worker processes:
+
+```python
 import pickle
-from symusic import Score
 
-score = Score("example.mid")
-with open("score.pkl", "wb") as fh:
-    pickle.dump(score, fh)
-
-with mp.Pool(4) as pool:
-    doubled = pool.map(lambda s: s.shift_pitch(12), [score] * 4)
+restored = pickle.loads(pickle.dumps(score))
+assert restored == score
 ```
 
-## Inspect the score hierarchy
+{doc}`tutorials/data_processing` shows a multiprocessing pipeline.
+
+## Synthesize
 
 ```python
-from symusic import Score
+from symusic import Synthesizer, dump_wav
 
-score = Score("example.mid")
-print(score.ticks_per_quarter)
-print(len(score.tracks))
-first_track = score.tracks[0]
-print(
-    first_track.name, first_track.program, "drum" if first_track.is_drum else "melodic"
-)
-print(len(first_track.notes), len(first_track.controls))
+synth = Synthesizer(sample_rate=44100)
+audio = synth.render(score, stereo=True)  # float32, (channels, samples)
+dump_wav("out.wav", audio, sample_rate=44100, use_int16=True)
 ```
 
-`Score` owns lists of global events (`tempos`, `time_signatures`, `key_signatures`, `markers`) as well
-as a list of `Track` objects. Each `Track` contains lists (`NoteList`, `ControlChangeList`,
-`PitchBendList`, `PedalList`, `TextMetaList`) that expose list-like APIs plus helpers such as
-`.start()`, `.end()`, `.empty()`, `.copy()`, `.sort()`, and `.filter()`.
-
-## Structured NumPy (SoA) exports
-
-Event lists can produce a *struct of arrays* view that plays nicely with NumPy or PyTorch:
-
-```python
-from typing import Dict
-import numpy as np
-from symusic import Score, Note
-
-score = Score("example.mid")
-notes: Dict[str, np.ndarray] = score.tracks[0].notes.numpy()
-print(notes.keys())  # dict of time, duration, pitch, velocity arrays
-
-reconstructed = Note.from_numpy(**notes, ttype=score.ttype)
-assert reconstructed == score.tracks[0].notes
-```
-
-This pattern avoids Python loops when batching features for machine-learning pipelines.
-
-## Piano roll conversion
-
-```python
-from symusic import Score
-
-score = Score("example.mid").resample(tpq=6, min_dur=1)
-roll = score.pianoroll(
-    modes=["onset", "frame"], pitch_range=[0, 128], encode_velocity=True
-)
-track_roll = score.tracks[0].pianoroll(
-    modes=["onset", "frame", "offset"], pitch_range=[24, 108]
-)
-```
-
-- Use `Score.resample(tpq, min_dur)` before converting to limit the time axis.
-- `modes` chooses which binary/velocity channels to emit.
-- `pitch_range` controls the pitch axis `[low, high)`.
-
-Visualization example:
-
-```python
-from matplotlib import pyplot as plt
-
-plt.imshow(track_roll[0] + track_roll[1], aspect="auto")
-plt.show()
-```
-
-## Synthesis with SoundFonts
-
-```python
-from symusic import Score, Synthesizer, BuiltInSF3, dump_wav
-
-score = Score("example.mid")
-sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
-synth = Synthesizer(sf_path=sf_path, sample_rate=44100, quality=0)
-wave = synth.render(score, stereo=True)  # returns np.ndarray[channel, samples]
-dump_wav("example.wav", wave, sample_rate=44100, use_int16=True)
-```
-
-Symusic ships a lightweight SoundFont manager (`BuiltInSF2/SF3`) that can download curated fonts on
-demand. Rendering internally converts the score to seconds, maps tracks to instruments via `program`
-and `is_drum`, and streams the samples through Prestosynth. Use the returned NumPy array directly in
-post-processing pipelines or dump a WAV with `dump_wav`.
+Without `sf_path`, `Synthesizer` downloads the MuseScore General SoundFont (about 38 MB) on first use. {doc}`tutorials/synthesis` covers SoundFonts and rendering.

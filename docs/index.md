@@ -4,9 +4,7 @@ title: symusic Documentation
 
 # symusic Documentation
 
-This site is the canonical documentation for symusic and is published on Read the Docs at
-<https://symusic.readthedocs.io/en/stable/>. It consolidates tutorials, task-focused examples,
-conceptual guides, and API reference material for the Python and C++ binding layers.
+symusic loads MIDI and ABC files into note-level scores, transforms them in tick, quarter-note or second time, and exports NumPy arrays, piano rolls and audio. Start with the {doc}`introduction` and the {doc}`quickstart`.
 
 ```{toctree}
 :maxdepth: 1
