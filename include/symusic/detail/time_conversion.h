@@ -253,7 +253,7 @@ struct Quarter2TickConverter : SimpleTimeConverter<Quarter2TickConverter, Tick, 
         SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Tick::unit time(const Quarter::unit value) const {
-        return round_to_i32(static_cast<f64>(value * tpq));
+        return round_to_i32(value * tpq);
     }
 };
 

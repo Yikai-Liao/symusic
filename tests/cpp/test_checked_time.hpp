@@ -51,6 +51,19 @@ TEST_CASE("Checked time helpers", "[symusic][checked_time]") {
         REQUIRE_THROWS_AS(details::round_to_i32(kNan), std::invalid_argument);
     }
 
+    SECTION("round_to_i32 on f32") {
+        REQUIRE(details::round_to_i32(1.5f) == 2);
+        REQUIRE(details::round_to_i32(-2147483648.0f) == kMin);
+        REQUIRE(details::round_to_i32(2147483520.0f) == 2147483520);
+        REQUIRE_THROWS_AS(details::round_to_i32(2147483648.0f), std::overflow_error);
+        REQUIRE_THROWS_AS(
+            details::round_to_i32(std::numeric_limits<f32>::infinity()), std::overflow_error
+        );
+        REQUIRE_THROWS_AS(
+            details::round_to_i32(std::numeric_limits<f32>::quiet_NaN()), std::invalid_argument
+        );
+    }
+
     SECTION("f64_to_i32 truncates") {
         REQUIRE(details::f64_to_i32(1.9) == 1);
         REQUIRE(details::f64_to_i32(-1.9) == -1);

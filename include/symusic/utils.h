@@ -38,11 +38,29 @@ inline i32 f64_to_i32(const f64 value) {
 
 inline i32 round_to_i32(const f64 value) { return f64_to_i32(std::round(value)); }
 
-// Unit-generic helpers: checked for integer units, plain arithmetic for float units.
+// Single-precision overload: [-2^31, 2^31) is exact in f32, so no widening is needed.
+inline i32 round_to_i32(const f32 value) {
+    const f32 rounded = std::roundf(value);
+    if (!(rounded >= -2147483648.0f && rounded < 2147483648.0f)) [[unlikely]] {
+        throw_f64_not_i32(static_cast<f64>(rounded));
+    }
+    return static_cast<i32>(rounded);
+}
+
+// Unit-generic helpers: checked for integer units, plain arithmetic for float units. The
+// compiler builtins reduce the check to one add and one overflow-flag branch.
 template<typename U>
 inline U add_time(const U lhs, const U rhs) {
     if constexpr (std::integral<U>) {
+#if defined(__GNUC__) || defined(__clang__)
+        U result;
+        if (__builtin_add_overflow(lhs, rhs, &result)) [[unlikely]] {
+            throw_i32_overflow(static_cast<i64>(lhs) + static_cast<i64>(rhs));
+        }
+        return result;
+#else
         return narrow_i32(static_cast<i64>(lhs) + static_cast<i64>(rhs));
+#endif
     } else {
         return lhs + rhs;
     }
@@ -51,7 +69,15 @@ inline U add_time(const U lhs, const U rhs) {
 template<typename U>
 inline U sub_time(const U lhs, const U rhs) {
     if constexpr (std::integral<U>) {
+#if defined(__GNUC__) || defined(__clang__)
+        U result;
+        if (__builtin_sub_overflow(lhs, rhs, &result)) [[unlikely]] {
+            throw_i32_overflow(static_cast<i64>(lhs) - static_cast<i64>(rhs));
+        }
+        return result;
+#else
         return narrow_i32(static_cast<i64>(lhs) - static_cast<i64>(rhs));
+#endif
     } else {
         return lhs - rhs;
     }
