@@ -18,6 +18,12 @@ set(_symusic_nb_flags NB_STATIC STABLE_ABI PROTECT_STACK NOSTRIP)
 if(SYMUSIC_FAST_BUILD)
     list(APPEND _symusic_nb_flags NOMINSIZE)
 endif()
+# nanobind v3.1.0 headers use stdio declarations without including <cstdio>;
+# libc++ does not provide them transitively, so limited-API builds against it
+# fail. Directory-scoped options reach both the binding and the nanobind
+# library target created below. Upstream commit 942e75d fixes this; remove
+# these options with the first nanobind release containing it.
+add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/FIcstdio,SHELL:-include cstdio>>")
 nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
     bindings/core/module.cpp
     utils/process_runner.cpp
