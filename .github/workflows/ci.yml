@@ -91,6 +91,17 @@ jobs:
           # Keep source-built PyPy dependencies across unrelated submodule
           # and documentation changes. setup-uv also keys by OS and Python.
           cache-dependency-glob: pyproject.toml
+      # Statistics are printed by the action's post step.
+      - name: Compiler cache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba  # v0.0.11
+      - name: Route compilers through sccache
+        shell: bash
+        run: |
+          {
+            echo SCCACHE_GHA_ENABLED=true
+            echo CMAKE_C_COMPILER_LAUNCHER=sccache
+            echo CMAKE_CXX_COMPILER_LAUNCHER=sccache
+          } >> "$GITHUB_ENV"
       - name: Install
         run: uv pip install ".[test]" --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Test
@@ -125,6 +136,19 @@ jobs:
           architecture: x64
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         if: matrix.coverage
+      # Statistics are printed by the action's post step.
+      - name: Compiler cache
+        if: runner.os != 'Windows'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba  # v0.0.11
+      - name: Route compilers through sccache
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          {
+            echo SCCACHE_GHA_ENABLED=true
+            echo CMAKE_C_COMPILER_LAUNCHER=sccache
+            echo CMAKE_CXX_COMPILER_LAUNCHER=sccache
+          } >> "$GITHUB_ENV"
       - name: Configure
         run: >-
           cmake -S . -B "$RUNNER_TEMP/symusic-build" -DCMAKE_BUILD_TYPE=Debug -DSYMUSIC_BUILD_TESTS=ON -DSYMUSIC_ENABLE_LTO=OFF
@@ -160,6 +184,17 @@ jobs:
         with:
           python-version: "3.12"
           activate-environment: true
+      # Statistics are printed by the action's post step.
+      - name: Compiler cache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba  # v0.0.11
+      - name: Route compilers through sccache
+        shell: bash
+        run: |
+          {
+            echo SCCACHE_GHA_ENABLED=true
+            echo CMAKE_C_COMPILER_LAUNCHER=sccache
+            echo CMAKE_CXX_COMPILER_LAUNCHER=sccache
+          } >> "$GITHUB_ENV"
       - name: Install
         run: uv pip install -r docs/requirements.txt . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
       - name: Build (warnings are errors)

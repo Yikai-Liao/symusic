@@ -32,10 +32,34 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+      # The container is discarded after the build, so ccache writes to a host
+      # directory mounted into it. The key names the OS, architecture and libc
+      # of the container image; main saves it, every run restores it.
+      - name: Restore compiler cache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-smoke-linux-x86_64-manylinux_2_28-${{ github.run_id }}
+          restore-keys: ccache-smoke-linux-x86_64-manylinux_2_28-
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
         env:
           # One stable-ABI build, tested on its oldest and newest CPython.
           CIBW_BUILD: cp312-manylinux_x86_64 cp315-manylinux_x86_64
+          CIBW_CONTAINER_ENGINE: "docker; create_args: --volume ${{ runner.temp }}/ccache:/ccache"
+          CIBW_ENVIRONMENT_LINUX: CCACHE_DIR=/ccache CCACHE_MAXSIZE=400M
+          CIBW_BEFORE_ALL_LINUX: bash {project}/.github/scripts/install_ccache.sh /usr/local
+          CIBW_CONFIG_SETTINGS: cmake.define.CMAKE_C_COMPILER_LAUNCHER=ccache cmake.define.CMAKE_CXX_COMPILER_LAUNCHER=ccache
+          CIBW_BEFORE_TEST_LINUX: ccache --show-stats
+      # Files written by the container belong to root; actions/cache runs as the runner user.
+      - name: Make compiler cache readable
+        run: sudo chown -R "$USER" "$RUNNER_TEMP/ccache"
+      - name: Save compiler cache
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
   wheels:
     if: ${{ !inputs.smoke && !inputs.cross_validation && !inputs.cross_wheels }}
