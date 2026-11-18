@@ -345,4 +345,97 @@ TEST_CASE("Test ScorePianoroll", "[symusic][pianoroll]") {
     }
 }
 
+TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
+    const std::vector<PianorollMode>  modes = {PianorollMode::onset, PianorollMode::frame};
+    const std::pair<uint8_t, uint8_t> range = {0, 128};
+
+    auto track_with = [](Note<Tick> note) {
+        Track<Tick> track("t", 0, false);
+        track.notes->push_back(Note<Tick>(0, 10, 60, 80));
+        track.notes->push_back(note);
+        return track;
+    };
+
+    SECTION("Negative note time") {
+        const auto track = track_with(Note<Tick>(-5, 10, 61, 80));
+        REQUIRE_THROWS_AS(
+            TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
+        );
+        Score<Tick> score(480);
+        score.tracks->push_back(std::make_shared<Track<Tick>>(track));
+        REQUIRE_THROWS_AS(
+            ScorePianoroll::from_score(score, modes, range, true), std::invalid_argument
+        );
+    }
+
+    SECTION("Negative note duration") {
+        const auto track = track_with(Note<Tick>(20, -5, 61, 80));
+        REQUIRE_THROWS_AS(
+            TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
+        );
+        Score<Tick> score(480);
+        score.tracks->push_back(std::make_shared<Track<Tick>>(track));
+        REQUIRE_THROWS_AS(
+            ScorePianoroll::from_score(score, modes, range, true), std::invalid_argument
+        );
+    }
+
+    SECTION("Track whose end is negative") {
+        Track<Tick> track("t", 0, false);
+        track.notes->push_back(Note<Tick>(-20, 5, 60, 80));
+        REQUIRE_THROWS_AS(
+            TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
+        );
+    }
+
+    SECTION("Invalid notes outside the pitch range are ignored") {
+        const auto track = track_with(Note<Tick>(-5, 10, 100, 80));
+        const auto roll  = TrackPianoroll::from_track(track, modes, {0, 64}, true);
+        REQUIRE(roll.dims() == std::make_tuple<size_t, size_t, size_t>(2, 64, 11));
+    }
+
+    SECTION("Zero duration is valid") {
+        const auto track = track_with(Note<Tick>(5, 0, 61, 80));
+        auto       roll  = TrackPianoroll::from_track(
+            track, {PianorollMode::frame, PianorollMode::onset}, range, true
+        );
+        REQUIRE(roll.get(0, 61, 5) == 0);
+        REQUIRE(roll.get(1, 61, 5) == 80);
+    }
+
+    SECTION("A note ending at the largest tick fits the axis computation") {
+        // Only the time-axis size is computed in 64 bits; the allocation would be huge, so
+        // exercise the constructor overflow check instead.
+        REQUIRE_THROWS_AS(TrackPianoroll(3, 128, static_cast<size_t>(1) << 62), std::length_error);
+        REQUIRE_THROWS_AS(
+            ScorePianoroll(std::numeric_limits<size_t>::max(), 2, 2, 2), std::length_error
+        );
+        REQUIRE_THROWS_AS(ScorePianoroll(1 << 20, 1 << 20, 1 << 20, 1 << 20), std::length_error);
+    }
+
+    SECTION("Out-of-range get, set and operator()") {
+        TrackPianoroll roll(2, 3, 4);
+        REQUIRE_THROWS_AS(roll.get(2, 0, 0), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.get(0, 3, 0), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.get(0, 0, 4), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.get(0, 0, static_cast<size_t>(-1)), std::out_of_range);
+        REQUIRE_THROWS_AS(roll(0, 0, 4), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.set(0, 0, 3, 2, 1), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.set(0, 0, 0, static_cast<size_t>(-1), 1), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.set(0, 0, 5, 0, 1), std::out_of_range);
+        REQUIRE_THROWS_AS(roll.set(2, 0, 0, 0, 1), std::out_of_range);
+        roll.set(1, 2, 2, 2, 7);   // exactly reaches the end of the axis
+        REQUIRE(roll.get(1, 2, 3) == 7);
+        roll.set(0, 0, 4, 0, 1);   // empty span at the end is a no-op
+
+        ScorePianoroll sroll(1, 2, 3, 4);
+        REQUIRE_THROWS_AS(sroll.get(1, 0, 0, 0), std::out_of_range);
+        REQUIRE_THROWS_AS(sroll.get(0, 2, 0, 0), std::out_of_range);
+        REQUIRE_THROWS_AS(sroll.get(0, 0, 3, 0), std::out_of_range);
+        REQUIRE_THROWS_AS(sroll.get(0, 0, 0, 4), std::out_of_range);
+        REQUIRE_THROWS_AS(sroll.set(0, 0, 0, 3, 2, 1), std::out_of_range);
+        REQUIRE_THROWS_AS(sroll.set(0, 0, 0, 0, static_cast<size_t>(-1), 1), std::out_of_range);
+    }
+}
+
 #endif   // SYMUSIC_TEST_PIANOROLL_HPP

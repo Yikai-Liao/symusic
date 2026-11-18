@@ -121,7 +121,7 @@ constexpr const char* kEndDoc   = R"pbdoc(Return the exclusive end of the track.
 constexpr const char* kNoteNumDoc = R"pbdoc(Return the number of notes on the track.)pbdoc";
 constexpr const char* kEmptyDoc   = R"pbdoc(Return True when the track has no notes.)pbdoc";
 constexpr const char* kPianorollDoc
-    = R"pbdoc(Export a tick-based track as a pianoroll NumPy tensor. Modes control channels, pitch_range bounds the vertical axis, and encode_velocity switches from binary to velocity encoding.)pbdoc";
+    = R"pbdoc(Export a tick-based track as a pianoroll NumPy tensor. Modes control channels, pitch_range bounds the vertical axis, and encode_velocity switches from binary to velocity encoding. Raises ValueError for a note with negative time or duration, or when the track ends before tick 0.)pbdoc";
 
 constexpr const char* kVecFilterDoc
     = R"pbdoc(Filter tracks with a Python callable. When *inplace* is False operate on a cloned list.)pbdoc";

@@ -209,3 +209,45 @@ def test_score_pianoroll_outlives_builder_scope():
 
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])
+
+
+@pytest.mark.parametrize(
+    ("time", "duration"),
+    [(-5, 10), (20, -5), (-5, -5), (-(2**31), 10)],
+)
+def test_pianoroll_rejects_negative_time_or_duration(simple_track, time, duration):
+    """Negative times and durations raise instead of writing out of bounds."""
+    simple_track.notes.append(Note(time, duration, 61, 80))
+    with pytest.raises(ValueError, match="pianoroll"):
+        simple_track.pianoroll(modes=["frame", "onset", "offset"])
+
+    score = Score(480)
+    score.tracks.append(simple_track)
+    with pytest.raises(ValueError, match="pianoroll"):
+        score.pianoroll(modes=["frame", "onset", "offset"])
+
+
+def test_pianoroll_ignores_invalid_note_outside_pitch_range(simple_track):
+    """A note excluded by pitch_range is never written, so it is not validated."""
+    simple_track.notes.append(Note(-5, 10, 100, 80))
+    roll = simple_track.pianoroll(modes=["frame"], pitch_range=(0, 90))
+    assert roll.shape[:2] == (1, 90)
+
+
+def test_pianoroll_negative_end_raises():
+    """A track that ends before tick 0 has no valid time axis."""
+    track = Track("Neg", 0, False)
+    track.notes.append(Note(-20, 5, 60, 80))
+    with pytest.raises(ValueError, match="negative"):
+        track.pianoroll()
+
+
+def test_pianoroll_zero_duration_note(simple_track):
+    """A zero-duration note leaves no frame but still marks onset and offset."""
+    simple_track.notes.append(Note(5, 0, 61, 80))
+    roll = simple_track.pianoroll(
+        modes=["frame", "onset", "offset"], encode_velocity=True
+    )
+    assert roll[0, 61].sum() == 0
+    assert roll[1, 61, 5] == 80
+    assert roll[2, 61, 5] == 80

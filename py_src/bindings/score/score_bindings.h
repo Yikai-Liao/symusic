@@ -122,6 +122,7 @@ when reducing resolution.
 constexpr const char* kScorePianorollDoc    = R"pbdoc(
 Export a tick-based score as a pianoroll NumPy tensor. ``mode`` controls aggregation, ``pitch_range``
 bounds the vertical axis, and ``encode_velocity`` switches from binary to velocity encoding.
+Raises ValueError for a note with negative time or duration, or when the score ends before tick 0.
 )pbdoc";
 
 constexpr const char* kCopyDoc = R"pbdoc(Return a shallow or deep copy depending on *deep*.)pbdoc";

@@ -73,6 +73,8 @@ frame_roll = pianoroll[1]  # Shape: [tracks, pitch, time]
 offset_roll = pianoroll[2]  # Shape: [tracks, pitch, time]
 ```
 
+Notes with a negative time or duration cannot be placed on the grid, so `pianoroll` raises `ValueError` for them (notes outside `pitch_range` are skipped before this check). A zero-duration note leaves no `frame` entry but still marks `onset` and `offset`.
+
 ## Single Track Piano Roll
 
 You can also create a piano roll for a single track:
