@@ -18,8 +18,14 @@ std::string strip_non_utf_8(const std::string& str);
 // (Python ValueError) for NaN. The throwing functions live in utils.cpp and stay out of line so
 // the inline fast paths remain a compare and a branch.
 
-[[noreturn]] void throw_i32_overflow(i64 value);
-[[noreturn]] void throw_f64_not_i32(f64 value);
+#if defined(__GNUC__) || defined(__clang__)
+#define SYMUSIC_COLD __attribute__((cold, noinline))
+#else
+#define SYMUSIC_COLD
+#endif
+
+[[noreturn]] SYMUSIC_COLD void throw_i32_overflow(i64 value);
+[[noreturn]] SYMUSIC_COLD void throw_f64_not_i32(f64 value);
 
 // Narrow a 64-bit intermediate to i32.
 inline i32 narrow_i32(const i64 value) {

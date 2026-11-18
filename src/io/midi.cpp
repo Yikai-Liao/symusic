@@ -30,6 +30,12 @@ void ensure_valid_midi_data_byte(
     }
 }
 
+[[noreturn]] SYMUSIC_COLD void throw_midi_time_overflow(const uint32_t time) {
+    throw std::runtime_error(
+        "MIDI event time " + std::to_string(time) + " exceeds the 32-bit tick range"
+    );
+}
+
 template<typename T>
 void sort_by_time(vec<T>& data) {
     pdqsort_branchless(data.begin(), data.end(), [](const auto& a, const auto& b) {
@@ -230,9 +236,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             // wrapped sum, which must pass through that range first) cannot be a valid tick.
             if (msg.time > static_cast<uint32_t>(std::numeric_limits<Tick::unit>::max()))
                 [[unlikely]] {
-                throw std::runtime_error(
-                    "MIDI event time " + std::to_string(msg.time) + " exceeds the 32-bit tick range"
-                );
+                throw_midi_time_overflow(msg.time);
             }
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
