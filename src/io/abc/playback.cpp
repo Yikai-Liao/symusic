@@ -89,11 +89,13 @@ struct Prepared {
     Ornament    ornament;
     bool        tied;
     bool        slur;
+    bool        unit_numerator;
 };
 
 struct TupletState {
-    int                        left   = 0;
-    long double                factor = 1;
+    int                        left      = 0;
+    long double                factor    = 1;
+    int                        numerator = 1;
     std::optional<long double> first;
     Location                   at{};
 };
@@ -292,6 +294,7 @@ private:
     vec<const Token*> timed_effects;
     DecorationMark    decoration_mark(const Decoration& decoration) const;
     bool              can_defer(const Token& token) const;
+    bool              apply_notated_ratio(const Token& token);
     void              visit_token(const Token& token);
     void              visit_step(PlayStep step);
     void              jump_repeat();
@@ -363,7 +366,9 @@ void VoicePlayer::orphan_grace(Location) {
     grace = {};
 }
 
-bool swing_note(const Prepared& note) { return !note.atom->chord && !note.atom->pitches.empty(); }
+bool swing_note(const Prepared& note) {
+    return note.unit_numerator && !note.atom->chord && !note.atom->pitches.empty();
+}
 
 bool VoicePlayer::swing_candidate() {
     return pending && swing_note(*pending)
@@ -413,6 +418,9 @@ long double VoicePlayer::atom_duration(const Atom& atom, Location at) {
 }
 
 void VoicePlayer::push(const Atom& atom, Location at) {
+    // abc2midi tests the written numerator before reducing the duration.
+    const bool unit_numerator
+        = atom.length.numerator == 1 && (!tuplet.left || tuplet.numerator == 1);
     Prepared next{
         &atom,
         at,
@@ -420,7 +428,8 @@ void VoicePlayer::push(const Atom& atom, Location at) {
         std::exchange(grace, {}),
         std::exchange(ornament, {}),
         atom.tie,
-        lane().slur > 0
+        lane().slur > 0,
+        unit_numerator
     };
     broken_pair(next);
     flush();
@@ -801,6 +810,7 @@ void VoicePlayer::visit(Tuplet group, Location at) {
     tuplet
         = {group.notes ? group.notes : group.count,
            static_cast<long double>(in_time_of) / group.count,
+           in_time_of,
            {},
            at};
 }
@@ -996,7 +1006,19 @@ bool VoicePlayer::can_defer(const Token& token) const {
         || std::holds_alternative<Directive>(token.value))
         return true;
     const auto* field = std::get_if<Field>(&token.value);
-    return field && std::string_view("KQMI").find(field->kind) != std::string_view::npos;
+    return field && std::string_view("KQMIP").find(field->kind) != std::string_view::npos;
+}
+
+bool VoicePlayer::apply_notated_ratio(const Token& token) {
+    std::string_view args;
+    if (const auto* directive = std::get_if<Directive>(&token.value))
+        args = directive->value;
+    else if (const auto* field = std::get_if<Field>(&token.value); field && field->kind == 'I')
+        args = field->value;
+    if (word(args) != "MIDI") return false;
+    const auto name = word(args);
+    // A ratio changes the notated pair, not the attack at this position.
+    return lane().expression.set_broken_ratio(name, args, token.at, diagnostics);
 }
 
 void VoicePlayer::visit_token(const Token& token) {
@@ -1020,6 +1042,7 @@ void VoicePlayer::visit_step(PlayStep step) {
     case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
     case Flow::hard_bar: visit(Bar{}, token.at); break;
     case Flow::token:
+        if (apply_notated_ratio(token)) break;
         if ((broken || swing_candidate()) && can_defer(token))
             timed_effects.push_back(&token);
         else

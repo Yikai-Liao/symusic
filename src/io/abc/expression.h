@@ -10,7 +10,7 @@ std::optional<Dynamic> dynamic_mark(std::string_view name);
 
 // Hornpipes use a 2:1 broken rhythm and swing only the short subdivision
 // appropriate to their meter.
-enum class RhythmStyle { straight, hornpipe };
+enum class RhythmStyle { straight, hornpipe, hornpipe_without_swing };
 RhythmStyle rhythm_style(std::string_view name);
 bool        hornpipe_meter(Meter meter);
 
@@ -35,9 +35,12 @@ struct Expression {
         Location         at,
         Diagnostics&     diagnostics
     );
-    void        apply(Dynamic mark);
-    void        arpeggiate_next_chord() { arpeggio = true; }
-    int         take_chord_spread();
+    void apply(Dynamic mark);
+    void arpeggiate_next_chord() { arpeggio = true; }
+    int  take_chord_spread();
+    bool set_broken_ratio(
+        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    );
     long double broken_factor(Broken mark) const;
     bool        starts_swing_pair(Meter meter, long double offset, long double duration) const;
     long double fermata(long double duration, long double unit) const;

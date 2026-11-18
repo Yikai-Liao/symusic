@@ -39,6 +39,28 @@ void header_field(Header& header, Field field, const Token& token, Diagnostics& 
     }
 }
 
+void finish_header(
+    Header& header, const Token* unit, const Token* speed, Diagnostics& diagnostics
+) {
+    if (header.settings.rhythm == RhythmStyle::hornpipe && !hornpipe_meter(header.settings.meter)) {
+        diagnostics.warn(
+            header.rhythm_at,
+            "hornpipe-meter",
+            "disabled automatic hornpipe swing: the opening meter must be 2/4 or 4/4"
+        );
+        header.settings.rhythm = RhythmStyle::hornpipe_without_swing;
+    }
+    header.settings.unit
+        = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
+                 (header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8);
+    if (speed) {
+        const auto usec = tempo(
+            std::get<Field>(speed->value).value, header.settings.unit, diagnostics, speed->at
+        );
+        if (usec) header.settings.tempo = usec;
+    }
+}
+
 Header read_header(const Tune& tune, Diagnostics& diagnostics) {
     Header       header{.settings = {.tuning = PitchTuning(tune, diagnostics)}};
     const Token* unit      = nullptr;
@@ -55,19 +77,7 @@ Header read_header(const Tune& tune, Diagnostics& diagnostics) {
         }
     }
     if (!saw_meter) diagnostics.warn(tune.key, "default-meter", "no M: field; using 4/4");
-    if (header.settings.rhythm == RhythmStyle::hornpipe && !hornpipe_meter(header.settings.meter))
-        diagnostics.warn(
-            header.rhythm_at, "hornpipe-meter", "automatic hornpipe rhythm requires 2/4 or 4/4"
-        );
-    header.settings.unit
-        = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
-                 (header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8);
-    if (speed) {
-        const auto usec = tempo(
-            std::get<Field>(speed->value).value, header.settings.unit, diagnostics, speed->at
-        );
-        if (usec) header.settings.tempo = usec;
-    }
+    finish_header(header, unit, speed, diagnostics);
     return header;
 }
 

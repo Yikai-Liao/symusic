@@ -84,7 +84,7 @@ bool hornpipe_meter(Meter meter) {
 }
 
 Expression::Expression(RhythmStyle rhythm) :
-    rhythm(rhythm), broken_short(rhythm == RhythmStyle::hornpipe ? 2.L / 3 : 0.5L) {}
+    rhythm(rhythm), broken_short(rhythm == RhythmStyle::straight ? 0.5L : 2.L / 3) {}
 
 bool Expression::starts_swing_pair(Meter meter, long double offset, long double duration) const {
     if (rhythm != RhythmStyle::hornpipe || !hornpipe_meter(meter)) return false;
@@ -157,6 +157,16 @@ void Expression::set_beat_string(std::string_view text, Location at, Diagnostics
     if (text.empty() || text.find_first_not_of("fFmMpP") != text.npos)
         diagnostics.error(at, "invalid-beatstring", "beatstring must consist of f, m and p");
     beat_string = text;
+}
+
+bool Expression::set_broken_ratio(
+    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+) {
+    if (name != "ratio") return false;
+    const auto longer  = midi_integer(args, 1, 100'000, diagnostics, at);
+    const auto shorter = midi_integer(args, 1, 100'000, diagnostics, at);
+    broken_short       = 2.L * shorter / (longer + shorter);
+    return true;
 }
 
 long double Expression::broken_factor(Broken mark) const {
@@ -242,11 +252,7 @@ bool Expression::timing(
         if (expand_ticks > 0) trim_ticks = 0;
     } else if (name == "fermatafixed" || name == "fermataproportional")
         fixed_fermata = name == "fermatafixed";
-    else if (name == "ratio") {
-        const auto longer  = midi_integer(args, 1, 100'000, diagnostics, at);
-        const auto shorter = midi_integer(args, 1, 100'000, diagnostics, at);
-        broken_short       = 2.L * shorter / (longer + shorter);
-    } else
+    else
         return false;
     return true;
 }

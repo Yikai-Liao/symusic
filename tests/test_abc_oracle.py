@@ -24,6 +24,7 @@ RECOVERED = {
     "decoration_line_end": "orphan-decoration",
     "rising_sun_stray_coda": "ignored-decoration",
     "hornpipe_unsupported_meter": "hornpipe-meter",
+    "hornpipe_stays_disabled": "hornpipe-meter",
     "invalid_key_accidental_letter": "invalid-accidental",
 }
 WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
@@ -105,6 +106,22 @@ CASES = {
     "[I:MIDI control 7 30]cBAG|",
     "beatstring_positions": HEADER.replace("L:1/4", "L:1/8")
     + "%%MIDI beatstring pFmPffmP\nC D E F G A B c |",
+    "hornpipe_tuplet_numerator": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "R:hornpipe\nK:C"
+    )
+    + "(2:1:2 C2D2 EFGABc|",
+    "hornpipe_body_part_label": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "R:hornpipe\nK:C"
+    )
+    + "C\nP:A\nDEFGABc|",
+    "hornpipe_ratio_between_attacks": HEADER.replace("L:1/4", "L:1/8").replace(
+        "K:C", "R:hornpipe\nK:C"
+    )
+    + "C [I:MIDI ratio 3 1] DEFGABc|",
+    "hornpipe_stays_disabled": HEADER.replace("M:4/4", "M:6/8")
+    .replace("L:1/4", "L:1/8")
+    .replace("K:C", "R:hornpipe\nK:C")
+    + "CDEFG A| [M:4/4] CDEFGABc|",
     "hornpipe_eighths": HEADER.replace("L:1/4", "L:1/8").replace(
         "K:C", "R:hornpipe\nK:C"
     )
