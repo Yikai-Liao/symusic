@@ -20,6 +20,8 @@ struct Expression {
     int                delta         = 15;
     int                grace_divider = 4;
     bool               accents       = true;
+    bool               fixed_fermata = false;
+    long double        broken_short  = 0.5;
     long double        grace_ratio   = 0;
     long double        trim          = 0;
     long double        expand        = 0;
@@ -28,12 +30,18 @@ struct Expression {
         std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
     );
     void        apply(Dynamic mark);
+    long double broken_factor(Broken mark) const;
+    long double fermata(long double duration, long double unit) const;
     int         velocity(long double position, Meter meter) const;
     long double gate(long double duration, long double unit, bool slur, bool staccato) const;
 
 private:
     void shift(int amount);
+    void set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
     int  string_velocity(long double position, long double pulse) const;
+    bool timing(
+        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+    );
     bool articulation(
         std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
     );

@@ -333,8 +333,7 @@ void VoicePlayer::broken_pair(Prepared& next) {
         );
         return;
     }
-    const auto short_factor = std::ldexp(1.L, -mark.count);
-    const auto first        = mark.direction > 0 ? 2 - short_factor : short_factor;
+    const auto first = lane().expression.broken_factor(mark);
     pending->duration *= first;
     next.duration *= 2 - first;
 }
@@ -502,7 +501,7 @@ void VoicePlayer::play_trill(
     const auto lower  = sound(pitch, false);
     for (int i = 0; i < count; ++i) {
         const auto onset = start + i * step;
-        note(i % 2 ? lower : higher, onset, step, 0, velocity(start), atom.at);
+        note(i % 2 ? lower : higher, onset, step, 0, velocity(onset), atom.at);
     }
 }
 
@@ -524,7 +523,9 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
 }
 
 void VoicePlayer::play(const Prepared& atom) {
-    const auto duration = atom.ornament.fermata ? atom.duration * 2 : atom.duration;
+    const auto duration = atom.ornament.fermata ?
+                              lane().expression.fermata(atom.duration, written.unit) :
+                              atom.duration;
     const auto end      = lane().time + duration;
     (void)tick(end, diagnostics, atom.at);
     if (lanes.id() == 0) accompaniment.advance(end, atom.at);

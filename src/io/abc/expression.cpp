@@ -62,14 +62,15 @@ void Expression::apply(Dynamic mark) {
 int Expression::string_velocity(long double position, long double pulse) const {
     if (!aligned(position, pulse)) return beat[2];
     const auto index = static_cast<size_t>(std::floor(position / pulse + 0.0000001L));
-    const char mark  = beat_string[index % beat_string.size()];
-    return beat[mark == 'f' ? 0 : (mark == 'm' ? 1 : 2)];
+    const char mark  = upper(beat_string[index % beat_string.size()]);
+    return beat[mark == 'F' ? 0 : (mark == 'M' ? 1 : 2)];
 }
 
 int Expression::velocity(long double position, Meter meter) const {
     if (!accents) return beat[1];
+    if (!beat_string.empty())
+        return string_velocity(position, meter.measure() / beat_string.size());
     if (position < 0.0000001L) return beat[0];
-    if (!beat_string.empty()) return string_velocity(position, meter.beat());
     long double period = meter.beat() * (beat_step == 0 ? meter.accent_beats() : beat_step);
     if (meter.denominator == 2 && beat_step == 0) period *= 2;
     return beat[aligned(position, period) ? 1 : 2];
@@ -85,6 +86,21 @@ long double Expression::gate(
     return duration + unit * expand;
 }
 
+void Expression::set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics) {
+    if (text.empty() || text.find_first_not_of("fFmMpP") != text.npos)
+        diagnostics.error(at, "invalid-beatstring", "beatstring must consist of f, m and p");
+    beat_string = text;
+}
+
+long double Expression::broken_factor(Broken mark) const {
+    const auto short_factor = mark.count == 1 ? broken_short : std::ldexp(1.L, -mark.count);
+    return mark.direction > 0 ? 2 - short_factor : short_factor;
+}
+
+long double Expression::fermata(long double duration, long double unit) const {
+    return duration + (fixed_fermata ? unit : duration);
+}
+
 bool Expression::directive(
     std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
 ) {
@@ -95,12 +111,9 @@ bool Expression::directive(
         beat_step = value(1, 128);
     } else if (name == "beatmod")
         shift(value(-midi_max, midi_max));
-    else if (name == "beatstring") {
-        beat_string = word(args);
-        if (beat_string.empty() || beat_string.find_first_not_of("fmp") != beat_string.npos) {
-            diagnostics.error(at, "invalid-beatstring", "beatstring must consist of f, m and p");
-        }
-    } else if (name == "deltaloudness")
+    else if (name == "beatstring")
+        set_beat_string(word(args), at, diagnostics);
+    else if (name == "deltaloudness")
         delta = value(0, midi_max);
     else if (name == "nobeataccents")
         accents = false;
@@ -123,11 +136,26 @@ bool Expression::articulation(
     else if (name == "gracedivider") {
         grace_divider = value(1, 1024);
         grace_ratio   = 0;
-    } else if (name == "trim")
+    } else
+        return timing(name, args, at, diagnostics);
+    return true;
+}
+
+bool Expression::timing(
+    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
+) {
+    if (name == "trim")
         trim = ratio(args, diagnostics, at, "trim").fraction();
-    else if (name == "expand")
+    else if (name == "expand") {
         expand = ratio(args, diagnostics, at, "expand").fraction();
-    else
+        if (expand > 0) trim = 0;
+    } else if (name == "fermatafixed" || name == "fermataproportional")
+        fixed_fermata = name == "fermatafixed";
+    else if (name == "ratio") {
+        const auto longer  = midi_integer(args, 1, 100'000, diagnostics, at);
+        const auto shorter = midi_integer(args, 1, 100'000, diagnostics, at);
+        broken_short       = 2.L * shorter / (longer + shorter);
+    } else
         return false;
     return true;
 }

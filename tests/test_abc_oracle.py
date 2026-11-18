@@ -51,6 +51,13 @@ CASES = {
     "overlay_clocks": HEADER + "C (& D E & c2 &) G | A (& B c & d2 &) d |",
     "directives": HEADER + "%%MIDI program 24\n%%MIDI control 7 50\n"
     "%%MIDI beat 90 80 60 2\nC D E F |\n%%MIDI program 7\n%%MIDI channel 10\nC D E F |",
+    "beatstring_positions": HEADER.replace("L:1/4", "L:1/8")
+    + "%%MIDI beatstring pFmPffmP\nC D E F G A B c |",
+    "rhythm_ratio": HEADER + "%%MIDI ratio 2 1\nC>D E<F| G>>A B<<c|",
+    "fermata_modes": HEADER + "%%MIDI fermatafixed\nHC2 D Hz |\n"
+    "%%MIDI fermataproportional\nH[EG]2 F G|",
+    "trill_beat": HEADER + "TCDE|TC2DE|",
+    "expand_after_trim": HEADER + "%%MIDI trim 1/8\nC\n%%MIDI expand 1/8\nD E F z |",
     "pedal_decorations": HEADER + "C !ped!D E !ped-up!F | !ped(!GAB !ped)!c |",
     "breath": HEADER + "C !breath!D !breath![EG] F |",
     "midi_middle_c": HEADER + "%%MIDI C 62\nCDEF |",
