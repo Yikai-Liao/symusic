@@ -32,6 +32,8 @@ Changes to `.github/workflows/` or `.github/scripts/` select every lane. Root Ma
 
 Ordinary core changes select the Python and C++ lanes without rebuilding documentation or running Docker packaging tests. Binding changes also select docs because the API reference imports the extension. Matrices and path routing both live in `ci_changes.py`.
 
+The Linux Python coverage job builds the abc2midi test reference at the SHA recorded in the `tests/testcases/abc_oracle.json`. The installed package does not use that executable. See [ABC fixture instructions under Tests](../CONTRIBUTING.md#tests) for local reproduction and snapshot refresh.
+
 The C++ lane also compiles examples when their sources or shared CMake configuration change. Full runs compile them on every selected platform; ordinary core PRs keep them off.
 
 The `sanitize` job builds the Catch2 tests with `-DSYMUSIC_SANITIZE="address;undefined"` (GCC, Debug, Ninja) and runs CTest with `halt_on_error`, stack traces and leak detection. UBSan findings abort. It shares the sccache setup described under [compiler caches](#compiler-caches), so only changed objects rebuild. Reproduce it locally with the same CMake options and `ASAN_OPTIONS`/`UBSAN_OPTIONS` from `ci.yml`. The Python tests do not run under ASan yet; see the [roadmap](../ROADMAP.md#memory-safety).

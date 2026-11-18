@@ -100,7 +100,7 @@ Keep test function names short: use `test_<subject>_<case>` and let the test fil
 
 #### ABC compatibility fixtures
 
-The default suite compares performed events to a checked-in snapshot from abc2midi. To verify it against a separately built upstream checkout, set `SYMUSIC_TEST_ABC2MIDI` to the executable and run `pytest tests/test_abc_oracle.py`. The live tests also play native exports with that executable. Neither the normal test run nor the library builds or installs abcmidi.
+The default suite compares performed events to a checked-in snapshot from abc2midi. To verify it against a separately built upstream checkout, set `SYMUSIC_TEST_ABC2MIDI` to the executable and run `pytest tests/test_abc_oracle.py`. The live tests also play native exports with that executable. The [Linux CI coverage lane](docs/development/ci.md#lanes) also runs these live tests. Local tests without that variable, library builds, and wheel installs do not require abcmidi.
 
 To refresh the snapshot, build the latest [upstream](https://github.com/sshlien/abcmidi) checkout, then run:
 
