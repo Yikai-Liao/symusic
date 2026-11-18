@@ -1,119 +1,65 @@
-#include <stdexcept>
+#include "symusic/io/common.h"
 
-#include <span>
+#include <fstream>
+#include <limits>
+#include <stdexcept>
+#include <string_view>
 
 #include "fmt/core.h"
 
-#include "symusic/io/common.h"
-
-#ifdef _MSC_VER
-#pragma warning(disable : 4996)
-#endif
-
-#ifdef _WIN32
-#include <Windows.h>
-
+namespace symusic {
 namespace {
 
-std::string path_to_utf8(const std::filesystem::path& path) {
+std::string path_label(const std::filesystem::path& path) {
     const auto utf8 = path.u8string();
-    return std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size());
+    return std::string(reinterpret_cast<const char*>(utf8.data()), utf8.size());
 }
 
-std::wstring to_utf16(const std::string& path) {
-    const int wide_len = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
-    if (wide_len == 0) {
-        throw std::runtime_error(fmt::format("Failed to convert UTF-8 path to UTF-16: {}", path));
-    }
+std::filesystem::path utf8_path(const std::string& path) {
+#ifdef _WIN32
+    return std::filesystem::path(std::u8string(path.begin(), path.end()));
+#else
+    return std::filesystem::path(path);
+#endif
+}
 
-    std::wstring wide_path(static_cast<size_t>(wide_len), L"\0"[0]);
-    if (MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wide_path.data(), wide_len) == 0) {
-        throw std::runtime_error(fmt::format("Failed to convert UTF-8 path to UTF-16: {}", path));
-    }
-
-    wide_path.pop_back();
-    return wide_path;
+[[noreturn]] void file_error(std::string_view operation, const std::filesystem::path& path) {
+    throw std::runtime_error(fmt::format("Could not {} file: {}", operation, path_label(path)));
 }
 
 }   // namespace
-#endif
-
-namespace symusic {
-
-vec<u8> read_file(const std::string& path) {
-#ifndef _WIN32
-    FILE* fp = fopen(path.c_str(), "rb");
-    if (fp == nullptr) { throw std::runtime_error(fmt::format("File not found file: {}", path)); }
-#else   // deal with utf-8 path on windows
-    FILE*         fp    = nullptr;
-    const auto    wpath = to_utf16(path);
-    const errno_t err   = _wfopen_s(&fp, wpath.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
-    }
-#endif
-    fseek(fp, 0, SEEK_END);
-    size_t size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    std::vector<uint8_t> buffer(size);
-    fread(buffer.data(), 1, size, fp);
-    fclose(fp);
-    return buffer;
-}
 
 vec<u8> read_file(const std::filesystem::path& path) {
-#ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
-    return read_file(path.string());
-#else
-    FILE*         fp  = nullptr;
-    const errno_t err = _wfopen_s(&fp, path.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(
-            fmt::format("File not found file (error:{}): {}", err, path_to_utf8(path))
-        );
-    }
-    fseek(fp, 0, SEEK_END);
-    size_t size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    std::vector<uint8_t> buffer(size);
-    fread(buffer.data(), 1, size, fp);
-    fclose(fp);
-    return buffer;
-#endif
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) file_error("open input", path);
+    const auto size = input.tellg();
+    if (size < 0 || !input.seekg(0)) file_error("measure input", path);
+    vec<u8> data;
+    if (static_cast<uintmax_t>(size) > data.max_size()) file_error("measure input", path);
+    data.resize(static_cast<size_t>(size));
+    if (!data.empty() && !input.read(reinterpret_cast<char*>(data.data()), size))
+        file_error("read input", path);
+    return data;
 }
 
-void write_file(const std::string& path, const std::span<const u8> buffer) {
-#ifndef _WIN32
-    FILE* fp = fopen(path.c_str(), "wb");
-#else   // deal with utf-8 path on windows
-    FILE*         fp    = nullptr;
-    const auto    wpath = to_utf16(path);
-    const errno_t err   = _wfopen_s(&fp, wpath.c_str(), L"wb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
-    }
-#endif
-    if (fp == nullptr) { throw std::runtime_error("File not found"); }
-    fwrite(buffer.data(), 1, buffer.size(), fp);
-    fclose(fp);
+vec<u8> read_file(const std::string& path) { return read_file(utf8_path(path)); }
+
+void write_file(const std::filesystem::path& path, std::span<const u8> buffer) {
+    std::ofstream output(path, std::ios::binary);
+    if (!output) file_error("open output", path);
+    if (buffer.size() > static_cast<uintmax_t>(std::numeric_limits<std::streamsize>::max()))
+        file_error("write output", path);
+    if (!buffer.empty())
+        output.write(
+            reinterpret_cast<const char*>(buffer.data()),
+            static_cast<std::streamsize>(buffer.size())
+        );
+    output.close();
+    if (!output) file_error("write output", path);
 }
 
-void write_file(const std::filesystem::path& path, const std::span<const u8> buffer) {
-#ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
-    return write_file(path.string(), buffer);
-#else
-    FILE*         fp  = nullptr;
-    const errno_t err = _wfopen_s(&fp, path.c_str(), L"wb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(
-            fmt::format("File not found file (error:{}): {}", err, path_to_utf8(path))
-        );
-    }
-    fwrite(buffer.data(), 1, buffer.size(), fp);
-    fclose(fp);
-#endif
+void write_file(const std::string& path, std::span<const u8> buffer) {
+    write_file(utf8_path(path), buffer);
 }
 
 }   // namespace symusic
