@@ -639,6 +639,32 @@ def test_abc_export_rejects_output_beyond_the_work_limit():
         score.dumps_abc()
 
 
+def test_abc_export_budgets_all_channel_events_at_one_tick():
+    score = Score(480)
+    track = Track("Many same-tick controls")
+    track.notes.extend(Note(15, 480, 60, velocity) for velocity in range(1, 16))
+    track.controls.extend(ControlChange(15, 7, i % 128) for i in range(70_000))
+    score.tracks.append(track)
+    with pytest.raises(ValueError, match=r"ABC export track 1.*\[expansion-limit\]"):
+        score.dumps_abc()
+
+
+def test_abc_export_reuses_channel_events_across_split_voices():
+    score = Score(480)
+    track = Track("Split")
+    track.notes.extend([Note(15, 30, 60, 90), Note(15, 45, 60, 80)])
+    track.controls.extend([ControlChange(14, 7, 40), ControlChange(14, 7, 60)])
+    score.tempos.append(Tempo(14, mspq=625_000))
+    score.tracks.append(track)
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    assert note_rows(native) == note_rows(score)
+    assert len(native.tracks) == 2
+    assert all(list(t.controls) == list(track.controls) for t in native.tracks)
+    assert abc.count("[Q:") == 1
+    assert native.tempos[-1] == score.tempos[0]
+
+
 def test_abc_export_rejects_too_many_voices():
     score = Score(480)
     for program in range(16):

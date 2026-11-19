@@ -134,10 +134,10 @@ struct WrittenNote {
 struct Moment {
     vec<WrittenNote> attacks;
     vec<int>         releases;
-    vec<std::string> fields;
 };
 
 using Timeline = std::map<i32, Moment>;
+using Fields   = std::map<i32, vec<std::string>>;
 
 struct VoiceLane {
     Timeline             timeline;
@@ -207,29 +207,41 @@ vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_v
 
 class ExportBudget {
 public:
+    void spend_repeated(size_t work, size_t copies, std::string_view where) {
+        if (copies && work > remaining / copies) exhausted(where);
+        spend(work * copies, where);
+    }
+
     void spend(size_t work, std::string_view where) {
-        if (work > remaining) {
-            ExportIssues::invalid(
-                where, "[expansion-limit] output exceeds the ABC playback work limit"
-            );
-        }
+        if (work > remaining) exhausted(where);
         remaining -= work;
     }
 
 private:
-    size_t remaining = PlaybackWork::limit;
+    size_t                   remaining = PlaybackWork::limit;
+    [[noreturn]] static void exhausted(std::string_view where) {
+        ExportIssues::invalid(
+            where, "[expansion-limit] output exceeds the ABC playback work limit"
+        );
+    }
 };
 
 class VoiceWriter {
 public:
-    VoiceWriter(
-        std::string& output, Timeline timeline, ExportBudget& budget, std::string_view where
-    ) : output(output), timeline(std::move(timeline)), budget(budget), where(where) {}
-    void write(int id, std::string_view name, int program, bool drums);
+    VoiceWriter(std::string& output, ExportBudget& budget, std::string_view where) :
+        output(output), budget(budget), where(where) {}
+    void write(
+        int              id,
+        std::string_view name,
+        int              program,
+        bool             drums,
+        const Timeline&  notes,
+        const Fields&    channel,
+        const Fields&    global
+    );
 
 private:
     std::string&               output;
-    Timeline                   timeline;
     ExportBudget&              budget;
     std::string_view           where;
     std::map<int, WrittenNote> active;
@@ -240,6 +252,7 @@ private:
     void interval(i32 start, i32 end);
     void atom(i32 duration, i32 end);
     void moment(const Moment& change);
+    void play(const Timeline& notes, const Fields& channel, const Fields& global);
 };
 
 void VoiceWriter::token(std::string_view text, size_t steps) {
@@ -284,7 +297,6 @@ void VoiceWriter::atom(i32 duration, i32 end) {
 }
 
 void VoiceWriter::moment(const Moment& change) {
-    for (const auto& field : change.fields) token(field);
     for (const auto pitch : change.releases) active.erase(pitch);
     if (!change.attacks.empty() && velocity != change.attacks.front().velocity) {
         velocity = change.attacks.front().velocity;
@@ -293,7 +305,15 @@ void VoiceWriter::moment(const Moment& change) {
     for (const auto note : change.attacks) active.emplace(note.pitch, note);
 }
 
-void VoiceWriter::write(int id, std::string_view name, int program, bool drums) {
+void VoiceWriter::write(
+    int              id,
+    std::string_view name,
+    int              program,
+    bool             drums,
+    const Timeline&  notes,
+    const Fields&    channel,
+    const Fields&    global
+) {
     auto declaration = fmt::format("V:{}", id);
     if (!name.empty()) declaration += fmt::format(" name=\"{}\"", escape_text(name));
     budget.spend(PlaybackWork::token + PlaybackWork::text(declaration), where);
@@ -304,16 +324,42 @@ void VoiceWriter::write(int id, std::string_view name, int program, bool drums) 
     token(fmt::format("[I:MIDI program {}]", program));
     token("[I:MIDI chordattack 0]");
     token(fmt::format("[I:MIDI expand {}/{}]", PlaybackGrid::export_release_extension, tpq));
-    i32 previous = 0;
-    for (const auto& [time, change] : timeline) {
+    play(notes, channel, global);
+    token("|]");
+    output += '\n';
+}
+
+// Merge schedules without copying fields into every lane. At a shared tick,
+// global fields precede channel effects, which precede note attacks.
+void VoiceWriter::play(const Timeline& notes, const Fields& channel, const Fields& global) {
+    constexpr auto end     = std::numeric_limits<i32>::max();
+    const auto     tick_of = [end](auto iter, const auto& sequence) {
+        return iter == sequence.end() ? end : iter->first;
+    };
+    auto next_note    = notes.begin();
+    auto next_channel = channel.begin();
+    auto next_global  = global.begin();
+    i32  previous     = 0;
+    for (;;) {
+        const auto time = std::min(
+            {tick_of(next_note, notes),
+             tick_of(next_channel, channel),
+             tick_of(next_global, global)}
+        );
+        if (time == end) break;
         if (time > previous) interval(previous, time);
-        moment(change);
+        const auto emit_fields = [&](auto& next, const Fields& fields) {
+            if (tick_of(next, fields) != time) return;
+            for (const auto& field : next->second) token(field);
+            ++next;
+        };
+        emit_fields(next_global, global);
+        emit_fields(next_channel, channel);
+        if (tick_of(next_note, notes) == time) moment((next_note++)->second);
         previous = time;
     }
     // A one-tick tail allows the final expanded note to release before EOF.
     atom(PlaybackGrid::export_tail, previous + PlaybackGrid::export_tail);
-    token("|]");
-    output += '\n';
 }
 
 // Convert original endpoints once, on the ABC grid. In particular, a short
@@ -378,8 +424,9 @@ private:
 };
 
 template<TType T>
-struct PlannedVoice {
-    Timeline        timeline;
+struct PlannedTrack {
+    vec<VoiceLane>  lanes;
+    Fields          channel;
     std::string     where;
     const Track<T>* track;
 };
@@ -395,18 +442,30 @@ private:
     ExportClock<T>       clock;
     ExportIssues         issues;
     ExportBudget         budget;
-    ExportBudget         planned_intervals;
+    ExportBudget         planning_budget;
     std::string          output;
-    Timeline             global;
-    vec<PlannedVoice<T>> voices;
+    Fields               global;
+    vec<PlannedTrack<T>> tracks;
+    size_t               total_voices   = 0;
     size_t               melodic_voices = 0;
     int                  start_offset   = 0;
 
     i32 scale(long double time, std::string_view where) { return clock.scale(time, where, issues); }
-    vec<WrittenNote>         notes(const Track<T>& track, std::string_view where);
-    Timeline                 channel_events(const Track<T>& track, std::string_view where);
+    vec<WrittenNote> notes(const Track<T>& track, std::string_view where);
+    Fields           channel_events(const Track<T>& track, std::string_view where, size_t copies);
     vec<std::pair<i32, i32>> pedals(const Track<T>& track, std::string_view where);
-    void add_pedals(Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where);
+    void                     add_pedals(
+        Fields& fields, vec<std::pair<i32, i32>> pedals, std::string_view where, size_t copies
+    );
+    void add_bends(Fields& fields, const Track<T>& track, std::string_view where);
+    void reconcile_pedals(
+        Fields&                  fields,
+        vec<std::pair<i32, i32>> pedals,
+        vec<ControlChange<Tick>> controls,
+        std::string_view         where,
+        size_t                   copies
+    );
+    void reserve_voices(size_t lanes, bool drums, std::string_view where);
     void limitations(const Track<T>& track, std::string_view where);
     void header();
     void render_voices();
@@ -503,7 +562,7 @@ std::string ScoreWriter<T>::fields(
     for (const auto& [time, value] : ordered) {
         // Even a solo export declares V: to preserve the track name. The
         // conductor reads all global fields on the written clock.
-        global[time].fields.push_back(fmt::format("[{}:{}]", key, value));
+        global[time].push_back(fmt::format("[{}:{}]", key, value));
     }
     return fallback;
 }
@@ -567,22 +626,28 @@ std::string bend_field(int value, std::string_view where) {
 }
 
 template<TType T>
-Timeline ScoreWriter<T>::channel_events(const Track<T>& track, std::string_view where) {
-    Timeline                 timeline;
-    auto                     intervals = pedals(track, where);
+Fields ScoreWriter<T>::channel_events(
+    const Track<T>& track, std::string_view where, size_t copies
+) {
+    Fields                   fields;
     vec<ControlChange<Tick>> pedal_controls;
     for (const auto& event : *track.controls) {
         if (event.number > midi_max || event.value > midi_max)
             ExportIssues::invalid(where, "control number and value must be in MIDI range 0–127");
         const auto at = scale(event.time, where);
         if (event.number == 64) pedal_controls.emplace_back(at, event.number, event.value);
-        timeline[at].fields.push_back(
-            fmt::format("[I:MIDI control {} {}]", event.number, event.value)
-        );
+        fields[at].push_back(fmt::format("[I:MIDI control {} {}]", event.number, event.value));
     }
+    add_bends(fields, track, where);
+    reconcile_pedals(fields, pedals(track, where), std::move(pedal_controls), where, copies);
+    return fields;
+}
+
+template<TType T>
+void ScoreWriter<T>::add_bends(Fields& fields, const Track<T>& track, std::string_view where) {
     for (const auto& bend : *track.pitch_bends) {
         const auto at = scale(bend.time, where);
-        timeline[at].fields.push_back(bend_field(bend.value, where));
+        fields[at].push_back(bend_field(bend.value, where));
         if (at > 0)
             issues.warn(
                 where,
@@ -591,32 +656,43 @@ Timeline ScoreWriter<T>::channel_events(const Track<T>& track, std::string_view 
                 "use MIDI export for interoperable bend timing"
             );
     }
+}
+
+template<TType T>
+void ScoreWriter<T>::reconcile_pedals(
+    Fields&                  fields,
+    vec<std::pair<i32, i32>> intervals,
+    vec<ControlChange<Tick>> controls,
+    std::string_view         where,
+    size_t                   copies
+) {
     // Prefer explicit CC64: it can carry half-pedal values. Compare only
     // what reaches the playback grid; float storage error is not a conflict.
-    if (pedal_controls.empty())
-        add_pedals(timeline, std::move(intervals), where);
-    else if (!intervals.empty()) {
-        std::ranges::sort(intervals);
-        if (intervals != pedal_intervals(std::move(pedal_controls)))
-            issues.warn(
-                where,
-                "pedal-conflict",
-                "pedal intervals disagree with CC64; kept the explicit controls"
-            );
+    if (controls.empty()) {
+        add_pedals(fields, std::move(intervals), where, copies);
+        return;
     }
-    return timeline;
+    if (intervals.empty()) return;
+    std::ranges::sort(intervals);
+    if (intervals != pedal_intervals(std::move(controls)))
+        issues.warn(
+            where,
+            "pedal-conflict",
+            "pedal intervals disagree with CC64; kept the explicit controls"
+        );
 }
 
 template<TType T>
 void ScoreWriter<T>::add_pedals(
-    Timeline& timeline, vec<std::pair<i32, i32>> pedals, std::string_view where
+    Fields& fields, vec<std::pair<i32, i32>> pedals, std::string_view where, size_t copies
 ) {
     if (pedals.empty()) return;
     std::ranges::sort(pedals);
     auto [start, end] = pedals.front();
     const auto append = [&] {
-        timeline[start].fields.push_back("[I:MIDI control 64 127]");
-        timeline[end].fields.push_back("[I:MIDI control 64 0]");
+        planning_budget.spend_repeated(2 * PlaybackWork::token, copies, where);
+        fields[start].push_back("[I:MIDI control 64 127]");
+        fields[end].push_back("[I:MIDI control 64 0]");
     };
     for (const auto& [next_start, next_end] : std::span(pedals).subspan(1)) {
         if (next_start < end) {
@@ -635,7 +711,7 @@ template<TType T>
 void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
     if (!utf8::is_valid(track.name.begin(), track.name.end()))
         ExportIssues::invalid(fmt::format("track {}", index + 1), "track name must be valid UTF-8");
-    const auto where = fmt::format("track {} ('{}')", index + 1, escape_text(track.name));
+    auto where = fmt::format("track {} ('{}')", index + 1, escape_text(track.name));
     if (track.program > midi_max)
         ExportIssues::invalid(where, "program must be in MIDI range 0–127");
     limitations(track, where);
@@ -644,45 +720,58 @@ void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
     );
     if (lanes.size() > 1)
         issues.warn(where, "split-voice", "used multiple ABC voices to preserve note events");
-    const auto control_fields = channel_events(track, where);
-    for (auto& lane : lanes) {
-        for (const auto& [tick, change] : control_fields)
-            lane.timeline[tick].fields = change.fields;
-        if (lane.timeline.empty()) continue;
-        if (voices.size() == max_export_voices)
-            ExportIssues::invalid(where, "export uses more than 30 ABC voices");
-        if (!track.is_drum && ++melodic_voices > melodic_channels)
-            ExportIssues::invalid(where, "voice allocation used more than 15 melodic ABC voices");
-        if (track.is_drum && voices.size() > melodic_voices)
-            issues.warn(
-                "score",
-                "shared-drum-channel",
-                "abc2midi uses channel 10 for all percussion voices; their notes and settings can "
-                "interact"
-            );
-        // Every scheduled tick needs at least one token (including the tail).
-        // Bound the timelines retained before rendering spends the full budget.
-        planned_intervals.spend(lane.timeline.size() * PlaybackWork::token, where);
-        voices.push_back({std::move(lane.timeline), where, &track});
-    }
+    // These events emit one token per lane even when they all share a tick.
+    // Charge them before formatting or retaining any of their strings.
+    planning_budget.spend_repeated(track.controls->size(), lanes.size(), where);
+    planning_budget.spend_repeated(track.pitch_bends->size(), lanes.size(), where);
+    auto channel = channel_events(track, where, lanes.size());
+    if (lanes.front().timeline.empty() && channel.empty()) return;
+    for (const auto& lane : lanes)
+        planning_budget.spend(lane.timeline.size() * PlaybackWork::token, where);
+    reserve_voices(lanes.size(), track.is_drum, where);
+    tracks.push_back({std::move(lanes), std::move(channel), std::move(where), &track});
+}
+
+template<TType T>
+void ScoreWriter<T>::reserve_voices(size_t lanes, bool drums, std::string_view where) {
+    if (total_voices + lanes > max_export_voices)
+        ExportIssues::invalid(where, "export uses more than 30 ABC voices");
+    if (!drums && melodic_voices + lanes > melodic_channels)
+        ExportIssues::invalid(where, "voice allocation used more than 15 melodic ABC voices");
+    if (drums && total_voices - melodic_voices + lanes > 1)
+        issues.warn(
+            "score",
+            "shared-drum-channel",
+            "abc2midi uses channel 10 for all percussion voices; their notes and settings can "
+            "interact"
+        );
+    if (!drums) melodic_voices += lanes;
+    total_voices += lanes;
 }
 
 template<TType T>
 void ScoreWriter<T>::render_voices() {
-    if (voices.empty()) {
-        VoiceWriter(output, std::move(global), budget, "score").write(1, "", 0, false);
+    const Fields no_fields;
+    if (tracks.empty()) {
+        VoiceWriter(output, budget, "score").write(1, "", 0, false, {}, no_fields, global);
         return;
     }
-    auto& first = voices.front().timeline;
-    for (const auto& [tick, change] : global) {
-        auto& fields = first[tick].fields;
-        fields.insert(fields.begin(), change.fields.begin(), change.fields.end());
-    }
     int id = 0;
-    for (auto& voice : voices) {
-        const auto& track = *voice.track;
-        VoiceWriter(output, std::move(voice.timeline), budget, voice.where)
-            .write(++id, track.name, track.program, track.is_drum);
+    for (const auto& plan : tracks) {
+        const auto& track = *plan.track;
+        for (const auto& lane : plan.lanes) {
+            const auto& conductor = id == 0 ? global : no_fields;
+            VoiceWriter(output, budget, plan.where)
+                .write(
+                    ++id,
+                    track.name,
+                    track.program,
+                    track.is_drum,
+                    lane.timeline,
+                    plan.channel,
+                    conductor
+                );
+        }
     }
 }
 
