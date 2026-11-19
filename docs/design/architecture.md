@@ -44,7 +44,7 @@ A notation format relates to `Score` in two directions of different difficulty:
 ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through the MIDI reader, and `midi2abc` transcribes. A new format is connected in three layers:
 
 1. Parsing the file into the format's own model belongs to the format library.
-2. Rendering that model into performance events needs the musical knowledge of the notation. It belongs to the format library, or to a symusic module for that format when the library only parses, as mx does for MusicXML.
+2. Rendering that model into performance events needs the musical knowledge of the notation. It belongs to the format library, or to a symusic module for that format when the library only parses, as for MusicXML, whose candidate parsers (mx, or pugixml under a symusic reader) stop at the notation.
 3. Writing the events into a `Score` is symusic's adapter. It maps fields and contains no musical interpretation.
 
 `Score` does not gain fields that only a notation format needs. If symusic ever needs notation, that is a separate model that renders to `Score`.

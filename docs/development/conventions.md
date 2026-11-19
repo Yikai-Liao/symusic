@@ -21,7 +21,7 @@ These apply in every layer and decide most of the questions below.
 |---|---|---|
 | Types, concepts, enums | `PascalCase` | `TimeSignature`, `TimeEvent`, `PianorollMode` |
 | Functions, variables, data members | `snake_case` | `shift_time`, `ticks_per_quarter` |
-| Enumerators | `PascalCase` | `PianorollMode::Onset`, `DataFormat::MusicXML` |
+| Enumerators | `PascalCase` | `PianorollMode::Onset`, `DataFormat::ABC` |
 | Constants | `k` + `PascalCase` | `kSortDoc` |
 | Template parameters | `PascalCase`; `T` for the time unit | `template<TType T>`, `template<TimeEvent E>` |
 | Macros | `SYMUSIC_UPPER_CASE` | `SYMUSIC_COLD` |
