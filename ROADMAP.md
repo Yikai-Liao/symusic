@@ -40,6 +40,7 @@ Workarounds and unsupported configurations with current toolchains.
 - **Free-threaded Python.** Importing the extension on `3.13t`/`3.14t` re-enables the GIL with a `RuntimeWarning`. Supporting it requires declaring free-threading support in the module and auditing shared state.
 - **nanobind `<cstdio>` workaround.** `py_src/CMakeLists.txt` force-includes `<cstdio>` because nanobind v3.1.0 omits it, which breaks limited-API builds with libc++. Remove the workaround once nanobind tags a release containing upstream commit `942e75d`.
 - **Cross-compiled release wheels.** Building release wheels by cross-compiling on Linux with [xclang](https://github.com/clice-io/xclang) is the planned packaging path. The [experimental wheel path](docs/development/ci.md#cross-compilation-experiment) is opt-in. Integrate verified targets into `release.yml`, retain native builders for interpreter/platform combinations the experiment does not cover, and extend that coverage before retiring those builders.
+- **Sphinx 9.** `docs/requirements.txt` pins `sphinx==7.4.7` and `docutils<0.21`; Sphinx 9.2 supports Docutils 0.23. Check that myst-parser and Furo support the new versions, then raise the pins and keep the `-W` build passing.
 - **Deprecated CMake option names.** `cmake/BuildOptions.cmake` still maps the pre-0.6.1 names (`BUILD_SYMUSIC_PY`, `ENABLE_LTO`, ...) to the `SYMUSIC_` options with a deprecation warning. Remove the aliases in the next minor release.
 
 ## Static analysis
@@ -72,6 +73,7 @@ Found while checking the guide against the package. Each fix needs a test that f
 ## Test coverage
 
 - **Boundary inputs.** Malformed MIDI durations and negative tick times have no regression tests.
+- **Markdown in the guide.** Nothing rejects Sphinx or MyST syntax in `skills/symusic/`, which the [documentation rules](CONTRIBUTING.md#documentation) keep out of the shared pages. Extend `tests/test_docs_examples.py` to fail on directives, roles and `(label)=` targets in those pages.
 
 ## Architecture
 
