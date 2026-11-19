@@ -49,6 +49,10 @@ restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 
 The [guide](https://symusic.readthedocs.io/en/stable/) covers time units, the data model, file formats, NumPy arrays and piano rolls, dataset pipelines, building scores and synthesis; the same pages are in [`skills/symusic`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic). Method signatures and docstrings are in the installed package's type stubs, `symusic/core.pyi`. The [architecture](https://github.com/Yikai-Liao/symusic/blob/main/docs/design/architecture.md) explains how the code is organized and which behavior it guarantees.
 
+## Agent skill
+
+The guide pages are also an [agent skill](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic) for coding agents. Install it from GitHub with `npx skills add Yikai-Liao/symusic`, adding `@<tag>` to pin the release that matches your installed symusic, or copy the version bundled in the installed package with `python -m symusic.skill install DIR`, where `DIR` is the agent's skills directory, such as `~/.claude/skills`. `python -m symusic.skill path` prints the bundled copy's location.
+
 ## Performance
 
 ![MIDI parsing benchmark](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)

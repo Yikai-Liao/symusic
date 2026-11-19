@@ -54,9 +54,10 @@ RULES: tuple[tuple[str, frozenset[str]], ...] = (
     ("MANIFEST.in", frozenset({"wheels"})),
     ("scripts/*", frozenset({"python", "wheels"})),
     ("python/*", frozenset({"python"})),
-    # pytest runs the guide pages' examples and the site includes them. This
-    # rule must precede "*.md", which would otherwise match them.
-    ("skills/*", frozenset({"python", "docs"})),
+    # pytest runs the guide pages' examples, the site includes them and the
+    # wheel bundles them. This rule must precede "*.md", which would otherwise
+    # match them.
+    ("skills/*", frozenset({"python", "docs", "wheels"})),
     ("tests/*", frozenset({"python"})),
     ("docs/*", frozenset({"docs"})),
     ("readthedocs.yml", frozenset({"docs"})),

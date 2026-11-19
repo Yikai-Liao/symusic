@@ -56,3 +56,6 @@ endif()
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/cmake/abcmidi" "${PROJECT_BINARY_DIR}/abcmidi")
 install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+
+# The agent skill, located at run time by symusic.skill.path().
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/skills/symusic" DESTINATION symusic/skills)

@@ -26,7 +26,7 @@ The `changes` job runs `.github/scripts/ci_changes.py`, which maps each path cha
 | `python` | Core, binding, package, tests, `skills/`, build files | `pytest` on Linux CPython 3.12 with Python coverage, and on Windows CPython 3.15 |
 | `cpp` | Core, `tests/cpp/`, `examples/`, build files | Catch2 tests through CTest on Linux, with C++ coverage; a separate `sanitize` job runs the same tests with ASan and UBSan |
 | `docs` | `docs/`, `skills/`, `CONTRIBUTING.md`, `ROADMAP.md` | Sphinx HTML with warnings as errors; the site does not import the package |
-| `wheels` | Build, packaging, dependency and CI configuration | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
+| `wheels` | Build, packaging, dependency and CI configuration, `skills/` | One stable-ABI wheel (manylinux x86_64), tested on CPython 3.12 and 3.15 |
 
 Changes to `.github/workflows/` or `.github/scripts/` select every lane. Root Markdown files included in the website select `docs`; other Markdown files outside `docs/` and `skills/` select only `lint`. Renames select both the old and new paths' lanes. When you add a top-level file or directory, add a rule to `ci_changes.py`; a test fails until every tracked file matches one.
 

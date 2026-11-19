@@ -28,7 +28,7 @@ import cross_wheels
         (["python/symusic/factory.py"], {"python"}),
         (["py_src/bindings/score.cpp"], {"python"}),
         (["py_src/CMakeLists.txt"], {"python", "wheels"}),
-        (["skills/symusic/references/files.md"], {"python", "docs"}),
+        (["skills/symusic/references/files.md"], {"python", "docs", "wheels"}),
         (["src/score.cpp"], {"python", "cpp"}),
         (["CMakeLists.txt"], set(ci_changes.LANES)),
         (["3rdparty/minimidi"], set(ci_changes.LANES)),
