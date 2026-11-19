@@ -1343,3 +1343,11 @@ def test_live_harp_cut_rejects_unequal_broken_attacks(upstream, tmp_path):
         native = Score.from_abc(abc)
     oracle = Score(oracle_midi(upstream, abc, tmp_path, expected_exit=1))
     assert performed(native) == performed(oracle)
+
+
+@pytest.mark.parametrize("body", ["C-CDEF|", "C- C- C D|", "C4-|C2 D2|"])
+def test_live_muted_tie(upstream, tmp_path, body):
+    abc = HEADER + "[I:MIDI controlstring 11 10][I:MIDI vol 0]!shape!" + body
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )

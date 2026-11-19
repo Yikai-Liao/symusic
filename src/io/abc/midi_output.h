@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <map>
 
 #include "pitch_tuning.h"
@@ -9,21 +10,31 @@ namespace symusic::abc::detail {
 
 class VoiceOutput;
 
-// A stable note handle until its voice finishes; note vectors may grow in between.
-class NoteAddress {
+// The release of a sounding or muted attack may change as ties resolve.
+// Both playback and envelopes hold this address until the voice finishes.
+class AttackGate {
 public:
     void release_at(i32 end) const;
 
 private:
     friend class VoiceOutput;
-    NoteAddress(TrackNative<Tick>& track, size_t index) : track(&track), index(index) {}
-    [[nodiscard]] Note<Tick>& note() const { return track->notes[index]; }
-
-    TrackNative<Tick>* track;
-    size_t             index;
+    struct Range {
+        i32               time;
+        i32               duration;
+        [[nodiscard]] i32 end() const { return time + duration; }
+    };
+    struct Sounding {
+        TrackNative<Tick>*        track;
+        size_t                    index;
+        [[nodiscard]] Note<Tick>& note() const { return track->notes[index]; }
+    };
+    AttackGate(TrackNative<Tick>& track, size_t index) : address(Sounding{&track, index}) {}
+    explicit AttackGate(Range& muted) : address(&muted) {}
+    [[nodiscard]] Range                 range() const;
+    [[nodiscard]] std::optional<size_t> note_index() const;
+    std::variant<Sounding, Range*>      address;
 };
 
-// Unlike a note address, this anchor also exists at a muted attack.
 class LyricAnchor {
 public:
     void append(std::string text) const { track->lyrics.emplace_back(time, std::move(text)); }
@@ -36,8 +47,8 @@ private:
 };
 
 struct Attack {
-    LyricAnchor                lyric;
-    std::optional<NoteAddress> note;
+    LyricAnchor lyric;
+    AttackGate  gate;
 };
 
 // Collects one notation voice's performed MIDI events. Routes attacks and
@@ -121,14 +132,9 @@ private:
         bool                           combine_next = false;
         std::optional<PendingEnvelope> pending;
     };
-    struct Gate {
-        i32               time;
-        i32               duration;
-        [[nodiscard]] i32 end() const { return time + duration; }
-    };
-    using EnvelopeGate = std::variant<size_t, Gate>;
+    using Gate = AttackGate::Range;
     struct NoteEnvelope {
-        EnvelopeGate         gate;
+        AttackGate           gate;
         Target               destination;
         BendProfile          bend;
         ControllerLayers     controllers;
@@ -138,6 +144,7 @@ private:
         [[nodiscard]] size_t work() const;
     };
     std::array<LaneEnvelope, max_voice_lanes> envelopes;
+    std::deque<Gate>                          muted;
 
     struct TuningAttack {
         i32                   time;
@@ -197,17 +204,15 @@ private:
     );
     bool envelope_directive(std::string_view name, std::string_view args, int lane, Location at);
     void controller_curve(LaneEnvelope& state, std::string_view args, Location at);
-    void attach_envelope(ChannelOutput& owner, Target destination, EnvelopeGate gate, int wheel);
+    void attach_envelope(ChannelOutput& owner, Target destination, AttackGate gate, int wheel);
     void write_bend(const NoteEnvelope& envelope, Gate gate);
     void write_shape(const NoteEnvelope& envelope, Gate gate);
     void complete_envelopes();
     void complete_channel_envelopes(ChannelOutput& owner);
     struct NoteActivity;
-    void complete_envelope(
-        const NoteEnvelope& envelope, const vec<Note<Tick>>& notes, const NoteActivity& activity
-    );
-    Gate        note_gate(i32 time, long double duration, int stagger, Location at);
-    NoteAddress emit_note(
+    void       complete_envelope(const NoteEnvelope& envelope, const NoteActivity& activity);
+    Gate       note_gate(i32 time, long double duration, int stagger, Location at);
+    AttackGate store_attack(
         ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity
     );
     void               warn_envelope_overlap(const NoteEnvelope& envelope);

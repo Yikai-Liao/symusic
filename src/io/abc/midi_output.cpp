@@ -114,9 +114,23 @@ bool VoiceOutput::NoteActivity::intersects(Gate gate) const {
     return stop != attacks.begin() && std::prev(stop)->open_until > gate.time;
 }
 
-void NoteAddress::release_at(i32 end) const {
-    auto& event    = note();
-    event.duration = std::max(0, end - event.time);
+void AttackGate::release_at(i32 end) const {
+    const auto update = [end](auto& note) { note.duration = std::max(0, end - note.time); };
+    if (const auto* note = std::get_if<Sounding>(&address))
+        update(note->note());
+    else
+        update(*std::get<Range*>(address));
+}
+
+AttackGate::Range AttackGate::range() const {
+    if (const auto* note = std::get_if<Sounding>(&address))
+        return {note->note().time, note->note().duration};
+    return *std::get<Range*>(address);
+}
+
+std::optional<size_t> AttackGate::note_index() const {
+    if (const auto* note = std::get_if<Sounding>(&address)) return note->index;
+    return {};
 }
 
 VoiceOutput::VoiceOutput(
@@ -175,17 +189,13 @@ Attack VoiceOutput::attack(
     const auto time        = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
     const auto destination = target(lane);
     auto&      owner       = channel(destination);
-    Attack     hit{LyricAnchor(owner.track, time), {}};
     diagnostics.spend(PlaybackWork::attack, at);
-    const auto gate = note_gate(time, duration, stagger, at);
-    if (velocity != 0) hit.note = emit_note(owner, destination, pitch, gate, velocity);
-    const auto note = hit.note ? std::optional{hit.note->index} : std::nullopt;
+    const auto gate
+        = store_attack(owner, destination, pitch, note_gate(time, duration, stagger, at), velocity);
     if (destination.channel != midi_drum_channel)
-        owner.tuning.push_back({time, pitch.wheel, event_order++, at, note});
-    attach_envelope(
-        owner, destination, note ? EnvelopeGate{*note} : EnvelopeGate{gate}, pitch.wheel
-    );
-    return hit;
+        owner.tuning.push_back({time, pitch.wheel, event_order++, at, gate.note_index()});
+    attach_envelope(owner, destination, gate, pitch.wheel);
+    return {LyricAnchor(owner.track, time), gate};
 }
 
 VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int stagger, Location at) {
@@ -196,14 +206,15 @@ VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int sta
     return {time, length};
 }
 
-NoteAddress VoiceOutput::emit_note(
+AttackGate VoiceOutput::store_attack(
     ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity
 ) {
+    if (velocity == 0) return AttackGate(muted.emplace_back(gate));
     if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
     owner.track.notes.emplace_back(
         gate.time, gate.duration, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
     );
-    return NoteAddress(owner.track, owner.track.notes.size() - 1);
+    return AttackGate(owner.track, owner.track.notes.size() - 1);
 }
 
 void VoiceOutput::sustain(ChannelKey channel, TrackNative<Tick>& owner, i32 time, int value) {
@@ -401,7 +412,7 @@ size_t VoiceOutput::NoteEnvelope::work() const {
 }
 
 void VoiceOutput::attach_envelope(
-    ChannelOutput& owner, Target destination, EnvelopeGate gate, int wheel
+    ChannelOutput& owner, Target destination, AttackGate gate, int wheel
 ) {
     auto& state = envelopes[destination.lane];
     if (!state.pending) return;
@@ -536,23 +547,18 @@ void VoiceOutput::complete_tuning(Target target, ChannelOutput& owner) {
 void VoiceOutput::complete_channel_envelopes(ChannelOutput& owner) {
     if (owner.note_envelopes.empty()) return;
     const NoteActivity activity(owner.track.notes);
-    for (const auto& envelope : owner.note_envelopes)
-        complete_envelope(envelope, owner.track.notes, activity);
+    for (const auto& envelope : owner.note_envelopes) complete_envelope(envelope, activity);
 }
 
-void VoiceOutput::complete_envelope(
-    const NoteEnvelope& envelope, const vec<Note<Tick>>& notes, const NoteActivity& activity
-) {
-    if (const auto* muted = std::get_if<Gate>(&envelope.gate)) {
-        if (activity.intersects(*muted)) warn_envelope_overlap(envelope);
-        write_envelope(envelope, *muted);
-        return;
+void VoiceOutput::complete_envelope(const NoteEnvelope& envelope, const NoteActivity& activity) {
+    const auto gate = envelope.gate.range();
+    if (const auto index = envelope.gate.note_index()) {
+        const auto [prior, later] = activity.overlaps[*index];
+        if (prior || later) warn_envelope_overlap(envelope);
+    } else if (activity.intersects(gate)) {
+        warn_envelope_overlap(envelope);
     }
-    const auto index          = std::get<size_t>(envelope.gate);
-    const auto [prior, later] = activity.overlaps[index];
-    if (prior || later) warn_envelope_overlap(envelope);
-    const auto& note = notes[index];
-    write_envelope(envelope, {note.time, note.duration});
+    write_envelope(envelope, gate);
 }
 
 void VoiceOutput::write_envelope(const NoteEnvelope& envelope, Gate gate) {

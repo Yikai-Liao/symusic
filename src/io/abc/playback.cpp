@@ -59,14 +59,14 @@ Alteration Accidentals::resolve(Pitch pitch, const Key& key, AccidentalScope sco
 }
 
 struct TieNote {
-    Sound       sound;
-    NoteAddress note;
-    Location    at;
+    Sound      sound;
+    AttackGate note;
+    Location   at;
 };
 
 struct ChordMember {
-    Sound                      sound;
-    std::optional<NoteAddress> continuation;
+    Sound                     sound;
+    std::optional<AttackGate> continuation;
 };
 
 struct EnvelopeCue {
@@ -491,16 +491,16 @@ private:
     Sound resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
     Sound sound(Pitch pitch, Location at, bool tie);
     void  ornament_attack(Sound sound, long double start, long double duration, Location at);
-    std::optional<NoteAddress> sustain(Sound& sound, i32 end);
-    vec<ChordMember>           resolve_chord(const Prepared& atom, long double end);
-    void                       set_symbols(std::string_view value, Location at);
-    void                       midi(std::string_view command, Location at);
-    void                       information(std::string_view value, Location at);
-    void                       change_key(std::string_view value, Location at);
-    void                       change_meter(std::string_view value, Location at);
-    void                       change_tempo(std::string_view value, Location at);
-    void                       change_voice(std::string_view value, Location at);
-    void                       articulation(
+    std::optional<AttackGate> sustain(Sound& sound, i32 end);
+    vec<ChordMember>          resolve_chord(const Prepared& atom, long double end);
+    void                      set_symbols(std::string_view value, Location at);
+    void                      midi(std::string_view command, Location at);
+    void                      information(std::string_view value, Location at);
+    void                      change_key(std::string_view value, Location at);
+    void                      change_meter(std::string_view value, Location at);
+    void                      change_tempo(std::string_view value, Location at);
+    void                      change_voice(std::string_view value, Location at);
+    void                      articulation(
         const Prepared& atom, long double duration, std::optional<long double> harp_first
     );
     void visit(const Directive& command, Location at);
@@ -674,7 +674,7 @@ void VoicePlayer::ornament_attack(
     lyric_line.attack(hit.lyric);
 }
 
-std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, i32 end) {
+std::optional<AttackGate> VoicePlayer::sustain(Sound& sound, i32 end) {
     auto match = std::ranges::find_if(lane().ties, [&](const TieNote& pending) {
         // The wheel bends the channel, not the note number matched by a tie.
         return sound.pitch.note == pending.sound.pitch.note
@@ -754,13 +754,13 @@ std::optional<LyricAnchor> VoicePlayer::emit_chord(
             const auto hit    = output.attack(
                 lanes.id(), played.pitch, start, audible, stagger, velocity(start), atom.at, member
             );
-            address = hit.note;
+            address = hit.gate;
             if (!first_attack) first_attack = hit.lyric;
             stagger = static_cast<int>(
                 std::min<int64_t>(max_stagger, stagger + static_cast<int64_t>(attack))
             );
         }
-        if (address && played.tie) next_ties.push_back({played, *address, atom.at});
+        if (played.tie) next_ties.push_back({played, *address, atom.at});
     }
     // abc2midi treats a dash between unlike pitches as an ordinary attack.
     lane().ties = std::move(next_ties);

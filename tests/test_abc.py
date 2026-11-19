@@ -1265,3 +1265,14 @@ def test_abc_harp_cut_subdivides_transformed_length(body, attacks):
         "%%MIDI harpmode 1\n" + HEADER.replace("L:1/4", "L:1/8") + body
     )
     assert [(n.time, n.duration) for n in score.tracks[0].notes[:4]] == attacks
+
+
+def test_abc_muted_tie_releases_at_the_end_of_its_chain():
+    track = Score.from_abc(
+        HEADER + "[I:MIDI controlstring 11 10][I:MIDI vol 0]!shape!C- C- C D|"
+    ).tracks[0]
+    assert [(n.time, n.duration, n.pitch) for n in track.notes] == [(1441, 479, 62)]
+    assert [(e.time, e.number, e.value) for e in track.controls] == [
+        (1, 11, 10),
+        (1440, 11, 127),
+    ]
