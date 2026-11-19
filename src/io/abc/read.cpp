@@ -184,7 +184,7 @@ void Voices::header_midi(const Token& token, std::string_view command) {
 
 void Voices::music_line(const Token& token) {
     if (!token.music_line) return;
-    if (std::holds_alternative<Atom>(token.value) || std::holds_alternative<Bar>(token.value))
+    if (token.anchors_lyrics())
         lyric_source = token.music_line;
     else if (lyric_source != token.music_line)
         lyric_source = 0;

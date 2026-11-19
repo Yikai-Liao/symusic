@@ -164,6 +164,11 @@ struct Token {
            value;
     size_t music_line = 0;   // identity shared across physical continuations
 
+    // Only rhythmic atoms and bars establish a lyric cursor in playback.
+    [[nodiscard]] bool anchors_lyrics() const {
+        return std::holds_alternative<Atom>(value) || std::holds_alternative<Bar>(value);
+    }
+
     // Both information fields and percent directives carry commands.
     [[nodiscard]] std::optional<std::string_view> information() const {
         if (const auto* directive = std::get_if<Directive>(&value)) return directive->value;

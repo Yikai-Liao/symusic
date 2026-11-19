@@ -497,6 +497,24 @@ def test_abc_lyrics_at_repeat_boundaries(body: str, upstream: Path, tmp_path: Pa
     )
 
 
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("C |:\nw: one\nD1 :|\nw: two", [(1, "one"), (481, "two"), (961, "two")]),
+        (
+            "C |: [I:MIDI program 0]\nw: one\nD |\nw: two\nE1 :|\nw: three",
+            [(1, "one"), (481, "two"), (961, "three"), (1441, "two"), (1921, "three")],
+        ),
+    ],
+)
+def test_repeat_reenters_lyric_line(
+    body: str, expected: list[tuple[int, str]], upstream: Path, tmp_path: Path
+):
+    abc = HEADER.replace("M:4/4", "M:1/4") + body
+    assert lyric_rows(Score.from_abc(abc)) == expected
+    assert lyric_rows(oracle_score(upstream, abc, tmp_path, "-lyrics")) == expected
+
+
 def test_shorthand_decoration_spelling(upstream: Path, tmp_path: Path):
     abc = HEADER + "'C !'! D !H! E !T! F|"
     with pytest.warns(UserWarning, match=r"\[ignored-decoration\]") as warnings:

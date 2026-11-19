@@ -278,7 +278,7 @@ public:
         written(written), diagnostics(diagnostics) {}
     void start(size_t line);
     void enter_part(size_t occurrence);
-    void continue_across_jump() { carry_verse = true; }
+    void jump(bool continues_lyrics);
     void attack(LyricAnchor anchor) {
         if (verse) attacks.push_back(anchor);
     }
@@ -309,6 +309,13 @@ void LyricLine::start(size_t next) {
         const auto& verses = found->second;
         verse              = &verses[occurrence % verses.size()];
     }
+}
+
+void LyricLine::jump(bool continues_lyrics) {
+    if (continues_lyrics)
+        carry_verse = true;
+    else
+        finish();
 }
 
 void LyricLine::enter_part(size_t next) {
@@ -1155,7 +1162,7 @@ void VoicePlayer::visit_step(PlayStep step) {
         break;
     case Flow::jump_repeat:
         jump_repeat();
-        if (step.continues_lyrics) lyric_line.continue_across_jump();
+        lyric_line.jump(step.continues_lyrics);
         break;
     case Flow::soft_bar:
     case Flow::hard_bar:

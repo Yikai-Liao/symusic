@@ -164,7 +164,7 @@ private:
     void                  step(size_t index, Flow flow);
     void                  slice(size_t first, size_t end);
     void                  region(size_t first, size_t first_bar, size_t last_bar, int passes);
-    bool                  jumps_inside_music_line(size_t first, size_t first_bar) const;
+    bool                  jumps_inside_music_line(size_t first_bar, size_t played_from) const;
     void                  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
 };
 
@@ -244,21 +244,26 @@ void RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int
     }
 }
 
-bool RepeatOrder::jumps_inside_music_line(size_t first, size_t first_bar) const {
+bool RepeatOrder::jumps_inside_music_line(size_t first_bar, size_t played_from) const {
     // An implicit opening bar is inserted after the initial music-line entry.
     if (first_bar == 0) return true;
     const auto& opening = bars[first_bar - 1];
-    return opening.bar.repeat_start && source[opening.index].music_line == source[first].music_line;
+    if (!opening.bar.repeat_start) return false;
+    const auto played = std::span(output).subspan(played_from);
+    const auto entry  = std::ranges::find_if(played, [](const PlayStep& step) {
+        return step.token->anchors_lyrics();
+    });
+    return entry != played.end() && entry->token->music_line == source[opening.index].music_line;
 }
 
 void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int passes) {
     step(first, Flow::enter_repeat);
-    for (int pass = 1; pass <= passes; ++pass) {
-        if (pass > 1) {
-            step(first, Flow::jump_repeat);
-            output.back().continues_lyrics = jumps_inside_music_line(first, first_bar);
-        }
+    play_pass(first, first_bar, last_bar, 1);
+    for (int pass = 2; pass <= passes; ++pass) {
+        const auto jump = output.size();
+        step(first, Flow::jump_repeat);
         play_pass(first, first_bar, last_bar, pass);
+        output[jump].continues_lyrics = jumps_inside_music_line(first_bar, jump + 1);
     }
 }
 
