@@ -40,6 +40,8 @@ CASES = {
     + "C y2 D y E y/ F|\n%%beginps\nK:D\nCzC \\\n%%endps\nGABc|",
     "tuplets": HEADER + "(3CDE (5:4:5 FGABc |",
     "broken_rhythm": HEADER + "C>D E<F G>>A B<<c |",
+    "dotted_ties_and_slurs": HEADER + "C.-C .(E G) | [CE].-[CE] c.-c- | c A.-A2 |]",
+    "dotted_bar_and_staccato": HEADER + "^C DEF .| C .D EF|",
     "trill_on_tie_continuation": HEADER + "C- TC D E| ^C-| TC D E F|",
     "roll_on_tie_continuation": HEADER + "C- RC D E|",
     "grace_breaks_tie": HEADER + "C- {D}C D E|",

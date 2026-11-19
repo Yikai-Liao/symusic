@@ -66,7 +66,7 @@ using accidental_sign
     = sor<string<'^', '^'>, string<'_', '_'>, seq<chars<'='>, opt<shift_sign>>, shift_sign>;
 struct accidental : seq<accidental_sign, opt<length>> {};
 struct letter : ranges<'a', 'g', 'A', 'G'> {};
-struct tie : chars<'-'> {};
+struct tie : seq<opt<chars<'.'>>, chars<'-'>> {};
 using pitch_spelling = seq<opt<accidental>, letter, opt<octave>>;
 struct pitch : seq<pitch_spelling, opt<length>, opt<tie>> {};
 
@@ -87,7 +87,9 @@ struct repeat_start : sor<string<'|', '|', ':'>, string<'|', ':'>> {};
 struct repeat_end : sor<string<':', '|', '|'>, string<':', '|'>, string<':', ']'>> {};
 struct section : sor<string<'|', ']'>, string<'|', '|'>> {};
 struct plain_bar : sor<string<'[', '|'>, chars<'|'>> {};
-struct bar : seq<sor<repeat_both, repeat_end, repeat_start, section, plain_bar>,
+using dotted_bar_prefix = seq<chars<'.'>, at<chars<'|'>>>;
+struct bar : seq<opt<dotted_bar_prefix>,
+                 sor<repeat_both, repeat_end, repeat_start, section, plain_bar>,
                  opt<seq<opt<chars<'['>>, endings>>> {};
 struct quoted_ending : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'"'>> {};
 struct ending : seq<chars<'['>, sor<endings, quoted_ending>, opt<chars<']'>>> {};
@@ -99,7 +101,7 @@ struct harmony : seq<chars<'"'>, star<sor<escaped, not_one<'"', '\\'>>>, chars<'
 struct named_decoration : sor<seq<chars<'!'>, plus<not_one<'!'>>, chars<'!'>>,
                               seq<chars<'+'>, plus<not_one<'+'>>, chars<'+'>>> {};
 struct decoration : sor<named_decoration, chars<'.', '~', '\''>, alpha> {};
-struct slur : chars<'(', ')'> {};
+struct slur : sor<seq<opt<chars<'.'>>, chars<'('>>, chars<')'>> {};
 struct invalid : any {};
 using layout = sor<chars<'$', '`'>, seq<chars<'\\', '!'>, eof>, ws>;
 using token  = sor<
@@ -116,9 +118,9 @@ using token  = sor<
     overlay,
     harmony,
     spacing,
-    decoration,
     slur,
     tie,
+    decoration,
     layout,
     invalid>;
 using music = seq<star<token>, eof>;
@@ -262,7 +264,7 @@ private:
         push(node, Harmony{node.data.substr(1, node.data.size() - 2)});
     }
     void emit(const Node& node, grammar::decoration);
-    void emit(const Node& node, grammar::slur) { push(node, Slur{node.data.front() == '('}); }
+    void emit(const Node& node, grammar::slur) { push(node, Slur{node.data.back() == '('}); }
     void emit(const Node& node, grammar::tie) { push(node, Tie{}); }
     void emit(const Node& node, grammar::invalid) { invalid(node); }
 };
