@@ -94,13 +94,14 @@ public:
     Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics);
     [[nodiscard]] const auto& all() const { return voices; }
     [[nodiscard]] const auto& preamble() const { return common; }
-    [[nodiscard]] bool        declares_voices() const { return !voices.front().id.empty(); }
+    [[nodiscard]] bool        selects_body_voice() const { return body_voice; }
 
 private:
     Diagnostics&         diagnostics;
     vec<Voice>           voices;
     vec<Token>           common;
-    size_t               selected = 0;
+    size_t               selected   = 0;
+    bool                 body_voice = false;
     std::optional<Token> current_part;
     size_t               lyric_source = 0;
 
@@ -209,6 +210,7 @@ bool Voices::lyric(Field field, Location at) {
 
 void Voices::body(const Token& token, bool ordered, AccidentalPolicy& accidentals) {
     if (select(token)) {
+        body_voice   = true;
         lyric_source = 0;
         return;
     }
@@ -312,7 +314,7 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
         = global_events(initial_meter, music.meters, diagnostics, "meter changes");
     score.key_signatures = global_events(initial_key, music.keys, diagnostics, "key changes");
     const int tempo_offset
-        = PlaybackGrid::tempo_offset(music.needs_conductor || voices.declares_voices());
+        = PlaybackGrid::tempo_offset(music.needs_conductor || voices.selects_body_voice());
     for (auto& [tempo, at] : music.tempos)
         tempo.time = tick(static_cast<long double>(tempo.time) + tempo_offset, diagnostics, at);
     score.tempos

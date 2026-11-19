@@ -68,6 +68,7 @@ CASES = {
     "named_tempo": HEADER.replace("Q:1/4=120", 'Q:"Largo"').replace("L:1/4", "L:1/8")
     + "CDEFGABc|",
     "relative_tempo": HEADER + "C [L:1/8][Q:C=120] D E F|",
+    "header_solo_tempo": HEADER.replace("K:C", "V:solo\nK:C") + "CDEF|[Q:90]GABc|",
     "explicit_solo_tempo": HEADER + "V:solo\nCDEF|[Q:90]GABc|",
     "conductor_tempo": HEADER + "V:1\nCDEF|[Q:1/4=90] GABc| [Q:1/4=60] cBAG|"
     "\nV:2\nC,4| G,4| C,4|",
