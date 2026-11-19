@@ -1,62 +1,41 @@
 ---
-title: symusic Documentation
+title: symusic
 ---
 
-# symusic Documentation
+# symusic
 
-symusic loads MIDI and ABC files into note-level scores, transforms them in tick, quarter-note or second time, and exports NumPy arrays, piano rolls and audio. Start with the {doc}`introduction` and the {doc}`quickstart`.
+symusic (symbolic music) loads MIDI and ABC files into note-level scores, transforms them and writes them back. It is meant for preprocessing large symbolic-music datasets, where pure-Python MIDI libraries are the bottleneck.
+
+A score holds tracks of notes, control changes, pitch bends, pedals and lyrics, plus the global tempo, time-signature, key-signature and marker lists. symusic decodes the MIDI events into these note-level objects in C++, similar to [miditoolkit](https://github.com/YatingMusic/miditoolkit), rather than exposing the raw event stream as [mido](https://github.com/mido/mido) does. If you need event-level MIDI parsing in C++, use [minimidi](https://github.com/lzqlzzq/minimidi), the parser symusic is built on.
+
+Every score, track and event exists in three time units: `tick` (integer MIDI ticks), `quarter` (floating-point quarter notes) and `second` (floating-point seconds from the tempo map). On top of loading and writing, symusic shifts, clips, trims, sorts, filters and resamples scores, computes beat grids, exports NumPy arrays and piano rolls, and renders audio from SF2 and SF3 SoundFonts. ABC import and export run the bundled `abc2midi` and `midi2abc` converters from [abcmidi](https://github.com/sshlien/abcmidi). MusicXML is not supported.
+
+Start with the [quickstart](guide/quickstart.md).
+
+## Benchmarks
+
+![MIDI parsing benchmark](https://github.com/user-attachments/assets/5f663e4e-9562-436e-8f97-5b62e96d0314)
+
+Parse time on GitHub Actions M1 runners. `mido` parses to event level in pure Python; `pretty_midi` and `miditoolkit` build note-level objects on top of `mido`; `midifile` is C++. Python libraries were timed with `timeit`, C++ libraries with `nanobench` and Julia libraries with `BenchmarkTools`. The scripts are in [symusic-benchmark](https://github.com/Yikai-Liao/symusic-benchmark).
 
 ```{toctree}
-:maxdepth: 1
-:caption: Start Here
+:hidden:
+:caption: Guide
 
-introduction
-quickstart
-faq
+guide/quickstart
+guide/time_units
+guide/data_model
+guide/files
+guide/arrays
+guide/datasets
+guide/building_scores
+guide/synthesis
+guide/troubleshooting
 ```
 
 ```{toctree}
-:maxdepth: 1
-:caption: Tutorials
-
-tutorials/index
-tutorials/midi_operations
-tutorials/pianoroll
-tutorials/synthesis
-tutorials/data_processing
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Guides and Recipes
-
-examples/index
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Core Concepts
-
-concepts/index
-concepts/score
-concepts/track
-concepts/events
-concepts/time_units
-concepts/generics
-concepts/synthesis
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: API Reference
-
-api/index
-api/core/index
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Contributing
+:hidden:
+:caption: Development
 
 design/architecture
 development/ci

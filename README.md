@@ -47,7 +47,7 @@ restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 
 ## Documentation
 
-[Read the Docs](https://symusic.readthedocs.io/en/stable/) hosts the quickstart, concept guides, tutorials and API reference. The [architecture](https://github.com/Yikai-Liao/symusic/blob/main/docs/design/architecture.md) explains how the code is organized and which behavior it guarantees.
+The [guide](https://symusic.readthedocs.io/en/stable/) covers time units, the data model, file formats, NumPy arrays and piano rolls, dataset pipelines, building scores and synthesis; the same pages are in [`skills/symusic`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic). Method signatures and docstrings are in the installed package's type stubs, `symusic/core.pyi`. The [architecture](https://github.com/Yikai-Liao/symusic/blob/main/docs/design/architecture.md) explains how the code is organized and which behavior it guarantees.
 
 ## Performance
 

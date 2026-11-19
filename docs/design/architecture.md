@@ -1,6 +1,6 @@
 # Architecture
 
-symusic is a C++20 library for note-level symbolic music with a nanobind Python binding. This page describes how the code is layered, how data is owned and which behavior must survive refactors. User-facing explanations live in the [concept guides](../concepts/index.md).
+symusic is a C++20 library for note-level symbolic music with a nanobind Python binding. This page describes how the code is layered, how data is owned and which behavior must survive refactors. User-facing explanations live in the [guide](../guide/quickstart.md).
 
 ## Layers
 
@@ -69,7 +69,7 @@ Known violations of memory safety at extreme values are tracked in the [roadmap]
 2. Bind it in the matching `py_src/bindings/<area>/` file, with a docstring at the binding site.
 3. Extend `symusic.factory` only if construction or dispatch changes.
 4. Reinstall (`pip install .`) to regenerate the stubs, and add C++ and Python tests at the new boundary.
-5. Update the concept guide or tutorial that describes the area.
+5. Update the guide page in `skills/symusic/references/` that owns the area, with a runnable example when the feature is public.
 
 ## Build ownership
 
