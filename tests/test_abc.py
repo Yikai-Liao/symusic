@@ -717,6 +717,33 @@ def test_abc_export_prioritizes_constrained_attacks(reverse: bool):
     assert note_rows(exported) == note_rows(score)
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_abc_export_reuses_voices_at_the_same_velocity(reverse: bool):
+    score = Score(480)
+    for index in range(13):
+        other = Track(str(index), index)
+        other.notes.append(Note(15, 240, 61, 83))
+        score.tracks.append(other)
+    track = Track("Overlaps", 30)
+    track.notes.append(Note(15, 60, 63, 81))
+    chord = [Note(45, 30, 63, 81), Note(45, 60, 62, 80), Note(45, 30, 60, 81)]
+    track.notes.extend(reversed(chord) if reverse else chord)
+    score.tracks.append(track)
+    exported = Score.from_abc(score.dumps_abc())
+    assert len(exported.tracks) == 15
+    assert note_rows(exported) == note_rows(score)
+
+
+def test_abc_export_rejects_more_than_30_total_voices():
+    score = Score(480)
+    for index in range(31):
+        track = Track(str(index), is_drum=index >= 15)
+        track.notes.append(Note(15, 30, 30 + index, 80))
+        score.tracks.append(track)
+    with pytest.raises(ValueError, match="more than 30 ABC voices"):
+        score.dumps_abc()
+
+
 def test_abc_export_warns_on_shared_drum_channel():
     score = Score(480)
     for pitch in [35, 42]:

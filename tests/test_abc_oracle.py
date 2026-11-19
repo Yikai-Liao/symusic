@@ -688,6 +688,26 @@ def test_export_full_channel_set(drum_position: int, upstream: Path, tmp_path: P
     }
 
 
+def test_export_full_voice_set(upstream: Path, tmp_path: Path):
+    score = Score(480)
+    for index in range(30):
+        # Alternate channel-10 tracks with all 15 melodic channels. Use
+        # disjoint drum pitches so shared-channel releases cannot overlap.
+        track = Track(str(index), index // 2 if index % 2 else 0, index % 2 == 0)
+        track.notes.append(Note(15, 60, 30 + index, 80))
+        score.tracks.append(track)
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(native) == note_rows(score)
+    assert note_rows(actual) == sorted(
+        (15, 60 - (index % 2 == 0), 30 + index, 80) for index in range(30)
+    )
+    assert sorted((t.is_drum, t.program) for t in actual.tracks) == sorted(
+        (t.is_drum, t.program) for t in score.tracks
+    )
+
+
 def test_export_drum_release(upstream: Path, tmp_path: Path):
     score = roundtrip_score()
     score.tracks[0].is_drum = True

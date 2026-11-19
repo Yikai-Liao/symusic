@@ -195,6 +195,18 @@ void prioritize_attacks(std::span<WrittenNote> chord, const vec<VoiceLane>& lane
     });
 }
 
+// A lane already attacking at this velocity cannot serve another velocity
+// at this onset. Reuse it before claiming a lane that is still uncommitted.
+VoiceLane* available_lane(vec<VoiceLane>& lanes, WrittenNote note) {
+    VoiceLane* unused = nullptr;
+    for (auto& lane : lanes) {
+        if (!lane.accepts(note)) continue;
+        if (lane.recent_start == note.start) return &lane;
+        if (!unused) unused = &lane;
+    }
+    return unused;
+}
+
 vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_view where) {
     std::ranges::sort(notes, {}, &WrittenNote::start);
     vec<VoiceLane> lanes(1);
@@ -207,14 +219,11 @@ vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_v
         prioritize_attacks(onset, lanes);
         remaining = remaining.subspan(onset.size());
         for (const auto note : onset) {
-            auto lane = std::ranges::find_if(lanes, [&](const VoiceLane& lane) {
-                return lane.accepts(note);
-            });
-            if (lane == lanes.end()) {
+            auto* lane = available_lane(lanes, note);
+            if (!lane) {
                 if (lanes.size() == max_lanes)
                     ExportIssues::invalid(where, "voice allocation used too many ABC lanes");
-                lanes.emplace_back();
-                lane = lanes.end() - 1;
+                lane = &lanes.emplace_back();
             }
             lane->add(note);
         }
