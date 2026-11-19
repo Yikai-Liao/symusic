@@ -71,6 +71,26 @@ Throw standard exceptions; nanobind maps them to Python built-ins, and that mapp
 
 nanobind maps the first four itself; `filesystem_error` derives from `std::runtime_error`, so one exception translator in `py_src/utils/` maps it by its error code, as `OSError` does for `errno`. Type mismatches are rejected by nanobind as `TypeError`; the core does not throw for them. A message names the parameter or field, the constraint and the received value: `"qpm must be positive and finite, got -1"`. The core never prints to stdout or stderr; it throws, or returns what the caller needs to report.
 
+### Language rules
+
+C++ offers several ways to write most of the following; symusic uses one. Each rule cites the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) entry that gives its reasons, where one exists, and names the clang-tidy check that enforces it once the [roadmap](../ROADMAP.md#static-analysis) enables it in `clice lint`. The Google and LLVM guides are not the base, because both forbid exceptions, and exceptions carry symusic's [error contract](#errors).
+
+- **Modifying operations give the strong guarantee.** An operation that mutates its object and can throw computes and checks every new value before it writes any, so a failure leaves the object unchanged: a `shift_time` that overflows at the 500th note has not moved the first 499. Python code that catches the exception keeps using the object.
+- **Producing functions are `[[nodiscard]]`**, so that `score.clip(0, 960);`, written as if it mutated, is diagnosed (`modernize-use-nodiscard`).
+- **`noexcept` only where throwing is impossible:** move operations, `swap` and destructors (C.66, E.12). A `noexcept` function that throws calls `std::terminate`, which ends the Python process instead of raising (`bugprone-exception-escape`, `performance-noexcept-move-constructor`).
+- **Values own; views borrow.** Objects are values by default, and `shared<T>` appears only where Python can hold a reference into the object ([data model](../design/architecture.md#data-model)). There is no `new`, `delete` or `malloc` (R.11, R.20; `cppcoreguidelines-owning-memory`, `cppcoreguidelines-no-malloc`). A `std::span` or `std::string_view` is a parameter or a local, never a data member or a returned value that outlives the arguments (F.24, F.43; `bugprone-dangling-handle`).
+- **Parameters** follow F.16 to F.20: cheap types by value, others by `const&`, a parameter the function moves from by `&&`, and results as return values rather than output parameters (`cppcoreguidelines-rvalue-reference-param-not-moved`).
+- **Classes** follow the rule of zero (C.20). A constructor that takes one argument is `explicit` (C.46), and no type defines an implicit conversion operator (C.164) (`google-explicit-constructor`, `cppcoreguidelines-special-member-functions`).
+- **Casts** are named casts (ES.49; `cppcoreguidelines-pro-type-cstyle-cast`), and narrowing follows [integers and time](#integers-and-time) (`cppcoreguidelines-narrowing-conversions`). `reinterpret_cast` appears only where file bytes are read as another type, with a comment on alignment and aliasing (`cppcoreguidelines-pro-type-reinterpret-cast`).
+- **No mutable global state** (I.2; `cppcoreguidelines-avoid-non-const-global-variables`) and no global whose initialization runs code (I.22). Core functions are then safe to call concurrently on distinct objects, which free-threaded Python relies on.
+- **Not used:** RTTI and `dynamic_cast`, virtual inheritance, `<iostream>` in the core, and C++20 modules.
+
+Style choices that carry no risk, such as when to write `auto` or a range-`for` instead of an algorithm, are not rules.
+
+### Standard and toolchain
+
+The code is C++20. A feature may be used when every compiler of the supported floor provides it; for a standard library feature, Apple's libc++ must also provide it at the macOS deployment target (13.0, set in `pyproject.toml`), because that library ships with the operating system. The [roadmap](../ROADMAP.md#toolchain-compatibility) sets the floor and the list of features outside it from a compile probe. Until then the floor is the one in [CONTRIBUTING](../CONTRIBUTING.md#set-up), and the clang-tidy checks that suggest newer library features (`modernize-use-std-format`, `modernize-use-std-print`, `modernize-use-ranges`) stay off.
+
 ### Macros
 
 A macro is acceptable only for compiler and platform conditionals, such as an attribute that MSVC spells differently. These macros carry the `SYMUSIC_` prefix and are defined in `include/symusic/utils.h`; add them there rather than next to their first use.
