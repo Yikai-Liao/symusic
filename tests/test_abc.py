@@ -148,6 +148,14 @@ def test_explicit_key_keeps_midi_signature():
     ]
 
 
+def test_explicit_key_reports_incomplete_natural():
+    with pytest.warns(
+        UserWarning, match=r"<string>:6:1: ABC \[invalid-accidental\].*'='"
+    ):
+        score = Score.from_abc(HEADER.replace("K:C", "K:D exp =") + "CDEF|")
+    assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
+
+
 def test_unknown_attached_key_mode_locates_the_recovery():
     with pytest.warns(
         UserWarning, match=r"<string>:6:1: ABC \[unknown-key-mode\].*'exp'"

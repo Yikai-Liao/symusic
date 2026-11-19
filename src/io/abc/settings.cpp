@@ -178,6 +178,10 @@ struct OctaveOptions {
         return true;
     }
 
+    void offer_clef(std::string_view name) {
+        if (auto shift = clef_octave(name)) clef_shift = shift;
+    }
+
     std::optional<int> sounding_shift() const {
         return explicit_shift ? explicit_shift : clef_shift;
     }
@@ -210,12 +214,13 @@ struct KeyAccidentals {
     bool               explicit_scale = false;
     WrittenAccidentals overrides;
 
-    bool read(std::string_view name, Diagnostics& diagnostics, Location at) {
-        if (ascii_lower(name) == "exp") {
-            explicit_scale = true;
-            return true;
-        }
-        return custom_accidental(name, overrides, diagnostics, at);
+    bool read_explicit(std::string_view& options) {
+        auto       remaining = options;
+        const auto token     = word(remaining);
+        if (ascii_lower(token.substr(0, token.find('='))) != "exp") return false;
+        explicit_scale = true;
+        options        = remaining;
+        return true;
     }
 
     void apply(Key& key) const {
@@ -230,13 +235,14 @@ void key_options(std::string_view options, Key& result, Diagnostics& diagnostics
     OctaveOptions  octave;
     KeyAccidentals accidentals;
     while (!trim(options).empty()) {
+        // exp is a flag; a separated =F starts a natural accidental, not a value.
+        if (accidentals.read_explicit(options)) continue;
         const auto [name, value] = option(options);
         if (octave.read(name, value, diagnostics, at)) continue;
         if (name == "transpose")
             result.transpose = shift_value(value, diagnostics, at, name, 127);
-        else if (!accidentals.read(name, diagnostics, at) && value.empty()) {
-            if (auto shift = clef_octave(name)) octave.clef_shift = shift;
-        }
+        else if (!custom_accidental(name, accidentals.overrides, diagnostics, at) && value.empty())
+            octave.offer_clef(name);
     }
     accidentals.apply(result);
     result.octave = octave.sounding_shift().value_or(result.octave);

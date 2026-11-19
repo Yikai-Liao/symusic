@@ -100,6 +100,7 @@ CASES = {
     "explicit_key_with_mode": HEADER.replace("K:C", "K:Dm exp _A") + "CDEFGABc|",
     "explicit_key_retains_earlier_accidental": HEADER.replace("K:C", "K:A _F EXP ^G")
     + "CDEFGABc|",
+    "explicit_key_natural_after_flag": HEADER.replace("K:C", "K:D ^F exp =F") + "CDEF|",
     "explicit_inline_key": HEADER + "CDEF| [K:G clef=bass exp ^C] CDEF| [K:G] CDEF|",
     "attached_exp_is_not_a_mode": HEADER.replace("K:C", "K:Gexp") + "CDEF|",
     "invalid_key_accidental_letter": HEADER.replace("K:C", "K:C ^1/4H") + "CDEF|",
