@@ -337,6 +337,7 @@ T adjust_time(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
+    details::check_times(original_times, new_times);
     T new_data = data.deepcopy();
     adjust_time_inplace<false>(new_data, original_times, new_times);
     return new_data;

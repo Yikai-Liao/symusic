@@ -69,3 +69,19 @@ def test_adjust_time_midi(midi_path: Path, times: tuple[list[int], list[int]]):
     times_og = [time * midi.ticks_per_quarter for time in times[0]]
     times_new = [time * midi.ticks_per_quarter for time in times[1]]
     _ = midi.adjust_time(times_og, times_new)
+
+
+@pytest.mark.parametrize("inplace", [False, True])
+@pytest.mark.parametrize(
+    ("times_og", "times_new"),
+    [([0, 10], [0]), ([0], [0]), ([10, 0], [0, 5]), ([0, 10], [5, 0])],
+    ids=["unequal-size", "one-anchor", "unsorted-original", "unsorted-new"],
+)
+def test_score_adjust_time_rejects_invalid_anchors(
+    times_og: list[int], times_new: list[int], inplace: bool
+):
+    """Copy and in-place adjust_time validate the anchors the same way."""
+    score = Score()
+    score.tracks.append(Track(notes=NOTES_OG))
+    with pytest.raises(ValueError, match="adjust_time"):
+        score.adjust_time(times_og, times_new, inplace=inplace)
