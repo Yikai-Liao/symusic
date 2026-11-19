@@ -4,7 +4,7 @@ Planned work and accepted debt. Remove an item when the change that resolves it 
 
 ## 0.7 API
 
-0.7 changes the Python API where it is not Pythonic, fixes the [memory safety](#memory-safety) and [behavior defects](#behavior-defects) items below and replaces the synthesizer with [FluidSynth](#features) in the same release. The [code conventions](docs/development/conventions.md#python-api) state the target rules. For each item, decide the new form before implementing it; whether the 0.6 names keep a deprecation period is open. The release notes carry the old-to-new table.
+0.7 changes the Python API where it is not Pythonic, fixes the [memory safety](#memory-safety) and [behavior defects](#behavior-defects) items below and replaces the synthesizer with [FluidSynth](#features) in the same release. The [code conventions](docs/development/conventions.md#python-api) state the target rules. For each item, decide the new form before implementing it. 0.7 removes the 0.6 forms outright, without deprecation shims, so that no compatibility layer outlives the release; the release notes carry the old-to-new table.
 
 - **Copy and in-place defaults.** `sort` and `filter` default to `inplace=True` (on scores, tracks and event lists), while `clip`, `shift_time`, `adjust_time` and the other transformations default to `inplace=False`. In C++, `Track` and `Score` `*_inplace` return `void` and the event `*_inplace` return a reference.
 - **Copy semantics.** `Score.copy()` and `Track.copy()` default to a deep copy, while `copy.copy` shares the tracks and event lists.
