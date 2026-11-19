@@ -13,7 +13,6 @@ class VoiceOutput;
 class NoteAddress {
 public:
     void release_at(i32 end) const;
-    void lyric(std::string text) const;
 
 private:
     friend class VoiceOutput;
@@ -26,6 +25,23 @@ private:
     i32*               gate;
 };
 
+// Unlike a note address, this anchor also exists at a muted attack.
+class LyricAnchor {
+public:
+    void append(std::string text) const { track->lyrics.emplace_back(time, std::move(text)); }
+
+private:
+    friend class VoiceOutput;
+    LyricAnchor(TrackNative<Tick>& track, i32 time) : track(&track), time(time) {}
+    TrackNative<Tick>* track;
+    i32                time;
+};
+
+struct Attack {
+    LyricAnchor                lyric;
+    std::optional<NoteAddress> note;
+};
+
 // Collects one notation voice's performed MIDI events. Routes attacks and
 // controls by lane/channel/program, but pairs sustain by lane/channel even
 // across program changes. Only this object owns track storage and quantizes
@@ -36,7 +52,7 @@ public:
     VoiceOutput(const VoiceOutput&)            = delete;
     VoiceOutput& operator=(const VoiceOutput&) = delete;
 
-    std::optional<NoteAddress> attack(
+    Attack attack(
         int                   lane,
         MidiPitch             pitch,
         long double           start,

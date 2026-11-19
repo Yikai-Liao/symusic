@@ -360,6 +360,23 @@ def test_abc_lyrics_skip_to_bar(lyrics: str, times: list[int]):
     )
 
 
+@pytest.mark.parametrize("middle", ["|\n", "z4|\n", "V:solo\n", "!f!\n"])
+def test_abc_lyrics_without_anchors(middle: str):
+    with pytest.warns(
+        UserWarning, match=r"<string>:10:1: ABC \[(orphan|extra)-lyrics\]"
+    ):
+        score = Score.from_abc(
+            HEADER.replace("K:C", "V:solo\nK:C") + "CDEF|\n" + middle + "w: one two"
+        )
+    assert not score.tracks[0].lyrics
+
+
+@pytest.mark.parametrize("extension", ["+: three four", "w: +three four"])
+def test_abc_lyrics_extension(extension: str):
+    score = Score.from_abc(HEADER + "CDEF|\nw: one two\n" + extension)
+    assert [e.text for e in score.tracks[0].lyrics] == ["one", "two", "three", "four"]
+
+
 def test_abc_pedals_are_not_paired_across_overlay_lanes():
     score = Score.from_abc(
         HEADER + "(& C D [I:MIDI control 64 127] & [I:MIDI control 64 0] E F &) G A"

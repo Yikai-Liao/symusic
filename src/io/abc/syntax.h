@@ -101,7 +101,6 @@ struct Atom {
     bool       measure_rest = false;
     bool       tie          = false;
     bool       chord        = false;
-    size_t     music_line   = 0;   // identity shared across physical continuations
 };
 
 struct Grace {
@@ -142,8 +141,9 @@ struct Bar {
     bool             resets_measure = true;
     bool             section        = false;
     std::string_view endings;
-    size_t           music_line = 0;
 };
+
+struct EmptyMusicLine {};
 
 struct Token {
     Location at;
@@ -159,8 +159,10 @@ struct Token {
         Slur,
         Tie,
         Overlay,
-        Bar>
-        value;
+        Bar,
+        EmptyMusicLine>
+           value;
+    size_t music_line = 0;   // identity shared across physical continuations
 
     // Both information fields and percent directives carry commands.
     [[nodiscard]] std::optional<std::string_view> information() const {

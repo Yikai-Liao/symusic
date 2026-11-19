@@ -10,10 +10,6 @@ void NoteAddress::release_at(i32 end) const {
     *gate          = std::max(*gate, end);
 }
 
-void NoteAddress::lyric(std::string text) const {
-    track->lyrics.emplace_back(note().time, std::move(text));
-}
-
 VoiceOutput::VoiceOutput(std::string name, const DrumMap& drum_map, Diagnostics& diagnostics) :
     name(std::move(name)), diagnostics(diagnostics), drum_map(drum_map) {}
 
@@ -59,7 +55,7 @@ void VoiceOutput::tune(
     owner.track.pitch_bends.emplace_back(time, pitch.wheel);
 }
 
-std::optional<NoteAddress> VoiceOutput::attack(
+Attack VoiceOutput::attack(
     int                   lane,
     MidiPitch             pitch,
     long double           start,
@@ -75,22 +71,24 @@ std::optional<NoteAddress> VoiceOutput::attack(
         );
     }
     if (chord_member) routing[lane].attack_on(*chord_member);
-    if (velocity == 0) return {};
-    const auto time = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
+    const auto time        = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
+    const auto destination = target(lane);
+    auto&      owner       = channel(destination);
+    Attack     attack{LyricAnchor(owner.track, time), {}};
+    if (velocity == 0) return attack;
     const auto gate
         = std::max(0, tick(duration, diagnostics, at) - PlaybackGrid::release_trim - stagger);
     if (gate > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
     diagnostics.spend(PlaybackWork::attack, at);
-    const auto destination = target(lane);
-    auto&      owner       = channel(destination);
     tune(owner, destination, pitch, time, at);
     if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
     owner.sounding_until = std::max(owner.sounding_until, time + gate);
     owner.track.notes.emplace_back(
         time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
     );
-    return NoteAddress(owner.track, owner.track.notes.size() - 1, owner.sounding_until);
+    attack.note = NoteAddress(owner.track, owner.track.notes.size() - 1, owner.sounding_until);
+    return attack;
 }
 
 void VoiceOutput::sustain(

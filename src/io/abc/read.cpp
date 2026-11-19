@@ -85,12 +85,13 @@ struct Voice {
     std::string_view id;
     std::string_view name;
     vec<Token>       music;
+    VoiceLyrics      lyrics;
     Location         last_part{};
 };
 
 class Voices {
 public:
-    Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostics);
+    Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics);
     [[nodiscard]] const auto& all() const { return voices; }
     [[nodiscard]] const auto& preamble() const { return common; }
 
@@ -100,12 +101,16 @@ private:
     vec<Token>           common;
     size_t               selected = 0;
     std::optional<Token> current_part;
+    size_t               lyric_source = 0;
 
 
     size_t find_voice(std::string_view id, Location at);
     bool   select(const Token& token);
     void   header(const Token& token, TuneSettings& settings);
     void   header_midi(const Token& token, std::string_view command, TuneSettings& settings);
+    void   body(const Token& token, bool ordered, AccidentalPolicy& accidentals);
+    bool   lyric(Field field, Location at);
+    void   music_line(const Token& token);
     void   append(const Token& token);
 };
 
@@ -172,7 +177,52 @@ void Voices::header_midi(const Token& token, std::string_view command, TuneSetti
     append(token);
 }
 
-Voices::Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostics) :
+void Voices::music_line(const Token& token) {
+    if (!token.music_line) return;
+    if (std::holds_alternative<Atom>(token.value) || std::holds_alternative<Bar>(token.value))
+        lyric_source = token.music_line;
+    else if (lyric_source != token.music_line)
+        lyric_source = 0;
+}
+
+bool Voices::lyric(Field field, Location at) {
+    if (field.kind != 'w' && field.kind != '+') return false;
+    auto&      lyrics   = voices[selected].lyrics;
+    const auto existing = lyrics.find(lyric_source);
+    if (field.kind == '+' && existing == lyrics.end()) return false;
+
+    const bool extension = field.kind == '+' || field.value.starts_with('+');
+    if (!lyric_source || (extension && existing == lyrics.end())) {
+        diagnostics.warn(
+            at, "orphan-lyrics", "ignored lyrics without a matching music line or verse"
+        );
+    } else if (extension) {
+        auto& verse = existing->second.back().text;
+        verse.push_back(' ');
+        verse.append(field.kind == 'w' ? trim(field.value.substr(1)) : field.value);
+    } else {
+        lyrics[lyric_source].push_back({at, std::string(field.value)});
+    }
+    return true;
+}
+
+void Voices::body(const Token& token, bool ordered, AccidentalPolicy& accidentals) {
+    if (select(token)) {
+        lyric_source = 0;
+        return;
+    }
+    const auto* field = std::get_if<Field>(&token.value);
+    if (field && field->kind == 'P') {
+        current_part = token;
+        if (ordered) lyric_source = 0;
+        return;
+    }
+    music_line(token);
+    if (accidentals.consume(token, diagnostics)) return;
+    if (!field || !lyric(*field, token.at)) append(token);
+}
+
+Voices::Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics) :
     diagnostics(diagnostics) {
     voices.push_back({});
     for (const auto& token : tune.header)
@@ -182,14 +232,7 @@ Voices::Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostic
     if (settings.key.transpose) settings.midi_shift = *settings.key.transpose;
     settings.key.transpose.reset();
     selected = 0;
-    for (const auto& token : tune.body) {
-        if (settings.accidentals.consume(token, diagnostics)) continue;
-        const auto* field = std::get_if<Field>(&token.value);
-        if (field && field->kind == 'P')
-            current_part = token;
-        else if (!select(token))
-            append(token);
-    }
+    for (const auto& token : tune.body) body(token, ordered, settings.accidentals);
 }
 
 template<class Event>
@@ -236,7 +279,7 @@ void merge(Performance& all, Performance voice) {
 ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
     auto                header   = read_header(tune, diagnostics);
     auto&               settings = header.settings;
-    const Voices        voices(tune, settings, diagnostics);
+    const Voices        voices(tune, settings, !header.order.empty(), diagnostics);
     const PartItinerary itinerary(header.order, header.order_at, diagnostics);
     Performance         music;
     DrumMap             drum_map;
@@ -246,7 +289,15 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
                                          unquote_text(voice.name);
         merge(
             music,
-            perform(settings, voices.preamble(), order, std::move(name), drum_map, diagnostics)
+            perform(
+                settings,
+                voices.preamble(),
+                order,
+                voice.lyrics,
+                std::move(name),
+                drum_map,
+                diagnostics
+            )
         );
     }
     ScoreNative<Tick> score(tpq);

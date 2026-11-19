@@ -403,6 +403,29 @@ def test_abc_lyric_bar_alignment(upstream: Path, tmp_path: Path):
     ]
 
 
+def lyric_rows(score: Score) -> list[tuple[int, str]]:
+    return sorted(
+        (event.time, event.text.lstrip(" ")) for t in score.tracks for event in t.lyrics
+    )
+
+
+@pytest.mark.parametrize(
+    "abc",
+    [
+        HEADER + "C [I:MIDI vol 0] D E F|\nw: one two three four",
+        HEADER + "CDEF|\nw: one two three four\nw: five six seven eight",
+        HEADER.replace("K:C", "P:(AB)3\nK:C")
+        + "P:A\nCDEF|\nw: one two three four\nw: five six seven eight\n"
+        + "P:B\nGABc|\nw: An-swer be-low",
+    ],
+    ids=["muted-note", "first-verse", "ordered-verses"],
+)
+def test_abc_lyrics_follow_notation(abc: str, upstream: Path, tmp_path: Path):
+    assert lyric_rows(Score.from_abc(abc)) == lyric_rows(
+        oracle_score(upstream, abc, tmp_path, "-lyrics")
+    )
+
+
 def test_shorthand_decoration_spelling(upstream: Path, tmp_path: Path):
     abc = HEADER + "'C !'! D !H! E !T! F|"
     with pytest.warns(UserWarning, match=r"\[ignored-decoration\]") as warnings:
@@ -555,6 +578,17 @@ def test_upstream_sample(
         drop_sample_rows(expected, location, upstream_rows)
         drop_sample_rows(actual, location, native_rows)
     assert actual == expected
+
+
+def test_upstream_ordered_verses(upstream: Path, tmp_path: Path):
+    source = os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE")
+    if not source:
+        pytest.skip("set SYMUSIC_TEST_ABCMIDI_SOURCE")
+    demo = (Path(source) / "samples" / "demo.abc").read_text(encoding="utf-8-sig")
+    abc = re.search(r"^X: 5\b.*?(?=^X:)", demo, re.MULTILINE | re.DOTALL).group()
+    assert lyric_rows(Score.from_abc(abc)) == lyric_rows(
+        oracle_score(upstream, abc, tmp_path, "-lyrics")
+    )
 
 
 @pytest.mark.parametrize("kind", ["single voice", "dense chords", "issue 78"])

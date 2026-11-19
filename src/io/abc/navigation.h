@@ -9,7 +9,8 @@ namespace symusic::abc::detail {
 enum class Flow { token, enter_part, enter_repeat, jump_repeat, soft_bar, hard_bar };
 struct PlayStep {
     const Token* token;
-    Flow         flow = Flow::token;
+    Flow         flow            = Flow::token;
+    u32          part_occurrence = 0;   // only meaningful at enter_part
 };
 using PlayOrder = vec<PlayStep>;
 

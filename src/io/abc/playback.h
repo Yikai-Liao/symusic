@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 #include "expression.h"
 #include "navigation.h"
 #include "pitch_tuning.h"
@@ -19,6 +21,12 @@ struct TuneSettings {
     std::string                       title;
     std::array<std::string_view, 128> symbols{};
 };
+
+struct LyricVerse {
+    Location    at;
+    std::string text;
+};
+using VoiceLyrics = std::map<size_t, vec<LyricVerse>>;
 
 // One voice owns its clock, instrument changes, ties and backing patterns.
 // Metadata is collected with its source location for tune-level reconciliation.
@@ -40,6 +48,7 @@ Performance perform(
     const TuneSettings& settings,
     const vec<Token>&   preamble,
     const PlayOrder&    order,
+    const VoiceLyrics&  lyrics,
     std::string         name,
     DrumMap&            drum_map,
     Diagnostics&        diagnostics

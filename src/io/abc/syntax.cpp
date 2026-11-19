@@ -240,9 +240,7 @@ private:
 
     template<class T>
     void push(const Node& node, T value) {
-        if constexpr (std::is_same_v<T, Atom> || std::is_same_v<T, Bar>)
-            value.music_line = source.first_line;
-        output.push_back({location(node), std::move(value)});
+        output.push_back({location(node), std::move(value), source.first_line});
     }
 
     void emit(const Node& node, grammar::pitch);
@@ -564,7 +562,9 @@ bool TuneLines::content(LogicalLine line, std::string_view content) {
     else if (field_separator(content) != content.npos)
         return metadata(field(content), at);
     if (!in_body) diagnostics.error(at, "missing-key", "expected K: before the music");
+    const auto first = tune.body.size();
     MusicLine(line, content, diagnostics, tune.body).read();
+    if (first == tune.body.size()) tune.body.push_back({at, EmptyMusicLine{}, line.first_line});
     saw_music = true;
     return true;
 }

@@ -144,7 +144,7 @@ public:
         source(source), bars(boundaries(source, diagnostics)), output(output),
         diagnostics(diagnostics) {}
     void append();
-    void append_part();
+    void append_part(u32 occurrence);
 
 private:
     Section       source;
@@ -251,8 +251,9 @@ void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int pa
     }
 }
 
-void RepeatOrder::append_part() {
-    step(0, Flow::enter_part);
+void RepeatOrder::append_part(u32 occurrence) {
+    reserve_steps(1, 0);
+    output.push_back({&source.front(), Flow::enter_part, occurrence});
     append();
 }
 
@@ -331,6 +332,7 @@ PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
     const auto sections = split_parts(voice, diagnostics);
     RepeatOrder(sections.at('\0'), tokens, diagnostics).append();
     std::map<char, RepeatOrder> repeats;
+    std::array<size_t, 26>      occurrences{};
     for (const auto label : *labels) {
         const auto section = sections.find(label);
         if (section == sections.end()) {
@@ -338,7 +340,7 @@ PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
             continue;
         }
         auto [repeat, inserted] = repeats.try_emplace(label, section->second, tokens, diagnostics);
-        repeat->second.append_part();
+        repeat->second.append_part(occurrences[label - 'A']++);
     }
     return tokens;
 }
