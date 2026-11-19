@@ -1121,3 +1121,63 @@ def test_abc_shape_without_curve_warns_and_preserves_notes():
 def test_abc_malformed_note_envelopes_report_the_directive(command, code):
     with pytest.raises(ValueError, match=rf"<string>:\d+:1: ABC \[{code}\]"):
         Score.from_abc(HEADER + "%%MIDI " + command + "\n!shape!CDEF|")
+
+
+@pytest.mark.parametrize(
+    ("body", "control_times", "bend_times"),
+    [
+        ("!shape!{A}CDEF|", [1, 120], [1, 120]),
+        ("{A}!shape!CDEF|", [121, 480], [121, 480]),
+        ("{AB}!shape!CDEF|", [241, 480], [241, 480]),
+        ("!shape!{A}!bend!CDEF|", [1, 120], [1, 120, 121, 480]),
+        ("D !shape!{A}[I:MIDI control 11 80] CDE|", [480, 481, 600], [481, 600]),
+    ],
+)
+def test_abc_shape_mark_targets_attack_on_its_side_of_grace(
+    body, control_times, bend_times
+):
+    track = Score.from_abc(
+        HEADER + "[I:MIDI controlstring 11 10][I:MIDI bendstring 300]" + body
+    ).tracks[0]
+    assert [e.time for e in track.controls] == control_times
+    assert [e.time for e in track.pitch_bends] == bend_times
+
+
+@pytest.mark.parametrize(
+    ("curve", "attack"),
+    [("controlstring 11 10", "!shape!D"), ("bendstring 300", "!bend!^/D")],
+)
+def test_abc_envelope_reports_overlap_only_after_final_tie_release(curve, attack):
+    track = Score.from_abc(
+        HEADER
+        + f"[I:MIDI {curve}][I:MIDI expand 3/1]C- [I:MIDI expand 0/1] C {attack} E F z|"
+    ).tracks[0]
+    assert track.notes[0].time + track.notes[0].duration == 960
+    assert track.notes[1].time == 961
+
+
+def test_abc_muted_attack_shapes_the_channel_without_inserting_a_note():
+    abc = (
+        HEADER
+        + "[I:MIDI controlstring 11 10][I:MIDI expand 1/2]C [I:MIDI vol 0]!shape!D EF z|"
+    )
+    with pytest.warns(UserWarning, match=r"\[shared-controller\]"):
+        track = Score.from_abc(abc).tracks[0]
+    assert [n.pitch for n in track.notes] == [60, 64, 65]
+    assert [(e.time, e.number, e.value) for e in track.controls] == [
+        (481, 11, 10),
+        (1200, 11, 127),
+    ]
+
+
+def test_abc_shape_controller_default_does_not_use_a_future_overlay_event():
+    score = Score.from_abc(
+        HEADER
+        + "C D [I:MIDI control 11 80] E F & [I:MIDI controlstring 11 10]!shape!cdef|"
+    )
+    primary, overlay = score.tracks
+    assert [(e.time, e.number, e.value) for e in primary.controls] == [(960, 11, 80)]
+    assert [(e.time, e.number, e.value) for e in overlay.controls] == [
+        (1, 11, 10),
+        (480, 11, 127),
+    ]

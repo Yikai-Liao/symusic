@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numeric>
 
 namespace symusic::abc::detail {
 
@@ -67,10 +68,55 @@ vec<int64_t> bend_velocity(std::string_view args, Location at, Diagnostics& diag
 
 }   // namespace
 
+// Inspect finalized gates, not provisional lengths from before ties resolve.
+// Equal starts retain attack order for accidental tuning diagnostics.
+struct VoiceOutput::NoteActivity {
+    struct Overlap {
+        bool prior = false;
+        bool later = false;
+    };
+    struct Attack {
+        i32 start;
+        i32 open_until;
+    };
+
+    explicit NoteActivity(const vec<Note<Tick>>& notes);
+    [[nodiscard]] bool intersects(Gate gate) const;
+
+    vec<Overlap> overlaps;
+    vec<Attack>  attacks;
+};
+
+VoiceOutput::NoteActivity::NoteActivity(const vec<Note<Tick>>& notes) : overlaps(notes.size()) {
+    vec<size_t> order(notes.size());
+    std::iota(order.begin(), order.end(), size_t{0});
+    const auto start = [&](size_t index) { return notes[index].time; };
+    if (!std::ranges::is_sorted(order, {}, start)) std::ranges::stable_sort(order, {}, start);
+    attacks.reserve(notes.size());
+    i32                   open_until = 0;
+    std::optional<size_t> last;
+    for (const auto index : order) {
+        const auto& note      = notes[index];
+        overlaps[index].prior = note.time < open_until;
+        if (note.duration <= 0) continue;
+        if (last) {
+            const auto& previous  = notes[*last];
+            overlaps[*last].later = note.time < previous.time + previous.duration;
+        }
+        last       = index;
+        open_until = std::max(open_until, note.time + note.duration);
+        attacks.push_back({note.time, open_until});
+    }
+}
+
+bool VoiceOutput::NoteActivity::intersects(Gate gate) const {
+    const auto stop = std::ranges::lower_bound(attacks, gate.end(), {}, &Attack::start);
+    return stop != attacks.begin() && std::prev(stop)->open_until > gate.time;
+}
+
 void NoteAddress::release_at(i32 end) const {
     auto& event    = note();
     event.duration = std::max(0, end - event.time);
-    *gate          = std::max(*gate, end);
 }
 
 VoiceOutput::VoiceOutput(
@@ -114,10 +160,7 @@ void VoiceOutput::tune(
     ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at
 ) {
     if (target.channel == midi_drum_channel || owner.accidental_wheel == pitch.wheel) return;
-    if (time < owner.sounding_until)
-        diagnostics.warn(
-            at, "shared-pitch-wheel", "pitch bend also affects overlapping notes on this voice"
-        );
+    owner.tuning_checks.emplace_back(owner.track.notes.size(), at);
     owner.accidental_wheel = pitch.wheel;
     writes.push_back({target, time, 0, pitch.wheel, event_order++, WireKind::tuning});
 }
@@ -141,23 +184,36 @@ Attack VoiceOutput::attack(
     const auto time        = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
     const auto destination = target(lane);
     auto&      owner       = channel(destination);
-    Attack     attack{LyricAnchor(owner.track, time), {}};
-    if (velocity == 0) return attack;
-    const auto gate
+    Attack     hit{LyricAnchor(owner.track, time), {}};
+    if (velocity == 0 && !envelopes[lane].pending) return hit;
+    const auto gate = note_gate(time, duration, stagger, at);
+    if (velocity == 0) {
+        attach_envelope(owner, destination, gate);
+    } else {
+        hit.note = emit_note(owner, destination, pitch, gate, velocity, at);
+        attach_envelope(owner, destination, hit.note->index);
+    }
+    return hit;
+}
+
+VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int stagger, Location at) {
+    const auto length
         = std::max(0, tick(duration, diagnostics, at) - PlaybackGrid::release_trim - stagger);
-    if (gate > std::numeric_limits<i32>::max() - time)
+    if (length > std::numeric_limits<i32>::max() - time)
         diagnostics.error(at, "time-range", "note end exceeds the score's tick range");
+    return {time, length};
+}
+
+NoteAddress VoiceOutput::emit_note(
+    ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity, Location at
+) {
     diagnostics.spend(PlaybackWork::attack, at);
-    tune(owner, destination, pitch, time, at);
+    tune(owner, destination, pitch, gate.time, at);
     if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
-    const auto overlaps  = time < owner.sounding_until;
-    owner.sounding_until = std::max(owner.sounding_until, time + gate);
     owner.track.notes.emplace_back(
-        time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
+        gate.time, gate.duration, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
     );
-    attack.note = NoteAddress(owner.track, owner.track.notes.size() - 1, owner.sounding_until);
-    attach_envelope(destination, *attack.note, owner.accidental_wheel, overlaps);
-    return attack;
+    return NoteAddress(owner.track, owner.track.notes.size() - 1);
 }
 
 void VoiceOutput::sustain(ChannelKey channel, TrackNative<Tick>& owner, i32 time, int value) {
@@ -354,21 +410,19 @@ size_t VoiceOutput::NoteEnvelope::work() const {
     return count;
 }
 
-void VoiceOutput::attach_envelope(
-    Target destination, NoteAddress note, int base, bool overlapping
-) {
+void VoiceOutput::attach_envelope(ChannelOutput& owner, Target destination, EnvelopeGate gate) {
     auto& state = envelopes[destination.lane];
     if (!state.pending) return;
     const auto [mark, at] = *std::exchange(state.pending, {});
+    if (destination.channel == midi_drum_channel) return;
     NoteEnvelope envelope{
-        note,
+        gate,
         destination,
         bend_for(state, mark),
         mark == EnvelopeMark::shape ? state.controllers : ControllerLayers{},
-        base,
+        owner.accidental_wheel,
         event_order++,
-        at,
-        overlapping
+        at
     };
     const auto work = envelope.work();
     if (!work) {
@@ -378,31 +432,27 @@ void VoiceOutput::attach_envelope(
         return;
     }
     diagnostics.spend(work, at);
-    note_envelopes.push_back(std::move(envelope));
+    owner.note_envelopes.push_back(std::move(envelope));
 }
 
-void VoiceOutput::warn_overlap(const NoteEnvelope& envelope) {
-    const auto& notes = envelope.note.track->notes;
-    const auto& note  = envelope.note.note();
-    // Attacks on one track are in playback order. Ties can extend the note
-    // after registration, so check the following attack against its final gate.
-    const auto next   = envelope.note.index + 1;
-    const auto shared = envelope.overlaps_prior
-                        || (next < notes.size() && notes[next].time < note.time + note.duration);
-    if (!shared) return;
-    const bool bending = static_cast<bool>(envelope.bend);
+void VoiceOutput::warn_tuning_overlap(Location at) {
+    diagnostics.warn(
+        at, "shared-pitch-wheel", "pitch bend also affects overlapping notes on this voice"
+    );
+}
+
+void VoiceOutput::warn_envelope_overlap(const NoteEnvelope& envelope) {
     diagnostics.warn(
         envelope.at,
-        bending ? "shared-pitch-wheel" : "shared-controller",
+        envelope.bend ? "shared-pitch-wheel" : "shared-controller",
         "note envelope also affects overlapping notes on this voice"
     );
 }
 
-void VoiceOutput::write_bend(const NoteEnvelope& bend) {
-    const auto& note    = bend.note.note();
+void VoiceOutput::write_bend(const NoteEnvelope& bend, Gate gate) {
     const auto& curve   = *bend.bend;
-    const auto  step    = note.duration / static_cast<i32>(curve.deltas.size());
-    const auto  release = note.time + note.duration;
+    const auto  step    = gate.duration / static_cast<i32>(curve.deltas.size());
+    const auto  release = gate.end();
     int         segment = curve.leading_pause ? 1 : 0;
     int64_t     value   = bend.base;
     bool        clipped = false;
@@ -412,7 +462,7 @@ void VoiceOutput::write_bend(const NoteEnvelope& bend) {
         clipped |= value != requested;
         writes.push_back(
             {bend.destination,
-             note.time + segment++ * step,
+             gate.time + segment++ * step,
              0,
              static_cast<int>(value),
              bend.order,
@@ -424,11 +474,10 @@ void VoiceOutput::write_bend(const NoteEnvelope& bend) {
         diagnostics.warn(bend.at, "bend-range", "clipped the bend curve to the MIDI wheel range");
 }
 
-void VoiceOutput::write_shape(const NoteEnvelope& envelope) {
-    const auto& note = envelope.note.note();
+void VoiceOutput::write_shape(const NoteEnvelope& envelope, Gate gate) {
     for (const auto& curve : *envelope.controllers) {
-        const auto step = note.duration / static_cast<i32>(curve->values.size());
-        auto       time = note.time;
+        const auto step = gate.duration / static_cast<i32>(curve->values.size());
+        auto       time = gate.time;
         for (const int value : curve->values) {
             writes.push_back(
                 {envelope.destination,
@@ -442,7 +491,7 @@ void VoiceOutput::write_shape(const NoteEnvelope& envelope) {
         }
         writes.push_back(
             {envelope.destination,
-             note.time + note.duration,
+             gate.end(),
              curve->number,
              0,
              envelope.order,
@@ -463,11 +512,36 @@ void VoiceOutput::complete_envelopes() {
             );
         }
     }
-    for (const auto& envelope : note_envelopes) {
-        warn_overlap(envelope);
-        if (envelope.bend) write_bend(envelope);
-        if (envelope.controllers) write_shape(envelope);
+    for (auto& [key, owner] : output) complete_channel_envelopes(owner);
+}
+
+void VoiceOutput::complete_channel_envelopes(ChannelOutput& owner) {
+    if (owner.note_envelopes.empty() && owner.tuning_checks.empty()) return;
+    const NoteActivity activity(owner.track.notes);
+    for (const auto& [index, at] : owner.tuning_checks)
+        if (activity.overlaps[index].prior) warn_tuning_overlap(at);
+    for (const auto& envelope : owner.note_envelopes)
+        complete_envelope(envelope, owner.track.notes, activity);
+}
+
+void VoiceOutput::complete_envelope(
+    const NoteEnvelope& envelope, const vec<Note<Tick>>& notes, const NoteActivity& activity
+) {
+    if (const auto* muted = std::get_if<Gate>(&envelope.gate)) {
+        if (activity.intersects(*muted)) warn_envelope_overlap(envelope);
+        write_envelope(envelope, *muted);
+        return;
     }
+    const auto index          = std::get<size_t>(envelope.gate);
+    const auto [prior, later] = activity.overlaps[index];
+    if (prior || later) warn_envelope_overlap(envelope);
+    const auto& note = notes[index];
+    write_envelope(envelope, {note.time, note.duration});
+}
+
+void VoiceOutput::write_envelope(const NoteEnvelope& envelope, Gate gate) {
+    if (envelope.bend) write_bend(envelope, gate);
+    if (envelope.controllers) write_shape(envelope, gate);
 }
 
 void VoiceOutput::finish(vec<TrackNative<Tick>>& tracks) {

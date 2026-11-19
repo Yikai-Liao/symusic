@@ -1226,3 +1226,24 @@ def test_live_shape_combines_controller_and_bend_samples_without_moving_notes(
         assert result["bends"][-1] == [release, 0]
         assert result["notes"][0][:2] == [1, release - 1]
         assert result["notes"][1][0] == release + 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "!shape!{A}CDEF|",
+        "{A}!shape!CDEF|",
+        "{AB}!shape!CDEF|",
+        "!shape!{A}!bend!CDEF|",
+        "[I:MIDI vol 0]!shape!CDEF|",
+        "[I:MIDI vol 0]!shape!{A}CDEF|",
+        "[I:MIDI channel 10]!shape!CDEF|",
+        "[I:MIDI channel 10]!bend!CDEF|",
+        "[I:MIDI expand 3/1]C- [I:MIDI expand 0/1] C !shape!D E F z|",
+    ],
+)
+def test_live_shape_attacks_grace_mute_and_drum(upstream, tmp_path, body):
+    abc = HEADER + "[I:MIDI controlstring 11 10][I:MIDI bendstring 300]" + body
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )

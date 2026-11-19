@@ -69,9 +69,15 @@ struct ChordMember {
     std::optional<NoteAddress> continuation;
 };
 
+struct EnvelopeCue {
+    VoiceOutput::EnvelopeMark mark;
+    Location                  at;
+};
+
 struct GraceGroup {
-    const Grace* notes = nullptr;
-    Location     at{};
+    const Grace*               notes = nullptr;
+    Location                   at{};
+    std::optional<EnvelopeCue> following_mark;
 };
 
 struct Prepared {
@@ -418,16 +424,17 @@ private:
     };
     std::optional<RepeatEntry> repeat_entry;
 
-    vec<const Token*> timed_effects;
-    DecorationMark    decoration_mark(const Decoration& decoration) const;
-    bool              can_defer(const Token& token) const;
-    bool              marks_envelope(const Token& token) const;
-    bool              apply_notated_ratio(const Token& token);
-    void              visit_token(const Token& token);
-    void              visit_step(PlayStep step);
-    void              schedule(const Token& token);
-    void              jump_repeat();
-    void              finish_rhythm();
+    vec<const Token*>          timed_effects;
+    DecorationMark             decoration_mark(const Decoration& decoration) const;
+    bool                       can_defer(const Token& token) const;
+    std::optional<EnvelopeCue> envelope_cue(const Token& token) const;
+    bool                       apply_notated_ratio(const Token& token);
+    void                       visit_token(const Token& token);
+    void                       visit_step(PlayStep step);
+    void                       schedule(const Token& token);
+    void                       schedule_envelope(EnvelopeCue cue, const Token& token);
+    void                       jump_repeat();
+    void                       finish_rhythm();
 
     i32 at_tick(Location at) { return tick(lane().time, diagnostics, at); }
     int velocity(long double at) {
@@ -435,7 +442,8 @@ private:
     }
     void        push(const Atom& atom, Location at, size_t music_line);
     void        flush();
-    void        orphan_grace(Location at);
+    void        orphan_grace();
+    void        arm_envelope(std::optional<EnvelopeCue> cue);
     bool        swing_candidate();
     void        broken_pair(Prepared& next);
     long double atom_duration(const Atom& atom, Location at);
@@ -491,10 +499,15 @@ private:
     void play_bar(const Bar& bar, Location at, size_t music_line);
 };
 
-void VoicePlayer::orphan_grace(Location) {
+void VoicePlayer::orphan_grace() {
     if (grace.notes)
         diagnostics.warn(grace.at, "orphan-grace", "ignored grace notes without a following note");
+    arm_envelope(grace.following_mark);
     grace = {};
+}
+
+void VoicePlayer::arm_envelope(std::optional<EnvelopeCue> cue) {
+    if (cue) output.envelope_next(lanes.id(), cue->mark, cue->at);
 }
 
 bool swing_note(const Prepared& note) {
@@ -775,10 +788,12 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     const auto& pitches = atom.atom->pitches;
     const auto  spread  = atom.atom->chord ? lane().expression.take_chord_spread() : 0;
     if (pitches.empty()) {
+        arm_envelope(atom.grace.following_mark);
         report_ties(lane().ties, diagnostics);
         return;
     }
     auto lead_in = play_grace(atom);
+    arm_envelope(atom.grace.following_mark);
     if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll) {
         lead_in += play_cut(pitches.front(), atom, lane().time + lead_in, duration - lead_in);
     }
@@ -801,8 +816,13 @@ void VoicePlayer::play(const Prepared& atom) {
 }
 
 void VoicePlayer::visit(const Grace& next, Location at) {
-    if (grace.notes) orphan_grace(at);
-    grace = {&next, at};
+    if (grace.notes) {
+        diagnostics.warn(
+            grace.at, "orphan-grace", "ignored grace group before a second grace group"
+        );
+    }
+    grace.notes = &next;
+    grace.at    = at;
 }
 
 void VoicePlayer::visit(const Harmony& chord, Location at) {
@@ -903,7 +923,7 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
         return;
     }
     if (const auto envelope = envelope_mark(mark)) {
-        output.envelope_next(lanes.id(), *envelope, at);
+        arm_envelope(EnvelopeCue{*envelope, at});
         return;
     }
     if (mark == "arpeggio") {
@@ -970,7 +990,7 @@ void VoicePlayer::visit(Broken next, Location at) {
 void VoicePlayer::visit(Overlay change, Location at) {
     flush();
     finish_rhythm();
-    orphan_grace(at);
+    orphan_grace();
     ornament = {};
     lanes.control(change, written, at);
 }
@@ -994,7 +1014,7 @@ bool closes_measure(const Bar& bar, const PlaybackLane& lane, Meter meter) {
 void VoicePlayer::play_bar(const Bar& bar, Location at, size_t music_line) {
     flush();
     finish_rhythm();
-    orphan_grace(at);
+    orphan_grace();
     ornament = {};
     if (!bar.resets_measure) return;
     lyric_line.bar(music_line);
@@ -1150,16 +1170,32 @@ void VoicePlayer::visit_token(const Token& token) {
     std::visit([&](const auto& value) { visit(value, token); }, token.value);
 }
 
-bool VoicePlayer::marks_envelope(const Token& token) const {
+std::optional<EnvelopeCue> VoicePlayer::envelope_cue(const Token& token) const {
     const auto* decoration = std::get_if<Decoration>(&token.value);
-    return decoration && envelope_mark(decoration_mark(*decoration).name).has_value();
+    if (!decoration) return {};
+    if (const auto kind = envelope_mark(decoration_mark(*decoration).name))
+        return EnvelopeCue{*kind, token.at};
+    return {};
+}
+
+void VoicePlayer::schedule_envelope(EnvelopeCue cue, const Token& token) {
+    if (grace.notes)
+        grace.following_mark = cue;
+    else if (pending)
+        // The cue belongs to the next attack without interrupting a tie or
+        // a broken-rhythm pair that still needs to modify the previous atom.
+        timed_effects.push_back(&token);
+    else
+        arm_envelope(cue);
 }
 
 void VoicePlayer::schedule(const Token& token) {
     if (apply_notated_ratio(token)) return;
-    // A mark between two atoms belongs to the next attack, but the first
-    // atom must remain editable by a following tie or broken-rhythm token.
-    if ((pending && marks_envelope(token)) || ((broken || swing_candidate()) && can_defer(token)))
+    if (const auto cue = envelope_cue(token)) {
+        schedule_envelope(*cue, token);
+        return;
+    }
+    if ((broken || swing_candidate()) && can_defer(token))
         timed_effects.push_back(&token);
     else
         visit_token(token);
@@ -1205,7 +1241,7 @@ Performance VoicePlayer::render(const vec<Token>& preamble, const PlayOrder& ord
     finish_rhythm();
     lanes.finish_voice(written, end);
     lanes.break_ties();
-    orphan_grace(end);
+    orphan_grace();
     if (tuplet.left)
         diagnostics.warn(tuplet.at, "unfinished-tuplet", "tuplet has fewer notes than declared");
     lyric_line.finish();
