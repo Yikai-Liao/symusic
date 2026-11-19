@@ -194,26 +194,51 @@ void prioritize_attacks(std::span<WrittenNote> chord, const vec<VoiceLane>& lane
 
 struct VoiceLimit {
     size_t           available;
-    std::string_view message;
+    std::string_view maximum;
 
-    [[noreturn]] void fail(std::string_view where) const { ExportIssues::invalid(where, message); }
+    [[noreturn]] void fail(std::string_view where) const {
+        ExportIssues::invalid(where, fmt::format("export requires more than {}", maximum));
+    }
+
+    [[noreturn]] void fail_onset(std::string_view where, i32 tick) const {
+        ExportIssues::invalid(
+            where,
+            fmt::format(
+                "[voice-placement] cannot place attacks at tick {} in {} available voices "
+                "(limit: {}); earlier onsets are not reassigned. Use MIDI export for this score",
+                tick,
+                available,
+                maximum
+            )
+        );
+    }
 };
 
 class PlacementBudget {
 public:
-    void try_candidate(std::string_view where) {
-        if (!remaining)
-            ExportIssues::invalid(
-                where,
-                "[voice-search-limit] could not fit an onset within the remaining ABC voices; "
-                "reduce simultaneous velocities or use MIDI export"
-            );
+    bool try_candidate() {
+        if (!remaining) return false;
         --remaining;
+        return true;
+    }
+
+    [[noreturn]] static void exhausted(std::string_view where, i32 tick, size_t available) {
+        ExportIssues::invalid(
+            where,
+            fmt::format(
+                "[voice-search-limit] stopped searching at tick {} with {} available voices "
+                "after {} retry candidates across the score; use MIDI export for this score",
+                tick,
+                available,
+                limit
+            )
+        );
     }
 
 private:
     // All onsets share this budget, so a file cannot trigger a large retry at every chord.
-    size_t remaining = 100'000;
+    static constexpr size_t limit     = 100'000;
+    size_t                  remaining = limit;
 };
 
 // Allocate all attacks of one onset before touching the timeline. Tentative
@@ -224,7 +249,7 @@ public:
         vec<VoiceLane>& lanes, VoiceLimit limit, PlacementBudget& budget, std::string_view where
     ) : lanes(lanes), limit(limit), budget(budget), where(where) {}
 
-    void add(std::span<const WrittenNote> attacks);
+    void add(std::span<WrittenNote> attacks);
 
 private:
     struct Candidate {
@@ -309,7 +334,10 @@ bool OnsetPlacement::retry(size_t next) {
         // Completely idle lanes are interchangeable for one onset.
         auto& lane = candidates[i];
         if (lane.room == max_active_notes && std::exchange(tried_idle, true)) continue;
-        budget.try_candidate(where);
+        if (!budget.try_candidate())
+            PlacementBudget::exhausted(
+                where, note.start + PlaybackGrid::attack_offset, limit.available
+            );
         if (!lane.accepts(note)) continue;
         lane.add(note);
         choice[next] = i;
@@ -319,15 +347,17 @@ bool OnsetPlacement::retry(size_t next) {
     return false;
 }
 
-void OnsetPlacement::add(std::span<const WrittenNote> chord) {
-    if (chord.size() > limit.available * max_active_notes) limit.fail(where);
+void OnsetPlacement::add(std::span<WrittenNote> chord) {
+    const auto tick = chord.front().start + PlaybackGrid::attack_offset;
+    if (chord.size() > limit.available * max_active_notes) limit.fail_onset(where, tick);
+    prioritize_attacks(chord, lanes);
     attacks = chord;
     if (!greedy()) {
         std::bitset<midi_max + 1> velocities;
         for (const auto& note : attacks) velocities.set(note.velocity);
-        if (velocities.count() > limit.available) limit.fail(where);
+        if (velocities.count() > limit.available) limit.fail_onset(where, tick);
         reset(limit.available);
-        if (!retry(0)) limit.fail(where);
+        if (!retry(0)) limit.fail_onset(where, tick);
     }
     for (size_t i = 0; i < attacks.size(); ++i) {
         const auto lane = choice[i];
@@ -348,7 +378,6 @@ vec<VoiceLane> partition(
             return note.start != remaining.front().start;
         });
         const auto onset = remaining.first(static_cast<size_t>(next - remaining.begin()));
-        prioritize_attacks(onset, lanes);
         placement.add(onset);
         remaining = remaining.subspan(onset.size());
     }
@@ -411,6 +440,7 @@ private:
     void                 interval(i32 start, i32 end, const Moment* next);
     void                 write_span(i32 start, i32 end);
     bool                 repeats_untied_pitch(i32 start, i32 end, const Moment& next) const;
+    void                 warn_early_chord_release(i32 start, i32 end, const Moment& next);
     void                 atom(i32 duration, i32 end);
     void                 moment(const Moment& change);
     void                 play(const Timeline& notes, const Fields& channel, const Fields& global);
@@ -435,6 +465,23 @@ bool VoiceWriter::repeats_untied_pitch(i32 start, i32 end, const Moment& next) c
     });
 }
 
+void VoiceWriter::warn_early_chord_release(i32 start, i32 end, const Moment& next) {
+    for (const auto& [pitch, note] : active) {
+        if (note.start != start || note.end != end) continue;   // already tied or still held
+        if (std::ranges::find(next.attacks, pitch, &WrittenNote::pitch) != next.attacks.end())
+            continue;
+        issues.warn(
+            where,
+            "midi-chord-release",
+            "abc2midi releases chord pitch {} one tick before tick {} to preserve the order of "
+            "a different pitch's reattack; use MIDI export for exact releases",
+            pitch,
+            end + PlaybackGrid::attack_offset
+        );
+        break;
+    }
+}
+
 void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
     if (start == end) return;
     if (drums || !next || !repeats_untied_pitch(start, end, *next)) {
@@ -454,6 +501,7 @@ void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
     // abc2midi ignores expand on a tie. Release one tick before the next
     // attack there, rather than emit Note Off after the reattack at equal
     // time. The native reader still performs the entire tied duration.
+    warn_early_chord_release(start, end, *next);
     write_span(start, end - 1);
     atom(1, end);
 }
@@ -977,8 +1025,8 @@ template<TType T>
 VoiceLimit ScoreWriter<T>::voice_limit(bool drums) const {
     const auto remaining = max_export_voices - total_voices;
     const auto melodic   = melodic_channels - melodic_voices;
-    if (drums || remaining <= melodic) return {remaining, "export uses more than 30 ABC voices"};
-    return {melodic, "voice allocation used more than 15 melodic ABC voices"};
+    if (drums || remaining <= melodic) return {remaining, "30 ABC voices"};
+    return {melodic, "15 melodic ABC voices"};
 }
 
 template<TType T>

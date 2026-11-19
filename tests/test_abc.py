@@ -785,7 +785,9 @@ def test_abc_export_rejects_too_many_voices():
         track = Track(str(program), program)
         track.notes.append(Note(15, 30, 60, 80))
         score.tracks.append(track)
-    with pytest.raises(ValueError, match="more than 15 melodic ABC voices"):
+    with pytest.raises(
+        ValueError, match=r"\[voice-placement\].*at tick \d+.*15 melodic ABC voices"
+    ):
         score.dumps_abc()
 
 
@@ -854,13 +856,44 @@ def test_abc_export_reassigns_a_constrained_onset(reverse: bool):
     assert note_rows(exported) == note_rows(score)
 
 
+def test_abc_export_voice_search_limit():
+    # Each attack at tick 45 has a distinct velocity. Independent groups
+    # compete for disjoint lane sets; taking lane 0 for the first attack
+    # leaves the final group short even though lane 1 would also work.
+    allowed_lanes = (
+        [{0, 1}]
+        + [{6, 7, 8}] * 3
+        + [{9, 10, 11}] * 3
+        + [{12, 13, 14}] * 3
+        + [{0, 2, 3, 4, 5}] * 5
+    )
+    score = Score(480)
+    track = Track("Search limit")
+    # One common held pitch establishes the lane numbering.
+    track.notes.extend(Note(15, 240, 20, 60 + lane) for lane in range(15))
+    for pitch, allowed in enumerate(allowed_lanes, start=40):
+        track.notes.extend(
+            Note(15, 240, pitch, 60 + lane) for lane in range(15) if lane not in allowed
+        )
+        track.notes.append(Note(45, 30, pitch, 90 + pitch - 40))
+    score.tracks.append(track)
+    with pytest.raises(
+        ValueError,
+        match=r"track 1.*\[voice-search-limit\].*tick 45.*15 available voices.*100000 retry candidates",
+    ):
+        score.dumps_abc()
+
+
 def test_abc_export_rejects_more_than_30_total_voices():
     score = Score(480)
     for index in range(31):
         track = Track(str(index), is_drum=index >= 15)
         track.notes.append(Note(15, 30, 30 + index, 80))
         score.tracks.append(track)
-    with pytest.raises(ValueError, match="more than 30 ABC voices"):
+    with pytest.raises(
+        ValueError,
+        match=r"\[voice-placement\].*at tick 15.*0 available voices.*30 ABC voices",
+    ):
         score.dumps_abc()
 
 

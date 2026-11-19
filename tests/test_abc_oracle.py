@@ -716,39 +716,21 @@ def test_upstream_ordered_verses(upstream: Path, tmp_path: Path):
     )
 
 
-@pytest.mark.parametrize("kind", ["single voice", "dense chords", "issue 78"])
-def test_upstream_plays_native_exports(kind: str, upstream: Path, tmp_path: Path):
-    if kind == "issue 78":
-        score = Score(TESTCASES_PATH / "issue78_dump_abc.mid")
-    elif kind == "dense chords":
-        score = Score(480)
-        track = Track("Dense chords")
-        track.notes.extend(
-            Note(time, 30, pitch, 80) for time in (15, 45) for pitch in range(51)
-        )
-        score.tracks.append(track)
-    else:
-        score = roundtrip_score()
+def test_upstream_single_voice_export(upstream: Path, tmp_path: Path):
+    score = roundtrip_score()
     abc = score.dumps_abc()
-    midi = oracle_midi(upstream, abc, tmp_path)
-    played = Score(midi)
-    original = note_rows(score)
-    assert note_rows(Score.from_abc(abc)) == original
-    if kind == "dense chords":
-        # Each pitch reattacks at tick 45. Check the wire order as well as
-        # the one-tick release shortening that prevents the new attack being cut off.
-        assert note_rows(played) == [
-            (t, d - (t == 15), p, v) for t, d, p, v in original
-        ]
-        assert midi_note_events(midi) == {
-            pitch: [(15, 80), (44, 0), (45, 80), (75, 0)] for pitch in range(51)
-        }
-    else:
-        assert note_rows(played) == original
-    if kind == "single voice":
-        assert played.tracks[0].program == score.tracks[0].program
-        assert played.time_signatures == score.time_signatures
-        assert played.tempos == score.tempos
+    played = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(Score.from_abc(abc)) == note_rows(played) == note_rows(score)
+    assert played.tracks[0].program == score.tracks[0].program
+    assert played.time_signatures == score.time_signatures
+    assert played.tempos == score.tempos
+
+
+def test_upstream_issue78_export(upstream: Path, tmp_path: Path):
+    score = Score(TESTCASES_PATH / "issue78_dump_abc.mid")
+    abc = score.dumps_abc()
+    played = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(Score.from_abc(abc)) == note_rows(played) == note_rows(score)
 
 
 @pytest.mark.parametrize(
@@ -793,6 +775,25 @@ def midi_note_events(path: Path) -> dict[int, list[tuple[int, int]]]:
     return events
 
 
+def test_export_dense_chord_reattacks(upstream: Path, tmp_path: Path):
+    score = Score(480)
+    track = Track("Dense chords")
+    track.notes.extend(
+        Note(time, 30, pitch, 80) for time in (15, 45) for pitch in range(51)
+    )
+    score.tracks.append(track)
+    abc = score.dumps_abc()
+    midi = oracle_midi(upstream, abc, tmp_path)
+    original = note_rows(score)
+    assert note_rows(Score.from_abc(abc)) == original
+    assert note_rows(Score(midi)) == [
+        (t, d - (t == 15), p, v) for t, d, p, v in original
+    ]
+    assert midi_note_events(midi) == {
+        pitch: [(15, 80), (44, 0), (45, 80), (75, 0)] for pitch in range(51)
+    }
+
+
 @pytest.mark.parametrize("duration", [2, 240])
 @pytest.mark.parametrize("chord", [False, True])
 def test_export_reattack_releases_before_attack(
@@ -804,15 +805,20 @@ def test_export_reattack_releases_before_attack(
     if chord:
         track.notes.append(Note(1, duration, 64, 80))
     score.tracks.append(track)
-    abc = score.dumps_abc()
+    if chord:
+        with pytest.warns(
+            UserWarning,
+            match=rf"track 1.*\[midi-chord-release\].*pitch 64.*tick {1 + duration}",
+        ):
+            abc = score.dumps_abc(warn=True)
+    else:
+        abc = score.dumps_abc(warn=True)
     assert note_rows(Score.from_abc(abc)) == note_rows(score)
     # Score objects hide the order of encoded Note On and Note Off messages.
-    assert midi_note_events(oracle_midi(upstream, abc, tmp_path))[60] == [
-        (1, 80),
-        (duration, 0),
-        (1 + duration, 90),
-        (31 + duration, 0),
-    ]
+    expected = {60: [(1, 80), (duration, 0), (1 + duration, 90), (31 + duration, 0)]}
+    if chord:
+        expected[64] = [(1, 80), (duration, 0)]
+    assert midi_note_events(oracle_midi(upstream, abc, tmp_path)) == expected
 
 
 def test_export_one_tick_reattack_warns():
@@ -866,25 +872,25 @@ def test_export_full_channel_set(drum_position: int, upstream: Path, tmp_path: P
     }
 
 
+def notes_by_program(score: Score, *, shorten_held_lead: bool = False):
+    result = {}
+    for track in score.tracks:
+        notes = result.setdefault(track.program, [])
+        for note in track.notes:
+            shorten = shorten_held_lead and track.program == 30 and note.time == 15
+            notes.append(
+                (note.time, note.pitch, note.velocity, note.duration - shorten)
+            )
+    return {program: sorted(notes) for program, notes in result.items()}
+
+
 def test_export_reassigned_onset_plays_upstream(upstream: Path, tmp_path: Path):
     score = score_with_constrained_onset()
     played = oracle_score(upstream, score.dumps_abc(), tmp_path)
     assert len(played.tracks) == 15
     # All five held lead notes need ties across the second onset. abc2midi
     # releases those ties one tick early; compare every other field exactly.
-    for program in [*range(12), 30]:
-        original = next(track for track in score.tracks if track.program == program)
-        expected = sorted(
-            (n.time, n.pitch, n.velocity, n.duration - (program == 30 and n.time == 15))
-            for n in original.notes
-        )
-        actual = sorted(
-            (n.time, n.pitch, n.velocity, n.duration)
-            for track in played.tracks
-            if track.program == program
-            for n in track.notes
-        )
-        assert actual == expected
+    assert notes_by_program(played) == notes_by_program(score, shorten_held_lead=True)
 
 
 def test_export_full_voice_set(upstream: Path, tmp_path: Path):
