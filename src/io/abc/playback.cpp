@@ -35,6 +35,7 @@ public:
     Alteration resolve(Pitch pitch, const Key& key);
     void       reset() { measure.clear(); }
     void       propagation(std::string_view value, Location at, Diagnostics& diagnostics);
+    bool       midi_scope(std::string_view name);
 
 private:
     AccidentalScope                            scope = AccidentalScope::pitch;
@@ -63,6 +64,16 @@ void Accidentals::propagation(std::string_view value, Location at, Diagnostics& 
             "invalid-accidental-scope",
             "expected 'pitch', 'octave' or 'not' for propagate-accidentals"
         );
+}
+
+bool Accidentals::midi_scope(std::string_view name) {
+    if (name == "nobarlines")
+        scope = AccidentalScope::none;
+    else if (name == "barlines")
+        scope = AccidentalScope::pitch;
+    else
+        return false;
+    return true;
 }
 
 struct TieNote {
@@ -297,6 +308,7 @@ private:
     bool              apply_notated_ratio(const Token& token);
     void              visit_token(const Token& token);
     void              visit_step(PlayStep step);
+    void              schedule(const Token& token);
     void              jump_repeat();
     void              finish_rhythm();
 
@@ -842,6 +854,12 @@ void VoicePlayer::finish_rhythm() {
     broken.reset();
 }
 
+bool closes_measure(const Bar& bar, const PlaybackLane& lane, Meter meter) {
+    const bool soft = bar.repeat_start || bar.repeat_end || bar.section;
+    return !soft
+           || (!meter.free && (lane.pickup || lane.time - lane.bar + epsilon >= meter.measure()));
+}
+
 void VoicePlayer::visit(const Bar& bar, Location at) {
     flush();
     finish_rhythm();
@@ -850,12 +868,8 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     if (!bar.resets_measure) return;
     lanes.close_implicit(written);
     lane().accidentals.reset();
-    const bool soft   = bar.repeat_start || bar.repeat_end || bar.section;
-    const auto length = lane().time - lane().bar;
-    if (soft
-        && (written.meter.free || (!lane().pickup && length + epsilon < written.meter.measure())))
-        return;
-    if (length > epsilon) lane().pickup = false;
+    if (!closes_measure(bar, lane(), written.meter)) return;
+    if (lane().time - lane().bar > epsilon) lane().pickup = false;
     lane().bar = lane().time;
     if (lanes.id() == 0) {
         lanes.primary_boundary();
@@ -879,6 +893,7 @@ void VoicePlayer::set_symbols(std::string_view value, Location at) {
 void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
     if (PitchTuning::handles_midi(name)) return;   // Already compiled in source order.
+    if (lane().accidentals.midi_scope(name)) return;
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
     if (!lane().expression.directive(name, command, written.unit, at, diagnostics)
         && !output.effect(name, command, lanes.id(), at_tick(at), at)
@@ -1010,11 +1025,9 @@ bool VoicePlayer::can_defer(const Token& token) const {
 }
 
 bool VoicePlayer::apply_notated_ratio(const Token& token) {
-    std::string_view args;
-    if (const auto* directive = std::get_if<Directive>(&token.value))
-        args = directive->value;
-    else if (const auto* field = std::get_if<Field>(&token.value); field && field->kind == 'I')
-        args = field->value;
+    const auto information = token.information();
+    if (!information) return false;
+    auto args = *information;
     if (word(args) != "MIDI") return false;
     const auto name = word(args);
     // A ratio changes the notated pair, not the attack at this position.
@@ -1023,6 +1036,14 @@ bool VoicePlayer::apply_notated_ratio(const Token& token) {
 
 void VoicePlayer::visit_token(const Token& token) {
     std::visit([&](const auto& value) { visit(value, token.at); }, token.value);
+}
+
+void VoicePlayer::schedule(const Token& token) {
+    if (apply_notated_ratio(token)) return;
+    if ((broken || swing_candidate()) && can_defer(token))
+        timed_effects.push_back(&token);
+    else
+        visit_token(token);
 }
 
 void VoicePlayer::visit_step(PlayStep step) {
@@ -1041,13 +1062,7 @@ void VoicePlayer::visit_step(PlayStep step) {
     case Flow::jump_repeat: jump_repeat(); break;
     case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
     case Flow::hard_bar: visit(Bar{}, token.at); break;
-    case Flow::token:
-        if (apply_notated_ratio(token)) break;
-        if ((broken || swing_candidate()) && can_defer(token))
-            timed_effects.push_back(&token);
-        else
-            visit_token(token);
-        break;
+    case Flow::token: schedule(token); break;
     }
 }
 

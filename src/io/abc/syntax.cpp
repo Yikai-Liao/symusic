@@ -67,7 +67,8 @@ using accidental_sign
 struct accidental : seq<accidental_sign, opt<length>> {};
 struct letter : ranges<'a', 'g', 'A', 'G'> {};
 struct tie : chars<'-'> {};
-struct pitch : seq<opt<accidental>, letter, opt<octave>, opt<length>, opt<tie>> {};
+using pitch_spelling = seq<opt<accidental>, letter, opt<octave>>;
+struct pitch : seq<pitch_spelling, opt<length>, opt<tie>> {};
 
 struct rest_letter : chars<'x', 'z', 'X', 'Z'> {};
 struct rest : seq<rest_letter, opt<length>> {};
@@ -205,6 +206,14 @@ struct LogicalLine {
     }
 };
 
+template<class Rule>
+const Node* child(const Node& node) {
+    const auto found = std::ranges::find_if(node.children, [](const auto& candidate) {
+        return candidate->template is_type<Rule>();
+    });
+    return found == node.children.end() ? nullptr : found->get();
+}
+
 class MusicLine {
 public:
     MusicLine(
@@ -221,17 +230,9 @@ private:
 
     Location location(const Node& node) const { return source.where(node.data); }
 
-    template<class Rule>
-    static const Node* child(const Node& node) {
-        const auto found = std::ranges::find_if(node.children, [](const auto& candidate) {
-            return candidate->template is_type<Rule>();
-        });
-        return found == node.children.end() ? nullptr : found->get();
-    }
     int        number(std::string_view value, Location at, int fallback = 0) const;
     Length     length(const Node* node) const;
     Pitch      pitch(const Node& node) const;
-    int        octave(const Node& node) const;
     Bar        bar(const Node& node) const;
     Tuplet     tuplet(const Node& node) const;
     vec<Pitch> members(const Node& node) const;
@@ -309,28 +310,31 @@ Length MusicLine::length(const Node* node) const {
     return {numerator, static_cast<int>(power << extra_slashes)};
 }
 
-int MusicLine::octave(const Node& node) const {
-    auto value = child<grammar::octave>(node);
+int written_octave(const Node& node, const auto& locate, Diagnostics& diagnostics) {
+    const auto value = child<grammar::octave>(node);
     if (!value) return 0;
     if (value->data.size() > 32)
-        diagnostics.error(location(*value), "pitch-range", "too many octave marks");
+        diagnostics.error(locate(*value), "pitch-range", "too many octave marks");
     return static_cast<int>(
         2 * std::ranges::count(value->data, '\'') - static_cast<ptrdiff_t>(value->data.size())
     );
 }
 
-Pitch MusicLine::pitch(const Node& node) const {
+Pitch read_spelling(const Node& node, const auto& locate, Diagnostics& diagnostics) {
     const auto                name = child<grammar::letter>(node)->data.front();
     std::optional<Alteration> alteration;
     if (const auto prefix = child<grammar::accidental>(node))
-        alteration = accidental(prefix->data, location(*prefix), diagnostics);
+        alteration = accidental(prefix->data, locate(*prefix), diagnostics);
     return {
-        upper(name),
-        octave(node) + lower(name),
-        alteration,
-        child<grammar::tie>(node) != nullptr,
-        length(child<grammar::length>(node))
+        upper(name), written_octave(node, locate, diagnostics) + lower(name), alteration, false, {}
     };
+}
+
+Pitch MusicLine::pitch(const Node& node) const {
+    auto result   = read_spelling(node, [this](const Node& n) { return location(n); }, diagnostics);
+    result.tie    = child<grammar::tie>(node) != nullptr;
+    result.length = length(child<grammar::length>(node));
+    return result;
 }
 
 vec<Pitch> MusicLine::members(const Node& node) const {
@@ -702,6 +706,17 @@ std::optional<Alteration> accidental(std::string_view text, Location at, Diagnos
         at, "invalid-accidental", "ignored ambiguous accidental; use a single sign for microtones"
     );
     return {};
+}
+
+Pitch drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics) {
+    Input      input(text);
+    const auto root
+        = peg::parse_tree::parse<peg::seq<grammar::pitch_spelling, peg::eof>, Select>(input);
+    if (!root)
+        diagnostics.error(
+            at, "invalid-drummap", "drummap needs a pitch without a duration, such as ^F,"
+        );
+    return read_spelling(*root, [at](const Node&) { return at; }, diagnostics);
 }
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics) {

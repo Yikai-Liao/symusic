@@ -175,6 +175,14 @@ CASES = {
     + "[V:one]CDEF|\n[V:two]C,D,E,F,|",
     "relative_transpose": HEADER.replace("K:C", "K:C transpose=3")
     + "C\n%%MIDI transpose 2\nD\n%%MIDI rtranspose -1\nE [K:G transpose=5] F|",
+    "drummap_header_and_voice": "%%MIDI drummap C 35\n"
+    + HEADER.replace("K:C", "%%MIDI drummap ^D 42\nK:C")
+    + "V:1\n%%MIDI channel 10\nC^DEF|\n"
+    + "V:2\n%%MIDI channel 10\n%%MIDI drummap _e 44\nC _e ^D F|",
+    "drummap_changes": HEADER
+    + "%%MIDI channel 10\n%%MIDI drummap C 36\nC [I:MIDI drummap C 38] C D E|",
+    "barline_accidental_controls": HEADER
+    + "^CFCC|\n%%MIDI nobarlines\n^CFCC|\n%%MIDI barlines\n^CFCC|",
     "transpose_percussion": HEADER + "%%MIDI channel 10\n%%MIDI transpose 2\nCDEF|",
     "channel_setup": (
         HEADER.replace("K:C", "%%MIDI pitchbendrange 5\n%%MIDI portamento 12\nK:C")

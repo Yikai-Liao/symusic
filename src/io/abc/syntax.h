@@ -160,6 +160,14 @@ struct Token {
         Overlay,
         Bar>
         value;
+
+    // Both information fields and percent directives carry commands.
+    [[nodiscard]] std::optional<std::string_view> information() const {
+        if (const auto* directive = std::get_if<Directive>(&value)) return directive->value;
+        if (const auto* field = std::get_if<Field>(&value); field && field->kind == 'I')
+            return field->value;
+        return {};
+    }
 };
 
 // Views in the token stream refer to the input; locations are one-based UTF-8 byte columns.
@@ -170,6 +178,9 @@ struct Tune {
     vec<Token>              body;
     Location                key;
 };
+
+// Parse a bare pitch for a MIDI drummap directive, using the music spelling rules.
+Pitch drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics);
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics);
 

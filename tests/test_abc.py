@@ -66,6 +66,9 @@ def test_read_abc_recovers_stray_coda():
         ("CD [K:G", "unclosed-inline-field", 7, 4),
         ("C/0", "zero-length-divisor", 7, 2),
         ("[I:MIDI program 128] C", "invalid-midi-value", 7, 2),
+        ("[I:MIDI drummap J 36] C", "invalid-drummap", 7, 2),
+        ("[I:MIDI drummap ^/F 36] C", "invalid-drummap", 7, 2),
+        ("[I:MIDI drummap C 128] C", "invalid-midi-value", 7, 2),
         ("C,,,,,,,,", "pitch-range", 7, 1),
     ],
 )

@@ -78,6 +78,8 @@ private:
         void allocate_chord_channels(size_t count);
     };
     std::array<Routing, max_voice_lanes> routing;
+    std::map<int, int>                   drum_map;
+    void                                 remap_drum(std::string_view args, Location at);
 
     struct ChannelOutput {
         ChannelOutput(std::string name, u8 program, bool drums) :

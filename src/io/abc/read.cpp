@@ -105,6 +105,7 @@ private:
     size_t find_voice(std::string_view id, Location at);
     bool   select(const Token& token);
     void   header(const Token& token, TuneSettings& settings);
+    void   header_midi(const Token& token, std::string_view command, TuneSettings& settings);
     void   append(const Token& token);
 };
 
@@ -149,23 +150,29 @@ void Voices::append(const Token& token) {
 
 void Voices::header(const Token& token, TuneSettings& settings) {
     if (select(token)) return;
-    std::string_view command;
-    if (const auto* directive = std::get_if<Directive>(&token.value))
-        command = directive->value;
-    else {
-        const auto& field = std::get<Field>(token.value);
-        if (field.kind == 'U') common.push_back(token);
-        if (field.kind != 'I') return;
-        command = field.value;
+    const auto information = token.information();
+    if (!information) {
+        if (const auto* field = std::get_if<Field>(&token.value); field && field->kind == 'U')
+            common.push_back(token);
+        return;
     }
+    auto command = *information;
     if (word(command) != "MIDI") {
         common.push_back(token);
         return;
     }
-    if (voices.front().id.empty()) {
-        const auto name = word(command);
-        if (midi_transposition(name, command, settings.midi_shift, diagnostics, token.at)) return;
+    header_midi(token, command, settings);
+}
+
+void Voices::header_midi(const Token& token, std::string_view command, TuneSettings& settings) {
+    const auto name = word(command);
+    if (name == "drummap" || name == "barlines" || name == "nobarlines") {
+        common.push_back(token);
+        return;
     }
+    if (voices.front().id.empty()
+        && midi_transposition(name, command, settings.midi_shift, diagnostics, token.at))
+        return;
     append(token);
 }
 
