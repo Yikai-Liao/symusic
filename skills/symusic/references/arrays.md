@@ -66,7 +66,9 @@ beat_index = np.searchsorted(beats, onsets, side="right") - 1
 from symusic import Score
 
 grid = Score("song.mid").resample(tpq=6, min_dur=1)
-roll = grid.pianoroll(modes=["onset", "frame"], pitch_range=(21, 109), encode_velocity=True)
+roll = grid.pianoroll(
+    modes=["onset", "frame"], pitch_range=(21, 109), encode_velocity=True
+)
 print(roll.shape)  # (modes, tracks, pitches, time)
 
 track_roll = grid.tracks[0].pianoroll(modes=["frame"])

@@ -22,7 +22,9 @@ melody.controls.append(ControlChange(3.0, 64, 0, ttype=q))  # sustain off
 
 drums = Track("drums", is_drum=True, ttype=q)
 for beat in range(6):
-    drums.notes.append(Note(float(beat), 0.25, 36 if beat % 3 == 0 else 42, 100, ttype=q))
+    drums.notes.append(
+        Note(float(beat), 0.25, 36 if beat % 3 == 0 else 42, 100, ttype=q)
+    )
 
 score.tracks.extend([melody, drums])
 score.dump_midi("generated.mid")

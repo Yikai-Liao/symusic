@@ -34,7 +34,7 @@ A synthesizer resamples each SoundFont sample the first time a note needs it and
 - `render` accepts a score in any unit and converts it to seconds first.
 - Each note plays the preset given by its track's `program` and bank. The bank comes from control change 0 (bank select) in `controls`, 0 by default; drum tracks always use bank 128, the General MIDI drum kit.
 - Only note times, durations, pitches and velocities are rendered. Pedals, pitch bends and all other control changes, including volume (7), pan (10) and sustain (64), have no effect, so a sustained piano part sounds dry; extend the note durations yourself to hear the pedal.
-- `quality` (0–4) selects how SoundFont samples are resampled to `sample_rate` when their rates differ: 0 is linear interpolation, 1 is zero-order hold, and 2, 3 and 4 are sinc interpolation from fastest to best. The sinc settings render several times slower than 0.
+- `quality` (0–4) selects how SoundFont samples are resampled to `sample_rate` when their rates differ: 0 is linear interpolation, 1 is zero-order hold, and 2, 3 and 4 are sinc interpolation from fastest to best. The sinc settings render several times slower than 0. Other values raise `ValueError`.
 
 ## Output
 
