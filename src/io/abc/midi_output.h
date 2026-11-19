@@ -80,7 +80,6 @@ private:
         int program;
     };
 
-    static constexpr int midi_channels      = 16;
     static constexpr int max_chord_channels = 9;
     struct Routing {
         int    selected       = 1;

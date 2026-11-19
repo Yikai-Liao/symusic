@@ -10,6 +10,7 @@ namespace symusic::abc::detail {
 inline constexpr i32 tpq               = 480;
 inline constexpr i32 whole             = 4 * tpq;
 inline constexpr int midi_bend_center  = 8192;
+inline constexpr int midi_channels     = 16;
 inline constexpr int midi_drum_channel = 10;
 inline constexpr int midi_max          = 127;
 inline constexpr int max_voice_lanes   = 64;

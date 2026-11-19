@@ -645,8 +645,36 @@ def test_abc_export_rejects_too_many_voices():
         track = Track(str(program), program)
         track.notes.append(Note(15, 30, 60, 80))
         score.tracks.append(track)
-    with pytest.raises(ValueError, match="more than 15 ABC voices"):
+    with pytest.raises(ValueError, match="more than 15 melodic ABC voices"):
         score.dumps_abc()
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_abc_export_prioritizes_constrained_attacks(reverse: bool):
+    score = Score(480)
+    for index in range(13):
+        other = Track(str(index), index)
+        other.notes.append(Note(15, 240, 61, 83))
+        score.tracks.append(other)
+    track = Track("Overlaps", 30)
+    short = [Note(45, 30, 62, 80), Note(45, 30, 61, 81)]
+    track.notes.extend([Note(15, 240, 60, 80), Note(15, 240, 61, 81)])
+    track.notes.extend(reversed(short) if reverse else short)
+    score.tracks.append(track)
+    exported = Score.from_abc(score.dumps_abc())
+    assert len(exported.tracks) == 15
+    assert note_rows(exported) == note_rows(score)
+
+
+def test_abc_export_warns_on_shared_drum_channel():
+    score = Score(480)
+    for pitch in [35, 42]:
+        track = Track(is_drum=True)
+        track.notes.append(Note(15, 30, pitch, 80))
+        score.tracks.append(track)
+    with pytest.warns(UserWarning, match=r"\[shared-drum-channel\].*channel 10"):
+        abc = score.dumps_abc(warn=True)
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
 
 
 @pytest.mark.skipif(not Path("/dev/full").exists(), reason="requires /dev/full")

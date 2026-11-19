@@ -668,6 +668,25 @@ def test_export_conductor_tempo(voices: int, upstream: Path, tmp_path: Path):
     assert performed(native) == performed(actual)
 
 
+@pytest.mark.parametrize("drum_position", [0, 7, 15])
+def test_export_full_channel_set(drum_position: int, upstream: Path, tmp_path: Path):
+    score = Score(480)
+    for index in range(16):
+        track = Track(str(index), index, index == drum_position)
+        track.notes.append(Note(15, 60, 30 + index, 80))
+        score.tracks.append(track)
+    abc = score.dumps_abc()
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(native) == note_rows(score)
+    assert note_rows(actual) == sorted(
+        (15, 60 - (index == drum_position), 30 + index, 80) for index in range(16)
+    )
+    assert {(t.program, t.is_drum) for t in actual.tracks} == {
+        (t.program, t.is_drum) for t in score.tracks
+    }
+
+
 def test_export_drum_release(upstream: Path, tmp_path: Path):
     score = roundtrip_score()
     score.tracks[0].is_drum = True

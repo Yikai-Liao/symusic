@@ -10,6 +10,7 @@
 #include <ranges>
 #include <set>
 #include <span>
+#include <tuple>
 
 #include <utf8.h>
 
@@ -27,10 +28,12 @@ using detail::whole;
 
 constexpr i32 midi_tempo_max = (1 << 24) - 1;
 constexpr i32 midi_delta_max = (1 << 28) - 1;
-// abc2midi reserves one channel for percussion and queues up to 50 releases.
-// A lane can have 25 active notes, leaving room for the next chord's attacks.
-constexpr int max_export_voices = 15;
-constexpr int max_active_notes  = 25;
+// abc2midi accepts 30 voice declarations. Melodic voices use distinct MIDI
+// channels; percussion voices explicitly select channel 10.
+constexpr size_t max_export_voices = 30;
+constexpr size_t melodic_channels  = detail::midi_channels - 1;
+// Leave room in the 50-slot MIDI release queue for the next chord's attacks.
+constexpr int max_active_notes = 25;
 
 class ExportIssues {
 public:
@@ -157,29 +160,48 @@ struct VoiceLane {
     }
 };
 
-// Keeps most polyphony in one ABC voice. Only overlapping notes of the same
-// pitch and simultaneous attacks with different velocities require extra lanes.
-vec<VoiceLane> partition(vec<WrittenNote> notes, ExportIssues& issues, std::string_view where) {
-    std::ranges::stable_sort(notes, {}, &WrittenNote::start);
-    vec<VoiceLane> lanes(1);
-    for (const auto note : notes) {
-        auto lane = std::ranges::find_if(lanes, [&](const VoiceLane& lane) {
-            return lane.accepts(note);
-        });
-        if (lane == lanes.end()) {
-            if (lanes.size() == max_export_voices)
-                ExportIssues::invalid(where, "too many independent ABC voice lanes");
-            lanes.emplace_back();
-            lane = lanes.end() - 1;
-        }
-        lane->add(note);
+// At an onset, give scarce pitches first choice of lane. This is greedy,
+// not a proof of the minimum voice count.
+void prioritize_attacks(std::span<WrittenNote> chord, const vec<VoiceLane>& lanes) {
+    if (chord.size() < 2) return;
+    std::array<int, 128> pressure{};
+    for (const auto& note : chord) {
+        auto& rank = pressure[note.pitch];
+        if (rank == 0)
+            rank = std::ranges::count_if(lanes, [&](const VoiceLane& lane) {
+                return lane.ends[note.pitch] > note.start;
+            });
+        ++rank;   // simultaneous copies also compete for lanes
     }
-    if (lanes.size() > 1)
-        issues.warn(
-            where,
-            "split-voice",
-            "used multiple ABC voices to preserve polyphony, velocities, or note releases"
-        );
+    std::ranges::sort(chord, {}, [&](const WrittenNote& note) {
+        return std::tuple{-pressure[note.pitch], note.pitch, note.velocity, note.end};
+    });
+}
+
+vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_view where) {
+    std::ranges::sort(notes, {}, &WrittenNote::start);
+    vec<VoiceLane> lanes(1);
+    auto           remaining = std::span(notes);
+    while (!remaining.empty()) {
+        const auto next  = std::ranges::find_if(remaining, [&](WrittenNote note) {
+            return note.start != remaining.front().start;
+        });
+        const auto onset = remaining.first(static_cast<size_t>(next - remaining.begin()));
+        prioritize_attacks(onset, lanes);
+        remaining = remaining.subspan(onset.size());
+        for (const auto note : onset) {
+            auto lane = std::ranges::find_if(lanes, [&](const VoiceLane& lane) {
+                return lane.accepts(note);
+            });
+            if (lane == lanes.end()) {
+                if (lanes.size() == max_lanes)
+                    ExportIssues::invalid(where, "voice allocation used too many ABC lanes");
+                lanes.emplace_back();
+                lane = lanes.end() - 1;
+            }
+            lane->add(note);
+        }
+    }
     return lanes;
 }
 
@@ -377,7 +399,8 @@ private:
     std::string          output;
     Timeline             global;
     vec<PlannedVoice<T>> voices;
-    int                  start_offset = 0;
+    size_t               melodic_voices = 0;
+    int                  start_offset   = 0;
 
     i32 scale(long double time, std::string_view where) { return clock.scale(time, where, issues); }
     vec<WrittenNote>         notes(const Track<T>& track, std::string_view where);
@@ -616,15 +639,26 @@ void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
     if (track.program > midi_max)
         ExportIssues::invalid(where, "program must be in MIDI range 0–127");
     limitations(track, where);
-    auto       lanes          = partition(notes(track, where), issues, where);
+    auto lanes = partition(
+        notes(track, where), track.is_drum ? max_export_voices : melodic_channels, where
+    );
+    if (lanes.size() > 1)
+        issues.warn(where, "split-voice", "used multiple ABC voices to preserve note events");
     const auto control_fields = channel_events(track, where);
     for (auto& lane : lanes) {
         for (const auto& [tick, change] : control_fields)
             lane.timeline[tick].fields = change.fields;
         if (lane.timeline.empty()) continue;
-        if (voices.size() >= max_export_voices)
-            ExportIssues::invalid(
-                where, "export needs more than 15 ABC voices, the abc2midi channel limit"
+        if (voices.size() == max_export_voices)
+            ExportIssues::invalid(where, "export uses more than 30 ABC voices");
+        if (!track.is_drum && ++melodic_voices > melodic_channels)
+            ExportIssues::invalid(where, "voice allocation used more than 15 melodic ABC voices");
+        if (track.is_drum && voices.size() > melodic_voices)
+            issues.warn(
+                "score",
+                "shared-drum-channel",
+                "abc2midi uses channel 10 for all percussion voices; their notes and settings can "
+                "interact"
             );
         // Every scheduled tick needs at least one token (including the tail).
         // Bound the timelines retained before rendering spends the full budget.
