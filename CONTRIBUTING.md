@@ -127,13 +127,16 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 | Agent instructions | [`AGENTS.md`](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md) |
 | Contribution procedure | This file |
 | Design and contracts | [`docs/design/`](docs/design/architecture.md) |
-| User guides and tutorials | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
-| Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/` |
+| User guide and agent skill | [`skills/symusic/`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic); the website reads the pages through the `docs/guide` symlink |
+| Website | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
+| Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/`; they reach users through the generated `core.pyi` |
 | Planned work and accepted debt | [`ROADMAP.md`](ROADMAP.md) |
 
 Write what a symusic user cannot infer from the name or the code: semantics, units, defaults, errors, whether an operation copies or mutates, and the pitfalls. Check each claim against the code, including supported versions and platforms, and run every example against the installed package. Leave out general Python or machine-learning advice, performance adjectives without a measurement, prose that restates the example beside it, and closing summaries. Link to the page that owns a topic instead of explaining it again. Docstrings follow the same rule, and code comments state invariants, units and ownership.
 
-Edit the existing page that owns a topic before adding a new one. Delete obsolete instructions instead of marking them legacy; Git history keeps superseded decisions, so do not add separate decision records or dated reports. New Markdown paragraphs occupy one line. The website includes this file and `ROADMAP.md` directly; edit their root sources. Read the Docs runs `readthedocs.yml`, which installs the package from source, builds the site with warnings as errors and indexes it with Pagefind; `./build_docs_with_pagefind.sh` reproduces that locally.
+The guide pages are read by agents as files and by people on the website, so write them in plain Markdown: link with relative `.md` paths and GitHub-style anchors (`files.md#reading-midi`), and use no Sphinx roles or directives. A new page also needs an entry in the `SKILL.md` index and the `docs/index.md` toctree. `tests/test_docs_examples.py` runs each page's Python blocks in order as one script, in a directory holding `song.mid` and `tune.abc`, and checks every relative link. Mark a block that needs the network with a `<!-- docs-test: skip, <reason> -->` line above it.
+
+Edit the existing page that owns a topic before adding a new one. Delete obsolete instructions instead of marking them legacy; Git history keeps superseded decisions, so do not add separate decision records or dated reports. New Markdown paragraphs occupy one line. The website includes this file and `ROADMAP.md` directly; edit their root sources. Read the Docs runs `readthedocs.yml`, which builds the site with warnings as errors and indexes it with Pagefind; `./build_docs_with_pagefind.sh` reproduces that locally.
 
 ## Commits and pull requests
 

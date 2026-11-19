@@ -1,5 +1,5 @@
 //
-// Registration helpers split heavy binding templates across multiple translation units.
+// Registration functions defined in the separate binding translation units.
 //
 
 #pragma once

@@ -55,3 +55,6 @@ endif()
 
 # PEGTL headers are compiled into the native ABC reader.
 install(FILES "${PROJECT_SOURCE_DIR}/3rdparty/pegtl/LICENSE_1_0.txt" DESTINATION symusic/licenses RENAME PEGTL.txt)
+
+# The agent skill, located at run time by symusic.skill.path().
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/skills/symusic" DESTINATION symusic/skills)

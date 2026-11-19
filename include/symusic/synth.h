@@ -6,6 +6,8 @@
 #include "symusic/score.h"
 
 #include <filesystem>
+#include <stdexcept>
+#include <string>
 
 
 namespace symusic {
@@ -13,9 +15,20 @@ class Synthesizer {
 private:
     psynth::Synthesizer synthesizer;
 
+    static u8 checked_quality(const u8 quality) {
+        if (quality > 4) {
+            throw std::invalid_argument(
+                "Synthesizer quality must be between 0 and 4, got " + std::to_string(quality)
+            );
+        }
+        return quality;
+    }
+
 public:
+    /// `quality` selects the libsamplerate converter as `4 - quality`, so only 0-4 are valid;
+    /// larger values make every resampled sample silent.
     Synthesizer(const std::string& sfPath, u32 sampleRate, u8 quality) :
-        synthesizer(sfPath, sampleRate, quality, 1) {}
+        synthesizer(sfPath, sampleRate, checked_quality(quality), 1) {}
 
     Synthesizer(const std::filesystem::path& sfPath, u32 sampleRate, u8 quality) :
         Synthesizer(sfPath.string(), sampleRate, quality) {}

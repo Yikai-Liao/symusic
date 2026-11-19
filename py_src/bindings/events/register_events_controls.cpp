@@ -1,7 +1,5 @@
 //
-// Register the controller-style event families in their own translation unit. This split exists
-// purely to improve build parallelism and reduce the wall-clock cost of `pip install` on slower
-// platforms while leaving the exported Python surface unchanged.
+// Tempo, control change, pedal and pitch bend bindings; see register_events.cpp.
 //
 #include "../core/binding_prelude.h"
 

@@ -28,134 +28,111 @@ namespace symusic {
 namespace nb = nanobind;
 
 namespace score_docstrings {
-constexpr std::string_view kScoreDocTemplate = R"pbdoc(
-{signature}
-
-Container for a full MIDI score consisting of named tracks, tempo/key/time metadata, and helper
-methods for serialization and transformations. This variant {timeline_sentence}
-
-Parameters
-----------
-tpq:
-    {tpq_desc}
-
-Note
-----
-- {measurement}
-- Optimized for {best_for}
-- Score objects expose Pythonic semantics such as slicing, repr/eq, and pickling.
-- ``tpq`` travels with the tempo map so conversions remain lossless.
-
-Examples
---------
-.. code-block:: python
-
-{example}
-)pbdoc";
 
 template<TType T>
 const char* doc() {
     constexpr auto           flavor   = docstring_helpers::time_flavor<T>();
     static const std::string rendered = fmt::format(
-        fmt::runtime(kScoreDocTemplate),
-        fmt::arg("signature", fmt::format("Score{}(tpq: int = 480)", flavor.suffix)),
-        fmt::arg("timeline_sentence", flavor.timeline_sentence),
-        fmt::arg("tpq_desc", flavor.tpq_parameter),
-        fmt::arg("measurement", flavor.measurement_sentence),
-        fmt::arg("best_for", flavor.best_for),
-        fmt::arg(
-            "example",
-            fmt::format(
-                "    from symusic import Score{0}\n"
-                "    score = Score{0}(960)\n"
-                "    dump_path = \"example.mid\"\n"
-                "    score.dump_midi(dump_path)",
-                flavor.suffix
-            )
-        )
+        "A score: global tempos, time signatures, key signatures and markers, and a list of "
+        "tracks.\n\nTimes are in {} ({}). ``ticks_per_quarter`` is kept in every unit.",
+        flavor.units,
+        flavor.scalar_label
     );
     return rendered.c_str();
 }
 
-constexpr const char* kScoreMidiFileCtorDoc = R"pbdoc(
-Load a MIDI file from disk into a score. Accepts strings or ``pathlib.Path`` objects pointing to a
-``.mid``/``.midi`` file.
+constexpr const char* kTpqCtorDoc
+    = R"pbdoc(Create an empty score with *tpq* ticks per quarter note.)pbdoc";
+constexpr const char* kPathCtorDoc
+    = R"pbdoc(Read a MIDI file. ``symusic.Score(path)`` also reads ABC files.)pbdoc";
+constexpr const char* kFromFileDoc = R"pbdoc(
+Read a MIDI or ABC file. The extension selects the format (``.mid``, ``.midi``, ``.MID``, ``.MIDI``
+or ``.abc`` in any case) unless *format* names it (``"midi"`` or ``"abc"``). *sanitize_data* applies to MIDI
+only; see ``from_midi``.
 )pbdoc";
-constexpr const char* kScoreFromFileDoc     = R"pbdoc(
-Read a score from disk by auto-detecting a MIDI or ABC file. Use ``format`` (``"midi"`` or
-``"abc"``) when the extension is ambiguous.
+constexpr const char* kFromMidiDoc = R"pbdoc(
+Read MIDI bytes. A channel message data byte above 127 raises ``RuntimeError``; with
+*sanitize_data* it is clamped to 127 instead.
 )pbdoc";
-constexpr const char* kScoreFromMidiDoc     = R"pbdoc(
-Parse raw MIDI bytes into a score. When ``sanitize_data`` is ``True``, controller/pitch values are
-clamped into the MIDI-safe range.
+constexpr const char* kFromAbcDoc  = R"pbdoc(
+Read the first tune from ABC text. Recoverable problems issue ``UserWarning``; invalid ABC raises
+``ValueError``. Both include a source location.
 )pbdoc";
-constexpr const char* kScoreFromAbcDoc      = R"pbdoc(
-Read the first tune in an ABC notation string. Recoverable problems issue UserWarning; malformed
-headers or music that cannot be interpreted raise ValueError with a source location.
+constexpr const char* kDumpMidiDoc = R"pbdoc(
+Write the score to a MIDI file. ``pedals`` are not written; the sustain pedal reaches the file
+through control change 64 in ``controls``.
 )pbdoc";
-constexpr const char* kScoreDumpMidiDoc
-    = R"pbdoc(Write the score to a MIDI file using the current ticks-per-quarter resolution.)pbdoc";
-constexpr const char* kScoreDumpsMidiDoc
-    = R"pbdoc(Serialize the score into MIDI bytes for in-memory workflows.)pbdoc";
-constexpr const char* kScoreDumpAbcDoc = R"pbdoc(
-Write playable ABC notation to a file. Set warn=True to report lossy conversions as UserWarning.
+constexpr const char* kDumpsMidiDoc
+    = R"pbdoc(Return the score as MIDI bytes, as ``dump_midi`` writes them.)pbdoc";
+constexpr const char* kDumpAbcDoc = R"pbdoc(
+Write the score as playable ABC. With *warn*, report rounding, omissions, and playback
+compatibility limitations as ``UserWarning``.
 )pbdoc";
-constexpr const char* kScoreDumpsAbcDoc
-    = R"pbdoc(Return playable ABC notation. Set warn=True to report lossy conversions as UserWarning.)pbdoc";
-constexpr const char* kScoreGetBeatsDoc     = R"pbdoc(
-Return beat locations as a NumPy array in the score's current time unit. Compound meters follow the
-PrettyMIDI heuristic of grouping every three denominator notes into one beat.
+constexpr const char* kDumpsAbcDoc
+    = R"pbdoc(Return the score as ABC text, as ``dump_abc`` writes it.)pbdoc";
+constexpr const char* kGetBeatsDoc     = R"pbdoc(
+Return the beat times from *start_time* to the end of the score as a NumPy array. As in
+pretty_midi, compound meters (numerator 6, 9, 12, ...) count one beat per three notes of the
+denominator. Without a time signature a beat is a quarter note.
 )pbdoc";
-constexpr const char* kScoreGetDownbeatsDoc = R"pbdoc(
-Return downbeat locations as a NumPy array in the score's current time unit. When no time
-signature is available at *start_time*, a 4/4 sentinel is assumed.
+constexpr const char* kGetDownbeatsDoc = R"pbdoc(
+Return the time of the first beat of every bar from *start_time* to the end of the score as a
+NumPy array. Without a time signature at *start_time*, 4/4 is assumed.
 )pbdoc";
-constexpr const char* kScoreToDoc           = R"pbdoc(
-Convert the score to another time unit (Tick, Quarter, Second). ``ttype`` may be a class object or
-``"tick"/"quarter"/"second"``. ``min_dur`` snaps durations when downsampling.
+constexpr const char* kToDoc           = R"pbdoc(
+Return a new score converted to *ttype*: ``"tick"``, ``"quarter"``, ``"second"`` or a time unit
+object. Notes and pedals shorter than *min_dur*, in the target unit, are extended to it; pass
+``min_dur=1`` when converting to ticks so that no note rounds to duration 0.
 )pbdoc";
-constexpr const char* kScoreResampleDoc     = R"pbdoc(
-Resample the score to a new ticks-per-quarter resolution. ``min_dur`` controls rounding behaviour
-when reducing resolution.
+constexpr const char* kResampleDoc     = R"pbdoc(
+Return a tick score with *tpq* ticks per quarter note, with every time rounded to the new grid.
+Notes and pedals shorter than *min_dur* ticks are extended to it.
 )pbdoc";
-constexpr const char* kScorePianorollDoc    = R"pbdoc(
-Export a tick-based score as a pianoroll NumPy tensor. ``mode`` controls aggregation, ``pitch_range``
-bounds the vertical axis, and ``encode_velocity`` switches from binary to velocity encoding.
-Raises ValueError for a note with negative time or duration, or when the score ends before tick 0.
+constexpr const char* kPianorollDoc    = R"pbdoc(
+Return a ``uint8`` array of shape ``(modes, tracks, pitches, time)`` with one column per tick.
+*modes* lists ``"frame"``, ``"onset"`` or ``"offset"``; *pitch_range* is the pitch interval ``[low,
+high)``; *encode_velocity* writes velocities instead of 1. Raises ``ValueError`` for a note with
+negative time or duration, or when the score ends before tick 0.
 )pbdoc";
 
-constexpr const char* kCopyDoc = R"pbdoc(Return a shallow or deep copy depending on *deep*.)pbdoc";
-constexpr const char* kCopyCtorDoc
-    = R"pbdoc(Clone another score, deep-copying its tracks and events.)pbdoc";
-constexpr const char* kCopyMethodDoc = R"pbdoc(Return a shallow copy of the score.)pbdoc";
-constexpr const char* kDeepcopyDoc
-    = R"pbdoc(Create a deep copy suitable for Python's copy module.)pbdoc";
-constexpr const char* kReprDoc = R"pbdoc(Generate a textual summary of the score.)pbdoc";
-constexpr const char* kEqDoc
-    = R"pbdoc(Scores compare equal when their handles or contents match.)pbdoc";
-constexpr const char* kGetStateDoc
-    = R"pbdoc(Serialize the score into ZPP bytes for pickling.)pbdoc";
-constexpr const char* kSetStateDoc = R"pbdoc(Rehydrate the score from serialized ZPP bytes.)pbdoc";
-constexpr const char* kSortDoc
-    = R"pbdoc(Sort tracks chronologically. When *inplace* is False the operation occurs on a copy.)pbdoc";
-constexpr const char* kClipDoc
-    = R"pbdoc(Clip the score to [start, end). When *inplace* is False returns a new score.)pbdoc";
+constexpr const char* kCopyCtorDoc = R"pbdoc(Create a deep copy of *other*.)pbdoc";
+constexpr const char* kCopyDoc     = R"pbdoc(
+Return a deep copy, or with ``deep=False`` a new score that shares the ``tracks`` list and every
+event.
+)pbdoc";
+constexpr const char* kSortDoc     = R"pbdoc(
+Sort the event lists of every track and the global lists by their default sort key; ``tracks``
+keeps its order. Works in place unless *inplace* is false.
+)pbdoc";
+constexpr const char* kClipDoc     = R"pbdoc(
+Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedals must also end by
+*end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
+to *start*. Returns a new score unless *inplace* is true.
+)pbdoc";
 constexpr const char* kShiftTimeDoc
-    = R"pbdoc(Shift every event timestamp by *offset*. When *inplace* is False operate on a copy.)pbdoc";
-constexpr const char* kShiftPitchDoc
-    = R"pbdoc(Shift every note by *offset* semitones. When *inplace* is False operate on a copy.)pbdoc";
-constexpr const char* kShiftVelocityDoc
-    = R"pbdoc(Shift every note velocity by *offset*. When *inplace* is False operate on a copy.)pbdoc";
-constexpr const char* kStartDoc = R"pbdoc(Return the earliest timestamp across all tracks.)pbdoc";
+    = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
+constexpr const char* kShiftPitchDoc    = R"pbdoc(
+Add *offset* to every note's pitch. Returns a new score unless *inplace* is true. Raises
+``ValueError`` when a result leaves -128..127.
+)pbdoc";
+constexpr const char* kShiftVelocityDoc = R"pbdoc(
+Add *offset* to every note's velocity. Returns a new score unless *inplace* is true. Raises
+``ValueError`` when a result leaves -128..127.
+)pbdoc";
+constexpr const char* kStartDoc
+    = R"pbdoc(Return the earliest event time, or 0 when the score has no events.)pbdoc";
 constexpr const char* kEndDoc
-    = R"pbdoc(Return the exclusive end timestamp across all tracks.)pbdoc";
-constexpr const char* kNoteNumDoc
-    = R"pbdoc(Return the total number of notes across all tracks.)pbdoc";
-constexpr const char* kEmptyDoc = R"pbdoc(Return True when the score contains no notes.)pbdoc";
-constexpr const char* kAdjustTimeDoc
-    = R"pbdoc(Remap timestamps across all tracks using aligned original/new time arrays. Operates in place unless specified.)pbdoc";
+    = R"pbdoc(Return the latest event end, or 0 when the score has no events.)pbdoc";
+constexpr const char* kNoteNumDoc = R"pbdoc(Return the number of notes in all tracks.)pbdoc";
+constexpr const char* kEmptyDoc
+    = R"pbdoc(Return whether the score has no tracks and no global events.)pbdoc";
+constexpr const char* kAdjustTimeDoc = R"pbdoc(
+Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
+anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+Returns a new score unless *inplace* is true.
+)pbdoc";
 constexpr const char* kUseCountDoc
-    = R"pbdoc(Return the reference count of the shared score pointer for debugging aliasing.)pbdoc";
+    = R"pbdoc(Return the number of references to the score, for debugging.)pbdoc";
 }   // namespace score_docstrings
 
 inline std::string path_to_utf8_string(const std::filesystem::path& path) {
@@ -325,49 +302,49 @@ auto bind_score(nb::module_& m, const std::string& name_) {
 
     // clang-format off
     auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), score_docstrings::doc<T>())
-        .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"), "Create an empty score with the provided ticks-per-quarter resolution.",
+        .def("__init__", &pyutils::pyinit<Score<T>, i32>, nb::arg("tpq"), score_docstrings::kTpqCtorDoc,
              nb::sig("def __init__(self, tpq: int, /) -> None"))
         .def("__init__", [](self_t* self, const self_t& other) {
             new (self) self_t(std::make_shared<Score<T>>(other->deepcopy()));
-        }, "Copy constructor", nb::arg("other"), score_docstrings::kCopyCtorDoc,
+        }, nb::arg("other"), score_docstrings::kCopyCtorDoc,
            nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str()))
         .def("copy", [&](const self_t &self, const bool deep) {
             if (deep) return deepcopy_func(self);
             return copy_func(self);
         }, nb::arg("deep") = true, nb::rv_policy::copy, score_docstrings::kCopyDoc,
            nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str()))
-        .def("__copy__", copy_func, "Shallow copy", nb::rv_policy::copy, score_docstrings::kCopyMethodDoc,
+        .def("__copy__", copy_func, nb::rv_policy::copy,
            nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
         .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
             return deepcopy_func(self);
-        }, "Deep copy", nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move, score_docstrings::kDeepcopyDoc,
+        }, nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move,
            nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", name).c_str()))
-        .def("__repr__", [](const self_t& self) { return self->to_string(); }, score_docstrings::kReprDoc,
+        .def("__repr__", [](const self_t& self) { return self->to_string(); },
            nb::sig("def __repr__(self, /) -> str"))
-        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; }, score_docstrings::kEqDoc,
+        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; },
            nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__eq__", [](const self_t&, nb::handle) { return false; }, score_docstrings::kEqDoc,
+        .def("__eq__", [](const self_t&, nb::handle) { return false; },
            nb::sig("def __eq__(self, other: object, /) -> bool"))
-        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; }, score_docstrings::kEqDoc,
+        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; },
            nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__ne__", [](const self_t&, nb::handle) { return true; }, score_docstrings::kEqDoc,
+        .def("__ne__", [](const self_t&, nb::handle) { return true; },
            nb::sig("def __ne__(self, other: object, /) -> bool"))
         .def("__getstate__", [](const self_t& self) {
             const auto native = to_native(*self);
             const vec<unsigned char> data = dumps<DataFormat::ZPP>(native);
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, score_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
+        }, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__", [](self_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
             auto ans = symusic::parse<symusic::DataFormat::ZPP, ScoreNative<T>>(span);
             new (&self) self_t(std::make_shared<Score<T>>(std::move(to_shared(std::move(ans)))));
-        }, score_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
+        }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
         .def("__init__", [](self_t* self, const std::filesystem::path& path) {
             new (self) self_t(midi2score<T>(path));
-        }, nb::arg("path"), score_docstrings::kScoreMidiFileCtorDoc,
+        }, nb::arg("path"), score_docstrings::kPathCtorDoc,
            nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), nb::arg("sanitize_data") = false, score_docstrings::kScoreFromFileDoc)
+        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), nb::arg("sanitize_data") = false, score_docstrings::kFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -375,32 +352,32 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         },
             nb::arg("data"),
             nb::arg("sanitize_data") = false,
-            score_docstrings::kScoreFromMidiDoc
+            score_docstrings::kFromMidiDoc
         )
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), score_docstrings::kScoreFromAbcDoc)
-        .def("dump_midi", &dump_midi<T>, nb::arg("path"), score_docstrings::kScoreDumpMidiDoc)
+        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), score_docstrings::kFromAbcDoc)
+        .def("dump_midi", &dump_midi<T>, nb::arg("path"), score_docstrings::kDumpMidiDoc)
         .def("dumps_midi", [](const self_t& self) {
             auto data = self->template dumps<DataFormat::MIDI>();
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, score_docstrings::kScoreDumpsMidiDoc)
-        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kScoreDumpAbcDoc)
-        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kScoreDumpsAbcDoc)
-        .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetBeatsDoc)
-        .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kScoreGetDownbeatsDoc)
-        .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note")
-        .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter), "Alias of ticks_per_quarter")
-        .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks), "List of tracks")
-        .def_prop_rw(RW_COPY(shared<pyvec<TimeSignature<T>>>, "time_signatures", time_signatures), "List of time signature events")
-        .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "List of key signature events")
-        .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "List of tempo events")
-        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "List of text/marker events")
-        .def_prop_ro("ttype", [](const self_t&) { return T(); }, "Time unit type — Tick/Quarter/Second")
+        }, score_docstrings::kDumpsMidiDoc)
+        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kDumpAbcDoc)
+        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kDumpsAbcDoc)
+        .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kGetBeatsDoc)
+        .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kGetDownbeatsDoc)
+        .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note, the MIDI resolution.")
+        .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter), "Alias of ``ticks_per_quarter``.")
+        .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks), "The ``Track`` objects.")
+        .def_prop_rw(RW_COPY(shared<pyvec<TimeSignature<T>>>, "time_signatures", time_signatures), "The ``TimeSignature`` events.")
+        .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "The ``KeySignature`` events.")
+        .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "The ``Tempo`` events.")
+        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "The markers, as ``TextMeta`` events.")
+        .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.")
         .def("__use_count", [](const self_t& self) { return self.use_count(); }, score_docstrings::kUseCountDoc)
-        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), score_docstrings::kScoreToDoc)
+        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), score_docstrings::kToDoc)
         .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
             const unit min_dur_ = min_dur.has_value() ? *min_dur : 0;
             return std::make_shared<Score<Tick>>(resample(*self, tpq, min_dur_));
-        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, score_docstrings::kScoreResampleDoc)
+        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, score_docstrings::kResampleDoc)
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             if (inplace) {
                 self->sort_inplace(reverse);
@@ -472,7 +449,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             nb::arg("modes")           = vec<std::string>{"frame", "onset"},
             nb::arg("pitch_range")     = std::pair<i64, i64>(0, 128),
             nb::arg("encode_velocity") = false,
-            score_docstrings::kScorePianorollDoc
+            score_docstrings::kPianorollDoc
         );
     }
     return score;

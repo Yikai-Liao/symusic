@@ -1,7 +1,5 @@
 //
-// Register score bindings in a dedicated translation unit for the same reason as the other split
-// registration files: reduce the size of the hottest compile units and expose more work to Ninja
-// during wheel builds without altering runtime behavior.
+// Score bindings, in their own translation unit to shorten the build.
 //
 #include "../core/binding_prelude.h"
 

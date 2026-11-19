@@ -1,7 +1,5 @@
 //
-// Register track bindings in a dedicated translation unit so the large nanobind templates do not
-// share one oversized compile unit with the rest of the module. This keeps the registration logic
-// identical while improving parallel build throughput.
+// Track bindings, in their own translation unit to shorten the build.
 //
 #include "../core/binding_prelude.h"
 

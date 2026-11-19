@@ -219,25 +219,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           python-version: "3.12"
           activate-environment: true
-      # Statistics are printed by the action's post step.
-      - name: Compiler cache
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba  # v0.0.11
-      - name: Route compilers through sccache
-        shell: bash
-        run: |
-          {
-            echo SCCACHE_GHA_ENABLED=true
-            echo CMAKE_C_COMPILER_LAUNCHER=sccache
-            echo CMAKE_CXX_COMPILER_LAUNCHER=sccache
-          } >> "$GITHUB_ENV"
       - name: Install
-        run: uv pip install -r docs/requirements.txt . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
+        run: uv pip install -r docs/requirements.txt
       - name: Build (warnings are errors)
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
       - name: Check links

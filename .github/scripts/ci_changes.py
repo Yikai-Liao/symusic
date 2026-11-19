@@ -48,12 +48,16 @@ RULES: tuple[tuple[str, frozenset[str]], ...] = (
     (".gitmodules", ALL),
     ("tests/cpp/*", frozenset({"cpp"})),
     ("examples/*", frozenset({"cpp"})),
-    ("py_src/CMakeLists.txt", frozenset({"python", "docs", "wheels"})),
-    ("py_src/*", frozenset({"python", "docs"})),
-    ("pyproject.toml", frozenset({"python", "docs", "wheels"})),
+    ("py_src/CMakeLists.txt", frozenset({"python", "wheels"})),
+    ("py_src/*", frozenset({"python"})),
+    ("pyproject.toml", frozenset({"python", "wheels"})),
     ("MANIFEST.in", frozenset({"wheels"})),
-    ("scripts/*", frozenset({"python", "docs", "wheels"})),
-    ("python/*", frozenset({"python", "docs"})),
+    ("scripts/*", frozenset({"python", "wheels"})),
+    ("python/*", frozenset({"python"})),
+    # pytest runs the guide pages' examples, the site includes them and the
+    # wheel bundles them. This rule must precede "*.md", which would otherwise
+    # match them.
+    ("skills/*", frozenset({"python", "docs", "wheels"})),
     ("tests/*", frozenset({"python"})),
     ("docs/*", frozenset({"docs"})),
     ("readthedocs.yml", frozenset({"docs"})),

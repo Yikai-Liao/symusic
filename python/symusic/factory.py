@@ -26,23 +26,16 @@ __all__ = [
     "Track",
 ]
 
-"""
-All the Factory classes are initialized when the module is imported.
-And the objects are created when the factory is called.
-Note that the factory can not be created again by users,
-because the factory is not exposed to the users by setting __all__ manually.
-
-The __isinstancecheck__ method is overrided to make isinstance() work.
-"""
+# The public names Score, Note, ... are instances of the factory classes below. Calling one
+# dispatches on ``ttype`` to the class of that unit in symusic.core, such as ScoreTick, and
+# ``__instancecheck__`` makes ``isinstance(x, Score)`` true for all three units.
 
 
 class TimeUnitFactory:
-    """User-facing dispatcher for the nanobind `symusic.core` time unit singletons.
+    """The time units: ``TimeUnit.tick``, ``TimeUnit.quarter`` and ``TimeUnit.second``.
 
-    The factory caches Tick/Quarter/Second instances, exposes them via properties,
-    and normalizes both string inputs and already-instantiated units through the
-    `__call__` helper so downstream APIs can accept flexible values without
-    duplicating validation logic.
+    Every ``ttype`` argument accepts these objects or the strings ``"tick"``,
+    ``"quarter"`` and ``"second"`` in any letter case.
     """
 
     def __init__(self) -> None:
@@ -63,10 +56,9 @@ class TimeUnitFactory:
         return self._second
 
     def __call__(self, ttype: smt.TimeUnit | str) -> smt.TimeUnit:
-        """Create a TimeUnit object from a str, e.g. 'tick', 'quarter', 'second'
-        It is used to dispatch the correct TimeUnit object.
-        However, it is recommended to use the `TimeUnit.tick`, `TimeUnit.quarter`, `TimeUnit.second`
-        for better performance.
+        """Return the time unit named by ``ttype``, or ``ttype`` itself if it is one.
+
+        Raises ``ValueError`` for an unknown name and ``TypeError`` for other objects.
         """
         if isinstance(ttype, str):
             return self.from_str(ttype)
@@ -97,12 +89,7 @@ S = TypeVar("S")
 
 @dataclass(frozen=True)
 class CoreClasses(Generic[T, Q, S]):
-    """Holds the Tick/Quarter/Second variants for a given low-level type.
-
-    Each factory keeps one of these lightweight records around so it can branch on
-    the requested time unit exactly once and reuse the same logic for constructors,
-    numpy helpers, and isinstance checks.
-    """
+    """The Tick, Quarter and Second classes of one symusic.core type."""
 
     tick: T
     quarter: Q
@@ -112,7 +99,7 @@ class CoreClasses(Generic[T, Q, S]):
         self: CoreClasses[T, Q, S],
         ttype: smt.GeneralTimeUnit,
     ) -> T | Q | S:
-        """Dispatch the correct Core class according to the ttype."""
+        """Return the class for ``ttype``, a time unit or its name."""
         if isinstance(ttype, core.Tick):
             return self.tick
         if isinstance(ttype, core.Quarter):
@@ -121,7 +108,6 @@ class CoreClasses(Generic[T, Q, S]):
             return self.second
         if not isinstance(ttype, str):
             raise ValueError(_ := f"Invalid time unit: {ttype}")
-        # ttype can only be str now, while the type checker does not know it.
         ttype: str = ttype.lower()  # type: ignore
         if ttype == "tick":
             return self.tick
@@ -138,12 +124,7 @@ class CoreClasses(Generic[T, Q, S]):
 
 @dataclass(frozen=True)
 class NoteFactory:
-    """Builds typed note events and typed note vectors backed by `symusic.core`.
-
-    Calling the factory automatically dispatches to `NoteTick`, `NoteQuarter`, or
-    `NoteSecond` depending on the requested time unit, which mirrors the templated
-    C++ API while remaining ergonomic for Python callers.
-    """
+    """``Note(time, duration, pitch, velocity, ttype="tick")`` creates a note."""
 
     __core_classes = CoreClasses(core.NoteTick, core.NoteQuarter, core.NoteSecond)
     __core_lists = CoreClasses(
@@ -160,11 +141,6 @@ class NoteFactory:
         velocity: int,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Note:
-        """Note that `smt.TimeDtype = Union[int, float]`, and Note constructor requires
-        `int` or `float` as time. So Type Checker like MyPy will complain about the
-        type of `time` argument. However, float and int can be converted to each other
-        implicitly. So I just add a `# type: ignore` to ignore the type checking.
-        """
         return self.__core_classes.dispatch(ttype)(time, duration, pitch, velocity)  # type: ignore
 
     def __instancecheck__(self, instance) -> bool:
@@ -178,12 +154,7 @@ class NoteFactory:
         velocity: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralNoteList:
-        """Convert structure-of-array NumPy buffers into typed note lists.
-
-        The helper simply forwards to the underlying `symusic.core.Note*List`
-        implementation so the returned container stays synchronized with the
-        nanobind shared-pointer semantics.
-        """
+        """Build a note list from one array per field, all of equal length."""
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             duration,
@@ -194,7 +165,7 @@ class NoteFactory:
 
 @dataclass(frozen=True)
 class KeySignatureFactory:
-    """Factory responsible for key signature events and their typed vectors."""
+    """``KeySignature(time, key, tonality, ttype="tick")`` creates a key signature."""
 
     __core_classes = CoreClasses(
         core.KeySignatureTick,
@@ -226,13 +197,13 @@ class KeySignatureFactory:
         tonality: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralKeySignatureList:
-        """Convert NumPy buffers into a typed key signature list for the core API."""
+        """Build a key signature list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, key, tonality)
 
 
 @dataclass(frozen=True)
 class TimeSignatureFactory:
-    """Factory wrapper for the meter-change events exposed by `symusic.core`."""
+    """``TimeSignature(time, numerator, denominator, ttype="tick")`` creates a time signature."""
 
     __core_classes = CoreClasses(
         core.TimeSignatureTick,
@@ -264,7 +235,7 @@ class TimeSignatureFactory:
         denominator: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTimeSignatureList:
-        """Create a typed list from aligned NumPy arrays describing meter changes."""
+        """Build a time signature list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             numerator,
@@ -274,7 +245,7 @@ class TimeSignatureFactory:
 
 @dataclass(frozen=True)
 class ControlChangeFactory:
-    """Produces controller events mapped to the requested time domain."""
+    """``ControlChange(time, number, value, ttype="tick")`` creates a control change."""
 
     __core_classes = CoreClasses(
         core.ControlChangeTick,
@@ -306,13 +277,13 @@ class ControlChangeFactory:
         value: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralControlChangeList:
-        """Build a control-change list from structure-of-array NumPy buffers."""
+        """Build a control change list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, number, value)
 
 
 @dataclass(frozen=True)
 class TempoFactory:
-    """Creates tempo-change events, handling either QPM or raw MSPQ inputs."""
+    """``Tempo(time, qpm=None, mspq=None, ttype="tick")`` creates a tempo change."""
 
     __core_classes = CoreClasses(core.TempoTick, core.TempoQuarter, core.TempoSecond)
     __core_lists = CoreClasses(
@@ -328,11 +299,12 @@ class TempoFactory:
         mspq: int | None = None,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Tempo:
-        """:param time: the time of the tempo change, in the unit of `ttype`
-        :param qpm: quarter per minute. The `bpm` in miditoolkit is actually quarter per minute, not beat per minute.
-        :param mspq: microsecond per quarter. We store mspq instead of qpm to avoid float precision problem.
-        :param ttype: the time unit of `time`
-        :return:
+        """Create a tempo change from ``qpm`` or ``mspq``.
+
+        ``qpm`` is quarter notes per minute, the ``bpm`` of pretty_midi and
+        miditoolkit. ``mspq`` is microseconds per quarter note, the integer that
+        symusic stores; ``qpm`` is rounded to it. ``qpm`` wins when both are given,
+        and giving neither raises ``ValueError``.
         """
         return self.__core_classes.dispatch(ttype)(time, qpm, mspq)  # type: ignore
 
@@ -345,13 +317,13 @@ class TempoFactory:
         mspq: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTempoList:
-        """Build a tempo-change list from aligned NumPy arrays."""
+        """Build a tempo list from ``time`` and ``mspq`` arrays."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, mspq)
 
 
 @dataclass(frozen=True)
 class PedalFactory:
-    """Creates sustain/soft-pedal envelopes tied to the requested time resolution."""
+    """``Pedal(time, duration, ttype="tick")`` creates a sustain pedal region."""
 
     __core_classes = CoreClasses(core.PedalTick, core.PedalQuarter, core.PedalSecond)
     __core_lists = CoreClasses(
@@ -377,13 +349,13 @@ class PedalFactory:
         duration: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPedalList:
-        """Translate time/duration arrays into a pedal event list."""
+        """Build a pedal list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, duration)
 
 
 @dataclass(frozen=True)
 class PitchBendFactory:
-    """Constructs wheel-based pitch bend events."""
+    """``PitchBend(time, value, ttype="tick")`` creates a pitch bend."""
 
     __core_classes = CoreClasses(
         core.PitchBendTick,
@@ -413,13 +385,13 @@ class PitchBendFactory:
         value: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralPitchBendList:
-        """Convert NumPy arrays to the appropriate pitch-bend list type."""
+        """Build a pitch bend list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, value)
 
 
 @dataclass(frozen=True)
 class TextMetaFactory:
-    """Factory for textual metadata events such as lyrics or markers."""
+    """``TextMeta(time, text, ttype="tick")`` creates a lyric or marker."""
 
     __core_classes = CoreClasses(
         core.TextMetaTick,
@@ -449,14 +421,13 @@ class TextMetaFactory:
         text: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.GeneralTextMetaList:
-        """Text metadata cannot be materialized from NumPy buffers (strings vary in length)."""
+        """Not supported for text events; raises ``NotImplementedError``."""
         raise NotImplementedError
-        # return self.__core_classes.dispatch(ttype).from_numpy(time, text)
 
 
 @dataclass(frozen=True)
 class TrackFactory:
-    """Creates `symusic.core.Track*` objects pre-populated with optional event lists."""
+    """``Track(name, program, is_drum, notes, ..., ttype="tick")`` creates a track."""
 
     __core_classes = CoreClasses(core.TrackTick, core.TrackQuarter, core.TrackSecond)
 
@@ -471,14 +442,7 @@ class TrackFactory:
         pedals: smt.GeneralPedalList = None,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Track:
-        r"""Create a Track object with the given parameters.
-        Note that all of these parameters are optional,
-        and they will be copied to the new Track object.
-        So it is safe to use `[]` in the default value.
-
-        Of course, copy will cause a little overhead, but it is acceptable.
-        And create a `Note` object (bound by pybind11) is much more expensive.
-        """
+        """Create a track. The event lists are copied into it."""
         new_track = self.empty(ttype)
         new_track.name = name
         new_track.program = program
@@ -499,12 +463,7 @@ class TrackFactory:
 
 @dataclass(frozen=True)
 class ScoreFactory:
-    """High-level wrapper around the templated `symusic.core.Score*` classes.
-
-    It accepts MIDI/ABC paths, byte payloads, or other score instances and
-    forwards everything to the nanobind implementation while preserving the per
-    time-unit specializations.
-    """
+    """``Score(x=960, ttype="tick", ...)`` loads or creates a score."""
 
     __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
 
@@ -516,6 +475,12 @@ class ScoreFactory:
         sanitize_data: bool = False,
         min_dur: float | None = None,
     ) -> smt.Score:
+        """Load or create a score in the unit ``ttype``.
+
+        ``x`` is a path to a MIDI or ABC file (see ``from_file``), the ticks per
+        quarter note of an empty score, or a score to copy and convert (see
+        ``from_other``).
+        """
         if isinstance(x, (str, Path)):
             return self.from_file(x, ttype, fmt, sanitize_data=sanitize_data)
         if sanitize_data:
@@ -536,6 +501,12 @@ class ScoreFactory:
         sanitize_data: bool = False,
         format: str | None = None,  # noqa: A002  public keyword argument
     ) -> smt.Score:
+        """Read a MIDI or ABC file.
+
+        The extension selects the format (``.mid``, ``.midi``, ``.MID``, ``.MIDI``
+        or ``.abc`` in any case) unless ``fmt`` or its alias ``format`` names it (``"midi"``
+        or ``"abc"``). ``sanitize_data`` applies to MIDI only; see ``from_midi``.
+        """
         if format is not None:
             if fmt is not None and fmt != format:
                 msg = "fmt and format must match when both are provided"
@@ -553,10 +524,10 @@ class ScoreFactory:
         ttype: smt.GeneralTimeUnit = "tick",
         sanitize_data: bool = False,
     ) -> smt.Score:
-        """
-        Parse MIDI bytes into a score and optionally sanitize payload values.
+        """Read MIDI bytes.
 
-        :param sanitize_data: Clamp MIDI payload bytes to the 7-bit range before parsing.
+        A channel message data byte above 127 raises ``RuntimeError``; with
+        ``sanitize_data`` it is clamped to 127 instead.
         """
         return self.__core_classes.dispatch(ttype).from_midi(data, sanitize_data)
 
@@ -565,6 +536,7 @@ class ScoreFactory:
         abc: str,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
+        """Read the first tune from ABC text. See the core method for diagnostics."""
         return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
@@ -572,6 +544,7 @@ class ScoreFactory:
         tpq: int = 960,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
+        """Create an empty score with ``tpq`` ticks per quarter note."""
         return self.__core_classes.dispatch(ttype)(tpq)
 
     def from_other(
@@ -595,12 +568,7 @@ class ScoreFactory:
 
 
 class SynthesizerFactory:
-    """Convenience layer over `symusic.core.Synthesizer` with sensible defaults.
-
-    This factory downloads a curated SF3 by default so users can audition MIDI
-    without hunting for a SoundFont. It forwards parameters to the underlying
-    engine and returns a ready-to-use synthesizer instance.
-    """
+    """``Synthesizer(sf_path=None, sample_rate=44100, quality=0)`` loads a SoundFont."""
 
     def __call__(
         self,
@@ -608,23 +576,24 @@ class SynthesizerFactory:
         sample_rate: int = 44100,
         quality: int = 0,
     ):
-        """Create a `symusic.core.Synthesizer`.
+        """Create a synthesizer that renders scores with a SoundFont.
 
         Parameters
         ----------
         sf_path : str | pathlib.Path | None, default None
-            Path to a `.sf2`/`.sf3` file. When ``None``, downloads
-            ``BuiltInSF3.MuseScoreGeneral`` to a user data directory.
+            Path to an SF2 or SF3 file. When ``None``, MuseScore General
+            (``BuiltInSF3.MuseScoreGeneral``, about 38 MB) is downloaded once into
+            the user data directory.
         sample_rate : int, default 44100
             Output sample rate in Hz.
         quality : int, default 0
-            Synthesis quality knob (0-6). Higher values improve fidelity at the
-            cost of performance.
+            Resampling of SoundFont samples to ``sample_rate``, 0-4: 0 is linear
+            interpolation, 1 zero-order hold, 2-4 sinc from fastest to best.
+            Other values raise ``ValueError``.
 
         Returns
         -------
         symusic.core.Synthesizer
-            A configured Prestosynth wrapper ready to render scores.
         """
         if sf_path is None:
             sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)

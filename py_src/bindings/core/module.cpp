@@ -1,6 +1,5 @@
 //
-// Entry point for the nanobind module. Keeps the high-level registration logic compact by
-// delegating to the smaller binding units.
+// Entry point of the nanobind module symusic.core.
 //
 
 #include <random>
@@ -24,11 +23,10 @@ using namespace pyutils;
 
 namespace time_unit_docstrings {
 constexpr const char* kTickDoc
-    = R"pbdoc(Discrete tick-based time unit that mirrors the raw MIDI resolution.)pbdoc";
-constexpr const char* kQuarterDoc
-    = R"pbdoc(Musical quarter-note time unit derived from the score's ticks-per-quarter setting.)pbdoc";
+    = R"pbdoc(MIDI ticks, as ``int``; ``ticks_per_quarter`` ticks make a quarter note.)pbdoc";
+constexpr const char* kQuarterDoc = R"pbdoc(Quarter notes, as a 32-bit ``float``.)pbdoc";
 constexpr const char* kSecondDoc
-    = R"pbdoc(Real-time second based time unit for wall-clock aligned workflows.)pbdoc";
+    = R"pbdoc(Seconds, as a 32-bit ``float``; conversion follows the tempo map.)pbdoc";
 }   // namespace time_unit_docstrings
 
 namespace typing_detail {

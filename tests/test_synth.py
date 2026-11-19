@@ -130,3 +130,11 @@ def test_dump_wav_round_trip(synth: Synthesizer, score: Score, tmp_path: Path) -
         assert wav.getsampwidth() == 2
         assert wav.getnframes() == audio.shape[1]
         assert any(wav.readframes(wav.getnframes()))
+
+
+@pytest.mark.parametrize("quality", [5, 255])
+def test_quality_out_of_range_raises(tmp_path: Path, quality: int) -> None:
+    sf2 = tmp_path / "sine.sf2"
+    write_minimal_sf2(sf2)
+    with pytest.raises(ValueError, match="quality"):
+        Synthesizer(sf2, sample_rate=SAMPLE_RATE, quality=quality)
