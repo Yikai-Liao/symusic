@@ -100,7 +100,7 @@ Keep test function names short: use `test_<subject>_<case>` and let the test fil
 
 ### Code and comments
 
-Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Use the project aliases (`i32`, `vec`, `shared`, `pyvec`) in the core. Comments explain invariants, units, ownership and non-obvious choices; they do not narrate history or keep commented-out code. Write all code, comments, logs and documentation in English.
+Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Names, types, errors, macros, comments and binding patterns follow the [code conventions](docs/development/conventions.md). Write all code, comments, logs and documentation in English.
 
 ### Dependencies
 
@@ -115,6 +115,7 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 | Agent instructions | [`AGENTS.md`](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md) |
 | Contribution procedure | This file |
 | Design and contracts | [`docs/design/`](docs/design/architecture.md) |
+| Code conventions | [`docs/development/conventions.md`](docs/development/conventions.md) |
 | User guide and agent skill | [`skills/symusic/`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic); the website reads the pages through the `docs/guide` symlink |
 | Website | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
 | Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/`; they reach users through the generated `core.pyi` |

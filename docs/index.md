@@ -42,6 +42,7 @@ guide/troubleshooting
 :caption: Development
 
 design/architecture
+development/conventions
 development/ci
 CONTRIBUTING
 ROADMAP

@@ -9,6 +9,7 @@ Batch the reads for your task in one step. Each link points to a section; read t
 | Task | Read first |
 |---|---|
 | Understand the code layout or plan a refactor | [Architecture](docs/design/architecture.md) |
+| Write or change C++, binding or Python code | [Code conventions](docs/development/conventions.md) |
 | Add a feature or change behavior | [Adding a feature](docs/design/architecture.md#adding-a-feature), [contracts](docs/design/architecture.md#contracts), [validation](CONTRIBUTING.md#validate) |
 | Fix a bug | [Contracts](docs/design/architecture.md#contracts), [tests](CONTRIBUTING.md#tests) |
 | Change bindings, typing or stubs | [Python typing](docs/design/architecture.md#python-typing), [build](CONTRIBUTING.md#build) |
