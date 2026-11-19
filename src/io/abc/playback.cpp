@@ -74,11 +74,23 @@ struct EnvelopeCue {
     Location                  at;
 };
 
+struct MeterChange {
+    Meter    meter;
+    Location at;
+};
+
+// Meter is needed while forming a measure rest, even when the change
+// itself is emitted later. Other effects need only their ordered token.
+struct DeferredEffects {
+    vec<std::variant<const Token*, MeterChange>> ordered;
+    std::optional<Meter>                         meter;
+};
+
 struct GraceGroup {
-    const Grace*      notes = nullptr;
-    Location          at{};
-    long double       unit = 0;
-    vec<const Token*> after;
+    const Grace*    notes = nullptr;
+    Location        at{};
+    long double     unit = 0;
+    DeferredEffects after;
 };
 
 struct Prepared {
@@ -119,9 +131,12 @@ struct WrittenState {
 };
 
 struct PlaybackLane {
-    long double  time   = 0;
-    long double  bar    = 0;
-    bool         pickup = true;
+    long double time   = 0;
+    long double bar    = 0;
+    bool        pickup = true;
+    // Hornpipe pairs follow written lengths, not the performed clock.
+    long double  written_phase = 0;
+    long double  accent_origin = 0;
     Accidentals  accidentals;
     vec<TieNote> ties;
     Expression   expression{};
@@ -130,10 +145,18 @@ struct PlaybackLane {
     long double                reentry_bar = 0;
     std::optional<long double> primary_until;
 
+    void reset_played_bar(long double origin) { bar = accent_origin = origin; }
+
     void reenter() {
         pickup      = true;
         accidentals = {};
-        bar         = reentry_bar;
+        reset_played_bar(reentry_bar);
+        written_phase = 0;
+    }
+
+    void rebase_accents(Meter previous, Meter next) {
+        // Beat counts accumulated before M: keep their old beat unit.
+        accent_origin = time - (time - accent_origin) / previous.beat() * next.beat();
     }
 };
 
@@ -192,7 +215,8 @@ void OverlayLanes::control(Overlay command, WrittenState& written, Location at) 
             return;
         }
         join(written);
-        active().bar = active().time;
+        active().reset_played_bar(active().time);
+        active().written_phase = 0;
         break;
     }
 }
@@ -233,7 +257,8 @@ void OverlayLanes::enter_part(WrittenState& written) {
     // The melody resumes on a downbeat. Secondary lanes continue their
     // existing measure rather than receiving the melody's reset.
     primary_boundary();
-    active().bar = active().time;
+    active().reset_played_bar(active().time);
+    active().written_phase = 0;
 }
 
 void OverlayLanes::finish_voice(WrittenState& written, Location at) {
@@ -399,9 +424,9 @@ public:
         accidental_policy(settings.accidentals), harp_cuts(settings.harp_cuts),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, drum_map, settings.programs, diagnostics),
-        symbols(settings.symbols), lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
-        initial_tempo(settings.tempo), midi_shift(settings.midi_shift),
-        lyric_line(lyrics, diagnostics) {}
+        symbols(settings.symbols), lanes(settings.rhythm, diagnostics),
+        opening_meter(settings.meter), tempo_unit(settings.unit), initial_tempo(settings.tempo),
+        midi_shift(settings.midi_shift), lyric_line(lyrics, diagnostics) {}
 
     Performance render(const vec<Token>& preamble, const PlayOrder& order);
 
@@ -417,6 +442,7 @@ private:
     std::array<std::string_view, 128>          symbols;
     OverlayLanes                               lanes;
     PlaybackLane&                              lane() { return lanes.active(); }
+    const Meter                                opening_meter;
     const long double                          tempo_unit;
     const i32                                  initial_tempo;
     int                                        midi_shift;
@@ -435,7 +461,10 @@ private:
     };
     std::optional<RepeatEntry> repeat_entry;
 
-    vec<const Token*>          timed_effects;
+    DeferredEffects            timed_effects;
+    Meter                      host_meter() const;
+    void                       defer(DeferredEffects& effects, const Token& token);
+    void                       apply_effects(const DeferredEffects& effects);
     DecorationMark             decoration_mark(const Decoration& decoration) const;
     bool                       can_defer(const Token& token) const;
     bool                       follows_grace(const Token& token) const;
@@ -450,7 +479,7 @@ private:
 
     i32 at_tick(Location at) { return tick(lane().time, diagnostics, at); }
     int velocity(long double at) {
-        return lane().expression.attack_velocity(at - lane().bar, written.meter);
+        return lane().expression.attack_velocity(at - lane().accent_origin, written.meter);
     }
     void                       push(const Atom& atom, Location at, size_t music_line);
     void                       flush();
@@ -504,7 +533,7 @@ private:
     void                      midi(std::string_view command, Location at);
     void                      information(std::string_view value, Location at);
     void                      change_key(std::string_view value, Location at);
-    void                      change_meter(std::string_view value, Location at);
+    void                      change_meter(Meter next, Location at);
     void                      change_tempo(std::string_view value, Location at);
     void                      change_voice(std::string_view value, Location at);
     void                      articulation(
@@ -531,7 +560,7 @@ void VoicePlayer::orphan_grace() {
     if (grace.notes)
         diagnostics.warn(grace.at, "orphan-grace", "ignored grace notes without a following note");
     const auto discarded = std::exchange(grace, {});
-    for (const auto* token : discarded.after) visit_token(*token);
+    apply_effects(discarded.after);
 }
 
 void VoicePlayer::arm_envelope(std::optional<EnvelopeCue> cue) {
@@ -545,7 +574,7 @@ bool swing_note(const Prepared& note) {
 bool VoicePlayer::swing_candidate() {
     return pending && swing_note(*pending)
            && lane().expression.starts_swing_pair(
-               written.meter, lane().time - lane().bar, pending->duration
+               opening_meter, lane().written_phase, pending->duration
            );
 }
 
@@ -611,7 +640,7 @@ void VoicePlayer::push(const Atom& atom, Location at, size_t music_line) {
     const bool unit_numerator = atom.length.numerator == 1 && scale.numerator == 1;
     const auto harp_cut       = harp_cuts.for_atom(atom, ornament, at, scale);
     const auto raw
-        = (atom.measure_rest ? written.meter.measure() : written.unit) * atom.length.fraction();
+        = (atom.measure_rest ? host_meter().measure() : written.unit) * atom.length.fraction();
     Prepared next{
         &atom,
         at,
@@ -634,7 +663,7 @@ void VoicePlayer::flush() {
     const auto prepared     = std::exchange(pending, {});
     const auto next_effects = std::exchange(timed_effects, {});
     play(*prepared);
-    for (const auto* token : next_effects) visit_token(*token);
+    apply_effects(next_effects);
 }
 
 int VoicePlayer::sounding_shift() {
@@ -886,15 +915,16 @@ long double VoicePlayer::lead_in(const Prepared& atom) {
     const auto duration = play_grace(atom);
     if (duration > 0) lane().ties.clear();
     lane().time += duration;
-    if (!atom.grace.after.empty()) {
+    if (!atom.grace.after.ordered.empty()) {
         if (lanes.id() == 0) accompaniment.advance(lane().time, atom.at);
-        for (const auto* token : atom.grace.after) visit_token(*token);
+        apply_effects(atom.grace.after);
     }
     return duration;
 }
 
 void VoicePlayer::play(const Prepared& atom) {
     const auto start = lane().time;
+    lane().written_phase += atom.duration;
     lyric_line.start(atom.music_line);
     const auto              grace_ticks = lead_in(atom);
     auto                    duration    = atom.played_duration();
@@ -1061,9 +1091,10 @@ void VoicePlayer::visit(Tuplet group, Location at) {
     }
     if (tuplet.left)
         diagnostics.warn(at, "nested-tuplet", "new tuplet interrupted the previous tuplet");
+    // abc2midi uses the opening meter, not an inline M:, for implicit tuplets.
     const auto in_time_of = group.in_time_of ?
                                 group.in_time_of :
-                                default_tuplet(group.count, written.meter.compound());
+                                default_tuplet(group.count, opening_meter.numerator % 3 == 0);
     tuplet = {group.notes ? group.notes : group.count, {in_time_of, group.count}, {}, at};
 }
 
@@ -1109,9 +1140,10 @@ void VoicePlayer::play_bar(const Bar& bar, Location at, size_t music_line) {
     lyric_line.bar(music_line);
     lanes.close_implicit(written);
     lane().accidentals.reset();
+    lane().written_phase = 0;
     if (!closes_measure(bar, lane(), written.meter)) return;
     if (lane().time - lane().bar > epsilon) lane().pickup = false;
-    lane().bar = lane().time;
+    lane().reset_played_bar(lane().time);
     if (lanes.id() == 0) {
         lanes.primary_boundary();
         accompaniment.bar(lane().time);
@@ -1178,9 +1210,10 @@ void VoicePlayer::change_key(std::string_view value, Location at) {
     );
 }
 
-void VoicePlayer::change_meter(std::string_view value, Location at) {
-    written.meter = detail::meter(value, diagnostics, at);
-    if (lanes.id() == 0) accompaniment.meter(written.meter, lane().time);
+void VoicePlayer::change_meter(Meter next, Location at) {
+    lane().rebase_accents(written.meter, next);
+    written.meter = next;
+    if (lanes.id() == 0) accompaniment.meter(next, lane().time);
     result.meters.emplace_back(
         TimeSignature<Tick>(
             at_tick(at),
@@ -1210,7 +1243,7 @@ void VoicePlayer::visit(const Field& field, Location at) {
     switch (field.kind) {
     case 'K': change_key(value, at); break;
     case 'Q': change_tempo(value, at); break;
-    case 'M': change_meter(value, at); break;
+    case 'M': change_meter(detail::meter(value, diagnostics, at), at); break;
     case 'L': written.unit = unit_length(value, diagnostics, at); break;
     case 'P':
         // A part can start with a pickup, but its label is not a barline.
@@ -1247,10 +1280,34 @@ bool VoicePlayer::can_defer(const Token& token) const {
 
 bool VoicePlayer::follows_grace(const Token& token) const {
     // L: sets the host's written length without changing the grace group's unit.
-    // A meter change may likewise supply the length of a measure rest.
     if (const auto* field = std::get_if<Field>(&token.value))
-        return std::string_view("KQI").find(field->kind) != std::string_view::npos;
+        return std::string_view("KQMI").find(field->kind) != std::string_view::npos;
     return can_defer(token);
+}
+
+Meter VoicePlayer::host_meter() const {
+    return grace.after.meter.value_or(timed_effects.meter.value_or(written.meter));
+}
+
+void VoicePlayer::defer(DeferredEffects& effects, const Token& token) {
+    const auto* field = std::get_if<Field>(&token.value);
+    if (field && field->kind == 'M') {
+        diagnostics.spend(PlaybackWork::text(field->value), token.at);
+        const auto next = detail::meter(field->value, diagnostics, token.at);
+        effects.ordered.emplace_back(MeterChange{next, token.at});
+        effects.meter = next;
+    } else {
+        effects.ordered.emplace_back(&token);
+    }
+}
+
+void VoicePlayer::apply_effects(const DeferredEffects& effects) {
+    for (const auto& entry : effects.ordered) {
+        if (const auto* change = std::get_if<MeterChange>(&entry))
+            change_meter(change->meter, change->at);
+        else
+            visit_token(*std::get<const Token*>(entry));
+    }
 }
 
 bool VoicePlayer::apply_notated_ratio(const Token& token) {
@@ -1279,7 +1336,7 @@ void VoicePlayer::schedule_envelope(EnvelopeCue cue, const Token& token) {
     if (pending)
         // The cue belongs to the next attack without interrupting a tie or
         // a broken-rhythm pair that still needs to modify the previous atom.
-        timed_effects.push_back(&token);
+        defer(timed_effects, token);
     else
         arm_envelope(cue);
 }
@@ -1287,7 +1344,7 @@ void VoicePlayer::schedule_envelope(EnvelopeCue cue, const Token& token) {
 void VoicePlayer::schedule(const Token& token) {
     if (apply_notated_ratio(token)) return;
     if (grace.notes && follows_grace(token)) {
-        grace.after.push_back(&token);
+        defer(grace.after, token);
         return;
     }
     if (const auto cue = envelope_cue(token)) {
@@ -1295,7 +1352,7 @@ void VoicePlayer::schedule(const Token& token) {
         return;
     }
     if ((broken || swing_candidate()) && can_defer(token))
-        timed_effects.push_back(&token);
+        defer(timed_effects, token);
     else
         visit_token(token);
 }

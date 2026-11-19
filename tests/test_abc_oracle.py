@@ -1279,6 +1279,8 @@ def test_live_ornament_attacks_accept_separate_lyric_syllables(
         ("%%MIDI harpmode 1\n", "R~C T~D E|"),
         ("%%MIDI harpmode 1\n", "{G}~C2 D E F|"),
         ("%%MIDI harpmode 1\n", "{G}H~C D E F|"),
+        ("R:hornpipe\n%%MIDI harpmode 1\n", "C>~D E F|"),
+        ("R:hornpipe\n%%MIDI harpmode 1\n", "|: ~C>~D EF| G2 AB :|"),
     ],
 )
 def test_live_harp_cut(upstream, tmp_path, head, body):
@@ -1335,6 +1337,22 @@ def test_live_grace_precedes_trailing_effects(upstream, tmp_path, body):
     native = Score.from_abc(abc)
     oracle = oracle_score(upstream, abc, tmp_path)
     assert performed(native) == performed(oracle)
+
+
+@pytest.mark.parametrize("host", ["CDE|", "Z CDE|", "(5CDEFGAB|"])
+def test_live_grace_precedes_meter_change(upstream, tmp_path, host):
+    abc = HEADER.replace("L:1/4", "L:1/8") + "D {A}[M:6/8]" + host
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
+
+
+@pytest.mark.parametrize("opening", ["6/8", "3/4"])
+def test_live_tuplet_default_keeps_opening_meter(upstream, tmp_path, opening):
+    abc = HEADER.replace("M:4/4", f"M:{opening}") + "A[M:4/4](5BCDEF G|"
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
 
 
 def test_live_grace_keeps_its_written_key(upstream, tmp_path):

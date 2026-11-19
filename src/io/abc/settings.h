@@ -24,10 +24,7 @@ struct Meter {
     bool                      free        = false;
     [[nodiscard]] long double beat() const { return static_cast<long double>(whole) / denominator; }
     [[nodiscard]] long double measure() const { return numerator * beat(); }
-    [[nodiscard]] bool        compound() const {
-        return denominator >= 8 && numerator >= 6 && numerator % 3 == 0;
-    }
-    [[nodiscard]] int accent_beats() const;
+    [[nodiscard]] int         accent_beats() const;
 };
 
 struct Key {
