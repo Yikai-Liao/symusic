@@ -779,7 +779,7 @@ void ScoreWriter<T>::header() {
     const auto q     = fields('Q', *score.tempos, "1/4=120", [&](const auto& event) {
         return tempo_text(event.mspq, issues);
     });
-    const auto title = score.tracks->empty() ? "Untitled" : score.tracks->front()->name;
+    const auto title = tracks.empty() ? "Untitled" : tracks.front().track->name;
     output = fmt::format("X:1\nT:{}\nM:{}\nL:1/4\nQ:{}\nK:{}\n", escape_text(title), m, q, k);
 }
 

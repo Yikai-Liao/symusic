@@ -577,6 +577,15 @@ def test_abc_export_retains_short_audible_note_but_does_not_shift_for_silent_not
     assert note_rows(Score.from_abc(score.dumps_abc())) == [(120, 1, 61, 99)]
 
 
+def test_abc_export_skipped_track_does_not_supply_title():
+    score = Score(480)
+    ghost = Track("Ghost", 24)
+    sounding = Track("", 40)
+    sounding.notes.append(Note(15, 60, 60, 80))
+    score.tracks.extend([ghost, sounding])
+    assert [track.name for track in Score.from_abc(score.dumps_abc()).tracks] == [""]
+
+
 def test_abc_export_preserves_tempo_keys_meter_polyphony_and_controls():
     score = roundtrip_score()
     track = score.tracks[0]
