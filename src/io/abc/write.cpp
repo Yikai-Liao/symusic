@@ -254,13 +254,17 @@ private:
 
 class VoiceWriter {
 public:
-    VoiceWriter(std::string& output, ExportBudget& budget, std::string_view where) :
-        output(output), budget(budget), where(where) {}
+    VoiceWriter(
+        std::string&     output,
+        ExportBudget&    budget,
+        ExportIssues&    issues,
+        std::string_view where,
+        bool             drums
+    ) : output(output), budget(budget), issues(issues), where(where), drums(drums) {}
     void write(
         int              id,
         std::string_view name,
         int              program,
-        bool             drums,
         const Timeline&  notes,
         const Fields&    channel,
         const Fields&    global
@@ -269,16 +273,22 @@ public:
 private:
     std::string&               output;
     ExportBudget&              budget;
+    ExportIssues&              issues;
     std::string_view           where;
+    const bool                 drums;
     std::map<int, WrittenNote> active;
     int                        velocity = 0;
     size_t                     columns  = 0;
 
     void token(std::string_view text, size_t steps = PlaybackWork::token);
-    void interval(i32 start, i32 end);
-    void atom(i32 duration, i32 end);
-    void moment(const Moment& change);
-    void play(const Timeline& notes, const Fields& channel, const Fields& global);
+    // Bound numerators before abc2midi multiplies by the tuplet ratio.
+    static constexpr i32 max_atom_ticks = tpq * 1024;
+    void                 interval(i32 start, i32 end, const Moment* next);
+    void                 write_span(i32 start, i32 end);
+    bool                 repeats_untied_pitch(i32 start, i32 end, const Moment& next) const;
+    void                 atom(i32 duration, i32 end);
+    void                 moment(const Moment& change);
+    void                 play(const Timeline& notes, const Fields& channel, const Fields& global);
 };
 
 void VoiceWriter::token(std::string_view text, size_t steps) {
@@ -292,10 +302,38 @@ void VoiceWriter::token(std::string_view text, size_t steps) {
     columns += text.size() + 1;
 }
 
-void VoiceWriter::interval(i32 start, i32 end) {
-    // The converter multiplies the written numerator when applying tuplets
-    // and converting to MIDI ticks. Bound each atom, including long silence.
-    constexpr i32 max_atom_ticks = tpq * 1024;
+bool VoiceWriter::repeats_untied_pitch(i32 start, i32 end, const Moment& next) const {
+    if (end - start > max_atom_ticks) return false;   // already split by write_span
+    return std::ranges::any_of(next.attacks, [&](const WrittenNote& attack) {
+        const auto note = active.find(attack.pitch);
+        return note != active.end() && note->second.end == end && note->second.start == start;
+    });
+}
+
+void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
+    if (start == end) return;
+    if (drums || !next || !repeats_untied_pitch(start, end, *next)) {
+        write_span(start, end);
+        return;
+    }
+    if (end - start == 1) {
+        issues.warn(
+            where,
+            "midi-short-reattack",
+            "abc2midi may cut off a same-pitch reattack after a one-tick note; use MIDI export to "
+            "preserve the release order"
+        );
+        atom(1, end);
+        return;
+    }
+    // abc2midi ignores expand on a tie. Release one tick before the next
+    // attack there, rather than emit Note Off after the reattack at equal
+    // time. The native reader still performs the entire tied duration.
+    write_span(start, end - 1);
+    atom(1, end);
+}
+
+void VoiceWriter::write_span(i32 start, i32 end) {
     while (end - start > max_atom_ticks) {
         start += max_atom_ticks;
         atom(max_atom_ticks, start);
@@ -335,7 +373,6 @@ void VoiceWriter::write(
     int              id,
     std::string_view name,
     int              program,
-    bool             drums,
     const Timeline&  notes,
     const Fields&    channel,
     const Fields&    global
@@ -373,7 +410,8 @@ void VoiceWriter::play(const Timeline& notes, const Fields& channel, const Field
              tick_of(next_global, global)}
         );
         if (time == end) break;
-        if (time > previous) interval(previous, time);
+        const auto* change = tick_of(next_note, notes) == time ? &(next_note++)->second : nullptr;
+        interval(previous, time, change);
         const auto emit_fields = [&](auto& next, const Fields& fields) {
             if (tick_of(next, fields) != time) return;
             for (const auto& field : next->second) token(field);
@@ -381,7 +419,7 @@ void VoiceWriter::play(const Timeline& notes, const Fields& channel, const Field
         };
         emit_fields(next_global, global);
         emit_fields(next_channel, channel);
-        if (tick_of(next_note, notes) == time) moment((next_note++)->second);
+        if (change) moment(*change);
         previous = time;
     }
     // A one-tick tail allows the final expanded note to release before EOF.
@@ -793,7 +831,7 @@ template<TType T>
 void ScoreWriter<T>::render_voices() {
     const Fields no_fields;
     if (tracks.empty()) {
-        VoiceWriter(output, budget, "score").write(1, "", 0, false, {}, no_fields, global);
+        VoiceWriter(output, budget, issues, "score", false).write(1, "", 0, {}, no_fields, global);
         return;
     }
     int id = 0;
@@ -801,16 +839,8 @@ void ScoreWriter<T>::render_voices() {
         const auto& track = *plan.track;
         for (const auto& lane : plan.lanes) {
             const auto& conductor = id == 0 ? global : no_fields;
-            VoiceWriter(output, budget, plan.where)
-                .write(
-                    ++id,
-                    track.name,
-                    track.program,
-                    track.is_drum,
-                    lane.timeline,
-                    plan.channel,
-                    conductor
-                );
+            VoiceWriter(output, budget, issues, plan.where, track.is_drum)
+                .write(++id, track.name, track.program, lane.timeline, plan.channel, conductor);
         }
     }
 }

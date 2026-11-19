@@ -13,6 +13,7 @@ from itertools import groupby
 from pathlib import Path
 
 import pytest
+from mido import MidiFile, merge_tracks
 from symusic import ControlChange, Note, Pedal, PitchBend, Score, Tempo, Track
 
 from tests.test_abc import HEADER, note_rows, roundtrip_score
@@ -372,9 +373,9 @@ def performed(score: Score) -> dict:
     }
 
 
-def oracle_score(
+def oracle_midi(
     executable: Path, abc: str, directory: Path, *options: str, expected_exit: int = 0
-) -> Score:
+) -> Path:
     source = directory / "sample.abc"
     output = directory / "sample.mid"
     source.write_text(abc + "\n", encoding="utf-8")
@@ -388,7 +389,15 @@ def oracle_score(
     )
     assert result.returncode == expected_exit, result.stdout + result.stderr
     assert output.is_file(), result.stdout + result.stderr
-    return Score(output)
+    return output
+
+
+def oracle_score(
+    executable: Path, abc: str, directory: Path, *options: str, expected_exit: int = 0
+) -> Score:
+    return Score(
+        oracle_midi(executable, abc, directory, *options, expected_exit=expected_exit)
+    )
 
 
 @pytest.fixture(scope="module")
@@ -705,8 +714,22 @@ def test_upstream_plays_native_exports(kind: str, upstream: Path, tmp_path: Path
         score.tracks.append(track)
     else:
         score = roundtrip_score()
-    played = oracle_score(upstream, score.dumps_abc(), tmp_path)
-    assert note_rows(played) == note_rows(score)
+    abc = score.dumps_abc()
+    midi = oracle_midi(upstream, abc, tmp_path)
+    played = Score(midi)
+    original = note_rows(score)
+    assert note_rows(Score.from_abc(abc)) == original
+    if kind == "dense chords":
+        # Each pitch reattacks at tick 45. Check the wire order as well as
+        # the one-tick release shortening that prevents the new attack being cut off.
+        assert note_rows(played) == [
+            (t, d - (t == 15), p, v) for t, d, p, v in original
+        ]
+        assert midi_note_events(midi) == {
+            pitch: [(15, 80), (44, 0), (45, 80), (75, 0)] for pitch in range(51)
+        }
+    else:
+        assert note_rows(played) == original
     if kind == "single voice":
         assert played.tracks[0].program == score.tracks[0].program
         assert played.time_signatures == score.time_signatures
@@ -742,6 +765,49 @@ def test_export_playback_events(kind: str, upstream: Path, tmp_path: Path):
     assert {track.program for track in actual.tracks} == {
         track.program for track in score.tracks
     }
+
+
+def midi_note_events(path: Path) -> dict[int, list[tuple[int, int]]]:
+    events = {}
+    tick = 0
+    for message in merge_tracks(MidiFile(path).tracks):
+        tick += message.time
+        if message.type in {"note_on", "note_off"}:
+            velocity = message.velocity if message.type == "note_on" else 0
+            events.setdefault(message.note, []).append((tick, velocity))
+    return events
+
+
+@pytest.mark.parametrize("duration", [2, 240])
+@pytest.mark.parametrize("chord", [False, True])
+def test_export_reattack_releases_before_attack(
+    duration: int, chord: bool, upstream: Path, tmp_path: Path
+):
+    score = Score(480)
+    track = Track()
+    track.notes.extend([Note(1, duration, 60, 80), Note(1 + duration, 30, 60, 90)])
+    if chord:
+        track.notes.append(Note(1, duration, 64, 80))
+    score.tracks.append(track)
+    abc = score.dumps_abc()
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
+    # Score objects hide the order of encoded Note On and Note Off messages.
+    assert midi_note_events(oracle_midi(upstream, abc, tmp_path))[60] == [
+        (1, 80),
+        (duration, 0),
+        (1 + duration, 90),
+        (31 + duration, 0),
+    ]
+
+
+def test_export_one_tick_reattack_warns():
+    score = Score(480)
+    track = Track("Repeated")
+    track.notes.extend([Note(1, 1, 60, 80), Note(2, 30, 60, 90)])
+    score.tracks.append(track)
+    with pytest.warns(UserWarning, match=r"track 1.*\[midi-short-reattack\]"):
+        abc = score.dumps_abc(warn=True)
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
 
 
 @pytest.mark.parametrize("voices", [1, 2])

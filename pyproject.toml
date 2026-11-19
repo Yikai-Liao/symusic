@@ -93,7 +93,7 @@ version.provider = "scikit_build_core.metadata.regex"
 version.input = "python/symusic/__init__.py"
 
 [project.optional-dependencies]
-test = ["pytest-cov", "pytest-xdist[psutil]", "mypy", "pretty_midi"]
+test = ["pytest-cov", "pytest-xdist[psutil]", "mypy", "pretty_midi", "mido"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
