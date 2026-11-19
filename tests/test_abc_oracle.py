@@ -783,7 +783,9 @@ def test_export_tempos(wanted: int, encoded: int, upstream: Path, tmp_path: Path
     score = single_note(1, 480)
     score.tempos.append(Tempo(0, mspq=wanted))
     if wanted != encoded:
-        with pytest.warns(UserWarning, match=r"\[rounded-tempo\]"):
+        with pytest.warns(
+            UserWarning, match=rf"\[rounded-tempo\].*{wanted} as {encoded}"
+        ):
             abc = score.dumps_abc(warn=True)
     else:
         abc = score.dumps_abc(warn=True)

@@ -151,6 +151,31 @@ def test_abc_retains_short_floating_note(ttype: str):
     ]
 
 
+@pytest.mark.parametrize("first", [0, 15])
+def test_abc_export_locates_invalid_onsets(first: int):
+    score = Score(480)
+    track = Track("Lead")
+    track.notes.extend([Note(first, 30, 60, 90), Note(-1, 30, 62, 90)])
+    score.tracks.append(track)
+    with pytest.raises(ValueError, match=r"track 1 \('Lead'\): event time must be"):
+        score.dumps_abc()
+
+
+def test_abc_export_reports_one_rounding_example_per_track():
+    score = Score(960)
+    track = Track("Lead")
+    track.notes.extend([Note(3, 30, 60, 90), Note(9, 30, 64, 90)])
+    score.tracks.append(track)
+    with pytest.warns(UserWarning, match=r"\[resampled-time\]") as caught:
+        score.dumps_abc(warn=True)
+    assert [str(w.message) for w in caught] == [
+        (
+            "ABC export track 1 ('Lead') [resampled-time]: "
+            "rounded 1.5 ABC ticks to 2 on the 480-TPQ grid"
+        )
+    ]
+
+
 def test_abc_second_export_uses_tempo_map_for_endpoints():
     score = Score(1, ttype="second")
     score.tempos.extend([Tempo(0, 120, ttype="second"), Tempo(0.5, 60, ttype="second")])

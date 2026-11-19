@@ -8,7 +8,6 @@
 #include <map>
 #include <numeric>
 #include <ranges>
-#include <set>
 #include <span>
 #include <tuple>
 
@@ -40,13 +39,27 @@ public:
     [[noreturn]] static void invalid(std::string_view where, std::string_view message) {
         throw std::invalid_argument(fmt::format("ABC export {}: {}", where, message));
     }
-    void warn(std::string_view where, std::string_view code, std::string_view message) {
-        warnings.insert(fmt::format("ABC export {} [{}]: {}", where, code, message));
+    template<class... Args>
+    void warn(
+        std::string_view            where,
+        std::string_view            code,
+        fmt::format_string<Args...> message,
+        Args&&... args
+    ) {
+        auto label             = fmt::format("ABC export {} [{}]", where, code);
+        auto [found, inserted] = warnings.try_emplace(std::move(label));
+        if (inserted) found->second = fmt::format(message, std::forward<Args>(args)...);
     }
-    vec<std::string> take() { return {warnings.begin(), warnings.end()}; }
+    vec<std::string> take() const {
+        vec<std::string> result;
+        for (const auto& [label, message] : warnings)
+            result.push_back(fmt::format("{}: {}", label, message));
+        return result;
+    }
 
 private:
-    std::set<std::string> warnings;
+    // Report the first example of each problem per location, not one warning per note.
+    std::map<std::string, std::string> warnings;
 };
 
 std::string escape_text(std::string_view text) {
@@ -108,6 +121,7 @@ std::string tempo_text(i32 mspq, ExportIssues& issues) {
     int64_t        best_error   = std::numeric_limits<int64_t>::max();
     int            best_divisor = 4;
     int            best_bpm     = 120;
+    int64_t        best_encoded = 500000;
     for (int denominator = 4; denominator <= (1 << 20); denominator *= 2, rate *= 2) {
         const auto floor_bpm = rate / mspq;
         for (const auto estimate : {floor_bpm, floor_bpm + 1}) {
@@ -118,9 +132,12 @@ std::string tempo_text(i32 mspq, ExportIssues& issues) {
             best_error   = error;
             best_divisor = denominator;
             best_bpm     = static_cast<int>(bpm);
+            best_encoded = rate / bpm;
         }
     }
-    issues.warn("tempo", "rounded-tempo", "rounded a tempo to the nearest supported ABC value");
+    issues.warn(
+        "tempo", "rounded-tempo", "encoded {} as {} microseconds per quarter", mspq, best_encoded
+    );
     return fmt::format("1/{}={}", best_divisor, best_bpm);
 }
 
@@ -379,10 +396,20 @@ public:
         }
     }
 
+    // This is only a placement probe. The event's normal projection validates
+    // it and reports any rounding with its track context.
+    bool rounds_to_origin(long double time) const {
+        return std::isfinite(time) && time >= 0 && std::round(on_grid(time)) == 0;
+    }
+
     i32 scale(long double time, std::string_view where, ExportIssues& issues) const {
         if (!std::isfinite(time) || time < 0)
             ExportIssues::invalid(where, "event time must be finite and nonnegative");
-        const auto exact   = on_grid(time, where);
+        if constexpr (std::is_same_v<T, Tick>) {
+            if (time > std::numeric_limits<i32>::max())
+                ExportIssues::invalid(where, "event time is outside the score's tick range");
+        }
+        const auto exact   = on_grid(time);
         const auto rounded = std::round(exact);
         if (rounded > std::numeric_limits<i32>::max() - 2)
             ExportIssues::invalid(where, "rescaled event leaves no room for the ABC note release");
@@ -391,7 +418,13 @@ public:
                 where, "midi-delta-range", "very late events may exceed the MIDI delta-time range"
             );
         if (std::abs(rounded - exact) > grid_noise(exact))
-            issues.warn(where, "resampled-time", "rounded times to the ABC 480-tick grid");
+            issues.warn(
+                where,
+                "resampled-time",
+                "rounded {:.8g} ABC ticks to {:.0f} on the 480-TPQ grid",
+                exact,
+                rounded
+            );
         return static_cast<i32>(rounded);
     }
 
@@ -403,10 +436,8 @@ private:
         std::monostate>
         seconds;
 
-    long double on_grid(long double time, std::string_view where) const {
+    long double on_grid(long double time) const {
         if constexpr (std::is_same_v<T, Tick>) {
-            if (time > std::numeric_limits<i32>::max())
-                ExportIssues::invalid(where, "event time is outside the score's tick range");
             return time * tpq / source_tpq;
         } else if constexpr (std::is_same_v<T, Quarter>) {
             return time * tpq;
@@ -779,7 +810,7 @@ template<TType T>
 int ScoreWriter<T>::onset_offset() {
     for (const auto& track : *score.tracks) {
         for (const auto& note : *track->notes) {
-            if (is_audible(note) && scale(note.time, "note") == 0) {
+            if (is_audible(note) && clock.rounds_to_origin(note.time)) {
                 issues.warn(
                     "score",
                     "note-start-offset",
