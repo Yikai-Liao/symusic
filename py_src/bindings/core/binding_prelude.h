@@ -1,5 +1,6 @@
 //
-// Shared nanobind include set kept identical across binding translation units to avoid ODR issues.
+// nanobind headers included first by every binding translation unit, so that all of them see the
+// same type casters.
 //
 
 #pragma once

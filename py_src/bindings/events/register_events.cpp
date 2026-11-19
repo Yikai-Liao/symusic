@@ -1,8 +1,6 @@
 //
-// Aggregate time-event registration after splitting the heaviest nanobind bindings into smaller
-// translation units. The original all-in-one registration path created a single dominant compile
-// bottleneck during `pip install`, so this dispatcher preserves the public API while letting Ninja
-// schedule the expensive families in parallel.
+// Registers the event bindings. The two families compile in separate translation units, because
+// one unit with all of them dominated the build time.
 //
 #include "../core/binding_prelude.h"
 

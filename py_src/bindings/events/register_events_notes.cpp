@@ -1,7 +1,5 @@
 //
-// Register the note and score-metadata event families in their own translation unit. Keeping this
-// subset separate reduces the size of the hottest nanobind compile unit and shortens the critical
-// path of wheel builds without changing binding behavior.
+// Note, key signature, time signature and text bindings; see register_events.cpp.
 //
 #include "../core/binding_prelude.h"
 

@@ -17,60 +17,21 @@ namespace nb = nanobind;
 namespace symusic {
 
 namespace synth_docstrings {
-constexpr const char* kSynthDoc = R"pbdoc(
-Synthesizer(sf_path: str | pathlib.Path, sample_rate: int = 44100, quality: int = 0)
-============================================================================
+constexpr const char* kSynthDoc   = R"pbdoc(
+Renders scores to audio with an SF2 or SF3 SoundFont, using prestosynth.
 
-Prestosynth-powered renderer that turns scores into audio buffers using SF2/SF3 soundfonts. Reuse
-a single synthesizer per soundfont to avoid repeated disk I/O.
-
-Parameters
-----------
-sf_path:
-    Filesystem path to an SF2/SF3 soundfont (either ``str`` or ``pathlib.Path``).
-sample_rate:
-    Output sample rate in Hz.
-quality:
-    Resampling of SoundFont samples to ``sample_rate``, 0-4: ``0`` is linear interpolation, ``1``
-    zero-order hold, ``2``-``4`` sinc from fastest to best. Other values raise ``ValueError``.
-
-Examples
---------
-.. code-block:: python
-
-    from symusic import Score, Synthesizer
-    score = Score.from_file("example.mid")
-    synth = Synthesizer("MuseScore_General.sf3", sample_rate=48000)
-    buffer = synth.render(score, stereo=True)
-    Synthesizer.dump_wav("example.wav", buffer, 48000, use_int16=True)
+*sample_rate* is the output rate in Hz. *quality*, 0-4, selects how SoundFont samples are resampled
+to it: 0 is linear interpolation, 1 zero-order hold, 2-4 sinc from fastest to best. Other values
+raise ``ValueError``. Loading reads the whole SoundFont, so reuse one synthesizer for many scores.
 )pbdoc";
-constexpr const char* kSynthInitStringDoc
-    = R"pbdoc(Create a synthesizer from a string path to an SF2/SF3 soundfont.)pbdoc";
-constexpr const char* kSynthInitPathDoc
-    = R"pbdoc(Create a synthesizer from a ``pathlib.Path`` pointing to an SF2/SF3 soundfont.)pbdoc";
-constexpr const char* kSynthRenderDoc = R"pbdoc(
-Render a :class:`symusic.Score` into a float32 waveform.
-
-Parameters
-----------
-score:
-    Tick/quarter/second score to render.
-stereo:
-    When ``True`` two channels are emitted; otherwise mono.
+constexpr const char* kRenderDoc  = R"pbdoc(
+Render *score*, in any time unit, to a ``float32`` array of shape ``(channels, samples)``: 2
+channels with *stereo*, otherwise 1. Only notes are rendered; pedals, pitch bends and control
+changes have no effect. Samples are not normalized and can exceed 1.
 )pbdoc";
-constexpr const char* kDumpWavDoc     = R"pbdoc(
-Write a :class:`numpy.ndarray` buffer to a WAV file using Prestosynth's writer.
-
-Parameters
-----------
-path :
-    Destination path.
-buffer :
-    :class:`numpy.ndarray` with shape ``(samples,)`` or ``(channels, samples)``.
-sample_rate :
-    Sample rate in Hz.
-use_int16 :
-    Set to ``True`` to quantize the float32 buffer to PCM16.
+constexpr const char* kDumpWavDoc = R"pbdoc(
+Write *data*, a ``float32`` array of shape ``(channels, samples)``, to a WAV file. With *use_int16*
+the file holds 16-bit PCM, which clips samples beyond 1; otherwise 32-bit float.
 )pbdoc";
 }   // namespace synth_docstrings
 
@@ -80,15 +41,13 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             nb::init<const std::string&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality"),
-            synth_docstrings::kSynthInitStringDoc
+            nb::arg("quality")
         )
         .def(
             nb::init<const std::filesystem::path&, u32, u8>(),
             nb::arg("sf_path"),
             nb::arg("sample_rate"),
-            nb::arg("quality"),
-            synth_docstrings::kSynthInitPathDoc
+            nb::arg("quality")
         )
         .def(
             "render",
@@ -97,7 +56,7 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kSynthRenderDoc
+            synth_docstrings::kRenderDoc
         )
         .def(
             "render",
@@ -106,7 +65,7 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kSynthRenderDoc
+            synth_docstrings::kRenderDoc
         )
         .def(
             "render",
@@ -115,7 +74,7 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kSynthRenderDoc
+            synth_docstrings::kRenderDoc
         );
 
     m.def(

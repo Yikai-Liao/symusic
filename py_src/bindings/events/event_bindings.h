@@ -20,302 +20,142 @@ namespace nb = nanobind;
 using namespace symusic;
 
 namespace event_docstrings {
-constexpr std::string_view kTimedEventTemplate = R"pbdoc(
-{signature}
 
-{description}
-
-{time_notes}
-)pbdoc";
-
-inline std::string build_time_notes(
-    const docstring_helpers::TimeFlavorInfo& flavor,
-    const bool                               include_duration_note,
-    std::string_view                         extra_note = {}
-) {
-    std::string notes
-        = fmt::format("- {}\n- Optimized for {}", flavor.measurement_sentence, flavor.best_for);
-    if (include_duration_note) {
-        notes += fmt::format("\n- Durations use the same {} units", flavor.timeline_noun);
-    }
-    if (!extra_note.empty()) { notes += fmt::format("\n- {}", extra_note); }
-    return notes;
-}
-
-inline std::string render_signature(
-    const docstring_helpers::TimeFlavorInfo& flavor,
-    std::string_view                         base,
-    std::string_view                         signature_template
-) {
+// Class docstring: the description followed by the unit of the time fields. Rendered once per
+// event type and unit and kept alive for the lifetime of the module.
+template<TType T>
+std::string with_units(std::string_view description, std::string_view time_fields) {
+    constexpr auto flavor = docstring_helpers::time_flavor<T>();
     return fmt::format(
-        fmt::runtime(signature_template),
-        fmt::arg("class_name", fmt::format("{}{}", base, flavor.suffix)),
-        fmt::arg("scalar", flavor.scalar_label)
+        "{}\n\n{} in {} ({}).", description, time_fields, flavor.units, flavor.scalar_label
     );
 }
 
 template<TType T>
 const char* note_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
-        const auto     signature = render_signature(
-            flavor,
-            "Note",
-            "{class_name}(time: {scalar}, duration: {scalar}, pitch: int, velocity: int = 0)"
-        );
-        const auto description = fmt::format(
-            "Pitched event anchored to a {} timestamp with editable duration and velocity.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, true);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A note. ``pitch`` and ``velocity`` are stored in 8 bits (-128..127); symusic does not "
+        "enforce the MIDI range 0-127.",
+        "``time`` and ``duration`` are"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* key_signature_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
-        const auto     signature = render_signature(
-            flavor, "KeySignature", "{class_name}(time: {scalar}, key: int, tonality: int)"
-        );
-        const auto description = fmt::format(
-            "Key signature change scheduled on the {} timeline. ``key`` is the number of "
-            "sharps/flats "
-            "relative to C and ``tonality`` is ``0`` for major, ``1`` for minor.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A key signature change. ``key`` counts sharps (positive) or flats (negative); "
+        "``tonality`` is 0 for major and 1 for minor.",
+        "``time`` is"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* time_signature_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
-        const auto     signature = render_signature(
-            flavor,
-            "TimeSignature",
-            "{class_name}(time: {scalar}, numerator: int, denominator: int)"
-        );
-        const auto description = fmt::format(
-            "Meter change storing beats-per-bar and subdivision (e.g., ``3/4``) on the {} "
-            "timeline. "
-            "The denominator must be a power of two because it represents note lengths.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A time signature change, such as ``numerator=6, denominator=8``.", "``time`` is"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* control_change_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor    = docstring_helpers::time_flavor<T>();
-        const auto     signature = render_signature(
-            flavor, "ControlChange", "{class_name}(time: {scalar}, number: int, value: int)"
-        );
-        const auto description = fmt::format(
-            "Standard MIDI controller event carrying a controller number/value pair on the {} "
-            "timeline.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A MIDI control change: controller ``number`` and ``value``, both 0-127. Control change "
+        "64 is the sustain pedal.",
+        "``time`` is"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* pedal_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto     signature
-            = render_signature(flavor, "Pedal", "{class_name}(time: {scalar}, duration: {scalar})");
-        const auto description = fmt::format(
-            "Sustain or soft pedal gesture represented as a timed range on the {} timeline.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, true);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A sustain pedal region. Reading MIDI derives pedals from control change 64; writing MIDI "
+        "ignores them and writes ``controls`` instead.",
+        "``time`` and ``duration`` are"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* tempo_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto     signature
-            = render_signature(flavor, "Tempo", "{class_name}(time: {scalar}, mspq: int)");
-        const auto description = fmt::format(
-            "Tempo change stored as microseconds-per-quarter note at a {} timestamp. "
-            "The ``qpm`` property mirrors beats-per-minute and mutating it updates ``mspq`` "
-            "accordingly.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A tempo change. It stores microseconds per quarter note in ``mspq``; ``qpm`` and its "
+        "alias ``tempo`` give quarter notes per minute.",
+        "``time`` is"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* pitch_bend_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto     signature
-            = render_signature(flavor, "PitchBend", "{class_name}(time: {scalar}, value: int)");
-        const auto description = fmt::format(
-            "Pitch-bend wheel value applied on the {} timeline. The raw 14-bit value matches the "
-            "MIDI encoding.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A pitch bend. MIDI files hold ``value`` in -8192..8191; 0 is no bend.", "``time`` is"
+    );
+    return doc.c_str();
 }
 
 template<TType T>
 const char* text_meta_doc() {
-    static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
-        const auto     signature
-            = render_signature(flavor, "TextMeta", "{class_name}(time: {scalar}, text: str)");
-        const auto description = fmt::format(
-            "Free-form metadata event used for lyrics, markers, or comments on the {} timeline.",
-            flavor.timeline_noun
-        );
-        const auto time_notes = build_time_notes(flavor, false);
-        return fmt::format(
-            fmt::runtime(kTimedEventTemplate),
-            fmt::arg("signature", signature),
-            fmt::arg("description", description),
-            fmt::arg("time_notes", time_notes)
-        );
-    }();
-    return rendered.c_str();
+    static const std::string doc = with_units<T>(
+        "A text event: a lyric in ``Track.lyrics`` or a marker in ``Score.markers``.", "``time`` is"
+    );
+    return doc.c_str();
 }
 
 constexpr const char* kShiftTimeDoc
-    = R"pbdoc(Shift the event's timestamp by *offset*. When *inplace* is False a cloned event is returned.)pbdoc";
-constexpr const char* kCopyCtorDoc
-    = R"pbdoc(Copy an existing event into this shared pointer wrapper.)pbdoc";
+    = R"pbdoc(Add *offset* to ``time``. Returns a new event unless *inplace* is true.)pbdoc";
+constexpr const char* kCopyCtorDoc = R"pbdoc(Create a copy of *other*.)pbdoc";
 constexpr const char* kCopyDoc
-    = R"pbdoc(Return a shallow or deep copy depending on *deep*. Deep copies duplicate underlying storage.)pbdoc";
-constexpr const char* kCopyMethodDoc = R"pbdoc(Return a shallow copy of the event.)pbdoc";
-constexpr const char* kDeepcopyDoc
-    = R"pbdoc(Create a deep copy of the event suitable for Python's copy module helpers.)pbdoc";
-constexpr const char* kReprDoc
-    = R"pbdoc(Serialize the event into its human-friendly textual form.)pbdoc";
-constexpr const char* kEqDoc
-    = R"pbdoc(Events compare equal when they refer to the same pointer or when their values match.)pbdoc";
-constexpr const char* kNeDoc
-    = R"pbdoc(Events compare not-equal when their value representation differs.)pbdoc";
-constexpr const char* kGetStateDoc
-    = R"pbdoc(Serialize the event into ZPP bytes for pickling.)pbdoc";
-constexpr const char* kSetStateDoc = R"pbdoc(Rehydrate the event from pickled ZPP bytes.)pbdoc";
+    = R"pbdoc(Return a copy of the event. *deep* has no effect, because events share no data.)pbdoc";
 constexpr const char* kUseCountDoc
-    = R"pbdoc(Return the reference count of the underlying shared pointer. Helpful for debugging aliasing.)pbdoc";
+    = R"pbdoc(Return the number of references to the event, for debugging.)pbdoc";
 
-constexpr const char* kVecSortDoc
-    = R"pbdoc(Sort events in-place (unless *inplace* is False) by default key or a user supplied callable.)pbdoc";
-constexpr const char* kVecFilterDoc
-    = R"pbdoc(Keep only events for which the supplied Python callable returns True. Optionally operate on a copy.)pbdoc";
+constexpr const char* kVecSortDoc   = R"pbdoc(
+Sort by *key*, or by the default sort key of the event type. Works in place unless *inplace* is
+false; the returned copy shares the events.
+)pbdoc";
+constexpr const char* kVecFilterDoc = R"pbdoc(
+Keep the events for which *function* returns true. Works in place unless *inplace* is false; the
+returned copy shares the events.
+)pbdoc";
 constexpr const char* kVecIsSortedDoc
-    = R"pbdoc(Return True when the vector is already sorted by the default key or supplied callable.)pbdoc";
-constexpr const char* kVecAdjustTimeDoc
-    = R"pbdoc(Remap timestamps using two aligned lists of original/new time values. Returns copy unless *inplace*.)pbdoc";
-
-constexpr const char* kNoteEmptyDoc = R"pbdoc(Return True when the note duration is zero.)pbdoc";
-constexpr const char* kNoteEndDoc
-    = R"pbdoc(Read or set the exclusive end time. Setting the value adjusts the duration.)pbdoc";
-constexpr const char* kNoteShiftPitchDoc
-    = R"pbdoc(Shift the MIDI pitch by *offset*. Returns a new note unless *inplace* is True.)pbdoc";
-constexpr const char* kNoteShiftVelocityDoc
-    = R"pbdoc(Offset the MIDI velocity by *offset*. Returns a new note unless *inplace* is True.)pbdoc";
-constexpr const char* kNoteNumpyDoc
-    = R"pbdoc(Expose the underlying SOA arrays as NumPy buffers for zero-copy inspection.)pbdoc";
-constexpr const char* kNoteFromNumpyDoc
-    = R"pbdoc(Build a note vector from NumPy arrays describing time/duration/pitch/velocity.)pbdoc";
-
-constexpr const char* kKeySigInitDoc
-    = R"pbdoc(Create a key signature event with *time*, *key* offset, and *tonality* (major/minor).)pbdoc";
-constexpr const char* kTimeSigInitDoc
-    = R"pbdoc(Create a time signature event with *time*, *numerator*, and *denominator*.)pbdoc";
-constexpr const char* kCCInitDoc
-    = R"pbdoc(Create a control change event with controller *number*/*value* emitted at *time*.)pbdoc";
-constexpr const char* kPedalInitDoc
-    = R"pbdoc(Create a sustain/soft pedal event given *time* and *duration*.)pbdoc";
-constexpr const char* kTempoInitDoc
-    = R"pbdoc(Create a tempo event at *time*. Provide either *qpm* (preferred) or *mspq*.)pbdoc";
-constexpr const char* kPitchBendInitDoc
-    = R"pbdoc(Create a pitch bend event with the raw wheel *value*.)pbdoc";
-constexpr const char* kTextMetaInitDoc
-    = R"pbdoc(Create a text metadata event with arbitrary UTF-8 text.)pbdoc";
-
-constexpr const char* kTempoPropQpmDoc
-    = R"pbdoc(Read or set the tempo in quarter-notes per minute. Setting recalculates the stored MSPQ value.)pbdoc";
-constexpr const char* kTempoPropTempoDoc = kTempoPropQpmDoc;
-
-constexpr const char* kVecFromNumpyDoc = R"pbdoc(Build an event vector from NumPy buffers.)pbdoc";
-constexpr const char* kTempoNumpyDoc
-    = R"pbdoc(Expose tempo MSPQ/time arrays as NumPy buffers for efficient analysis.)pbdoc";
-constexpr const char* kPedalNumpyDoc
-    = R"pbdoc(Expose pedal time/duration arrays as NumPy buffers.)pbdoc";
-constexpr const char* kControlNumpyDoc
-    = R"pbdoc(Expose control-change time/number/value arrays as NumPy buffers.)pbdoc";
-constexpr const char* kKeySigNumpyDoc
-    = R"pbdoc(Expose key signature time/key/tonality arrays as NumPy buffers.)pbdoc";
-constexpr const char* kTimeSigNumpyDoc
-    = R"pbdoc(Expose time signature time/numerator/denominator arrays as NumPy buffers.)pbdoc";
-constexpr const char* kPitchBendNumpyDoc
-    = R"pbdoc(Expose pitch bend time/value arrays as NumPy buffers.)pbdoc";
+    = R"pbdoc(Return whether the list is sorted by *key*, or by the default sort key.)pbdoc";
+constexpr const char* kVecAdjustTimeDoc = R"pbdoc(
+Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
+anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+Returns a list of new events unless *inplace* is true.
+)pbdoc";
+constexpr const char* kVecNumpyDoc
+    = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
+constexpr const char* kVecFromNumpyDoc
+    = R"pbdoc(Build a list from one NumPy array per field; the arrays must have equal length.)pbdoc";
 constexpr const char* kTextMetaNumpyDoc
-    = R"pbdoc(Text metadata cannot be exported to NumPy because of variable-length strings.)pbdoc";
-constexpr const char* kTextMetaFromNumpyDoc
-    = R"pbdoc(Text metadata cannot be constructed from NumPy arrays; use regular constructors instead.)pbdoc";
+    = R"pbdoc(Not supported for text events; raises ``RuntimeError``.)pbdoc";
+
+constexpr const char* kNoteEmptyDoc
+    = R"pbdoc(Return whether the duration or the velocity is 0 or less.)pbdoc";
+constexpr const char* kEndDoc
+    = R"pbdoc(``time + duration``. Setting it changes ``duration``.)pbdoc";
+constexpr const char* kNoteShiftPitchDoc    = R"pbdoc(
+Add *offset* to ``pitch``. Returns a new note unless *inplace* is true. Raises ``ValueError`` when
+the result leaves -128..127.
+)pbdoc";
+constexpr const char* kNoteShiftVelocityDoc = R"pbdoc(
+Add *offset* to ``velocity``. Returns a new note unless *inplace* is true. Raises ``ValueError``
+when the result leaves -128..127.
+)pbdoc";
+
+constexpr const char* kTempoInitDoc = R"pbdoc(
+Create a tempo change from *qpm* or *mspq*; *qpm* wins when both are given. Raises ``ValueError``
+when neither is given.
+)pbdoc";
+constexpr const char* kTempoQpmDoc  = R"pbdoc(
+Quarter notes per minute, computed from ``mspq``. Setting it rounds ``mspq`` to the nearest
+microsecond.
+)pbdoc";
 }   // namespace event_docstrings
 
 template<typename T>
@@ -346,14 +186,14 @@ auto bind_time_stamp(
     event
         .def_prop_rw(
             RW_COPY(unit, "time", time),
-            "Event timestamp in chosen time unit",
+            "Time of the event.",
             nb::for_getter(nb::sig(fmt::format("def time(self, /) -> {}", flavor.scalar_label).c_str())),
             nb::for_setter(nb::sig(fmt::format("def time(self, value: {}, /) -> None", flavor.scalar_label).c_str()))
         )
         .def_prop_ro(
             "ttype",
             [](const self_t&) { return typename T::ttype(); },
-            "Time unit type — Tick/Quarter/Second",
+            "The time unit.",
             nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<typename T::ttype>().suffix).c_str()))
         )
         .def(
@@ -385,40 +225,37 @@ auto bind_time_stamp(
             event_docstrings::kCopyDoc,
             nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str())
         )
-        .def("__copy__", copy_func, event_docstrings::kCopyMethodDoc, nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
+        .def("__copy__", copy_func, nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
         .def(
             "__deepcopy__",
             deepcopy_func,
             nb::arg("memo") = nb::none(),
             nb::arg("_nil") = nb::none(),
-            event_docstrings::kDeepcopyDoc,
             nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", name).c_str())
         )
-        .def("__repr__", [](const shared<T>& self) { return self->to_string(); }, event_docstrings::kReprDoc, nb::sig("def __repr__(self, /) -> str"))
-        .def("__eq__", [](const shared<T>& self, const shared<T>& other) { return *self == *other; }, event_docstrings::kEqDoc, nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__eq__", [](const shared<T>&, const nb::object&) { return false; }, event_docstrings::kEqDoc, nb::sig("def __eq__(self, other: object, /) -> bool"))
-        .def("__ne__", [](const shared<T>& self, const shared<T>& other) { return *self != *other; }, event_docstrings::kNeDoc, nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__ne__", [](const shared<T>&, const nb::object&) { return true; }, event_docstrings::kNeDoc, nb::sig("def __ne__(self, other: object, /) -> bool"))
+        .def("__repr__", [](const shared<T>& self) { return self->to_string(); }, nb::sig("def __repr__(self, /) -> str"))
+        .def("__eq__", [](const shared<T>& self, const shared<T>& other) { return *self == *other; }, nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__eq__", [](const shared<T>&, const nb::object&) { return false; }, nb::sig("def __eq__(self, other: object, /) -> bool"))
+        .def("__ne__", [](const shared<T>& self, const shared<T>& other) { return *self != *other; }, nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
+        .def("__ne__", [](const shared<T>&, const nb::object&) { return true; }, nb::sig("def __ne__(self, other: object, /) -> bool"))
         .def(nb::self != nb::self) // NOLINT
-        .def("__getstate__", &to_bytes<T>, event_docstrings::kGetStateDoc, nb::sig("def __getstate__(self, /) -> bytes"))
-        .def("__setstate__", &from_bytes<T>, event_docstrings::kSetStateDoc, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
+        .def("__getstate__", &to_bytes<T>, nb::sig("def __getstate__(self, /) -> bytes"))
+        .def("__setstate__", &from_bytes<T>, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
         .def("__use_count", [](const shared<T>& self) { return self.use_count(); }, event_docstrings::kUseCountDoc, nb::sig("def __use_count(self, /) -> int"))
     ;
 
     const auto list_name = name + "List";
     const auto vec_sig = fmt::format("class {}(PyVec[{}[{}]])", list_name, generic_base, unit_suffix);
     auto vec_class = bind_shared_pyvec<T>(m, list_name.c_str(), nb::sig(vec_sig.c_str()))
-        .def_prop_ro("ttype", [](const vec_t&) { return typename T::ttype(); })
+        .def_prop_ro("ttype", [](const vec_t&) { return typename T::ttype(); }, "The time unit.")
         .def(
             "__getstate__",
             [](const vec_t& self) { return vec_to_bytes<T>(*self); },
-            event_docstrings::kGetStateDoc,
             nb::sig("def __getstate__(self, /) -> bytes")
         )
         .def(
             "__setstate__",
             [](vec_t& self, const nb::bytes& bytes) { vec_from_bytes<T>(self, bytes); },
-            event_docstrings::kSetStateDoc,
             nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str())
         )
         .def("__repr__", [](const vec_t& self) { return fmt::format("{::s}", *self); })
@@ -522,21 +359,19 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
 
     // clang-format off
-    note.def_prop_rw(RW_COPY(unit,  "start",    time))
+    note.def_prop_rw(RW_COPY(unit,  "start",    time), "Alias of ``time``.")
         .def_prop_rw(RW_COPY(unit,  "duration", duration))
         .def_prop_rw(RW_COPY(i8,    "pitch",    pitch))
         .def_prop_rw(RW_COPY(i8,    "velocity", velocity))
         .def("__init__", &pyinit<Note<T>, unit, unit, i8, i8>,
-            nb::arg("time"), nb::arg("duration"), nb::arg("pitch"), nb::arg("velocity") = 0,
-            "Create a note event from timing, duration, pitch, and velocity values."
-        )
+            nb::arg("time"), nb::arg("duration"), nb::arg("pitch"), nb::arg("velocity") = 0)
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
             [](self_t& self, unit value) { self->duration = value - self->time;},
-            event_docstrings::kNoteEndDoc)
+            event_docstrings::kEndDoc)
         .def("empty", [](const self_t& self) { return self->empty(); }, event_docstrings::kNoteEmptyDoc)
-        .def("ent_time", [](const self_t& self) { return self->end(); }, event_docstrings::kNoteEndDoc)
+        .def("ent_time", [](const self_t& self) { return self->end(); }, "Return ``end``. Misspelled; use ``end``.")
         .def(
             "shift_pitch",
             [](self_t& self, const int8_t offset, const bool inplace) {
@@ -562,8 +397,8 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     ;
 
     note_vec
-        .def("numpy", to_numpy, event_docstrings::kNoteNumpyDoc)
-        .def_static("from_numpy", &note_from_numpy<T>, event_docstrings::kNoteFromNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
+        .def_static("from_numpy", &note_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(note, note_vec);
@@ -586,12 +421,11 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     keysig.def_prop_rw(RW_COPY(i8,    "key", key))
         .def_prop_rw(RW_COPY(u8,      "tonality", tonality))
         .def("__init__", &pyinit<KeySignature<T>, unit, i8, u8>,
-            nb::arg("time"), nb::arg("key"), nb::arg("tonality"),
-            event_docstrings::kKeySigInitDoc)
+            nb::arg("time"), nb::arg("key"), nb::arg("tonality"))
     ;
 
     keysig_vec
-        .def("numpy", to_numpy, event_docstrings::kKeySigNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &keysig_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -615,12 +449,11 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     timesig.def_prop_rw(RW_COPY(u8, "numerator", numerator))
         .def_prop_rw(RW_COPY(u8, "denominator", denominator))
         .def("__init__", &pyinit<TimeSignature<T>, unit, u8, u8>,
-            nb::arg("time"), nb::arg("numerator"), nb::arg("denominator"),
-            event_docstrings::kTimeSigInitDoc)
+            nb::arg("time"), nb::arg("numerator"), nb::arg("denominator"))
     ;
 
     timesig_vec
-        .def("numpy", to_numpy, event_docstrings::kTimeSigNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &timesig_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -645,12 +478,11 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(u8, "number", number))
         .def_prop_rw(RW_COPY(u8, "value", value))
         .def("__init__", &pyinit<ControlChange<T>, unit, u8, u8>,
-            nb::arg("time"), nb::arg("number"), nb::arg("value"),
-            event_docstrings::kCCInitDoc)
+            nb::arg("time"), nb::arg("number"), nb::arg("value"))
     ;
 
     controlchange_vec
-        .def("numpy", to_numpy, event_docstrings::kControlNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &controlchange_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -671,19 +503,19 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
 
     // clang-format off
     pedal
-        .def_prop_rw(RW_COPY(unit, "start", time))
+        .def_prop_rw(RW_COPY(unit, "start", time), "Alias of ``time``.")
         .def_prop_rw(RW_COPY(unit, "duration", duration))
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
-            [](self_t& self, unit value) { self->duration = value - self->time; })
+            [](self_t& self, unit value) { self->duration = value - self->time; },
+            event_docstrings::kEndDoc)
         .def("__init__", &pyinit<Pedal<T>, unit, unit>,
-            nb::arg("time"), nb::arg("duration"),
-            event_docstrings::kPedalInitDoc)
+            nb::arg("time"), nb::arg("duration"))
     ;
 
     pedal_vec
-        .def("numpy", to_numpy, event_docstrings::kPedalNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &pedal_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -722,16 +554,16 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
             "tempo",
             [](const self_t& self) { return self->qpm(); },
             [](self_t& self, f64 value) { self->set_qpm(value); },
-            event_docstrings::kTempoPropTempoDoc)
+            "Alias of ``qpm``.")
         .def_prop_rw(
             "qpm",
             [](const self_t& self) { return self->qpm(); },
             [](self_t& self, f64 value) { self->set_qpm(value); },
-            event_docstrings::kTempoPropQpmDoc)
+            event_docstrings::kTempoQpmDoc)
     ;
 
     tempo_vec
-        .def("numpy", to_numpy, event_docstrings::kTempoNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &tempo_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -755,12 +587,11 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     pitchbend
         .def_prop_rw(RW_COPY(i32, "value", value))
         .def("__init__", &pyinit<PitchBend<T>, unit, i32>,
-            nb::arg("time"), nb::arg("value"),
-            event_docstrings::kPitchBendInitDoc)
+            nb::arg("time"), nb::arg("value"))
     ;
 
     pitchbend_vec
-        .def("numpy", to_numpy, event_docstrings::kPitchBendNumpyDoc)
+        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
         .def_static("from_numpy", &pitchbend_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
     ;
     // clang-format on
@@ -781,8 +612,7 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     textmeta
         .def_prop_rw(RW_COPY(std::string, "text", text))
         .def("__init__", &pyinit<TextMeta<T>, unit, std::string>,
-            nb::arg("time"), nb::arg("text"),
-            event_docstrings::kTextMetaInitDoc)
+            nb::arg("time"), nb::arg("text"))
     ;
 
     textmeta_vec
@@ -791,7 +621,7 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
         }, event_docstrings::kTextMetaNumpyDoc)
         .def_static("from_numpy", []() {
             throw std::runtime_error("TextMeta does not support from_numpy");
-        }, event_docstrings::kTextMetaFromNumpyDoc)
+        }, event_docstrings::kTextMetaNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(textmeta, textmeta_vec);
