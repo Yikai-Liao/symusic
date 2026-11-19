@@ -204,10 +204,11 @@ struct VoiceLimit {
         ExportIssues::invalid(
             where,
             fmt::format(
-                "[voice-placement] cannot place attacks at playback tick {} (480 TPQ) in {} "
+                "[voice-placement] cannot place attacks at playback tick {} ({} TPQ) in {} "
                 "available voices "
                 "(limit: {}); earlier onsets are not reassigned. Use MIDI export for this score",
                 tick,
+                tpq,
                 available,
                 maximum
             )
@@ -227,10 +228,11 @@ public:
         ExportIssues::invalid(
             where,
             fmt::format(
-                "[voice-search-limit] stopped searching at playback tick {} (480 TPQ) with {} "
+                "[voice-search-limit] stopped searching at playback tick {} ({} TPQ) with {} "
                 "available voices "
                 "after {} retry candidates across the score; use MIDI export for this score",
                 tick,
+                tpq,
                 available,
                 limit
             )
@@ -503,9 +505,10 @@ void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
         issues.warn(
             where,
             "midi-chord-release",
-            "the reattack planned at playback tick {} (480 TPQ) uses a tie that can shorten "
+            "the reattack planned at playback tick {} ({} TPQ) uses a tie that can shorten "
             "chord pitch {} by one tick in abc2midi; use MIDI export for exact releases",
             end + PlaybackGrid::attack_offset,
+            tpq,
             *release.other_release
         );
     write_span(start, end - 1);
