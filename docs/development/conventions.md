@@ -119,6 +119,7 @@ These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.m
 - **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.
 - **Explicit side effects.** Reading an attribute or calling a query does not download, write files or print. Network and file access happen in functions whose name says so.
 - **PEP 8 names.** Functions, methods and attributes are `snake_case`; classes are `PascalCase`; a trailing underscore appears only to avoid a keyword.
+- **Words, not abbreviations.** A name is spelled out (`ticks_per_quarter`, `min_duration`, `microseconds_per_quarter`) unless the abbreviation is the term that the main symbolic-music libraries use verbatim for the same thing, as `qpm` is. `ttype` predates the rule and stays, matching the C++ concept `TType`. C++ uses the same names.
 - **Stable keyword names.** A keyword argument has the same name as the C++ parameter and the guide's description of it, and a time-valued argument is in the unit of the object it is called on.
 
 The Python package follows Ruff's rules from `pyproject.toml` and annotates every public function; `ruff format` owns its layout.
