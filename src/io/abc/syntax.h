@@ -107,7 +107,7 @@ struct Atom {
 };
 
 struct Grace {
-    vec<Pitch> pitches;
+    vec<Atom> attacks;
 };
 struct Field {
     char             kind;

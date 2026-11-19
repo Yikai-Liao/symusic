@@ -76,7 +76,8 @@ struct rest : seq<rest_letter, opt<length>> {};
 struct spacing : seq<chars<'y'>, opt<duration>> {};
 struct chord
     : seq<chars<'['>, star<sor<pitch, rest, spacing, ws>>, chars<']'>, opt<length>, opt<tie>> {};
-struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<pitch, spacing, ws>>, chars<'}'>> {};
+struct grace : seq<chars<'{'>, opt<chars<'/'>>, star<sor<chord, pitch, spacing, ws>>, chars<'}'>> {
+};
 
 using field_key = seq<sor<alpha, chars<'+'>>, chars<':'>>;
 struct field : seq<field_key, until<']'>> {};
@@ -324,6 +325,8 @@ private:
     int        number(std::string_view value, Location at, int fallback = 0) const;
     Length     length(const Node* node) const;
     Pitch      pitch(const Node& node) const;
+    Atom       note_atom(const Node& node) const;
+    Atom       chord_atom(const Node& node) const;
     Bar        bar(const Node& node) const;
     Tuplet     tuplet(const Node& node) const;
     vec<Pitch> members(const Node& node) const;
@@ -337,7 +340,7 @@ private:
     void emit(const Node& node, grammar::pitch);
     void emit(const Node& node, grammar::rest);
     void emit(const Node& node, grammar::chord);
-    void emit(const Node& node, grammar::grace) { push(node, Grace{members(node)}); }
+    void emit(const Node& node, grammar::grace);
     void emit(const Node& node, grammar::field) {
         aliases.append({location(node), field(node.data), source.first_line}, output);
     }
@@ -491,23 +494,49 @@ void MusicLine::invalid(const Node& node) {
         );
 }
 
-void MusicLine::emit(const Node& node, grammar::pitch) {
+Atom MusicLine::note_atom(const Node& node) const {
     const auto note = pitch(node);
-    push(node, Atom{{note}, note.length, false, note.tie});
+    return {{note}, note.length, false, note.tie};
 }
+
+Atom MusicLine::chord_atom(const Node& node) const {
+    auto       notes  = members(node);
+    const auto suffix = child<grammar::length>(node);
+    const auto duration
+        = suffix ? length(suffix) : (notes.empty() ? Length{} : notes.front().length);
+    return {std::move(notes), duration, false, child<grammar::tie>(node) != nullptr, true};
+}
+
+void MusicLine::emit(const Node& node, grammar::pitch) { push(node, note_atom(node)); }
 
 void MusicLine::emit(const Node& node, grammar::rest) {
     push(node, Atom{{}, length(child<grammar::length>(node)), !lower(node.data.front())});
 }
 
 void MusicLine::emit(const Node& node, grammar::chord) {
-    auto       notes  = members(node);
-    const auto suffix = child<grammar::length>(node);
-    const auto duration
-        = suffix ? length(suffix) : (notes.empty() ? Length{} : notes.front().length);
-    if (notes.empty())
+    auto atom = chord_atom(node);
+    if (atom.pitches.empty())
         diagnostics.warn(location(node), "empty-chord", "empty chord treated as a rest");
-    push(node, Atom{std::move(notes), duration, false, child<grammar::tie>(node) != nullptr, true});
+    push(node, std::move(atom));
+}
+
+void MusicLine::emit(const Node& node, grammar::grace) {
+    Grace  group;
+    size_t count = 0;
+    for (const auto& member : node.children) {
+        auto atom = member->is_type<grammar::chord>() ? chord_atom(*member) : note_atom(*member);
+        if (atom.pitches.empty()) {
+            diagnostics.warn(location(*member), "empty-chord", "ignored empty grace chord");
+            continue;
+        }
+        count += atom.pitches.size();
+        if (count > 128)
+            diagnostics.error(
+                location(*member), "group-limit", "grace groups support at most 128 notes"
+            );
+        group.attacks.push_back(std::move(atom));
+    }
+    push(node, std::move(group));
 }
 
 void MusicLine::emit(const Node& node, grammar::broken) {

@@ -93,6 +93,12 @@ struct GraceGroup {
     DeferredEffects after;
 };
 
+struct AttackSet {
+    const Atom& atom;
+    Location    at;
+    bool        tied;
+};
+
 struct Prepared {
     const Atom*               atom;
     Location                  at;
@@ -107,6 +113,7 @@ struct Prepared {
     long double               rhythm_scale = 1;
     long double               last_scale   = 1;
     [[nodiscard]] long double played_duration() const { return duration * rhythm_scale; }
+    [[nodiscard]] AttackSet   attacks() const { return {*atom, at, tied}; }
 };
 
 // Grace consumes time from the first attack only; the second keeps its length.
@@ -499,6 +506,7 @@ private:
     );
     long double grace_step(const Prepared& atom, long double weights);
     long double play_grace(const Prepared& atom);
+    void        play_grace_attack(AttackSet notes, long double start, long double duration);
     void play_notes(const Prepared& atom, long double start, long double duration, int spread);
     bool play_expanded_ornament(
         const Prepared&         atom,
@@ -507,7 +515,7 @@ private:
         long double             duration
     );
     std::optional<LyricAnchor> emit_chord(
-        const Prepared&         atom,
+        Location                at,
         const vec<ChordMember>& members,
         long double             start,
         long double             audible,
@@ -528,7 +536,7 @@ private:
     Sound sound(Pitch pitch, Location at, bool tie);
     void  ornament_attack(Sound sound, long double start, long double duration, Location at);
     std::optional<AttackGate> sustain(Sound& sound, i32 end);
-    vec<ChordMember>          resolve_chord(const Prepared& atom, long double end);
+    vec<ChordMember>          resolve_chord(AttackSet notes, long double end);
     void                      set_symbols(std::string_view value, Location at);
     void                      midi(std::string_view command, Location at);
     void                      information(std::string_view value, Location at);
@@ -725,14 +733,14 @@ std::optional<AttackGate> VoicePlayer::sustain(Sound& sound, i32 end) {
     return address;
 }
 
-vec<ChordMember> VoicePlayer::resolve_chord(const Prepared& atom, long double end) {
-    diagnostics.spend(PlaybackWork::chord(atom.atom->pitches.size(), lane().ties.size()), atom.at);
-    const auto       release = lane().ties.empty() ? 0 : tick(end, diagnostics, atom.at);
+vec<ChordMember> VoicePlayer::resolve_chord(AttackSet notes, long double end) {
+    diagnostics.spend(PlaybackWork::chord(notes.atom.pitches.size(), lane().ties.size()), notes.at);
+    const auto       release = lane().ties.empty() ? 0 : tick(end, diagnostics, notes.at);
     vec<ChordMember> members;
-    members.reserve(atom.atom->pitches.size());
+    members.reserve(notes.atom.pitches.size());
     // Extend every continuation before an attack can change the shared wheel.
-    for (const auto& pitch : atom.atom->pitches) {
-        auto played       = sound(pitch, atom.at, atom.tied);
+    for (const auto& pitch : notes.atom.pitches) {
+        auto played       = sound(pitch, notes.at, notes.tied);
         auto continuation = sustain(played, release);
         members.push_back({played, continuation});
     }
@@ -745,9 +753,10 @@ void VoicePlayer::play_notes(
     const auto& expression = lane().expression;
     const bool  staccato   = atom.ornament.staccato && !atom.harp_cut;
     const auto  audible    = expression.gate(duration, atom.slur, staccato);
-    const auto  members    = resolve_chord(atom, start + expression.tied_gate(duration, staccato));
+    const auto  members
+        = resolve_chord(atom.attacks(), start + expression.tied_gate(duration, staccato));
     if (play_expanded_ornament(atom, members, start, duration)) return;
-    if (const auto anchor = emit_chord(atom, members, start, audible, spread))
+    if (const auto anchor = emit_chord(atom.at, members, start, audible, spread))
         lyric_line.attack(*anchor);
 }
 
@@ -767,17 +776,14 @@ bool VoicePlayer::play_expanded_ornament(
 }
 
 std::optional<LyricAnchor> VoicePlayer::emit_chord(
-    const Prepared&         atom,
-    const vec<ChordMember>& members,
-    long double             start,
-    long double             audible,
-    int                     spread
+    Location at, const vec<ChordMember>& members, long double start, long double audible, int spread
 ) {
     // Outgoing ties disable chord spread; incoming sustains do not count as attacks.
-    const auto has_ties = atom.tied || std::ranges::any_of(atom.atom->pitches, &Pitch::tie);
-    const auto attack   = has_ties ? 0 : spread;
+    const auto has_ties
+        = std::ranges::any_of(members, [](const ChordMember& member) { return member.sound.tie; });
+    const auto attack = has_ties ? 0 : spread;
     const auto max_stagger
-        = std::max(0, tick(audible, diagnostics, atom.at) - PlaybackGrid::release_trim);
+        = std::max(0, tick(audible, diagnostics, at) - PlaybackGrid::release_trim);
     int                        stagger      = 0;
     size_t                     chord_member = 0;
     std::optional<LyricAnchor> first_attack;
@@ -788,7 +794,7 @@ std::optional<LyricAnchor> VoicePlayer::emit_chord(
             // Converted tie attacks keep the selected channel in abc2midi.
             const auto member = played.tie ? std::nullopt : std::optional{chord_member++};
             const auto hit    = output.attack(
-                lanes.id(), played.pitch, start, audible, stagger, velocity(start), atom.at, member
+                lanes.id(), played.pitch, start, audible, stagger, velocity(start), at, member
             );
             address = hit.gate;
             if (!first_attack) first_attack = hit.lyric;
@@ -796,7 +802,7 @@ std::optional<LyricAnchor> VoicePlayer::emit_chord(
                 std::min<int64_t>(max_stagger, stagger + static_cast<int64_t>(attack))
             );
         }
-        if (played.tie) next_ties.push_back({played, *address, atom.at});
+        if (played.tie) next_ties.push_back({played, *address, at});
     }
     // abc2midi treats a dash between unlike pitches as an ordinary attack.
     lane().ties = std::move(next_ties);
@@ -828,18 +834,27 @@ long double VoicePlayer::grace_step(const Prepared& atom, long double weights) {
     return length;
 }
 
+void VoicePlayer::play_grace_attack(AttackSet notes, long double start, long double duration) {
+    auto&      expression = lane().expression;
+    const auto members    = resolve_chord(notes, start + duration);
+    const auto spread     = notes.atom.chord ? expression.take_chord_spread() : 0;
+    if (const auto anchor
+        = emit_chord(notes.at, members, start, expression.gate(duration, true, false), spread))
+        lyric_line.attack(*anchor);
+}
+
 long double VoicePlayer::play_grace(const Prepared& atom) {
-    if (!atom.grace.notes || atom.grace.notes->pitches.empty()) return 0;
-    const auto& pitches = atom.grace.notes->pitches;
+    if (!atom.grace.notes) return 0;
+    const auto& attacks = atom.grace.notes->attacks;
     long double weights = 0;
-    for (const auto& pitch : pitches) weights += pitch.length.fraction();
+    for (const auto& note : attacks) weights += note.length.fraction();
     if (weights == 0) return 0;
     const auto length = grace_step(atom, weights);
     if (length == 0) return 0;
     auto start = lane().time;
-    for (const auto& pitch : pitches) {
-        const auto duration = pitch.length.fraction() * length;
-        ornament_attack(sound(pitch, atom.grace.at, false), start, duration, atom.at);
+    for (const auto& note : attacks) {
+        const auto duration = note.length.fraction() * length;
+        play_grace_attack({note, atom.grace.at, note.tie}, start, duration);
         start += duration;
     }
     return length * weights;
@@ -913,7 +928,6 @@ long double VoicePlayer::play_ornament_lead(
 
 long double VoicePlayer::lead_in(const Prepared& atom) {
     const auto duration = play_grace(atom);
-    if (duration > 0) lane().ties.clear();
     lane().time += duration;
     if (!atom.grace.after.ordered.empty()) {
         if (lanes.id() == 0) accompaniment.advance(lane().time, atom.at);
