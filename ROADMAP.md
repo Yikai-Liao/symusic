@@ -16,7 +16,6 @@ Workarounds and unsupported configurations with current toolchains.
 
 - **clice lint as a gate.** Re-run `clice lint` after the `zpp_bits` serializer fix and triage the remaining findings in `examples/`, `py_src/` and `tests/cpp/`; use-after-move findings in tests may be intentional. Fix or suppress them, then run `clice lint` in the `lint` lane.
 - **ty.** `ty check` on the installed package reports about 290 diagnostics, mostly generated-stub overrides and NumPy method names shadowed by the containers. Decide whether ty replaces the mypy checks in `tests/typecheck`, fix the stubs, then add it to CI.
-- **Markdown code blocks.** Ruff can format Python blocks in Markdown; the `lint` lane does not check them yet.
 
 ## Memory safety
 
@@ -25,6 +24,20 @@ Signed `Tick` (`i32`) arithmetic and narrowing conversions can overflow, which i
 - **Tick arithmetic.** `Note::end()`, `Pedal::end()` and `shift_time_inplace()` compute `time + duration` and `time += offset` directly (`include/symusic/event.h`, `src/event.cpp`). The results propagate through `ops::end()`, `trim_inplace()` and `adjust_time_inplace_inner()` (`include/symusic/ops.h`), `Track::end()`, `Score::end()`, MIDI parse/export duration handling (`src/io/midi.cpp`) and time conversion (`src/conversion.cpp`). Use `int64_t` intermediates and one checked write-back helper.
 - **Float-to-integer narrowing.** `Tempo::qpm2mspq()`, `Quarter2Tick::time()`, `Second2Tick::get_time()` and `resample_inner()` cast rounded floats to `i32` without checking finiteness or both bounds. Route them through one checked helper.
 - **Python tests under ASan.** CI runs the C++ tests with ASan and UBSan, but not pytest. A sanitized extension needs `LD_PRELOAD` of `libasan` and `libubsan` even at install time, because the build runs nanobind's stub generator, which imports the extension (without it the install fails with "ASan runtime does not come first"). Preloading for the whole `uv pip install` process exhausted resources and was killed. Untried: build the extension with `SYMUSIC_BUILD_PYTHON=ON` and `SYMUSIC_PYTHON_STUB` pointing at a stub from a normal build to skip generation, then run pytest with the preload and `ASAN_OPTIONS=detect_leaks=0`.
+
+## Behavior defects
+
+Found while checking the guide against the package. Each fix needs a test that fails without it.
+
+- **Lyrics on a separate track.** MIDI import files a lyric under `meta.channel()` (`src/io/midi.cpp`), which is 15 for every meta event, so lyrics land in a track of their own instead of the track with the notes, and a written track with notes and lyrics reads back as two tracks. Decide where lyrics belong (the MIDI track's first note channel, or a per-MIDI-track lyric list) and keep the round trip stable.
+- **`trim` modes.** `trim_inplace` (`include/symusic/ops.h`) compares `start_mode` and `end_mode` with `"remove"` and `"truncate"`; any other string keeps the events that cross that boundary without cutting them. Reject unknown modes with `ValueError`, or replace the strings with an enum.
+- **`adjust_time` with repeated anchors.** Equal consecutive values in `original_times` pass `check_times`; the segment between them gets an infinite or NaN scale factor (`adjust_time_inplace_inner` in `include/symusic/ops.h`), and casting the scaled time to an integer is undefined behavior. Require strictly increasing original times.
+- **`KeySignature.degree()` for flat keys.** `(key * 5) % 12` is negative for negative `key`, and the `u8` result wraps, so the repr shows `degree=251` for F major (`key=-1`). Use a non-negative modulo.
+- **`Score.trim`.** `trim` is bound for tracks only; the C++ score overload has no binding.
+- **`Note.ent_time`.** A misspelled duplicate of `end()` is bound in `py_src/bindings/events/event_bindings.h`. Deprecate and remove it.
+- **`to()` in the stubs.** `Score.to`, `Track.to` and the event `to` return `object` in `core.pyi`; type them by the target unit.
+- **ABC output.** `dumps_abc` prints "calling midi2abc" to stdout, and the `T:` line of the result names the temporary MIDI file. Silence the message and write the score's title, or none.
+- **ABC tune selection.** ABC import reads only the first tune of a file. Accept the `X:` number of the tune to read.
 
 ## Test coverage
 
