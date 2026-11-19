@@ -1130,7 +1130,7 @@ def test_abc_malformed_note_envelopes_report_the_directive(command, code):
         ("{A}!shape!CDEF|", [121, 480], [121, 480]),
         ("{AB}!shape!CDEF|", [241, 480], [241, 480]),
         ("!shape!{A}!bend!CDEF|", [1, 120], [1, 120, 121, 480]),
-        ("D !shape!{A}[I:MIDI control 11 80] CDE|", [480, 481, 600], [481, 600]),
+        ("D !shape!{A}[I:MIDI control 11 80] CDE|", [481, 600, 600], [481, 600]),
     ],
 )
 def test_abc_shape_mark_targets_attack_on_its_side_of_grace(
@@ -1243,3 +1243,10 @@ def test_abc_tuning_follows_staggered_attack_time(earlier, bends):
         (481, 64),
     ]
     assert [(e.time, e.value) for e in track.pitch_bends] == bends
+
+
+def test_abc_orphan_grace_keeps_following_controller():
+    with pytest.warns(UserWarning, match=r"<string>:7:3: ABC \[orphan-grace\]"):
+        track = Score.from_abc(HEADER + "D {A}[I:MIDI control 11 80]|").tracks[0]
+    assert [n.pitch for n in track.notes] == [62]
+    assert [(e.time, e.number, e.value) for e in track.controls] == [(480, 11, 80)]

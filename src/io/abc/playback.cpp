@@ -75,9 +75,10 @@ struct EnvelopeCue {
 };
 
 struct GraceGroup {
-    const Grace*               notes = nullptr;
-    Location                   at{};
-    std::optional<EnvelopeCue> following_mark;
+    const Grace*      notes = nullptr;
+    Location          at{};
+    long double       unit = 0;
+    vec<const Token*> after;
 };
 
 struct Prepared {
@@ -429,6 +430,7 @@ private:
     vec<const Token*>          timed_effects;
     DecorationMark             decoration_mark(const Decoration& decoration) const;
     bool                       can_defer(const Token& token) const;
+    bool                       follows_grace(const Token& token) const;
     std::optional<EnvelopeCue> envelope_cue(const Token& token) const;
     bool                       apply_notated_ratio(const Token& token);
     void                       visit_token(const Token& token);
@@ -503,8 +505,8 @@ private:
 void VoicePlayer::orphan_grace() {
     if (grace.notes)
         diagnostics.warn(grace.at, "orphan-grace", "ignored grace notes without a following note");
-    arm_envelope(grace.following_mark);
-    grace = {};
+    const auto discarded = std::exchange(grace, {});
+    for (const auto* token : discarded.after) visit_token(*token);
 }
 
 void VoicePlayer::arm_envelope(std::optional<EnvelopeCue> cue) {
@@ -586,9 +588,9 @@ void VoicePlayer::push(const Atom& atom, Location at, size_t music_line) {
 
 void VoicePlayer::flush() {
     if (!pending) return;
-    play(*pending);
-    pending.reset();
+    const auto prepared     = std::exchange(pending, {});
     const auto next_effects = std::exchange(timed_effects, {});
+    play(*prepared);
     for (const auto* token : next_effects) visit_token(*token);
 }
 
@@ -733,7 +735,7 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
     if (weights == 0) return 0;
     const auto length = lane().expression.grace_ratio > 0 ?
                             atom.duration * lane().expression.grace_ratio / weights :
-                            written.unit / lane().expression.grace_divider;
+                            atom.grace.unit / lane().expression.grace_divider;
     const auto total  = length * weights;
     if (total + epsilon >= atom.duration) {
         diagnostics.warn(
@@ -801,42 +803,41 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     const auto& pitches = atom.atom->pitches;
     const auto  spread  = atom.atom->chord ? lane().expression.take_chord_spread() : 0;
     if (pitches.empty()) {
-        arm_envelope(atom.grace.following_mark);
         report_ties(lane().ties, diagnostics);
         return;
     }
-    auto lead_in = play_grace(atom);
-    arm_envelope(atom.grace.following_mark);
+    long double cut = 0;
     if (atom.harp_cut)
-        lead_in += play_harp_cut(atom, lane().time + lead_in, duration - lead_in);
+        cut = play_harp_cut(atom, lane().time, duration);
     else if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll)
-        lead_in += play_cut(pitches.front(), atom, lane().time + lead_in, duration - lead_in);
-    // Grace attacks, including an Irish cut, break the incoming tie. A
-    // trill or roll is instead an attribute of an attack that may not occur.
-    if (lead_in > 0) lane().ties.clear();
-    play_notes(atom, lane().time + lead_in, duration - lead_in, spread);
+        cut = play_cut(pitches.front(), atom, lane().time, duration);
+    if (cut > 0) lane().ties.clear();
+    play_notes(atom, lane().time + cut, duration - cut, spread);
 }
 
 void VoicePlayer::play(const Prepared& atom) {
+    const auto start = lane().time;
+    lyric_line.start(atom.music_line);
+    const auto lead_in = play_grace(atom);
+    if (lead_in > 0) lane().ties.clear();
+    lane().time += lead_in;
+    if (!atom.grace.after.empty()) {
+        if (lanes.id() == 0) accompaniment.advance(lane().time, atom.at);
+        for (const auto* token : atom.grace.after) visit_token(*token);
+    }
     const auto duration = atom.ornament.fermata ?
                               lane().expression.fermata(atom.duration, written.unit) :
                               atom.duration;
-    const auto end      = lane().time + duration;
+    const auto end      = start + duration;
     (void)tick(end, diagnostics, atom.at);
     if (lanes.id() == 0) accompaniment.advance(end, atom.at);
-    lyric_line.start(atom.music_line);
-    articulation(atom, duration);
+    articulation(atom, duration - lead_in);
     lane().time = end;
 }
 
 void VoicePlayer::visit(const Grace& next, Location at) {
-    if (grace.notes) {
-        diagnostics.warn(
-            grace.at, "orphan-grace", "ignored grace group before a second grace group"
-        );
-    }
-    grace.notes = &next;
-    grace.at    = at;
+    if (grace.notes) orphan_grace();
+    grace = {&next, at, written.unit, {}};
 }
 
 void VoicePlayer::visit(const Harmony& chord, Location at) {
@@ -1170,6 +1171,14 @@ bool VoicePlayer::can_defer(const Token& token) const {
     return field && std::string_view("KQMIP").find(field->kind) != std::string_view::npos;
 }
 
+bool VoicePlayer::follows_grace(const Token& token) const {
+    // L: sets the host's written length without changing the grace group's unit.
+    // A meter change may likewise supply the length of a measure rest.
+    if (const auto* field = std::get_if<Field>(&token.value))
+        return std::string_view("KQI").find(field->kind) != std::string_view::npos;
+    return can_defer(token);
+}
+
 bool VoicePlayer::apply_notated_ratio(const Token& token) {
     const auto information = token.information();
     if (!information) return false;
@@ -1193,9 +1202,7 @@ std::optional<EnvelopeCue> VoicePlayer::envelope_cue(const Token& token) const {
 }
 
 void VoicePlayer::schedule_envelope(EnvelopeCue cue, const Token& token) {
-    if (grace.notes)
-        grace.following_mark = cue;
-    else if (pending)
+    if (pending)
         // The cue belongs to the next attack without interrupting a tie or
         // a broken-rhythm pair that still needs to modify the previous atom.
         timed_effects.push_back(&token);
@@ -1205,6 +1212,10 @@ void VoicePlayer::schedule_envelope(EnvelopeCue cue, const Token& token) {
 
 void VoicePlayer::schedule(const Token& token) {
     if (apply_notated_ratio(token)) return;
+    if (grace.notes && follows_grace(token)) {
+        grace.after.push_back(&token);
+        return;
+    }
     if (const auto cue = envelope_cue(token)) {
         schedule_envelope(*cue, token);
         return;

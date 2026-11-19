@@ -1296,3 +1296,32 @@ def test_live_muted_microtone(upstream, tmp_path, mark):
     assert [(e.time, e.value) for e in native.tracks[0].pitch_bends] == [
         (e.time, e.value) for e in oracle.tracks[0].pitch_bends
     ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "!shape!{A}[I:MIDI channel 10]CDEF|",
+        "!shape!{A}[I:MIDI vol 0]CDEF|",
+        "D !shape!{A}[I:MIDI control 11 80] CDE|",
+        "D !shape!{A}[I:MIDI bendstring -100]!bend!CDE|",
+        "D {A}!pp!CDE|",
+        "D>{A}[I:MIDI vol 0]CDE|",
+        "D {F}[L:1/8]FGA|",
+        "D {F}[Q:1/4=90]FGA|",
+        "D {A}[I:MIDI control 11 80]z CDE|",
+        '"C"D {A}"Dm"CDE|',
+    ],
+)
+def test_live_grace_precedes_trailing_effects(upstream, tmp_path, body):
+    abc = HEADER + "[I:MIDI controlstring 11 10][I:MIDI bendstring 300]" + body
+    native = Score.from_abc(abc)
+    oracle = oracle_score(upstream, abc, tmp_path)
+    assert performed(native) == performed(oracle)
+
+
+def test_live_grace_keeps_its_written_key(upstream, tmp_path):
+    abc = HEADER + "D {F}[K:G]FGA|"
+    native = Score.from_abc(abc)
+    oracle = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(native) == note_rows(oracle)
