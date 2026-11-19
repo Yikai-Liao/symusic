@@ -595,8 +595,11 @@ def test_abc_export_preserves_tempo_keys_meter_polyphony_and_controls():
     score.tempos.append(Tempo(960, 97))
     score.time_signatures.append(TimeSignature(960, 3, 4))
     score.key_signatures.extend([KeySignature(0, 0, 0), KeySignature(960, 1, 0)])
-    with pytest.warns(UserWarning, match=r"\[split-voice\]"):
+    with pytest.warns(
+        UserWarning, match=r"\[(split-voice|midi-field-timing|midi-control-timing)\]"
+    ) as notices:
         text = score.dumps_abc(warn=True)
+    assert sum("[split-voice]" in str(notice.message) for notice in notices) == 1
     loaded = Score.from_abc(text)
     assert note_rows(loaded) == note_rows(score)
     assert loaded.tempos == score.tempos
@@ -695,8 +698,12 @@ def test_abc_export_rejects_out_of_range_pitch_bend(value: int):
 def test_abc_export_merges_overlapping_pedals():
     score = roundtrip_score()
     score.tracks[0].pedals.extend([Pedal(120, 240), Pedal(240, 240)])
-    with pytest.warns(UserWarning, match=r"\[overlapping-pedals\]"):
+    with pytest.warns(
+        UserWarning, match=r"\[(overlapping-pedals|midi-control-timing)\]"
+    ) as notices:
         text = score.dumps_abc(warn=True)
+    assert len(notices) == 2
+    assert any("[overlapping-pedals]" in str(notice.message) for notice in notices)
     assert list(Score.from_abc(text).tracks[0].pedals) == [Pedal(120, 360)]
 
 
@@ -705,8 +712,12 @@ def test_abc_export_warns_if_pedals_disagree_with_controls():
     track = score.tracks[0]
     track.pedals.append(Pedal(0, 480))
     track.controls.extend([ControlChange(120, 64, 80), ControlChange(360, 64, 0)])
-    with pytest.warns(UserWarning, match=r"\[pedal-conflict\]"):
+    with pytest.warns(
+        UserWarning, match=r"\[(pedal-conflict|midi-control-timing)\]"
+    ) as notices:
         text = score.dumps_abc(warn=True)
+    assert len(notices) == 2
+    assert any("[pedal-conflict]" in str(notice.message) for notice in notices)
     loaded = Score.from_abc(text).tracks[0]
     assert loaded.controls == track.controls
     assert list(loaded.pedals) == [Pedal(120, 240)]

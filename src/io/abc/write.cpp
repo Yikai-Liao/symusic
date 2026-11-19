@@ -657,6 +657,8 @@ private:
     i32 scale(long double time, std::string_view where) { return clock.scale(time, where, issues); }
     vec<WrittenNote> notes(const Track<T>& track, std::string_view where);
     Fields           channel_events(const Track<T>& track, std::string_view where, size_t copies);
+    void add_control(Fields& fields, i32 at, int number, int value, std::string_view where);
+    void release_limits(i32 start, i32 duration, bool drums, std::string_view where);
     vec<std::pair<i32, i32>> pedals(const Track<T>& track, std::string_view where);
     void                     add_pedals(
         Fields& fields, vec<std::pair<i32, i32>> pedals, std::string_view where, size_t copies
@@ -701,6 +703,22 @@ bool legacy_sustain_fits(i32 duration) {
 }
 
 template<TType T>
+void ScoreWriter<T>::release_limits(i32 start, i32 duration, bool drums, std::string_view where) {
+    if (!legacy_sustain_fits(duration))
+        issues.warn(
+            where, "midi-sustain-range", "abc2midi may shorten an unusually long held note"
+        );
+    if (drums && duration == 1)
+        issues.warn(
+            where,
+            "midi-short-drum",
+            "abc2midi can play a one-tick drum hit at tick {} with zero duration; use MIDI export "
+            "to keep the release",
+            start
+        );
+}
+
+template<TType T>
 vec<WrittenNote> ScoreWriter<T>::notes(const Track<T>& track, std::string_view where) {
     vec<WrittenNote> result;
     result.reserve(track.notes->size());
@@ -718,10 +736,9 @@ vec<WrittenNote> ScoreWriter<T>::notes(const Track<T>& track, std::string_view w
             ++end;
             issues.warn(where, "short-note", "stretched a resampled note to one ABC tick");
         }
-        if (!legacy_sustain_fits(end - start))
-            issues.warn(
-                where, "midi-sustain-range", "abc2midi may shorten an unusually long held note"
-            );
+        release_limits(
+            start - start_offset + PlaybackGrid::attack_offset, end - start, track.is_drum, where
+        );
         result.push_back({start - start_offset, end - start_offset, note.pitch, note.velocity});
     }
     return result;
@@ -764,11 +781,16 @@ std::string ScoreWriter<T>::fields(
         ordered.insert_or_assign(time, text);
     }
     if (auto at_zero = ordered.extract(0); !at_zero.empty()) fallback = std::move(at_zero.mapped());
-    for (const auto& [time, value] : ordered) {
-        // Even a solo export declares V: to preserve the track name. The
-        // conductor reads all global fields on the written clock.
+    if (key != 'Q' && !ordered.empty())
+        issues.warn(
+            context,
+            "midi-field-timing",
+            "abc2midi may move the change at tick {} to an earlier MIDI event; use MIDI export for "
+            "exact timing",
+            ordered.begin()->first
+        );
+    for (const auto& [time, value] : ordered)
         global[time].push_back(fmt::format("[{}:{}]", key, value));
-    }
     return fallback;
 }
 
@@ -831,6 +853,21 @@ std::string bend_field(int value, std::string_view where) {
 }
 
 template<TType T>
+void ScoreWriter<T>::add_control(
+    Fields& fields, i32 at, int number, int value, std::string_view where
+) {
+    fields[at].push_back(fmt::format("[I:MIDI control {} {}]", number, value));
+    issues.warn(
+        where,
+        "midi-control-timing",
+        "abc2midi may move CC {} at tick {} or write it after a same-tick attack; use MIDI export "
+        "for exact timing and order",
+        number,
+        at
+    );
+}
+
+template<TType T>
 Fields ScoreWriter<T>::channel_events(
     const Track<T>& track, std::string_view where, size_t copies
 ) {
@@ -841,7 +878,7 @@ Fields ScoreWriter<T>::channel_events(
             ExportIssues::invalid(where, "control number and value must be in MIDI range 0–127");
         const auto at = scale(event.time, where);
         if (event.number == 64) pedal_controls.emplace_back(at, event.number, event.value);
-        fields[at].push_back(fmt::format("[I:MIDI control {} {}]", event.number, event.value));
+        add_control(fields, at, event.number, event.value, where);
     }
     add_bends(fields, track, where);
     reconcile_pedals(fields, pedals(track, where), std::move(pedal_controls), where, copies);
@@ -896,8 +933,8 @@ void ScoreWriter<T>::add_pedals(
     auto [start, end] = pedals.front();
     const auto append = [&] {
         planning_budget.spend_repeated(2 * PlaybackWork::token, copies, where);
-        fields[start].push_back("[I:MIDI control 64 127]");
-        fields[end].push_back("[I:MIDI control 64 0]");
+        add_control(fields, start, 64, 127, where);
+        add_control(fields, end, 64, 0, where);
     };
     for (const auto& [next_start, next_end] : std::span(pedals).subspan(1)) {
         if (next_start < end) {

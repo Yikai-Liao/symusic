@@ -14,7 +14,17 @@ from pathlib import Path
 
 import pytest
 from mido import MidiFile, merge_tracks
-from symusic import ControlChange, Note, Pedal, PitchBend, Score, Tempo, Track
+from symusic import (
+    ControlChange,
+    KeySignature,
+    Note,
+    Pedal,
+    PitchBend,
+    Score,
+    Tempo,
+    TimeSignature,
+    Track,
+)
 
 from tests.test_abc import (
     HEADER,
@@ -933,6 +943,51 @@ def test_export_controls_inside_sustains(upstream: Path, tmp_path: Path):
     assert list(actual.tracks[0].pedals) == [Pedal(1, 480)]
     assert [(n.time, n.pitch, n.velocity) for n in actual.tracks[0].notes] == [
         (n.time, n.pitch, n.velocity) for n in track.notes
+    ]
+
+
+def test_export_control_order_warns(upstream: Path, tmp_path: Path):
+    score = single_note(481, 240)
+    score.tracks[0].controls.append(ControlChange(481, 120, 0))
+    with pytest.warns(
+        UserWarning, match=r"\[midi-control-timing\].*CC 120 at tick 481"
+    ):
+        abc = score.dumps_abc(warn=True)
+    assert Score.from_abc(abc).tracks[0].controls == score.tracks[0].controls
+    path = oracle_midi(upstream, abc, tmp_path)
+    events = []
+    tick = 0
+    for event in merge_tracks(MidiFile(path).tracks):
+        tick += event.time
+        if event.type in {"note_on", "control_change"}:
+            events.append((tick, event.type))
+    assert events == [(481, "note_on"), (481, "control_change")]
+
+
+def test_export_timed_notation_fields_warn(upstream: Path, tmp_path: Path):
+    score = single_note(1, 240)
+    score.key_signatures.append(KeySignature(35, 1, 0))
+    score.time_signatures.append(TimeSignature(35, 3, 4))
+    score.tempos.append(Tempo(35, 90))
+    with pytest.warns(UserWarning, match=r"\[midi-field-timing\].*tick 35") as notices:
+        abc = score.dumps_abc(warn=True)
+    assert len(notices) == 2
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert native.key_signatures[-1].time == native.time_signatures[-1].time == 35
+    assert actual.key_signatures[-1].time == actual.time_signatures[-1].time == 1
+    assert native.tempos[-1].time == actual.tempos[-1].time == 35
+
+
+def test_export_one_tick_drum_warns(upstream: Path, tmp_path: Path):
+    score = single_note(1, 1)
+    score.tracks[0].is_drum = True
+    with pytest.warns(UserWarning, match=r"\[midi-short-drum\].*tick 1"):
+        abc = score.dumps_abc(warn=True)
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
+    assert midi_note_events(oracle_midi(upstream, abc, tmp_path))[36] == [
+        (1, 80),
+        (1, 0),
     ]
 
 
