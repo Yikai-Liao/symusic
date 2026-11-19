@@ -49,6 +49,21 @@ def test_install(tmp_path: Path):
     assert files(target) == files(SOURCE)
 
 
+@pytest.mark.parametrize(
+    "target", [".", "symusic/skills", "symusic/skills/symusic/child"]
+)
+def test_install_rejects_paths_overlapping_source(
+    target: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    source = tmp_path / "symusic/skills/symusic"
+    source.mkdir(parents=True)
+    (source / "SKILL.md").write_text("bundled", "utf-8")
+    monkeypatch.setattr(skill, "path", lambda: source)
+    with pytest.raises(ValueError, match="overlaps the bundled skill"):
+        skill.install(tmp_path / target, force=True)
+    assert files(source) == {"SKILL.md": b"bundled"}
+
+
 def test_command_line(tmp_path: Path):
     def run(*args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

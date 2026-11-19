@@ -32,9 +32,18 @@ def install(directory: str | Path, force: bool = False) -> Path:
     """Copy the skill to ``directory/symusic`` and return that path.
 
     An existing ``directory/symusic`` raises ``FileExistsError`` unless
-    ``force`` is true, in which case it is replaced.
+    ``force`` is true, in which case it is replaced. A target that overlaps
+    the bundled skill raises ``ValueError``.
     """
+    source = path().resolve()
     target = Path(directory).expanduser() / "symusic"
+    # Replacing a symlink removes the link, not the directory it points to.
+    resolved_target = target.parent.resolve() / target.name
+    if resolved_target.is_relative_to(source) or source.is_relative_to(resolved_target):
+        msg = (
+            f"{target} overlaps the bundled skill at {source}; choose another directory"
+        )
+        raise ValueError(msg)
     if target.exists() or target.is_symlink():
         if not force:
             msg = f"{target} exists; pass force=True to replace it"
@@ -43,7 +52,7 @@ def install(directory: str | Path, force: bool = False) -> Path:
             shutil.rmtree(target)
         else:
             target.unlink()
-    shutil.copytree(path(), target)
+    shutil.copytree(source, target)
     return target
 
 
@@ -69,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             print(path())
         else:
             print(install(args.directory, force=args.force))
-    except (FileExistsError, FileNotFoundError) as error:
+    except (FileExistsError, FileNotFoundError, ValueError) as error:
         parser.exit(1, f"error: {error}\n")
     return 0
 
