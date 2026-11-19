@@ -96,6 +96,36 @@ def test_midi_alias_command_error_locates_use():
         Score.from_abc(text)
 
 
+@pytest.mark.parametrize(
+    ("alias", "codes"),
+    [
+        ("MIDIdef p program 53", ["orphan-lyrics"]),
+        ("MIDIx p", ["undefined-midi-alias", "orphan-lyrics"]),
+    ],
+)
+def test_midi_alias_only_line_does_not_attach_lyrics(alias: str, codes: list[str]):
+    with pytest.warns(
+        UserWarning, match=r"\[(orphan-lyrics|undefined-midi-alias)\]"
+    ) as notices:
+        score = Score.from_abc(HEADER + f"CDEF|\n[I:{alias}]\nw: one\nGABc|")
+    assert [
+        str(notice.message).split("[")[1].split("]")[0] for notice in notices
+    ] == codes
+    assert not any(track.lyrics for track in score.tracks)
+
+
+def test_midi_alias_file_preamble_requires_percent_directive():
+    text = "I:MIDIdef lead program 53\n" + HEADER + "%%MIDIx lead\nCDEF|"
+    with pytest.warns(
+        UserWarning, match=r"\[(midi-alias-placement|undefined-midi-alias)\]"
+    ) as notices:
+        score = Score.from_abc(text)
+    assert len(notices) == 2
+    assert "<string>:1:1: ABC [midi-alias-placement]" in str(notices[0].message)
+    assert "<string>:8:1: ABC [undefined-midi-alias]" in str(notices[1].message)
+    assert [track.program for track in score.tracks] == [0]
+
+
 def test_midi_program_base_in_file_header_is_ignored():
     text = "%%MIDI programbase 1\n" + HEADER + "%%MIDI program 48\nCDEF|"
     with pytest.warns(

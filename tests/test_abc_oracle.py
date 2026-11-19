@@ -103,6 +103,8 @@ CASES = {
         "K:C", "%%MIDIdef harp program 46\n%%MIDIx harp\nK:C"
     )
     + "CDEF|",
+    "midi_alias_punctuation_is_literal": HEADER
+    + "%%MIDIdef =p program 53\n[I:MIDIx=p] CDEF|",
     "midi_aliases_feed_written_policy": HEADER
     + "%%MIDIdef fixed nobarlines\n[I:MIDIx fixed] ^FFFf & ^CCCc|",
     "midi_aliases_feed_shared_drummap": HEADER
