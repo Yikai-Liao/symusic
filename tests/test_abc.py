@@ -140,6 +140,23 @@ def test_missing_key_not_recovered():
         Score.from_abc("X:1\nM:4/4\nCDEF\n")
 
 
+def test_explicit_key_keeps_midi_signature():
+    score = Score.from_abc(HEADER.replace("K:C", "K:A _F exp ^G") + "CDEFGABc|")
+    assert [n.pitch for n in score.tracks[0].notes] == [60, 62, 64, 64, 68, 69, 71, 72]
+    assert [(key.time, key.key, key.tonality) for key in score.key_signatures] == [
+        (0, 3, 0)
+    ]
+
+
+def test_unknown_attached_key_mode_locates_the_recovery():
+    with pytest.warns(
+        UserWarning, match=r"<string>:6:1: ABC \[unknown-key-mode\].*'exp'"
+    ):
+        score = Score.from_abc(HEADER.replace("K:C", "K:Gexp") + "CDEF|")
+    assert [n.pitch for n in score.tracks[0].notes] == [60, 62, 64, 66]
+    assert score.key_signatures[0].key == 1
+
+
 @pytest.mark.parametrize("bad_byte", [b"\xff", b"\x00"])
 def test_abc_rejects_invalid_text_at_its_byte_column(tmp_path: Path, bad_byte: bytes):
     path = tmp_path / "bad text.abc"

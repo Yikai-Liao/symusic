@@ -6,7 +6,7 @@ The reader follows `abc2midi` playback where practical. That includes a one-tick
 
 Use `%%MIDIdef name command` to name a MIDI command and `%%MIDIx name …` to apply one or more previously defined commands inside a tune. Only percent-form definitions are recognized in the file header. The first valid definition of a name wins. An undefined name stops the expansion with a warning; commands before it still apply. An alias can use any supported MIDI command; it does not add support for controller or pitch-bend shapes. Use `%%MIDI programbase 1` inside a tune to number programs from 1 instead of 0. The last setting inside the tune applies to all voices and backing instruments.
 
-Fractional accidentals in notes and key signatures produce MIDI pitch bends. Bends are shared by notes on a track: if overlapping notes require different bends, the reader warns and retains the channel's bend changes. Per-pitch-class offsets from `%%temperament` also produce bends; they apply in written order across voices and repeats. The reader also supports `%%MIDI temperamentlinear`, `%%MIDI temperamentequal`, and `%%MIDI temperamentnormal`.
+In a key field such as `K:Dm exp _A`, `exp` leaves the D minor key signature in the score but replaces its implied accidentals with only those written in the field. Fractional accidentals in notes and key signatures produce MIDI pitch bends. Bends are shared by notes on a track: if overlapping notes require different bends, the reader warns and retains the channel's bend changes. Per-pitch-class offsets from `%%temperament` also produce bends; they apply in written order across voices and repeats. The reader also supports `%%MIDI temperamentlinear`, `%%MIDI temperamentequal`, and `%%MIDI temperamentnormal`.
 
 ## Diagnostics
 

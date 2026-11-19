@@ -42,6 +42,7 @@ RECOVERED = {
     "hornpipe_unsupported_meter": "hornpipe-meter",
     "hornpipe_stays_disabled": "hornpipe-meter",
     "invalid_key_accidental_letter": "invalid-accidental",
+    "attached_exp_is_not_a_mode": "unknown-key-mode",
 }
 WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
 CASES = {
@@ -96,6 +97,11 @@ CASES = {
     + "%%MIDI drum dd 36 42 70 80\n%%MIDI drumon\nCDEF|[Q:90]GABc|",
     "inline_tempo": HEADER + "C [Q:1/8=100] D E F |",
     "bagpipe_key": HEADER.replace("K:C", "K:HP") + "CDEF| [K:Hp] CDEF|",
+    "explicit_key_with_mode": HEADER.replace("K:C", "K:Dm exp _A") + "CDEFGABc|",
+    "explicit_key_retains_earlier_accidental": HEADER.replace("K:C", "K:A _F EXP ^G")
+    + "CDEFGABc|",
+    "explicit_inline_key": HEADER + "CDEF| [K:G clef=bass exp ^C] CDEF| [K:G] CDEF|",
+    "attached_exp_is_not_a_mode": HEADER.replace("K:C", "K:Gexp") + "CDEF|",
     "invalid_key_accidental_letter": HEADER.replace("K:C", "K:C ^1/4H") + "CDEF|",
     "half_note_meter_accents": HEADER.replace("M:4/4", "M:6/2") + "C4 C2 C2 C4|",
     "odd_meter_accents": HEADER.replace("M:4/4", "M:7/8").replace("L:1/4", "L:1/8")

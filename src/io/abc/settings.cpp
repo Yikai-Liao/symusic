@@ -42,7 +42,6 @@ constexpr std::array modes{
     Mode{"lyd", 1, 0},
     Mode{"mix", -1, 0},
     Mode{"loc", -5, 0},
-    Mode{"exp", 0, 0},
     Mode{"m", -3, 1},
 };
 
@@ -63,8 +62,8 @@ void set_signature(Key& key, int fifths) {
     }
 }
 
-int tonic(std::string_view& name) {
-    if (name.empty() || !note_letter(name.front())) return 100;
+std::optional<int> tonic(std::string_view& name) {
+    if (name.empty() || !note_letter(name.front())) return {};
     int fifths = tonic_fifths[letter_index(upper(name.front()))];
     name.remove_prefix(1);
     if (name.starts_with('#') || name.starts_with('b')) {
@@ -74,29 +73,62 @@ int tonic(std::string_view& name) {
     return fifths;
 }
 
-bool parse_signature(std::string_view& options, Key& result) {
-    auto       name    = word(options);
+const Mode* take_mode(std::string_view& options) {
+    auto        remaining = options;
+    const auto* mode      = mode_of(word(remaining));
+    if (mode) options = remaining;
+    return mode;
+}
+
+int supported_signature(int fifths) {
+    if (fifths > 7) return fifths - 12;
+    if (fifths < -7) return fifths + 12;
+    return fifths;
+}
+
+bool parse_named_signature(
+    std::string_view  name,
+    std::string_view& options,
+    Key&              result,
+    Diagnostics&      diagnostics,
+    Location          at
+) {
+    // abc2midi can recover the tonic of an uppercase key with an unknown suffix.
+    const bool can_recover = !name.empty() && !lower(name.front());
+    const auto fifths      = tonic(name);
+    if (!fifths) return false;
+    const auto* mode = name.empty() ? take_mode(options) : mode_of(name);
+    if (!mode && !name.empty()) {
+        if (!can_recover) return false;
+        diagnostics.warn(
+            at, "unknown-key-mode", fmt::format("ignored key mode '{}'; used the major key", name)
+        );
+    }
+    constexpr Mode major{"", 0, 0};
+    const auto&    effective = mode ? *mode : major;
+    set_signature(result, supported_signature(*fifths + effective.shift));
+    result.minor = effective.minor;
+    return true;
+}
+
+bool parse_signature(
+    std::string_view& options, Key& result, Diagnostics& diagnostics, Location at
+) {
+    const auto name    = word(options);
     const auto special = ascii_lower(name);
     if (special == "none") return true;
     if (special == "hp") {
         set_signature(result, 2);
         return true;
     }
-    const auto fifths = tonic(name);
-    if (fifths == 100) return false;
-    auto        remaining = options;
-    const auto* mode      = name.empty() ? mode_of(word(remaining)) : mode_of(name);
-    if (!name.empty() && !mode) return false;
-    if (name.empty() && mode) options = remaining;
-    int signature = fifths + (mode ? mode->shift : 0);
-    if (signature > 7) signature -= 12;
-    if (signature < -7) signature += 12;
-    set_signature(result, mode && mode->prefix == "exp" ? 0 : signature);
-    result.minor = mode ? mode->minor : 0;
-    return true;
+    return parse_named_signature(name, options, result, diagnostics, at);
 }
 
-bool custom_accidental(std::string_view word, Key& key, Diagnostics& diagnostics, Location at) {
+using WrittenAccidentals = std::array<std::optional<Alteration>, 7>;
+
+bool custom_accidental(
+    std::string_view word, WrittenAccidentals& overrides, Diagnostics& diagnostics, Location at
+) {
     if (word.empty() || std::string_view("^_=").find(word.front()) == word.npos) return false;
     if (word.size() < 2 || !note_letter(word.back())) {
         diagnostics.warn(
@@ -105,7 +137,7 @@ bool custom_accidental(std::string_view word, Key& key, Diagnostics& diagnostics
         return true;
     }
     if (const auto value = accidental(word.substr(0, word.size() - 1), at, diagnostics))
-        key.alterations[letter_index(upper(word.back()))] = *value;
+        overrides[letter_index(upper(word.back()))] = *value;
     return true;
 }
 
@@ -130,16 +162,28 @@ std::optional<int> clef_octave(std::string_view value) {
     return {};
 }
 
-std::pair<std::string_view, std::string_view> option(std::string_view& options) {
-    options = trim(options);
-    if (options.starts_with('=') || options.starts_with('^') || options.starts_with('_'))
-        return {word(options), {}};
-    const auto key = options.substr(0, options.find_first_of("= 	"));
-    options.remove_prefix(key.size());
-    options = trim(options);
-    if (!options.starts_with('=')) return {key, {}};
-    options = trim(options.substr(1));
-    if (!options.starts_with('"')) return {key, word(options)};
+struct OctaveOptions {
+    std::optional<int> explicit_shift;
+    std::optional<int> clef_shift;
+
+    bool read(
+        std::string_view name, std::string_view value, Diagnostics& diagnostics, Location at
+    ) {
+        if (name == "octave")
+            explicit_shift = shift_value(value, diagnostics, at, name, 16);
+        else if (name == "clef")
+            clef_shift = clef_octave(value);
+        else
+            return false;
+        return true;
+    }
+
+    std::optional<int> sounding_shift() const {
+        return explicit_shift ? explicit_shift : clef_shift;
+    }
+};
+
+std::string_view quoted_option(std::string_view& options) {
     options.remove_prefix(1);
     size_t end = 0;
     while (end < options.size() && options[end] != '"') {
@@ -147,25 +191,55 @@ std::pair<std::string_view, std::string_view> option(std::string_view& options) 
     }
     const auto value = options.substr(0, end);
     options.remove_prefix(std::min(end + 1, options.size()));
-    return {key, value};
+    return value;
 }
 
-void key_options(std::string_view options, Key& result, Diagnostics& diagnostics, Location at) {
-    std::optional<int> from_clef;
-    std::optional<int> octave;
-    while (!trim(options).empty()) {
-        const auto [name, value] = option(options);
-        if (name == "transpose")
-            result.transpose = shift_value(value, diagnostics, at, name, 127);
-        else if (name == "octave")
-            octave = shift_value(value, diagnostics, at, name, 16);
-        else if (name == "clef")
-            from_clef = clef_octave(value);
-        else if (!custom_accidental(name, result, diagnostics, at) && value.empty()) {
-            if (auto oct = clef_octave(name)) from_clef = oct;
+std::pair<std::string_view, std::string_view> option(std::string_view& options) {
+    options = trim(options);
+    if (options.find_first_of("=^_") == 0) return {word(options), {}};
+    const auto key = options.substr(0, options.find_first_of("= \t"));
+    options        = trim(options.substr(key.size()));
+    if (!options.starts_with('=')) return {key, {}};
+    options = trim(options.substr(1));
+    return {key, options.starts_with('"') ? quoted_option(options) : word(options)};
+}
+
+// Explicit mode replaces the implied scale, not the key signature metadata.
+// Accidentals anywhere in the field override the chosen scale in written order.
+struct KeyAccidentals {
+    bool               explicit_scale = false;
+    WrittenAccidentals overrides;
+
+    bool read(std::string_view name, Diagnostics& diagnostics, Location at) {
+        if (ascii_lower(name) == "exp") {
+            explicit_scale = true;
+            return true;
+        }
+        return custom_accidental(name, overrides, diagnostics, at);
+    }
+
+    void apply(Key& key) const {
+        if (explicit_scale) key.alterations.fill({});
+        for (size_t i = 0; i < overrides.size(); ++i) {
+            if (overrides[i]) key.alterations[i] = *overrides[i];
         }
     }
-    if (octave || from_clef) result.octave = octave.value_or(from_clef.value_or(0));
+};
+
+void key_options(std::string_view options, Key& result, Diagnostics& diagnostics, Location at) {
+    OctaveOptions  octave;
+    KeyAccidentals accidentals;
+    while (!trim(options).empty()) {
+        const auto [name, value] = option(options);
+        if (octave.read(name, value, diagnostics, at)) continue;
+        if (name == "transpose")
+            result.transpose = shift_value(value, diagnostics, at, name, 127);
+        else if (!accidentals.read(name, diagnostics, at) && value.empty()) {
+            if (auto shift = clef_octave(name)) octave.clef_shift = shift;
+        }
+    }
+    accidentals.apply(result);
+    result.octave = octave.sounding_shift().value_or(result.octave);
 }
 
 std::string_view tempo_label(std::string_view& text) {
@@ -396,7 +470,7 @@ std::optional<Key> key(
     auto options = text;
     result.alterations.fill({});
     result.fifths = result.minor = 0;
-    if (!parse_signature(options, result)) {
+    if (!parse_signature(options, result, diagnostics, at)) {
         const auto first = text.substr(0, text.find_first_of("= \t"));
         if (header || text.empty())
             diagnostics.error(at, "invalid-key", "expected a key signature such as C, F#m or none");
@@ -437,19 +511,17 @@ VoiceSpec voice_spec(std::string_view text, Diagnostics& diagnostics, Location a
     VoiceSpec result{};
     result.id = word(text);
     if (result.id.empty()) diagnostics.error(at, "invalid-voice", "V: needs a voice identifier");
-    std::optional<int> octave;
+    OctaveOptions octave;
     while (!trim(text).empty()) {
         const auto [name, value] = option(text);
         if (name == "name" || name == "nm")
             result.name = value;
         else if (name == "transpose")
             result.transpose = shift_value(value, diagnostics, at, name, 127);
-        else if (name == "octave")
-            result.octave = shift_value(value, diagnostics, at, name, 16);
-        else if (name == "clef")
-            octave = clef_octave(value);
+        else
+            octave.read(name, value, diagnostics, at);
     }
-    if (!result.octave) result.octave = octave;
+    result.octave = octave.sounding_shift();
     return result;
 }
 
