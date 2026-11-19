@@ -7,7 +7,7 @@ Rules for writing and changing code in the C++ core, the nanobind binding and th
 These apply in every layer and decide most of the questions below.
 
 - **One authority per piece of knowledge.** The list of time units, each event's fields, the file-format dispatch, the mapping from C++ exceptions to Python exceptions and the valid range of each field are each defined in one place, and every consumer derives from it. Before writing a second copy of a rule, such as another `Tick, Quarter, Second` list or another set of extension checks, find the existing authority and use it.
-- **The core owns complete operations.** An operation that Python and C++ users both need, including its validation, lives in the core and is callable as a single function. The binding converts arguments and results and adds nothing else; `symusic.factory` dispatches on the unit and adds nothing else.
+- **The core owns complete operations.** An operation that Python and C++ users both need, including its validation, lives in the core and is callable as a single function. The binding converts arguments and results, dispatches on the time unit, and adds nothing else; the Python package re-exports it and adds only what has no C++ counterpart, such as SoundFont downloads.
 - **Validate at the boundary, then trust the type.** Values from files, Python or the user are checked once where they enter, and arithmetic that can leave a type's range is checked where it happens (see [integers and time](#integers-and-time)). No API documents a precondition that the caller must keep for memory safety.
 - **Language features before macros.** Templates, concepts, `if constexpr`, fold expressions and ordinary functions express repetition. A macro is acceptable only for what the language cannot do (see [macros](#macros)).
 - **One form per operation.** An operation either modifies its object or builds a different one, never both by option. Modifying operations (`sort`, `filter`, `shift_time`, `shift_pitch`, `shift_velocity`, `adjust_time`) mutate in place and return nothing; producing operations (`clip`, `trim`, `to`, `resample`, `pianoroll`, `copy`) leave the object unchanged and return the result. To transform a copy, copy first. C++ and Python use the same names and the same split.
@@ -66,9 +66,10 @@ Throw standard exceptions; nanobind maps them to Python built-ins, and that mapp
 | `std::invalid_argument` | `ValueError` | An argument or file value outside its valid set, NaN |
 | `std::overflow_error` | `OverflowError` | A result outside the target integer type |
 | `std::out_of_range` | `IndexError` | An index outside a container |
-| `std::runtime_error` | `RuntimeError` | Malformed input files, failed external tools, I/O failures |
+| `std::runtime_error` | `RuntimeError` | Malformed input files, failed external tools |
+| `std::filesystem::filesystem_error` | `OSError` subclass by error code (`FileNotFoundError`, `PermissionError`, ...) | A missing or unreadable file, a failed write |
 
-Type mismatches are rejected by nanobind as `TypeError`; the core does not throw for them. A message names the parameter or field, the constraint and the received value: `"qpm must be positive and finite, got -1"`. The core never prints to stdout or stderr; it throws, or returns what the caller needs to report.
+nanobind maps the first four itself; `filesystem_error` derives from `std::runtime_error`, so one exception translator in `py_src/utils/` maps it by its error code, as `OSError` does for `errno`. Type mismatches are rejected by nanobind as `TypeError`; the core does not throw for them. A message names the parameter or field, the constraint and the received value: `"qpm must be positive and finite, got -1"`. The core never prints to stdout or stderr; it throws, or returns what the caller needs to report.
 
 ### Macros
 
@@ -93,7 +94,7 @@ Comments state invariants, units, ownership and the reason for a non-obvious cho
 These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.md#07-api) changes.
 
 - **One name per thing.** No aliases (`tpq` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`).
-- **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them.
+- **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them. A list type implements `collections.abc.MutableSequence`. A mutable type that compares by value is unhashable.
 - **Closed sets are typed.** A parameter that takes one of a fixed set of values (a time unit, a mode, a format) is an enum or a `Literal` in the stubs, and an unknown value raises `ValueError`.
 - **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.
 - **Explicit side effects.** Reading an attribute or calling a query does not download, write files or print. Network and file access happen in functions whose name says so.
