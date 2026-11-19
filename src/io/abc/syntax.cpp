@@ -247,6 +247,7 @@ void MidiAliases::use(std::string_view args, const Token& token, vec<Token>& out
         diagnostics.warn(token.at, "invalid-midi-alias", "expected one or more names after MIDIx");
         return;
     }
+    bool have_controller = false;
     for (auto name = word(args); !name.empty(); name = word(args)) {
         const auto match = definitions.find(name);
         if (match == definitions.end()) {
@@ -257,7 +258,13 @@ void MidiAliases::use(std::string_view args, const Token& token, vec<Token>& out
             );
             return;
         }
-        diagnostics.spend(1, token.at);
+        auto command = match->second;
+        word(command);   // The stored alias starts with MIDI.
+        const bool controller = word(command) == "controlstring";
+        const bool combine    = controller && have_controller;
+        if (controller) have_controller = true;
+        diagnostics.spend(combine ? 2 : 1, token.at);
+        if (combine) output.push_back({token.at, Directive{"MIDI controlcombo"}, token.music_line});
         output.push_back({token.at, Directive{match->second}, token.music_line});
     }
 }

@@ -421,6 +421,7 @@ private:
     vec<const Token*> timed_effects;
     DecorationMark    decoration_mark(const Decoration& decoration) const;
     bool              can_defer(const Token& token) const;
+    bool              marks_envelope(const Token& token) const;
     bool              apply_notated_ratio(const Token& token);
     void              visit_token(const Token& token);
     void              visit_step(PlayStep step);
@@ -870,6 +871,13 @@ std::optional<int> pedal_mark(std::string_view mark) {
     return {};
 }
 
+std::optional<VoiceOutput::EnvelopeMark> envelope_mark(std::string_view mark) {
+    using Mark = VoiceOutput::EnvelopeMark;
+    if (mark == "bend") return Mark::bend;
+    if (mark == "shape") return Mark::shape;
+    return {};
+}
+
 void VoicePlayer::visit(const Decoration& decoration, Location at) {
     const auto resolved = decoration_mark(decoration);
     const auto mark     = resolved.name;
@@ -891,12 +899,11 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
     }
     if (const auto pedal = pedal_mark(mark)) {
         flush();
-        output.control(lanes.id(), at_tick(at), 64, *pedal, at);
+        output.control(lanes.id(), at_tick(at), 64, *pedal);
         return;
     }
-    if (mark == "bend") {
-        flush();
-        output.bend_next(lanes.id(), at);
+    if (const auto envelope = envelope_mark(mark)) {
+        output.envelope_next(lanes.id(), *envelope, at);
         return;
     }
     if (mark == "arpeggio") {
@@ -1143,9 +1150,16 @@ void VoicePlayer::visit_token(const Token& token) {
     std::visit([&](const auto& value) { visit(value, token); }, token.value);
 }
 
+bool VoicePlayer::marks_envelope(const Token& token) const {
+    const auto* decoration = std::get_if<Decoration>(&token.value);
+    return decoration && envelope_mark(decoration_mark(*decoration).name).has_value();
+}
+
 void VoicePlayer::schedule(const Token& token) {
     if (apply_notated_ratio(token)) return;
-    if ((broken || swing_candidate()) && can_defer(token))
+    // A mark between two atoms belongs to the next attack, but the first
+    // atom must remain editable by a following tie or broken-rhythm token.
+    if ((pending && marks_envelope(token)) || ((broken || swing_candidate()) && can_defer(token)))
         timed_effects.push_back(&token);
     else
         visit_token(token);

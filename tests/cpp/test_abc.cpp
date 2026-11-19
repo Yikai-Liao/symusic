@@ -88,6 +88,24 @@ TEST_CASE("ABC bend envelopes follow tied releases", "[abc]") {
     CHECK(track.notes->front().duration == 959);
 }
 
+TEST_CASE("ABC shapes finish before later channel commands at the same tick", "[abc]") {
+    const auto [score, warnings] = abc::read(
+        "X:1\nM:4/4\nL:1/4\nK:C\n%%MIDI controlstring 11 50 60\n"
+        "%%MIDI bendstring 300 -100\n!shape!C [I:MIDI control 11 80][I:MIDI pitchbend 127 127] D"
+    );
+    REQUIRE(warnings.empty());
+    const auto& track = *score.tracks->front();
+    const auto& cc    = *track.controls;
+    const auto& bends = *track.pitch_bends;
+    REQUIRE(cc.size() == 4);
+    REQUIRE(bends.size() == 4);
+    CHECK(cc[2] == ControlChange<Tick>{480, 11, 127});
+    CHECK(cc[3] == ControlChange<Tick>{480, 11, 80});
+    CHECK(bends[2] == PitchBend<Tick>{480, 0});
+    CHECK(bends[3] == PitchBend<Tick>{480, 8191});
+    CHECK(track.notes->at(1).time == 481);
+}
+
 TEST_CASE("ABC export reports loss and still emits readable notation", "[abc]") {
     auto [score, warnings] = abc::read("X:1\nM:4/4\nL:1/4\nK:C\nCDEF");
     REQUIRE(warnings.empty());

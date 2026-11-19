@@ -1004,3 +1004,120 @@ def test_one_slot_drum_pattern_does_not_duplicate_strikes():
         (1, 1919, 35),
         (1921, 1440, 35),
     ]
+
+
+@pytest.mark.parametrize(
+    ("body", "notes", "bend_start"),
+    [
+        ("C!bend!-C D E|", [(1, 959), (961, 479), (1441, 479)], 961),
+        ("C!bend!>D E F|", [(1, 719), (721, 239), (961, 479), (1441, 479)], 721),
+        ("C>!bend!D E F|", [(1, 719), (721, 239), (961, 479), (1441, 479)], 721),
+    ],
+)
+def test_abc_bend_mark_does_not_interrupt_rhythm(body, notes, bend_start):
+    track = Score.from_abc(HEADER + "[I:MIDI bendstring 300 -200] " + body).tracks[0]
+    assert [(n.time, n.duration) for n in track.notes] == notes
+    assert (track.pitch_bends[0].time, track.pitch_bends[0].value) == (bend_start, 300)
+
+
+def test_abc_bend_restores_before_a_same_tick_wheel_command():
+    track = Score.from_abc(
+        HEADER + "[I:MIDI bendstring 300 -200] !bend!C [I:MIDI pitchbend 127 127] D E|"
+    ).tracks[0]
+    assert [(e.time, e.value) for e in track.pitch_bends] == [
+        (1, 300),
+        (240, 100),
+        (480, 0),
+        (480, 8191),
+    ]
+    assert [n.time for n in track.notes] == [1, 481, 961]
+
+
+def test_abc_bend_restores_current_tuning_and_warns_for_later_chord_attacks():
+    body = "[I:MIDI bendstring 300 -200] !bend![^/CE] D E|"
+    with pytest.warns(UserWarning, match=r"\[shared-pitch-wheel\]") as reports:
+        track = Score.from_abc(HEADER + body).tracks[0]
+    assert "<string>:7:30: ABC [shared-pitch-wheel]: note envelope" in str(
+        reports[0].message
+    )
+    assert [(e.time, e.value) for e in track.pitch_bends] == [
+        (1, 2048),
+        (1, 2348),
+        (11, 0),
+        (240, 2148),
+        (480, 0),
+    ]
+
+
+def test_abc_bend_with_separate_chord_wheels_does_not_warn():
+    score = Score.from_abc(
+        HEADER
+        + "[I:MIDI bendstring 300 -200][I:MIDI makechordchannels 1] !bend![CE] D E|"
+    )
+    assert len(score.tracks) == 2
+    assert not score.tracks[1].pitch_bends
+
+
+def test_abc_shape_sustain_spans_the_tied_gate_and_pairs_with_explicit_pedal():
+    track = Score.from_abc(
+        HEADER + "[I:MIDI controlstring 64 127 127] !shape!C-C !ped!D !ped-up!E |"
+    ).tracks[0]
+    assert [(n.time, n.duration, n.pitch) for n in track.notes] == [
+        (1, 959, 60),
+        (961, 479, 62),
+        (1441, 479, 64),
+    ]
+    assert [(e.time, e.number, e.value) for e in track.controls] == [
+        (1, 64, 127),
+        (480, 64, 127),
+        (960, 64, 0),
+        (960, 64, 127),
+        (1440, 64, 0),
+    ]
+    assert [(p.time, p.duration) for p in track.pedals] == [(1, 959), (960, 480)]
+
+
+def test_abc_shape_redefinition_replaces_layers_after_the_first_attack():
+    track = Score.from_abc(
+        HEADER
+        + "[I:MIDI controlstring 11 10][I:MIDI controlcombo][I:MIDI controlstring 10 20] "
+        + "!shape!C [I:MIDI controlstring 7 30] !shape!D E F|"
+    ).tracks[0]
+    assert [(e.time, e.number, e.value) for e in track.controls] == [
+        (1, 11, 10),
+        (1, 10, 20),
+        (480, 11, 127),
+        (480, 10, 64),
+        (481, 7, 30),
+        (960, 7, 96),
+    ]
+
+
+def test_abc_shape_without_curve_warns_and_preserves_notes():
+    with pytest.warns(UserWarning, match=r"<string>:7:1: ABC \[empty-note-shape\]"):
+        assert Score.from_abc(HEADER + "!shape!CDEF|") == Score.from_abc(
+            HEADER + "CDEF|"
+        )
+
+
+@pytest.mark.parametrize(
+    ("command", "code"),
+    [
+        ("bendstring +-300 -200", "invalid-bend-curve"),
+        ("controlstring 128 1", "invalid-midi-value"),
+        ("controlstring 7 -1", "invalid-midi-value"),
+        ("controlstring 7", "empty-controller-curve"),
+        ("controlstring 7 " + "0 " * 256, "controller-curve-limit"),
+        (
+            (
+                "controlstring 7 0\n%%MIDI controlcombo\n%%MIDI controlstring 8 0"
+                "\n%%MIDI controlcombo\n%%MIDI controlstring 10 0"
+                "\n%%MIDI controlcombo\n%%MIDI controlstring 11 0"
+            ),
+            "controller-layer-limit",
+        ),
+    ],
+)
+def test_abc_malformed_note_envelopes_report_the_directive(command, code):
+    with pytest.raises(ValueError, match=rf"<string>:\d+:1: ABC \[{code}\]"):
+        Score.from_abc(HEADER + "%%MIDI " + command + "\n!shape!CDEF|")

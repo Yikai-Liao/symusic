@@ -1152,3 +1152,77 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     refresh(args.abc2midi, args.revision)
+
+
+@pytest.mark.parametrize("body", ["C!bend!-C D E|", "C!bend!>D E F|", "C>!bend!D E F|"])
+def test_live_bend_mark_does_not_interrupt_rhythm(upstream, tmp_path, body):
+    abc = HEADER + "[I:MIDI bendstring 300 -200] " + body
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
+
+
+def test_live_bend_restore_precedes_a_same_tick_wheel_command(upstream, tmp_path):
+    abc = (
+        HEADER + "[I:MIDI bendstring 300 -200] !bend!C [I:MIDI pitchbend 127 127] D E|"
+    )
+    native = performed_track(Score.from_abc(abc).tracks[0])
+    actual = performed_track(oracle_score(upstream, abc, tmp_path).tracks[0])
+    assert (
+        native["bends"]
+        == actual["bends"]
+        == [[1, 300], [240, 100], [480, 0], [480, 8191]]
+    )
+    assert native["notes"][1][0] == 481
+    assert actual["notes"][1][0] == 480
+
+
+@pytest.mark.parametrize(
+    "directives",
+    [
+        "[I:MIDI control 11 60][I:MIDI controlstring 11 10]",
+        "[I:MIDI controlstring 64 127]",
+    ],
+)
+def test_live_single_value_shape_matches_controls_and_notes(
+    upstream, tmp_path, directives
+):
+    abc = HEADER + directives + "!shape!CDEF|"
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
+
+
+@pytest.mark.parametrize("use_aliases", [False, True])
+def test_live_shape_combines_controller_and_bend_samples_without_moving_notes(
+    upstream, tmp_path, use_aliases
+):
+    if use_aliases:
+        abc = (
+            "%%MIDIdef fade controlstring 11 10 30\n%%MIDIdef pan controlstring 10 50 60 70\n"
+            + HEADER
+            + "%%MIDIx fade pan\n"
+        )
+    else:
+        abc = (
+            HEADER + "[I:MIDI controlstring 11 10 30][I:MIDI controlcombo]"
+            "[I:MIDI controlstring 10 50 60 70]"
+        )
+    abc += "[I:MIDI bendstring 100 -50 10]!shape!CDEF|"
+    native = performed_track(Score.from_abc(abc).tracks[0])
+    actual = performed_track(oracle_score(upstream, abc, tmp_path).tracks[0])
+    assert (
+        native["controls"][:-2]
+        == actual["controls"][:-2]
+        == [[1, 11, 10], [1, 10, 50], [160, 10, 60], [240, 11, 30], [319, 10, 70]]
+    )
+    assert (
+        native["bends"][:-1] == actual["bends"][:-1] == [[1, 100], [160, 50], [319, 60]]
+    )
+    # abc2midi's envelope emitter truncates the gate and subtracts that time from
+    # the rest of the tune. Both players restore the wheel and controllers at release.
+    for result, release in [(native, 480), (actual, 416)]:
+        assert result["controls"][-2:] == [[release, 11, 127], [release, 10, 64]]
+        assert result["bends"][-1] == [release, 0]
+        assert result["notes"][0][:2] == [1, release - 1]
+        assert result["notes"][1][0] == release + 1

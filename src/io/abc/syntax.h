@@ -54,7 +54,10 @@ inline std::string_view word(std::string_view& text) {
 }
 
 inline std::optional<int> integer(std::string_view text) {
-    if (text.starts_with('+')) text.remove_prefix(1);
+    if (text.starts_with('+')) {
+        text.remove_prefix(1);
+        if (text.starts_with('-')) return {};
+    }
     if (text.empty()) return {};
     int value               = 0;
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
