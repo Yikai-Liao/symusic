@@ -75,8 +75,9 @@ void close_backing(TrackNative<Tick>& track, i32 end) {
 
 }   // namespace
 
-Accompaniment::Accompaniment(Meter meter, const DrumMap& drum_map, Diagnostics& diagnostics) :
-    diagnostics(diagnostics), drum_map(drum_map), current_meter(meter) {
+Accompaniment::Accompaniment(
+    Meter meter, const DrumMap& drum_map, const ProgramNumbers& programs, Diagnostics& diagnostics
+) : diagnostics(diagnostics), drum_map(drum_map), programs(programs), current_meter(meter) {
     auto defaults = default_chords(meter);
     if (defaults.empty()) defaults = "x";
     chords.install(pattern(defaults, "fcbzx", {}), meter, 0);
@@ -377,8 +378,9 @@ void Accompaniment::advance(long double end, Location at) {
 
 void Accompaniment::close_drone(long double time, Location at) {
     if (!drone.start || time <= *drone.start) return;
-    auto& track = drone.tracks.try_emplace(drone.program, "", static_cast<u8>(drone.program), false)
-                      .first->second;
+    const auto program = programs.midi(drone.program);
+    auto&      track
+        = drone.tracks.try_emplace(program, "", static_cast<u8>(program), false).first->second;
     const auto start    = tick(*drone.start + 1, diagnostics, at);
     const auto duration = std::max(0, tick(time, diagnostics, at) - start);
     for (size_t n = 0; n < drone.pitch.size(); ++n)
@@ -426,7 +428,7 @@ bool Accompaniment::instrument_directive(
     if (name == "chordname")
         chord_type(args, at);
     else if (name == "bassprog" || name == "chordprog") {
-        instrument.program = midi_integer(args, 0, midi_max, diagnostics, at);
+        instrument.program = programs.read(args, diagnostics, at);
         if (auto options = word(args); options.starts_with("octave=")) {
             auto octave       = options.substr(7);
             instrument.octave = midi_integer(octave, -2, 2, diagnostics, at);

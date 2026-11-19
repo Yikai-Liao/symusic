@@ -686,7 +686,8 @@ Tune TuneLines::finish(Location end) {
     if (!in_body) diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
     if (!reference)
         diagnostics.error(tune.key, "missing-reference", "expected an X: field before K:");
-    MidiAliases aliases(tune.owned_text, *reference, diagnostics);
+    tune.reference = *reference;
+    MidiAliases aliases(tune.owned_text, tune.reference, diagnostics);
     aliases.expand(tune.header);
     aliases.expand(tune.body);
     return std::move(tune);

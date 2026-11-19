@@ -98,6 +98,8 @@ public:
 
 private:
     Diagnostics&         diagnostics;
+    TuneSettings&        settings;
+    const Location       reference;
     vec<Voice>           voices;
     vec<Token>           common;
     size_t               selected   = 0;
@@ -108,9 +110,10 @@ private:
 
     size_t find_voice(std::string_view id, Location at);
     bool   select(const Token& token);
-    void   header(const Token& token, TuneSettings& settings);
-    void   header_midi(const Token& token, std::string_view command, TuneSettings& settings);
-    void   body(const Token& token, bool ordered, AccidentalPolicy& accidentals);
+    void   header(const Token& token);
+    void   header_midi(const Token& token, std::string_view command);
+    void   body(const Token& token, bool ordered);
+    bool   written_setting(const Token& token);
     bool   lyric(Field field, Location at);
     void   music_line(const Token& token);
     void   append(const Token& token);
@@ -155,7 +158,7 @@ void Voices::append(const Token& token) {
     voice.music.push_back(token);
 }
 
-void Voices::header(const Token& token, TuneSettings& settings) {
+void Voices::header(const Token& token) {
     if (select(token)) return;
     const auto information = token.information();
     if (!information) {
@@ -168,10 +171,10 @@ void Voices::header(const Token& token, TuneSettings& settings) {
         common.push_back(token);
         return;
     }
-    header_midi(token, command, settings);
+    header_midi(token, command);
 }
 
-void Voices::header_midi(const Token& token, std::string_view command, TuneSettings& settings) {
+void Voices::header_midi(const Token& token, std::string_view command) {
     const auto name = word(command);
     if (voices.front().id.empty()
         && midi_transposition(name, command, settings.midi_shift, diagnostics, token.at))
@@ -208,7 +211,7 @@ bool Voices::lyric(Field field, Location at) {
     return true;
 }
 
-void Voices::body(const Token& token, bool ordered, AccidentalPolicy& accidentals) {
+void Voices::body(const Token& token, bool ordered) {
     if (select(token)) {
         body_voice   = true;
         lyric_source = 0;
@@ -221,21 +224,26 @@ void Voices::body(const Token& token, bool ordered, AccidentalPolicy& accidental
         return;
     }
     music_line(token);
-    if (accidentals.consume(token, diagnostics)) return;
+    if (written_setting(token)) return;
     if (!field || !lyric(*field, token.at)) append(token);
 }
 
+bool Voices::written_setting(const Token& token) {
+    return settings.programs.consume(token, reference, diagnostics)
+           || settings.accidentals.consume(token, diagnostics);
+}
+
 Voices::Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics) :
-    diagnostics(diagnostics) {
+    diagnostics(diagnostics), settings(settings), reference(tune.reference) {
     voices.push_back({});
     for (const auto& token : tune.header)
-        if (!settings.accidentals.consume(token, diagnostics)) header(token, settings);
+        if (!written_setting(token)) header(token);
     // A header K: transpose follows the global MIDI preamble. Body K:/V:
     // shifts, by contrast, are local to the current written voice.
     if (settings.key.transpose) settings.midi_shift = *settings.key.transpose;
     settings.key.transpose.reset();
     selected = 0;
-    for (const auto& token : tune.body) body(token, ordered, settings.accidentals);
+    for (const auto& token : tune.body) body(token, ordered);
 }
 
 template<class Event>

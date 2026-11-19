@@ -48,7 +48,12 @@ struct Attack {
 // note endpoints. Invalid note ranges fail through the reader's diagnostics.
 class VoiceOutput {
 public:
-    VoiceOutput(std::string name, const DrumMap& drum_map, Diagnostics& diagnostics);
+    VoiceOutput(
+        std::string           name,
+        const DrumMap&        drum_map,
+        const ProgramNumbers& programs,
+        Diagnostics&          diagnostics
+    );
     VoiceOutput(const VoiceOutput&)            = delete;
     VoiceOutput& operator=(const VoiceOutput&) = delete;
 
@@ -107,6 +112,7 @@ private:
     std::string                                              name;
     Diagnostics&                                             diagnostics;
     const DrumMap&                                           drum_map;
+    const ProgramNumbers&                                    programs;
     std::map<TrackKey, ChannelOutput>                        output;
     std::map<ChannelKey, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
 

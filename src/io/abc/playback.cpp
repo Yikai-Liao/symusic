@@ -372,11 +372,11 @@ public:
         Diagnostics&        diagnostics
     ) :
         diagnostics(diagnostics), drum_map(drum_map),
-        output(std::move(name), drum_map, diagnostics), tuning(settings.tuning),
+        output(std::move(name), drum_map, settings.programs, diagnostics), tuning(settings.tuning),
         accidental_policy(settings.accidentals),
         written{settings.meter, settings.key, settings.unit},
-        accompaniment(settings.meter, drum_map, diagnostics), symbols(settings.symbols),
-        lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
+        accompaniment(settings.meter, drum_map, settings.programs, diagnostics),
+        symbols(settings.symbols), lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
         initial_tempo(settings.tempo), midi_shift(settings.midi_shift),
         lyric_line(lyrics, diagnostics) {}
 

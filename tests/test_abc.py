@@ -96,6 +96,15 @@ def test_midi_alias_command_error_locates_use():
         Score.from_abc(text)
 
 
+def test_midi_program_base_in_file_header_is_ignored():
+    text = "%%MIDI programbase 1\n" + HEADER + "%%MIDI program 48\nCDEF|"
+    with pytest.warns(
+        UserWarning, match=r"<string>:1:1: ABC \[program-base-placement\]"
+    ):
+        score = Score.from_abc(text)
+    assert [track.program for track in score.tracks] == [48]
+
+
 def test_missing_key_not_recovered():
     with pytest.raises(ValueError, match=r"<string>:3:1: ABC \[missing-key\]"):
         Score.from_abc("X:1\nM:4/4\nCDEF\n")

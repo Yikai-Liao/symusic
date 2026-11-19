@@ -58,6 +58,18 @@ private:
     vec<std::pair<Location, AccidentalScope>> changes;
 };
 
+// abc2midi applies the last programbase inside a tune to every program it emits.
+// Collect it before rendering, then use the same conversion for every instrument.
+class ProgramNumbers {
+public:
+    bool              consume(const Token& token, Location reference, Diagnostics& diagnostics);
+    [[nodiscard]] int read(std::string_view& args, Diagnostics& diagnostics, Location at) const;
+    [[nodiscard]] int midi(int written) const { return std::max(0, written - base); }
+
+private:
+    int base = 0;
+};
+
 // A tune's percussion routes persist across MIDI tracks in render order.
 // Both melody and backing resolve the destination once, at attack time.
 class DrumMap {

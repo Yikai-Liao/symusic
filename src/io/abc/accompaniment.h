@@ -12,7 +12,12 @@ namespace symusic::abc::detail {
 // The voice advances this clock before changing harmony or applying directives.
 class Accompaniment {
 public:
-    Accompaniment(Meter meter, const DrumMap& drum_map, Diagnostics& diagnostics);
+    Accompaniment(
+        Meter                 meter,
+        const DrumMap&        drum_map,
+        const ProgramNumbers& programs,
+        Diagnostics&          diagnostics
+    );
     bool directive(std::string_view name, std::string_view args, long double time, Location at);
     void harmony(std::string_view name, int transpose, Location at);
     void meter(Meter change, long double time);
@@ -83,6 +88,7 @@ private:
 
     Diagnostics&                         diagnostics;
     const DrumMap&                       drum_map;
+    const ProgramNumbers&                programs;
     Meter                                current_meter;
     Pattern                              chords{true};
     Pattern                              drums{false};

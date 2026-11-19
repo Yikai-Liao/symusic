@@ -10,8 +10,12 @@ void NoteAddress::release_at(i32 end) const {
     *gate          = std::max(*gate, end);
 }
 
-VoiceOutput::VoiceOutput(std::string name, const DrumMap& drum_map, Diagnostics& diagnostics) :
-    name(std::move(name)), diagnostics(diagnostics), drum_map(drum_map) {}
+VoiceOutput::VoiceOutput(
+    std::string           name,
+    const DrumMap&        drum_map,
+    const ProgramNumbers& programs,
+    Diagnostics&          diagnostics
+) : name(std::move(name)), diagnostics(diagnostics), drum_map(drum_map), programs(programs) {}
 
 void VoiceOutput::Routing::attack_on(size_t chord_member) {
     if (extra_channels == 0) return;
@@ -115,15 +119,20 @@ void VoiceOutput::control(int lane, i32 time, int number, int value, Location at
 }
 
 void VoiceOutput::program(int lane, std::string_view args, Location at) {
-    const auto first = midi_integer(args, 0, midi_max, diagnostics, at);
-    auto&      route = routing[lane];
-    if (trim(args).empty()) {
-        route.programs[route.selected - 1] = first;
-        return;
+    auto       remaining = args;
+    const auto first     = word(remaining);
+    auto&      route     = routing[lane];
+    int        channel   = route.selected;
+    if (!trim(remaining).empty()) {
+        const auto explicit_channel = integer(first);
+        if (!explicit_channel || *explicit_channel < 1 || *explicit_channel > midi_channels)
+            diagnostics.error(
+                at, "invalid-midi-channel", "program channel must be between 1 and 16"
+            );
+        channel = *explicit_channel;
+        args    = remaining;
     }
-    if (first < 1 || first > midi_channels)
-        diagnostics.error(at, "invalid-midi-channel", "program channel must be between 1 and 16");
-    route.programs[first - 1] = midi_integer(args, 0, midi_max, diagnostics, at);
+    route.programs[channel - 1] = programs.read(args, diagnostics, at);
 }
 
 bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, Location at) {

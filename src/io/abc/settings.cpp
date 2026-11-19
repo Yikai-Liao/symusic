@@ -284,6 +284,25 @@ void DrumMap::assign(std::string_view args, Location at, Diagnostics& diagnostic
     routes[note] = destination;
 }
 
+bool ProgramNumbers::consume(const Token& token, Location reference, Diagnostics& diagnostics) {
+    auto args = token.information().value_or("");
+    if (word(args) != "MIDI" || word(args) != "programbase") return false;
+    if (token.at < reference) {
+        diagnostics.warn(
+            token.at,
+            "program-base-placement",
+            "ignored programbase before X:; place it inside the tune"
+        );
+    } else {
+        base = midi_integer(args, 0, std::numeric_limits<int>::max(), diagnostics, token.at) != 0;
+    }
+    return true;
+}
+
+int ProgramNumbers::read(std::string_view& args, Diagnostics& diagnostics, Location at) const {
+    return midi(midi_integer(args, 0, midi_max + base, diagnostics, at));
+}
+
 int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at) {
     const auto number = integer(word(args));
     if (number && *number >= low && *number <= high) return *number;

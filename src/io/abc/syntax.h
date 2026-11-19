@@ -179,6 +179,7 @@ struct Tune {
     std::deque<std::string> owned_text;
     vec<Token>              header;
     vec<Token>              body;
+    Location                reference;
     Location                key;
 };
 

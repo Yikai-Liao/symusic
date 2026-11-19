@@ -85,6 +85,16 @@ CASES = {
     "odd_meter_accents": HEADER.replace("M:4/4", "M:7/8").replace("L:1/4", "L:1/8")
     + "CDEFGAB|",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
+    "one_based_programs": HEADER.replace("K:C", "%%MIDI programbase 1\nK:C")
+    + "V:lead\n%%MIDI program 16 128\n%%MIDI channel 16\nCDEF|\n"
+    + "V:bass\n%%MIDI program 1\nC,4|",
+    "program_base_last_value": HEADER
+    + "%%MIDI programbase 1\n%%MIDI program 48\nCD[I:MIDI programbase 0]EF|",
+    "program_base_changes_earlier_programs": HEADER
+    + "%%MIDI program 48\nCD[I:MIDI programbase 1]EF|",
+    "program_base_backing": HEADER
+    + "%%MIDIdef gm programbase 1\n%%MIDIx gm\n"
+    + '%%MIDI bassprog 11\n%%MIDI chordprog 128\n"C"CDEF|',
     "midi_aliases": "%%MIDIdef bass-program program 53\n"
     + HEADER
     + "%%MIDIdef quiet beat 80 70 60 1\n"
@@ -637,6 +647,18 @@ def test_upstream_sample(
         drop_sample_rows(expected, location, upstream_rows)
         drop_sample_rows(actual, location, native_rows)
     assert actual == expected
+
+
+@pytest.mark.parametrize("settings", ["", "%%MIDI drone 1 45 57 80 80\n"])
+def test_program_base_drone(settings: str, upstream: Path, tmp_path: Path):
+    abc = HEADER + "%%MIDI programbase 1\n" + settings + "%%MIDI droneon\nCDEF|"
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert (
+        native.tracks[-1].program
+        == actual.tracks[-1].program
+        == (0 if settings else 69)
+    )
 
 
 def test_upstream_ordered_verses(upstream: Path, tmp_path: Path):
