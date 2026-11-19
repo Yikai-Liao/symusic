@@ -240,7 +240,8 @@ private:
 
     template<class T>
     void push(const Node& node, T value) {
-        if constexpr (std::is_same_v<T, Atom>) value.music_line = source.first_line;
+        if constexpr (std::is_same_v<T, Atom> || std::is_same_v<T, Bar>)
+            value.music_line = source.first_line;
         output.push_back({location(node), std::move(value)});
     }
 

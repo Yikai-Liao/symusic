@@ -142,6 +142,7 @@ struct Bar {
     bool             resets_measure = true;
     bool             section        = false;
     std::string_view endings;
+    size_t           music_line = 0;
 };
 
 struct Token {

@@ -263,6 +263,83 @@ void OverlayLanes::break_ties() {
         report_ties(lanes[index].ties, diagnostics);
 }
 
+enum class LyricUnit { separator, bar, skip, syllable };
+
+LyricUnit lyric_unit(char c) {
+    switch (c) {
+    case ' ':
+    case '\t':
+    case '-': return LyricUnit::separator;
+    case '|': return LyricUnit::bar;
+    case '_':
+    case '*': return LyricUnit::skip;
+    default: return LyricUnit::syllable;
+    }
+}
+
+std::string lyric_syllable(std::string_view& text) {
+    std::string result;
+    while (!text.empty() && lyric_unit(text.front()) == LyricUnit::syllable) {
+        if (text.starts_with("\\-")) text.remove_prefix(1);
+        result.push_back(text.front() == '~' ? ' ' : text.front());
+        text.remove_prefix(1);
+    }
+    return result;
+}
+
+// The lyric cursor follows performed attacks of one logical music line. Bar
+// punctuation advances to the next notated boundary, not the next attack.
+class LyricLine {
+public:
+    void start(size_t line);
+    void attack(NoteAddress note) { attacks.push_back(note); }
+    void bar(size_t line);
+    // Return false if the text still needs attacks after the line ends.
+    bool align(std::string_view text) const;
+
+private:
+    size_t           line = 0;
+    vec<NoteAddress> attacks;
+    vec<size_t>      boundaries;
+};
+
+void LyricLine::start(size_t next) {
+    if (line == next) return;
+    line = next;
+    attacks.clear();
+    boundaries.clear();
+}
+
+void LyricLine::bar(size_t source_line) {
+    if (source_line != line || attacks.empty()) return;
+    if (boundaries.empty() || attacks.size() != boundaries.back())
+        boundaries.push_back(attacks.size());
+}
+
+bool LyricLine::align(std::string_view text) const {
+    size_t next = 0;
+    auto   bar  = boundaries.begin();
+    while (!text.empty()) {
+        switch (lyric_unit(text.front())) {
+        case LyricUnit::separator: break;
+        case LyricUnit::bar:
+            bar  = std::lower_bound(bar, boundaries.end(), next);
+            next = bar == boundaries.end() ? attacks.size() : *bar++;
+            break;
+        case LyricUnit::skip:
+            if (next == attacks.size()) return false;
+            ++next;
+            break;
+        case LyricUnit::syllable:
+            if (next == attacks.size()) return false;
+            attacks[next++].lyric(lyric_syllable(text));
+            continue;
+        }
+        text.remove_prefix(1);
+    }
+    return true;
+}
+
 class VoicePlayer {
 public:
     VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
@@ -292,8 +369,7 @@ private:
     std::optional<std::pair<Broken, Location>> broken;
     GraceGroup                                 grace;
     Ornament                                   ornament;
-    vec<NoteAddress>                           line_notes;
-    size_t                                     music_line = 0;
+    LyricLine                                  lyric_line;
     Performance                                result;
     struct RepeatEntry {
         Key         tone;
@@ -575,7 +651,7 @@ void VoicePlayer::emit_chord(
                 std::min<int64_t>(max_stagger, stagger + static_cast<int64_t>(attack))
             );
             if (address && !aligned_lyric) {
-                line_notes.push_back(*address);
+                lyric_line.attack(*address);
                 aligned_lyric = true;
             }
         }
@@ -622,7 +698,7 @@ void VoicePlayer::play_roll(
     for (size_t index = 0; index < notes.size(); ++index) {
         const auto onset   = start + index * step;
         const auto address = note(notes[index], onset, step, 0, velocity(onset), atom.at);
-        if (index == 0 && address) line_notes.push_back(*address);
+        if (index == 0 && address) lyric_line.attack(*address);
     }
 }
 
@@ -672,10 +748,7 @@ void VoicePlayer::play(const Prepared& atom) {
     const auto end      = lane().time + duration;
     (void)tick(end, diagnostics, atom.at);
     if (lanes.id() == 0) accompaniment.advance(end, atom.at);
-    if (music_line != atom.atom->music_line) {
-        line_notes.clear();
-        music_line = atom.atom->music_line;
-    }
+    lyric_line.start(atom.atom->music_line);
     articulation(atom, duration);
     lane().time = end;
 }
@@ -866,6 +939,7 @@ void VoicePlayer::visit(const Bar& bar, Location at) {
     orphan_grace(at);
     ornament = {};
     if (!bar.resets_measure) return;
+    lyric_line.bar(bar.music_line);
     lanes.close_implicit(written);
     lane().accidentals.reset();
     if (!closes_measure(bar, lane(), written.meter)) return;
@@ -984,21 +1058,7 @@ void VoicePlayer::visit(const Field& field, Location at) {
 
 void VoicePlayer::lyrics(std::string_view text, Location at) {
     result.needs_conductor = true;
-    size_t index           = 0;
-    while (!text.empty() && index < line_notes.size()) {
-        const auto split = text.find_first_of(" \t-_|*");
-        if (split == 0) {
-            if (text.front() == '_' || text.front() == '*') ++index;
-            text.remove_prefix(1);
-            continue;
-        }
-        auto syllable = std::string(text.substr(0, split));
-        std::ranges::replace(syllable, '~', ' ');
-        line_notes[index++].lyric(std::move(syllable));
-        if (split == text.npos) return;
-        text.remove_prefix(split + (text[split] == '-'));
-    }
-    if (!trim(text).empty())
+    if (!lyric_line.align(text))
         diagnostics.warn(at, "extra-lyrics", "more lyric syllables than notes on the music line");
 }
 
@@ -1060,8 +1120,16 @@ void VoicePlayer::visit_step(PlayStep step) {
         repeat_entry = {written.tone, written.unit, output.selected_channel(lanes.id())};
         break;
     case Flow::jump_repeat: jump_repeat(); break;
-    case Flow::soft_bar: visit(Bar{.repeat_end = true}, token.at); break;
-    case Flow::hard_bar: visit(Bar{}, token.at); break;
+    case Flow::soft_bar:
+    case Flow::hard_bar:
+        visit(
+            Bar{
+                .repeat_end = step.flow == Flow::soft_bar,
+                .music_line = std::get<Bar>(token.value).music_line,
+            },
+            token.at
+        );
+        break;
     case Flow::token: schedule(token); break;
     }
 }

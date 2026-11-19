@@ -326,14 +326,14 @@ def performed(score: Score) -> dict:
 
 
 def oracle_score(
-    executable: Path, abc: str, directory: Path, *, expected_exit: int = 0
+    executable: Path, abc: str, directory: Path, *options: str, expected_exit: int = 0
 ) -> Score:
     source = directory / "sample.abc"
     output = directory / "sample.mid"
     source.write_text(abc + "\n", encoding="utf-8")
     output.unlink(missing_ok=True)
     result = subprocess.run(
-        [executable.resolve(), source, "-o", output, "-silent"],
+        [executable.resolve(), source, "-o", output, "-silent", *options],
         capture_output=True,
         text=True,
         check=False,
@@ -373,6 +373,16 @@ def test_live_upstream_matches_snapshot(
     exit_code = 1 if name in RECOVERED else 0
     score = oracle_score(upstream, CASES[name], tmp_path, expected_exit=exit_code)
     assert performed(score) == golden[name]
+
+
+def test_abc_lyric_bar_alignment(upstream: Path, tmp_path: Path):
+    abc = HEADER + "CDEF | GABc | cBAG |\nw: one | two\\-three | four"
+    native = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path, "-lyrics")
+    # abc2midi stores lyrics in a Words track and prefixes inter-word spaces.
+    assert [(e.time, e.text) for e in native.tracks[0].lyrics] == [
+        (e.time, e.text.lstrip(" ")) for track in actual.tracks for e in track.lyrics
+    ]
 
 
 def test_shorthand_decoration_spelling(upstream: Path, tmp_path: Path):

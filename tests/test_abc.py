@@ -335,6 +335,22 @@ def test_abc_aligns_lyrics_to_attacks_on_their_music_line():
     ]
 
 
+@pytest.mark.parametrize(
+    ("lyrics", "times"),
+    [
+        ("one | two\\-three", [1, 1921]),
+        ("| one two\\-three", [1921, 2401]),
+        ("|| one two\\-three", [3841, 4321]),
+        ("* * * one | two\\-three", [1441, 1921]),
+    ],
+)
+def test_abc_lyrics_skip_to_bar(lyrics: str, times: list[int]):
+    score = Score.from_abc(HEADER + "| CDEF \\\n| GABc | cBAG |\nw: " + lyrics)
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == list(
+        zip(times, ["one", "two-three"], strict=True)
+    )
+
+
 def test_abc_pedals_are_not_paired_across_overlay_lanes():
     score = Score.from_abc(
         HEADER + "(& C D [I:MIDI control 64 127] & [I:MIDI control 64 0] E F &) G A"
