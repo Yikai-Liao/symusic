@@ -640,8 +640,9 @@ class SynthesizerFactory:
         sample_rate : int, default 44100
             Output sample rate in Hz.
         quality : int, default 0
-            Synthesis quality knob (0-6). Higher values improve fidelity at the
-            cost of performance.
+            Resampling of SoundFont samples to ``sample_rate``, 0-4: 0 is linear
+            interpolation, 1 zero-order hold, 2-4 sinc from fastest to best.
+            Other values raise ``ValueError``.
 
         Returns
         -------

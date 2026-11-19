@@ -31,7 +31,8 @@ sf_path:
 sample_rate:
     Output sample rate in Hz.
 quality:
-    Prestosynth render quality hint (``0`` = default).
+    Resampling of SoundFont samples to ``sample_rate``, 0-4: ``0`` is linear interpolation, ``1``
+    zero-order hold, ``2``-``4`` sinc from fastest to best. Other values raise ``ValueError``.
 
 Examples
 --------
