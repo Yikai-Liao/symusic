@@ -1,3 +1,4 @@
+#include <limits>
 #include <map>
 #include <queue>
 
@@ -27,6 +28,12 @@ void ensure_valid_midi_data_byte(
     if (!sanitize_data && !is_valid_midi_data_byte(value)) {
         throw std::runtime_error("Get " + std::string(field_name) + "=" + std::to_string(value));
     }
+}
+
+[[noreturn]] SYMUSIC_COLD void throw_midi_time_overflow(const uint32_t time) {
+    throw std::runtime_error(
+        "MIDI event time " + std::to_string(time) + " exceeds the 32-bit tick range"
+    );
 }
 
 template<typename T>
@@ -225,6 +232,12 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
         // iter midi messages in the track
 
         for (const auto& msg : midi_track) {
+            // Event times accumulate delta times in u32; anything above INT32_MAX (including a
+            // wrapped sum, which must pass through that range first) cannot be a valid tick.
+            if (msg.time > static_cast<uint32_t>(std::numeric_limits<Tick::unit>::max()))
+                [[unlikely]] {
+                throw_midi_time_overflow(msg.time);
+            }
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
             switch (msg.type()) {

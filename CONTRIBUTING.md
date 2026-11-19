@@ -112,7 +112,7 @@ Review changed events against the upstream behavior before committing the snapsh
 
 ### Code and comments
 
-Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Use the project aliases (`i32`, `vec`, `shared`, `pyvec`) in the core. Comments explain invariants, units, ownership and non-obvious choices; they do not narrate history or keep commented-out code. Write all code, comments, logs and documentation in English.
+Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `pyproject.toml`) for Python. `.git-blame-ignore-revs` lists the bulk formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once. Names, types, errors, macros, comments and binding patterns follow the [code conventions](docs/development/conventions.md). Write all code, comments, logs and documentation in English.
 
 ### Dependencies
 
@@ -127,10 +127,13 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 | Agent instructions | [`AGENTS.md`](https://github.com/Yikai-Liao/symusic/blob/main/AGENTS.md) |
 | Contribution procedure | This file |
 | Design and contracts | [`docs/design/`](docs/design/architecture.md) |
+| Code conventions | [`docs/development/conventions.md`](docs/development/conventions.md) |
 | User guide and agent skill | [`skills/symusic/`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic); the website reads the pages through the `docs/guide` symlink |
 | Website | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
 | Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/`; they reach users through the generated `core.pyi` |
 | Planned work and accepted debt | [`ROADMAP.md`](ROADMAP.md) |
+
+The guide pages are read three ways: as the agent skill, on GitHub and on the website. Write them in CommonMark with GitHub tables, and link only to other pages in `skills/symusic/` or to absolute URLs; a relative link that leaves the directory resolves differently through the `docs/guide` symlink. Sphinx and MyST syntax (directives, roles, `(label)=` targets, `toctree`, `include`) belongs only in the website's own pages under `docs/`, because agents and GitHub show it as raw text.
 
 Write what a symusic user cannot infer from the name or the code: semantics, units, defaults, errors, whether an operation copies or mutates, and the pitfalls. Check each claim against the code, including supported versions and platforms, and run every example against the installed package. Leave out general Python or machine-learning advice, performance adjectives without a measurement, prose that restates the example beside it, and closing summaries. Link to the page that owns a topic instead of explaining it again. Docstrings follow the same rule, and code comments state invariants, units and ownership.
 

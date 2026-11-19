@@ -8,6 +8,7 @@
 #include "test_io.hpp"
 #include "test_common_io.hpp"
 #include "test_time_events.hpp"
+#include "test_checked_time.hpp"
 #include "test_track_score.hpp"
 #include "test_conversion.hpp"
 #include "test_midi_io.hpp"

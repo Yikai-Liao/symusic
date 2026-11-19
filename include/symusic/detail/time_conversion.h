@@ -1,16 +1,15 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
-#define LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
-
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <span>
 #include <type_traits>
 #include <utility>
 
 #include "symusic/score.h"
+#include "symusic/utils.h"
 
 namespace symusic::details {
 
@@ -110,7 +109,11 @@ struct SecondTimeConverter {
         factors.push_back(cur_factor);
 
         for (size_t index = 1; index < tempos.size(); ++index) {
-            pivot_to   = self->get_time(tempos[index].time, pivot_to, pivot_from, cur_factor);
+            // The last boundary is the maximum time, which is not representable in the target
+            // unit; range_index never selects its segment, so its pivot is never read.
+            if (index + 1 < tempos.size()) {
+                pivot_to = self->get_time(tempos[index].time, pivot_to, pivot_from, cur_factor);
+            }
             pivot_from = tempos[index].time;
             cur_factor = self->get_factor(tempos[index]);
             to_times.push_back(pivot_to);
@@ -182,7 +185,7 @@ struct SecondTimeConverter {
             update_state(state, end_time);
             const auto end
                 = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
-            converted.emplace_back(start, std::max(min_dur, end - start), event);
+            converted.emplace_back(start, std::max(min_dur, sub_time<to_unit>(end, start)), event);
         }
         return pyvec<Event<To>>(std::move(converted));
     }
@@ -190,9 +193,13 @@ struct SecondTimeConverter {
 private:
     template<class Time>
     [[nodiscard]] size_t range_index(const Time time) const {
-        return static_cast<size_t>(
-            std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin() - 1
-        );
+        // Segment i spans [from_times[i], from_times[i + 1]). Times before the first boundary
+        // (negative) extrapolate the first segment; the last boundary is the maximum time itself,
+        // so a time equal to it belongs to the last segment.
+        const auto pos
+            = std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin();
+        const auto last = from_times.end() - from_times.begin() - 2;
+        return static_cast<size_t>(std::clamp<std::ptrdiff_t>(pos - 1, 0, last));
     }
 
     [[nodiscard]] RangeState initial_state() const {
@@ -245,7 +252,7 @@ struct Quarter2TickConverter : SimpleTimeConverter<Quarter2TickConverter, Tick, 
         SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Tick::unit time(const Quarter::unit value) const {
-        return static_cast<Tick::unit>(std::round(value * tpq));
+        return round_to_i32(value * tpq);
     }
 };
 
@@ -279,7 +286,7 @@ struct Second2TickConverter : SecondTimeConverter<Second2TickConverter, Tick, Se
         const Second::unit pivot_from,
         const f64          factor
     ) {
-        return pivot_to + static_cast<Tick::unit>(std::round(factor * (time - pivot_from)));
+        return add_time(pivot_to, round_to_i32(factor * (time - pivot_from)));
     }
 };
 
@@ -347,5 +354,3 @@ template<TType To, TType From>
 }
 
 }   // namespace symusic::details
-
-#endif   // LIBSYMUSIC_DETAIL_TIME_CONVERSION_H

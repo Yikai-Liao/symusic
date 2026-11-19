@@ -123,6 +123,24 @@ def _():
     return lambda: score.clip(end // 4, end)
 
 
+@scenario("trim", 100)
+def _():
+    track = _load(PIANO).tracks[0]
+    end = track.end() // 2
+    return lambda: track.trim(
+        end // 4, end, min_overlap=1, start_mode="truncate", end_mode="truncate"
+    )
+
+
+@scenario("adjust_time", 20)
+def _():
+    score = _load(PIANO)
+    end = score.end()
+    original = [0, end // 3, end]
+    adjusted = [0, end // 4, end]
+    return lambda: score.adjust_time(original, adjusted)
+
+
 @scenario("sort", 40)
 def _():
     score = _load(PIANO)

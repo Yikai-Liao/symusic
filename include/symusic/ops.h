@@ -12,6 +12,29 @@
 
 namespace symusic::ops {
 
+namespace details {
+// Comparisons on event ends use a wide intermediate (i64 for Tick) so that an event whose end
+// exceeds the tick range compares correctly instead of throwing or overflowing. Only values
+// written back to an event go through narrow_time.
+template<TimeEvent T>
+using wide_t = symusic::details::wide_time_t<typename T::unit>;
+
+template<TimeEvent T>
+wide_t<T> wide_end(const T& event) {
+    return static_cast<wide_t<T>>(event.time) + static_cast<wide_t<T>>(event.duration);
+}
+
+// Truncating conversion of a scaled offset; rejects NaN and out-of-range values for Tick.
+template<typename U>
+U trunc_time(const f64 value) {
+    if constexpr (std::integral<U>) {
+        return symusic::details::f64_to_i32(value);
+    } else {
+        return static_cast<U>(value);
+    }
+}
+}   // namespace details
+
 template<typename T, class Comp>
 void sort(vec<T>& data, const bool reverse, Comp cmp) {
     if (reverse) {
@@ -70,7 +93,7 @@ void clip_inplace(
     if constexpr (HashDuration<T>) {
         if (clip_end) {
             events.filter([start, end](const T& event) {
-                return ((event.time) >= start) && ((event.end()) <= end);
+                return ((event.time) >= start) && (details::wide_end(event) <= end);
             });
             return;
         }
@@ -102,31 +125,41 @@ void trim_inplace(
     const std::string& end_mode    = "remove"
 ) {
     if constexpr (HashDuration<T>) {
+        using wide = details::wide_t<T>;
+        using unit = typename T::unit;
         if (start_mode == std::string("remove") && end_mode == std::string("remove")) {
             events.filter([start, end](const T& event) {
-                return (event.time >= start) && (event.end() <= end);
+                return (event.time >= start) && (details::wide_end(event) <= end);
             });
         } else if (start_mode == std::string("remove")) {
             events.filter([start, end, min_overlap](const T& event) {
-                return (event.time >= start) && (end - event.time >= min_overlap);
+                return (event.time >= start)
+                       && (static_cast<wide>(end) - event.time >= min_overlap);
             });
         } else if (end_mode == std::string("remove")) {
             events.filter([start, end, min_overlap](const T& event) {
-                return (event.end() - start >= min_overlap) && (event.end() <= end);
+                const wide event_end = details::wide_end(event);
+                return (event_end - start >= min_overlap) && (event_end <= end);
             });
         } else {
             events.filter([start, end, min_overlap](const T& event) {
-                return (event.end() - start >= min_overlap) && (end - event.time >= min_overlap);
+                return (details::wide_end(event) - start >= min_overlap)
+                       && (static_cast<wide>(end) - event.time >= min_overlap);
             });
         }
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {
-                event.duration = event.end() - start;
-                event.time     = start;
+                event.duration = symusic::details::narrow_time<unit>(
+                    details::wide_end(event) - static_cast<wide>(start)
+                );
+                event.time = start;
             }
-            if (end_mode == "truncate" && event.end() > end) {
-                event.duration -= event.end() - end;
+            if (end_mode == "truncate" && details::wide_end(event) > end) {
+                event.duration = symusic::details::narrow_time<unit>(
+                    static_cast<wide>(event.duration)
+                    - (details::wide_end(event) - static_cast<wide>(end))
+                );
             }
         }
     } else {
@@ -211,15 +244,20 @@ void adjust_time_inplace_inner(
     using unit = typename T::unit;
     // check if the events have duration
     constexpr bool has_dur = HashDuration<T>;
-    auto           get_end = [has_dur](const T& event) {
-        if constexpr (has_dur) { return event.time + event.duration; }
-        return event.time;
+    // Difference of two times as f64, exact for Tick (i64) and in unit precision for floats.
+    auto diff = [](const unit lhs, const unit rhs) {
+        return static_cast<f64>(static_cast<wide_t<T>>(lhs) - static_cast<wide_t<T>>(rhs));
+    };
+    // Wide end so that an event ending beyond the tick range is rejected by `valid`, not wrapped.
+    auto get_end = [has_dur](const T& event) {
+        if constexpr (has_dur) { return wide_end(event); }
+        return static_cast<wide_t<T>>(event.time);
     };
     // return empty vector if events is empty
     if (events.empty()) return;
-    auto get_factor = [&original_times, &new_times](const size_t x) {
-        f64 factor = static_cast<f64>(new_times[x] - new_times[x - 1])
-                     / static_cast<f64>(original_times[x] - original_times[x - 1]);
+    auto get_factor = [&original_times, &new_times, diff](const size_t x) {
+        f64 factor
+            = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
         return factor;
     };
 
@@ -245,10 +283,13 @@ void adjust_time_inplace_inner(
             cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
             pivot_new  = new_times[idx - 1];
         }
-        unit start = pivot_new
-            + static_cast<typename T::unit>(cur_factor * static_cast<f64>(event.time - cur_range.first));
+        unit start = symusic::details::add_time<unit>(
+            pivot_new,
+            trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
+        );
         if constexpr (has_dur) {
-            auto original_end = get_end(event);
+            // `valid` guarantees original_end <= original_times.back(), so it fits in `unit`.
+            const auto original_end = static_cast<unit>(get_end(event));
             if (original_end > cur_range.second) {
                 auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
                     - original_times.begin();
@@ -256,9 +297,11 @@ void adjust_time_inplace_inner(
                 cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
                 pivot_new  = new_times[idx - 1];
             }
-            unit end = pivot_new
-                + static_cast<typename T::unit>(cur_factor * static_cast<f64>(original_end - cur_range.first));
-            event.duration = end - start;
+            unit end = symusic::details::add_time<unit>(
+                pivot_new,
+                trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
+            );
+            event.duration = symusic::details::sub_time<unit>(end, start);
         }
         event.time = start;
         *(events.pbegin() + i) = *(events.pbegin() + j);
