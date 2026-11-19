@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <limits>
+#include <map>
 #include <span>
 #include <stdexcept>
 #include <utility>
@@ -478,12 +479,12 @@ public:
     Tune finish(Location end);
 
 private:
-    Diagnostics& diagnostics;
-    Tune         tune;
-    bool         saw_reference = false;
-    bool         in_body       = false;
-    bool         saw_music     = false;
-    bool         ended         = false;
+    Diagnostics&            diagnostics;
+    Tune                    tune;
+    std::optional<Location> reference;
+    bool                    in_body   = false;
+    bool                    saw_music = false;
+    bool                    ended     = false;
     struct LayoutBlock {
         std::string_view end;
         Location         opened_at;
@@ -500,8 +501,8 @@ bool TuneLines::metadata(Field value, Location at) {
             diagnostics.warn(at, "extra-tunes", "only the first tune was read");
             return false;
         }
-        if (saw_reference) diagnostics.error(at, "missing-key", "first tune has no K: field");
-        saw_reference = true;
+        if (reference) diagnostics.error(at, "missing-key", "first tune has no K: field");
+        reference = at;
         if (!integer(value.value))
             diagnostics.warn(at, "bad-reference", "expected an integer after X:");
     }
@@ -532,9 +533,7 @@ void fold_word_fields(std::string& text, std::span<const Fragment> fragments) {
 
 bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
     fold_word_fields(text, fragments);
-    return line(
-        {tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments}
-    );
+    return line({tune.owned_text.emplace_back(std::move(text)), fragments.front().line, fragments});
 }
 
 bool TuneLines::skip_layout(std::string_view raw, size_t number) {
@@ -589,6 +588,94 @@ bool TuneLines::content(LogicalLine line, std::string_view content) {
     return true;
 }
 
+// Expand in written order, before tune-wide settings and voice routing read the tokens.
+// Each use becomes an ordinary directive at the use site; malformed uses retain
+// the commands already expanded and warn where expansion stopped.
+class MidiAliases {
+public:
+    MidiAliases(std::deque<std::string>& text, Location reference, Diagnostics& diagnostics) :
+        text(text), reference(reference), diagnostics(diagnostics) {}
+
+    void expand(vec<Token>& tokens);
+
+private:
+    std::deque<std::string>&                     text;
+    Location                                     reference;
+    Diagnostics&                                 diagnostics;
+    std::map<std::string_view, std::string_view> definitions;
+
+    void define(std::string_view args, Location at);
+    void use(std::string_view args, const Token& token, vec<Token>& output);
+};
+
+void MidiAliases::define(std::string_view args, Location at) {
+    const auto name = word(args);
+    args            = trim(args);
+    if (name.empty() || args.empty()) {
+        diagnostics.warn(at, "invalid-midi-alias", "ignored MIDIdef without a name and command");
+        return;
+    }
+    // abc2midi resolves a name to the first definition in the file.
+    if (!definitions.contains(name))
+        definitions.emplace(name, text.emplace_back(fmt::format("MIDI {}", args)));
+}
+
+void MidiAliases::use(std::string_view args, const Token& token, vec<Token>& output) {
+    if (token.at < reference || trim(args).empty()) {
+        diagnostics.warn(
+            token.at,
+            "invalid-midi-alias",
+            "ignored MIDIx: expected one or more alias names inside a tune"
+        );
+        return;
+    }
+    for (auto name = word(args); !name.empty(); name = word(args)) {
+        const auto match = definitions.find(name);
+        if (match == definitions.end()) {
+            diagnostics.warn(
+                token.at,
+                "undefined-midi-alias",
+                fmt::format("stopped MIDIx at '{}': no preceding MIDIdef for that name", name)
+            );
+            return;
+        }
+        diagnostics.spend(1, token.at);
+        output.push_back({token.at, Directive{match->second}, token.music_line});
+    }
+}
+
+void MidiAliases::expand(vec<Token>& tokens) {
+    const auto command = [](const Token& token) {
+        auto information = token.information().value_or("");
+        return word(information);
+    };
+    const auto first = std::ranges::find_if(tokens, [&](const Token& token) {
+        const auto name = command(token);
+        return name == "MIDIdef" || name == "MIDIx";
+    });
+    if (first == tokens.end()) return;
+
+    vec<Token> expanded;
+    expanded.reserve(static_cast<size_t>(tokens.end() - first));
+    for (auto it = first; it != tokens.end(); ++it) {
+        const auto& token = *it;
+        auto        args  = token.information().value_or("");
+        const auto  name  = word(args);
+        if (name == "MIDIdef")
+            define(args, token.at);
+        else if (name == "MIDIx")
+            use(args, token, expanded);
+        else
+            expanded.push_back(std::move(*it));
+    }
+    tokens.erase(first, tokens.end());
+    tokens.insert(
+        tokens.end(),
+        std::make_move_iterator(expanded.begin()),
+        std::make_move_iterator(expanded.end())
+    );
+}
+
 Tune TuneLines::finish(Location end) {
     if (layout)
         diagnostics.warn(
@@ -597,8 +684,11 @@ Tune TuneLines::finish(Location end) {
             fmt::format("ignored layout through end of file; expected %%{}", layout->end)
         );
     if (!in_body) diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
-    if (!saw_reference)
+    if (!reference)
         diagnostics.error(tune.key, "missing-reference", "expected an X: field before K:");
+    MidiAliases aliases(tune.owned_text, *reference, diagnostics);
+    aliases.expand(tune.header);
+    aliases.expand(tune.body);
     return std::move(tune);
 }
 

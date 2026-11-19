@@ -85,6 +85,19 @@ CASES = {
     "odd_meter_accents": HEADER.replace("M:4/4", "M:7/8").replace("L:1/4", "L:1/8")
     + "CDEFGAB|",
     "inline_key": HEADER + "C ^C c C =C c | C [K:G] F ^F f [K:Ddor] B |",
+    "midi_aliases": "%%MIDIdef bass-program program 53\n"
+    + HEADER
+    + "%%MIDIdef quiet beat 80 70 60 1\n"
+    + "I:MIDIx bass-program\n[I:MIDIx quiet] CDEF|",
+    "midi_aliases_in_header": HEADER.replace(
+        "K:C", "%%MIDIdef harp program 46\n%%MIDIx harp\nK:C"
+    )
+    + "CDEF|",
+    "midi_aliases_feed_written_policy": HEADER
+    + "%%MIDIdef fixed nobarlines\n[I:MIDIx fixed] ^FFFf & ^CCCc|",
+    "midi_aliases_feed_shared_drummap": HEADER
+    + "%%MIDIdef kit drummap C 43\n%%MIDIdef lead program 53\n"
+    + "%%MIDIx kit lead\nV:1\nCDEF|\nV:2\n%%MIDI channel 10\nCDEF|",
     "voices": HEADER + 'V:one name="Lead"\n%%MIDI program 4\nC D E F |\n'
     'V:two name="Bass"\n%%MIDI program 8\nC,2 D,2 |\n[V:one] G A B c |',
     "overlay": HEADER + "C D & E2 | F G A B |",

@@ -173,10 +173,10 @@ struct Token {
     }
 };
 
-// Views in the token stream refer to the input; locations are one-based UTF-8 byte columns.
-// Header ends at K:, and body contains only the first tune's music and fields.
+// Token text refers to the input or the tune's owned text. Locations are one-based UTF-8 byte
+// columns. Header ends at K:, and body contains only the first tune's music and fields.
 struct Tune {
-    std::deque<std::string> continued_lines;
+    std::deque<std::string> owned_text;
     vec<Token>              header;
     vec<Token>              body;
     Location                key;

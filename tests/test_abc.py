@@ -77,6 +77,25 @@ def test_abc_fatal_diagnostics(body: str, code: str, line: int, column: int):
         Score.from_abc(HEADER + body)
 
 
+def test_midi_alias_stops_at_undefined_name():
+    text = (
+        HEADER
+        + "%%MIDIdef lead program 20\n%%MIDIdef later program 53\n"
+        + "[I:MIDIx lead missing later] CDEF|"
+    )
+    with pytest.warns(
+        UserWarning, match=r"<string>:9:2: ABC \[undefined-midi-alias\].*'missing'"
+    ):
+        score = Score.from_abc(text)
+    assert [track.program for track in score.tracks] == [20]
+
+
+def test_midi_alias_command_error_locates_use():
+    text = HEADER + "%%MIDIdef wrong program 128\n\n%%MIDIx wrong\nCDEF|"
+    with pytest.raises(ValueError, match=r"<string>:9:1: ABC \[invalid-midi-value\]"):
+        Score.from_abc(text)
+
+
 def test_missing_key_not_recovered():
     with pytest.raises(ValueError, match=r"<string>:3:1: ABC \[missing-key\]"):
         Score.from_abc("X:1\nM:4/4\nCDEF\n")
