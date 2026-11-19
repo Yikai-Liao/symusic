@@ -1269,6 +1269,14 @@ def test_live_ornament_attacks_accept_separate_lyric_syllables(
         ("", "|: ~F [I:MIDI harpmode 1] ~F F6 :| ~F A7|"),
         ("", "V:1\n~F [I:MIDI harpmode 1] ~F F6|\nV:2\n~A, A,7|"),
         ("%%MIDI harpmode 1\n", "RF TF ~F0 A|"),
+        ("%%MIDI harpmode 1\n", "(3~A3 B3 c3 d2|"),
+        ("%%MIDI harpmode 1\n", "(2:3:2~d2 e2 F2|"),
+        ("%%MIDI harpmode 1\n", "H~G3 ~.B|"),
+        ("%%MIDI harpmode 1\n%%MIDI fermatafixed\n", "H~G4/2 ~.B F4|"),
+        ("%%MIDI harpmode 1\n", "~C>~D E|"),
+        ("%%MIDI harpmode 1\n", "~C>D/2 E|"),
+        ("%%MIDI harpmode 1\n", "C2>~D E|"),
+        ("%%MIDI harpmode 1\n", "R~C T~D E|"),
     ],
 )
 def test_live_harp_cut(upstream, tmp_path, head, body):
@@ -1325,3 +1333,13 @@ def test_live_grace_keeps_its_written_key(upstream, tmp_path):
     native = Score.from_abc(abc)
     oracle = oracle_score(upstream, abc, tmp_path)
     assert note_rows(native) == note_rows(oracle)
+
+
+def test_live_harp_cut_rejects_unequal_broken_attacks(upstream, tmp_path):
+    abc = "%%MIDI harpmode 1\n" + HEADER + "~C>D EF|"
+    with pytest.warns(
+        UserWarning, match=r"<string>:8:3: ABC \[unequal-broken-rhythm\]"
+    ):
+        native = Score.from_abc(abc)
+    oracle = Score(oracle_midi(upstream, abc, tmp_path, expected_exit=1))
+    assert performed(native) == performed(oracle)

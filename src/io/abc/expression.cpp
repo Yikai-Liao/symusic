@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numeric>
 
 namespace symusic::abc::detail {
 
@@ -271,31 +272,34 @@ bool HarpCuts::consume(const Token& token, Diagnostics& diagnostics) {
     return true;
 }
 
-namespace {
-
-HarpCut harp_pattern(Length length) {
-    // abc2midi recognizes the dotted cut by its reduced ratio, but apportions
-    // the attacks with integer arithmetic on the original numerator.
-    if (length.fraction() == 3) {
-        const auto denominator = static_cast<long double>(length.denominator);
-        return HarpCut{
-            (length.numerator - 1) / (4 * denominator), (length.numerator / 2 + 1) / denominator
-        };
+HarpAttacks Expression::harp_attacks(HarpCut cut, bool held) const {
+    auto [numerator, denominator] = cut;
+    if (held && fixed_fermata) {
+        numerator += denominator;
+        const auto divisor = std::gcd(numerator, denominator);
+        numerator /= divisor;
+        denominator /= divisor;
+    } else if (held) {
+        numerator *= 2;
     }
-    const auto total = (length.numerator == 0 ? 1.L : length.numerator) / length.denominator;
-    return HarpCut{total / 4, total / 2};
+    const auto unit = static_cast<long double>(denominator);
+    if (numerator == 3 * denominator)
+        return {(numerator - 1) / (4 * unit), (numerator / 2 + 1) / unit};
+    const auto length = (numerator == 0 ? 1.L : numerator) / unit;
+    return {length / 4, length / 2};
 }
 
-}   // namespace
-
 std::optional<HarpCut> HarpCuts::for_atom(
-    const Atom& atom, Ornament ornament, Location written
+    const Atom& atom, Ornament ornament, Location written, Length scale
 ) const {
-    if (!ornament.cut || ornament.roll || atom.chord || atom.pitches.empty()) return {};
+    if (!ornament.cut || ornament.trill || atom.chord || atom.pitches.empty()) return {};
     const auto next
         = std::ranges::upper_bound(changes, written, {}, &decltype(changes)::value_type::first);
     if (next == changes.begin() || !std::prev(next)->second) return {};
-    return harp_pattern(atom.length);
+    return HarpCut{
+        static_cast<int64_t>(atom.length.numerator) * scale.numerator,
+        static_cast<int64_t>(atom.length.denominator) * scale.denominator
+    };
 }
 
 }   // namespace symusic::abc::detail

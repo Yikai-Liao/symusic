@@ -1250,3 +1250,18 @@ def test_abc_orphan_grace_keeps_following_controller():
         track = Score.from_abc(HEADER + "D {A}[I:MIDI control 11 80]|").tracks[0]
     assert [n.pitch for n in track.notes] == [62]
     assert [(e.time, e.number, e.value) for e in track.controls] == [(480, 11, 80)]
+
+
+@pytest.mark.parametrize(
+    ("body", "attacks"),
+    [
+        ("(3~A3 B3 c3 d2|", [(1, 119), (121, 119), (241, 239), (481, 479)]),
+        ("(2:3:2~d2 e2 F2|", [(1, 149), (151, 149), (301, 479), (781, 719)]),
+        ("H~G3 A|", [(1, 359), (361, 359), (721, 719), (1441, 239)]),
+    ],
+)
+def test_abc_harp_cut_subdivides_transformed_length(body, attacks):
+    score = Score.from_abc(
+        "%%MIDI harpmode 1\n" + HEADER.replace("L:1/4", "L:1/8") + body
+    )
+    assert [(n.time, n.duration) for n in score.tracks[0].notes[:4]] == attacks

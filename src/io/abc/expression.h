@@ -14,6 +14,21 @@ enum class RhythmStyle { straight, hornpipe, hornpipe_without_swing };
 RhythmStyle rhythm_style(std::string_view name);
 bool        hornpipe_meter(Meter meter);
 
+// Retain the unreduced duration after applying tuplets; the harp subdivision
+// uses both the reduced ratio and the original numerator.
+struct HarpCut {
+    int64_t numerator;
+    int64_t denominator;
+};
+
+struct HarpAttacks {
+    long double               first;
+    long double               last;
+    [[nodiscard]] long double length(long double last_scale = 1) const {
+        return 2 * first + last * last_scale;
+    }
+};
+
 // MIDI expression is evaluated on a voice's performed clock. It never changes
 // pitch or meter, and its articulation changes the gate, not the next onset.
 struct Expression {
@@ -44,6 +59,7 @@ struct Expression {
     long double broken_factor(Broken mark) const;
     bool        starts_swing_pair(Meter meter, long double offset, long double duration) const;
     long double fermata(long double duration, long double unit) const;
+    HarpAttacks harp_attacks(HarpCut cut, bool held) const;
     int         attack_velocity(long double position, Meter meter);
     long double gate(long double duration, bool slur, bool staccato) const;
     long double tied_gate(long double duration, bool staccato) const;
@@ -98,12 +114,6 @@ struct Ornament {
     bool roll     = false;
 };
 
-struct HarpCut {
-    long double               first;   // first two attacks have this length, in written units
-    long double               last;
-    [[nodiscard]] long double length() const { return 2 * first + last; }
-};
-
 // Resolve harp-mode cuts in written order, before navigation can replay them.
 // A cut's three attacks have the host pitch; their total may differ from the
 // written length. Other ornament styles are unaffected.
@@ -111,7 +121,7 @@ class HarpCuts {
 public:
     bool                                 consume(const Token& token, Diagnostics& diagnostics);
     [[nodiscard]] std::optional<HarpCut> for_atom(
-        const Atom& atom, Ornament ornament, Location written
+        const Atom& atom, Ornament ornament, Location written, Length scale
     ) const;
 
 private:
