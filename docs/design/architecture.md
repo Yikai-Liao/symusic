@@ -32,6 +32,23 @@ Each container exists in two representations:
 
 `pyvec` (submodule `3rdparty/pyvec`) stores elements in chunks that are never reallocated and keeps order in a separate pointer array. Indexing from Python returns an aliasing `shared_ptr` that keeps the chunks alive, so a Python reference to an event stays valid after the list is appended to, sorted or has the element removed.
 
+## Score and file formats
+
+`Score` is a performance model. It records what sounds and when: notes with onset, duration, pitch and velocity, controls, pitch bends, tempos, and the time and key signatures and text that MIDI carries. It does not record how the music is written: measures, voices, ties, enharmonic spelling and note types. MIDI stores the same kind of information, so MIDI is the format the model is shaped after and the only file format with a lossless round trip.
+
+A notation format relates to `Score` in two directions of different difficulty:
+
+- **Import renders** the notation into a performance: tied notes merge, repeats unroll, dynamics become velocities. The notation itself is discarded.
+- **Export transcribes** a performance into notation, which needs quantization and inference of voices, ties and note types, so its result is an approximation.
+
+ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through the MIDI reader, and `midi2abc` transcribes. A new format is connected in three layers:
+
+1. Parsing the file into the format's own model belongs to the format library.
+2. Rendering that model into performance events needs the musical knowledge of the notation. It belongs to the format library, or to a symusic module for that format when the library only parses, as mx does for MusicXML.
+3. Writing the events into a `Score` is symusic's adapter. It maps fields and contains no musical interpretation.
+
+`Score` does not gain fields that only a notation format needs. If symusic ever needs notation, that is a separate model that renders to `Score`.
+
 ## Data flow
 
 | Path | Implementation |
@@ -54,7 +71,7 @@ The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList
 Refactors keep these behaviors unless a change is explicitly about them:
 
 - **Unit symmetry.** Every type and operation exists for `Tick`, `Quarter` and `Second` with the same semantics.
-- **Copy and in-place pairs.** C++ transformations come as `foo()` returning a new value and `foo_inplace()` mutating. Python methods take `inplace=False`; with `inplace=True` they mutate and return `self`.
+- **Copy and in-place pairs.** C++ transformations come as `foo()` returning a new value and `foo_inplace()` mutating. Python methods take `inplace=False`; with `inplace=True` they mutate and return `self`. 0.7 replaces the pairs with [one form per operation](../development/conventions.md#design-rules) ([roadmap](../ROADMAP.md#07-api)).
 - **Reference stability.** Python references to events, tracks and lists stay valid as described under [data model](#data-model).
 - **Round trips.** MIDI read/write and pickle preserve the shared data model; a pickled score loads in the same version. Pickle bytes depend only on event values: struct padding is written as zeros.
 - **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values such as NaN, `OverflowError` for a tick result outside `int32`) rather than coercing silently. Tick arithmetic and float-to-tick conversion go through the checked helpers in `include/symusic/utils.h`; the [code conventions](../development/conventions.md#errors) map C++ exceptions to Python ones. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
@@ -65,7 +82,7 @@ Known violations of memory safety at extreme values are tracked in the [roadmap]
 
 ## Adding a feature
 
-1. Implement it in the core for all time units, with a copy and in-place form if it transforms data.
+1. Implement it in the core for all time units, in the form the [code conventions](../development/conventions.md#design-rules) give for a modifying or producing operation.
 2. Bind it in the matching `py_src/bindings/<area>/` file, with a docstring at the binding site.
 3. Extend `symusic.factory` only if construction or dispatch changes.
 4. Reinstall (`pip install .`) to regenerate the stubs, and add C++ and Python tests at the new boundary.

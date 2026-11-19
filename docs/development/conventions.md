@@ -10,6 +10,7 @@ These apply in every layer and decide most of the questions below.
 - **The core owns complete operations.** An operation that Python and C++ users both need, including its validation, lives in the core and is callable as a single function. The binding converts arguments and results and adds nothing else; `symusic.factory` dispatches on the unit and adds nothing else.
 - **Validate at the boundary, then trust the type.** Values from files, Python or the user are checked once where they enter, and arithmetic that can leave a type's range is checked where it happens (see [integers and time](#integers-and-time)). No API documents a precondition that the caller must keep for memory safety.
 - **Language features before macros.** Templates, concepts, `if constexpr`, fold expressions and ordinary functions express repetition. A macro is acceptable only for what the language cannot do (see [macros](#macros)).
+- **One form per operation.** An operation either modifies its object or builds a different one, never both by option. Modifying operations (`sort`, `filter`, `shift_time`, `shift_pitch`, `shift_velocity`, `adjust_time`) mutate in place and return nothing; producing operations (`clip`, `trim`, `to`, `resample`, `pianoroll`, `copy`) leave the object unchanged and return the result. To transform a copy, copy first. C++ and Python use the same names and the same split.
 - **Write the interface comment first.** For a new public function or type, state what it hides, what the caller must know and how it fails. If that needs a description of the internal steps, change the design before writing the body.
 
 ## C++
@@ -19,18 +20,19 @@ These apply in every layer and decide most of the questions below.
 | Entity | Style | Example |
 |---|---|---|
 | Types, concepts, enums | `PascalCase` | `TimeSignature`, `TimeEvent`, `PianorollMode` |
-| Functions, variables, data members | `snake_case` | `shift_time_inplace`, `ticks_per_quarter` |
+| Functions, variables, data members | `snake_case` | `shift_time`, `ticks_per_quarter` |
 | Enumerators | `PascalCase` | `PianorollMode::Onset`, `DataFormat::MusicXML` |
 | Constants | `k` + `PascalCase` | `kSortDoc` |
 | Template parameters | `PascalCase`; `T` for the time unit | `template<TType T>`, `template<TimeEvent E>` |
 | Macros | `SYMUSIC_UPPER_CASE` | `SYMUSIC_COLD` |
 | Files | `snake_case.h` / `.cpp` | `time_conversion.h` |
 
-Identifiers never start with an underscore followed by a capital letter or contain a double underscore (`_Ty`, `__COUNT`): the standard reserves them. A transformation is `foo()` returning a new value and `foo_inplace()` returning `void`. A predicate reads as a question (`empty`, `is_sorted`).
+Identifiers never start with an underscore followed by a capital letter or contain a double underscore (`_Ty`, `__COUNT`): the standard reserves them. Following [one form per operation](#design-rules), a modifying method is a plain verb returning `void` (`void shift_time(unit offset)`), and a producing method is `const` and returns the new value (`Score<T> clip(unit start, unit end) const`). There are no `_inplace` names. A second, copying form is added only when a measurement shows that fusing the copy with the transformation is clearly faster than copying first; it is named `foo_copy` and its comment cites the measurement. A predicate reads as a question (`empty`, `is_sorted`).
 
 ### Namespaces and headers
 
-- Public API is in `symusic`; implementation details in `symusic::detail`, in headers under `include/symusic/detail/` or in `src/`. Binding code is in `symusic::py`. Do not open other top-level namespaces, and do not put `using namespace` in a header.
+- Public API is in `symusic`; implementation details in `symusic::detail`, in headers under `include/symusic/detail/` or in `src/`. Binding code is in `symusic::py`. An optional component with its own third-party dependency, such as a file-format module, has a nested namespace (`symusic::musicxml`), its own header and its own CMake target, and exposes free functions rather than specializations of core templates, so that a build without it fails to compile instead of failing to link. Do not open other top-level namespaces, and do not put `using namespace` in a header.
+- Dependencies point from the binding to the core, never back. The core (`include/`, `src/`) does not include `py_src/`, nanobind or pyvec, and the core target does not link them, so the build rejects a violation; a namespace alone does not prevent one. The core still uses pyvec today ([roadmap](../ROADMAP.md#architecture)).
 - Headers use `#pragma once` only, without an `#ifndef` guard.
 - Include what the file uses, in four groups separated by a blank line: the file's own header, the standard library, third-party headers, project headers. Standard and third-party headers use `<...>`, project headers use `"symusic/..."` (core) or a path relative to `py_src/` (binding). `.clang-format` does not sort includes, so keep each group sorted by hand.
 - A header declares what its users need. Template definitions that every unit instantiates go in `src/` with an explicit instantiation for each unit, so that headers stay light and the build stays incremental.
@@ -81,7 +83,7 @@ Comments state invariants, units, ownership and the reason for a non-obvious cho
 ## Binding
 
 - **One binding function per type**, a template over the time unit (`bind_score<T>(m)`). Registering all units goes through one helper that holds the unit list, not a macro or three hand-written calls.
-- **Shared adapters, not repeated lambdas.** The copy-or-in-place dispatch, bytes to `std::span` conversion, NumPy array ownership and pickle state are each one helper in `py_src/utils/`. A method definition names the core function and its arguments; a lambda body longer than a few lines is core logic in the wrong layer.
+- **Shared adapters, not repeated lambdas.** Bytes to `std::span` conversion, NumPy array ownership and pickle state are each one helper in `py_src/utils/`. A method definition names the core function and its arguments; a lambda body longer than a few lines is core logic in the wrong layer.
 - **Generated signatures.** Let nanobind derive signatures from the C++ types. Use `nb::sig` only where the derived signature is wrong for a Python user, such as a per-unit class name, and test the result in `tests/typecheck/`.
 - **Docstrings** live at the binding site, as `kNameDoc` constants in the binding file for the area (or a function template where the text names the unit), and follow the [documentation rules](../CONTRIBUTING.md#documentation).
 - **No private debugging API.** Helpers such as reference counts belong in tests or behind a test-only build option, not in the public classes.
@@ -93,7 +95,7 @@ These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.m
 - **One name per thing.** No aliases (`tpq` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`).
 - **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them.
 - **Closed sets are typed.** A parameter that takes one of a fixed set of values (a time unit, a mode, a format) is an enum or a `Literal` in the stubs, and an unknown value raises `ValueError`.
-- **One copy and in-place default.** Every transformation returns a new object unless `inplace=True`; with `inplace=True` it mutates and returns `self`.
+- **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.
 - **Explicit side effects.** Reading an attribute or calling a query does not download, write files or print. Network and file access happen in functions whose name says so.
 - **PEP 8 names.** Functions, methods and attributes are `snake_case`; classes are `PascalCase`; a trailing underscore appears only to avoid a keyword.
 - **Stable keyword names.** A keyword argument has the same name as the C++ parameter and the guide's description of it, and a time-valued argument is in the unit of the object it is called on.
