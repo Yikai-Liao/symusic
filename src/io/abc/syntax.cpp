@@ -511,7 +511,25 @@ bool TuneLines::metadata(Field value, Location at) {
     return true;
 }
 
+void fold_word_fields(std::string& text, std::span<const Fragment> fragments) {
+    if (fragments.size() < 2) return;
+    const std::string_view bytes   = text;
+    const auto             opening = trim(bytes.substr(0, fragments[1].offset));
+    if (!opening.starts_with('w') || field_separator(opening) == opening.npos) return;
+    for (size_t i = 1; i < fragments.size(); ++i) {
+        const auto begin = fragments[i].offset;
+        const auto end   = i + 1 < fragments.size() ? fragments[i + 1].offset : bytes.size();
+        const auto part  = trim(bytes.substr(begin, end - begin));
+        if (!part.starts_with('w') && !part.starts_with('+')) continue;
+        const auto colon = field_separator(part);
+        if (colon == part.npos) continue;
+        // Keep the source map intact when dropping a repeated lyric field prefix.
+        std::fill_n(text.data() + (part.data() - bytes.data()), colon + 1, ' ');
+    }
+}
+
 bool TuneLines::joined(std::string text, std::span<const Fragment> fragments) {
+    fold_word_fields(text, fragments);
     return line(
         {tune.continued_lines.emplace_back(std::move(text)), fragments.front().line, fragments}
     );
@@ -540,7 +558,7 @@ bool TuneLines::line(LogicalLine line) {
         ended = ended || saw_music;
         return true;
     }
-    if (ended && !text.starts_with("X:")) return true;
+    if (ended && (text.front() != 'X' || field_separator(text) == text.npos)) return true;
     if (text.starts_with("%%")) {
         (in_body ? tune.body : tune.header)
             .push_back({line.where(text), Directive{directive_text(text)}});

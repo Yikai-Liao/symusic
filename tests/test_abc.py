@@ -90,8 +90,9 @@ def test_abc_rejects_invalid_text_at_its_byte_column(tmp_path: Path, bad_byte: b
         Score(path)
 
 
-def test_abc_warns_on_second_tune_and_recovers_nonbinary_duration():
-    text = HEADER + "C/3 D/3\n\n" + HEADER.replace("X:1", "X:2") + "GAB"
+@pytest.mark.parametrize("reference", ["X:2", "X :2"])
+def test_abc_warns_on_second_tune_and_recovers_nonbinary_duration(reference: str):
+    text = HEADER + "C/3 D/3\n\n" + HEADER.replace("X:1", reference) + "GAB"
     with pytest.warns(
         UserWarning, match=r"\[(non-binary-length|extra-tunes)\]"
     ) as warnings:
@@ -371,9 +372,16 @@ def test_abc_lyrics_without_anchors(middle: str):
     assert not score.tracks[0].lyrics
 
 
-@pytest.mark.parametrize("extension", ["+: three four", "w: +three four"])
-def test_abc_lyrics_extension(extension: str):
-    score = Score.from_abc(HEADER + "CDEF|\nw: one two\n" + extension)
+@pytest.mark.parametrize(
+    "words",
+    [
+        "w: one two\n+: three four",
+        "w: one two\nw: +three four",
+        "w: one two \\\nw: three four",
+    ],
+)
+def test_abc_lyrics_extension(words: str):
+    score = Score.from_abc(HEADER + "CDEF|\n" + words)
     assert [e.text for e in score.tracks[0].lyrics] == ["one", "two", "three", "four"]
 
 
