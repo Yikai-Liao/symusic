@@ -35,7 +35,7 @@ Identifiers never start with an underscore followed by a capital letter or conta
 - Dependencies point from the binding to the core, never back. The core (`include/`, `src/`) does not include `py_src/`, nanobind or pyvec, and the core target does not link them, so the build rejects a violation; a namespace alone does not prevent one. The core still uses pyvec today ([roadmap](../ROADMAP.md#architecture)).
 - Headers use `#pragma once` only, without an `#ifndef` guard.
 - Include what the file uses, in four groups separated by a blank line: the file's own header, the standard library, third-party headers, project headers. Standard and third-party headers use `<...>`, project headers use `"symusic/..."` (core) or a path relative to `py_src/` (binding). `.clang-format` does not sort includes, so keep each group sorted by hand.
-- A header declares what its users need. Template definitions that every unit instantiates go in `src/` with an explicit instantiation for each unit, so that headers stay light and the build stays incremental. Once storage is a template parameter ([roadmap](../ROADMAP.md#architecture)), the definitions move to `include/symusic/detail/*_impl.h`, included only by the translation units that instantiate them: `src/` for the core storage, `py_src/` for the binding storage.
+- A header declares what its users need. A public operation is a non-template member of its class template, so that one explicit instantiation (`template struct Track<Tick>;`) covers it; helpers it calls are instantiated with it. Explicit instantiations are written out, one line per class and unit, in one file per area. Template definitions that every unit instantiates go in `src/` with these instantiations, so that headers stay light and the build stays incremental. Once storage is a template parameter ([roadmap](../ROADMAP.md#architecture)), the definitions move to `include/symusic/detail/*_impl.h`, included only by the translation units that instantiate them: `src/` for the core storage, `py_src/` for the binding storage.
 
 ### Types
 
@@ -49,7 +49,7 @@ Use the aliases in `include/symusic/mtype.h`, never the spelled-out standard typ
 | `shared<T>` | `std::shared_ptr<T>` |
 | `pyvec<T>` | Reference-stable container from `3rdparty/pyvec` |
 
-Declare aliases with `using`, not `typedef`. Inside a template over a time unit, name the scalar `unit` (`using unit = typename T::unit;`), and constrain templates with the existing concepts (`TType`, `TimeEvent`) instead of SFINAE or unconstrained `typename`. Code that builds a new event list fills a `vec` and moves it into the container once (today `pyvec(std::vector<T>&&)`); it does not append to a `pyvec` element by element. A field's type states its range: a MIDI data byte is `u8`, a signed offset is a signed type, and a count or index is `size_t`.
+Declare aliases with `using`, not `typedef`. Inside a template over a time unit, name the scalar `unit` (`using unit = typename T::unit;`), and constrain templates with the existing concepts (`TType`, `TimeEvent`) instead of SFINAE or unconstrained `typename`. A template parameter is a choice the caller makes at compile time; a value known only at run time, such as a file format, is a function argument or a separate named function. A flag that changes what a function does is a separate function or an options struct, not a `bool` parameter. Code that builds a new event list fills a `vec` and moves it into the container once (today `pyvec(std::vector<T>&&)`); it does not append to a `pyvec` element by element. A field's type states its range: a MIDI data byte is `u8`, a signed offset is a signed type, and a count or index is `size_t`.
 
 ### Integers and time
 
@@ -74,7 +74,7 @@ Type mismatches are rejected by nanobind as `TypeError`; the core does not throw
 
 A macro is acceptable only for compiler and platform conditionals, such as an attribute that MSVC spells differently. These macros carry the `SYMUSIC_` prefix and are defined in `include/symusic/utils.h`; add them there rather than next to their first use.
 
-Code generation by macro (`REPEAT_ON` from `3rdparty/MetaMacro.h`, class-body macros such as `BASIC_TIMESTAMP_METHODS`) is being removed; do not add uses. Repeat over time units with a template or a fold over a type list, and generate per-field code from the event descriptions once [one field list per event](../ROADMAP.md#architecture) exists.
+Code generation by macro (`REPEAT_ON` from `3rdparty/MetaMacro.h`, class-body macros such as `BASIC_TIMESTAMP_METHODS`, X-macros) is being removed; do not add uses. Write explicit instantiations out ([namespaces and headers](#namespaces-and-headers)), repeat other code over time units with a template or a fold over a type list, derive per-field code from the event descriptions once [one field list per event](../ROADMAP.md#architecture) exists, and give a closed set a `constexpr` table of names and values.
 
 ### Comments
 
