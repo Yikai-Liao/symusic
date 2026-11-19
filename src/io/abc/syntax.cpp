@@ -709,7 +709,7 @@ std::optional<Alteration> accidental(std::string_view text, Location at, Diagnos
     return {};
 }
 
-Pitch drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics) {
+std::optional<Pitch> drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics) {
     Input      input(text);
     const auto root
         = peg::parse_tree::parse<peg::seq<grammar::pitch_spelling, peg::eof>, Select>(input);
@@ -717,7 +717,9 @@ Pitch drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics
         diagnostics.error(
             at, "invalid-drummap", "drummap needs a pitch without a duration, such as ^F,"
         );
-    return read_spelling(*root, [at](const Node&) { return at; }, diagnostics);
+    const auto pitch = read_spelling(*root, [at](const Node&) { return at; }, diagnostics);
+    if (child<grammar::accidental>(*root) && !pitch.accidental) return {};
+    return pitch;
 }
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics) {

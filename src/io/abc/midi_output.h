@@ -32,7 +32,7 @@ private:
 // note endpoints. Invalid note ranges fail through the reader's diagnostics.
 class VoiceOutput {
 public:
-    VoiceOutput(std::string name, Diagnostics& diagnostics);
+    VoiceOutput(std::string name, const DrumMap& drum_map, Diagnostics& diagnostics);
     VoiceOutput(const VoiceOutput&)            = delete;
     VoiceOutput& operator=(const VoiceOutput&) = delete;
 
@@ -78,8 +78,6 @@ private:
         void allocate_chord_channels(size_t count);
     };
     std::array<Routing, max_voice_lanes> routing;
-    std::map<int, int>                   drum_map;
-    void                                 remap_drum(std::string_view args, Location at);
 
     struct ChannelOutput {
         ChannelOutput(std::string name, u8 program, bool drums) :
@@ -93,6 +91,7 @@ private:
 
     std::string                                              name;
     Diagnostics&                                             diagnostics;
+    const DrumMap&                                           drum_map;
     std::map<TrackKey, ChannelOutput>                        output;
     std::map<ChannelKey, std::pair<TrackNative<Tick>*, i32>> pedal_starts;
 

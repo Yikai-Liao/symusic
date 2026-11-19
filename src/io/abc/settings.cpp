@@ -227,6 +227,63 @@ long double tempo_beat(
 
 }   // namespace
 
+bool AccidentalPolicy::consume(const Token& token, Diagnostics& diagnostics) {
+    const auto info = token.information();
+    if (!info) return false;
+    auto args = *info;
+    auto name = word(args);
+    if (name == "MIDI") {
+        name = word(args);
+        if (name == "barlines")
+            args = "pitch";
+        else if (name == "nobarlines")
+            args = "not";
+        else
+            return false;
+    } else if (name != "propagate-accidentals")
+        return false;
+    auto       scope = AccidentalScope::pitch;
+    const auto value = trim(args);
+    if (value == "octave")
+        scope = AccidentalScope::octave;
+    else if (value == "not")
+        scope = AccidentalScope::none;
+    else if (value != "pitch") {
+        diagnostics.warn(
+            token.at,
+            "invalid-accidental-scope",
+            "expected 'pitch', 'octave' or 'not' for propagate-accidentals"
+        );
+        return true;
+    }
+    changes.emplace_back(token.at, scope);
+    return true;
+}
+
+AccidentalScope AccidentalPolicy::at(Location written) const {
+    const auto next
+        = std::ranges::upper_bound(changes, written, {}, &decltype(changes)::value_type::first);
+    return next == changes.begin() ? AccidentalScope::pitch : std::prev(next)->second;
+}
+
+void DrumMap::assign(std::string_view args, Location at, Diagnostics& diagnostics) {
+    const auto source = drum_spelling(word(args), at, diagnostics);
+    if (!source) return;
+    const auto alteration = source->accidental.value_or(Alteration{});
+    const auto note       = 60 + 12 * source->octave + natural_pitch[letter_index(source->letter)]
+                            + alteration.numerator;
+    if (note < 0 || note > midi_max || alteration.denominator != 0)
+        diagnostics.error(
+            at, "invalid-drummap", "drummap source must be a MIDI pitch without a microtone"
+        );
+    const auto destination = midi_integer(args, 1, midi_max, diagnostics, at);
+    if (destination < 35 || destination > 81)
+        diagnostics.warn(
+            at, "drummap-range", "destination is outside General MIDI percussion (35–81)"
+        );
+    routes[note] = destination;
+}
+
 int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at) {
     const auto number = integer(word(args));
     if (number && *number >= low && *number <= high) return *number;

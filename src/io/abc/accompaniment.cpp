@@ -75,8 +75,8 @@ void close_backing(TrackNative<Tick>& track, i32 end) {
 
 }   // namespace
 
-Accompaniment::Accompaniment(Meter meter, Diagnostics& diagnostics) :
-    diagnostics(diagnostics), current_meter(meter) {
+Accompaniment::Accompaniment(Meter meter, const DrumMap& drum_map, Diagnostics& diagnostics) :
+    diagnostics(diagnostics), drum_map(drum_map), current_meter(meter) {
     auto defaults = default_chords(meter);
     if (defaults.empty()) defaults = "x";
     chords.install(pattern(defaults, "fcbzx", {}), meter, 0);
@@ -359,7 +359,7 @@ std::pair<i32, i32> Accompaniment::backing_times(
 void Accompaniment::drum_step(Step step, long double time, long double length, Location at) {
     if (step.kind != 'd') return;
     const auto [onset, duration] = backing_times(time, length, at);
-    add_if_audible(drum_track, onset, duration, step.pitch, step.velocity);
+    add_if_audible(drum_track, onset, duration, drum_map.pitch(step.pitch), step.velocity);
 }
 
 void Accompaniment::advance(long double end, Location at) {

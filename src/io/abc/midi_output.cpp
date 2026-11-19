@@ -14,8 +14,8 @@ void NoteAddress::lyric(std::string text) const {
     track->lyrics.emplace_back(note().time, std::move(text));
 }
 
-VoiceOutput::VoiceOutput(std::string name, Diagnostics& diagnostics) :
-    name(std::move(name)), diagnostics(diagnostics) {}
+VoiceOutput::VoiceOutput(std::string name, const DrumMap& drum_map, Diagnostics& diagnostics) :
+    name(std::move(name)), diagnostics(diagnostics), drum_map(drum_map) {}
 
 void VoiceOutput::Routing::attack_on(size_t chord_member) {
     if (extra_channels == 0) return;
@@ -85,10 +85,7 @@ std::optional<NoteAddress> VoiceOutput::attack(
     const auto destination = target(lane);
     auto&      owner       = channel(destination);
     tune(owner, destination, pitch, time, at);
-    if (destination.channel == midi_drum_channel) {
-        if (const auto mapped = drum_map.find(pitch.note); mapped != drum_map.end())
-            pitch.note = mapped->second;
-    }
+    if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
     owner.sounding_until = std::max(owner.sounding_until, time + gate);
     owner.track.notes.emplace_back(
         time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
@@ -136,8 +133,6 @@ bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, 
         program(lane, args, at);
     else if (name == "channel")
         select_channel(lane, midi_integer(args, 1, midi_channels, diagnostics, at));
-    else if (name == "drummap")
-        remap_drum(args, at);
     else if (name == "makechordchannels")
         routing[lane].allocate_chord_channels(
             midi_integer(args, 1, max_chord_channels, diagnostics, at)
@@ -145,23 +140,6 @@ bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, 
     else
         return false;
     return true;
-}
-
-void VoiceOutput::remap_drum(std::string_view args, Location at) {
-    const auto source     = drum_spelling(word(args), at, diagnostics);
-    const auto alteration = source.accidental.value_or(Alteration{});
-    const auto note       = 60 + 12 * source.octave + natural_pitch[letter_index(source.letter)]
-                            + alteration.numerator;
-    if (note < 0 || note > midi_max || alteration.denominator != 0)
-        diagnostics.error(
-            at, "invalid-drummap", "drummap source must be a MIDI pitch without a microtone"
-        );
-    const auto destination = midi_integer(args, 1, midi_max, diagnostics, at);
-    if (destination < 35 || destination > 81)
-        diagnostics.warn(
-            at, "drummap-range", "destination is outside General MIDI percussion (35–81)"
-        );
-    drum_map.insert_or_assign(note, destination);
 }
 
 bool VoiceOutput::effect(

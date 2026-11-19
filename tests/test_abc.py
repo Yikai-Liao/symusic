@@ -311,6 +311,15 @@ def test_abc_continued_field_location(field: str, column: int):
         Score.from_abc(HEADER + "\\\r\n  " + field)
 
 
+def test_abc_ambiguous_drummap_leaves_map_unchanged():
+    abc = (
+        HEADER + "%%MIDI channel 10\n%%MIDI drummap C 38\n%%MIDI drummap ^^2C 36\nCCCC|"
+    )
+    with pytest.warns(UserWarning, match=r"\[invalid-accidental\]"):
+        score = Score.from_abc(abc)
+    assert [n.pitch for n in score.tracks[0].notes] == [38] * 4
+
+
 def test_abc_lyrics_follow_logical_music_line():
     score = Score.from_abc(
         HEADER + "C D " + chr(92) + "\n E F |\nw: one two three four"

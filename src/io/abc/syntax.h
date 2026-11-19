@@ -181,7 +181,7 @@ struct Tune {
 };
 
 // Parse a bare pitch for a MIDI drummap directive, using the music spelling rules.
-Pitch drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics);
+std::optional<Pitch> drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics);
 
 Tune tokenize(std::string_view text, Diagnostics& diagnostics);
 

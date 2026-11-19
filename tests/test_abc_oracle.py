@@ -183,6 +183,24 @@ CASES = {
     + "%%MIDI channel 10\n%%MIDI drummap C 36\nC [I:MIDI drummap C 38] C D E|",
     "barline_accidental_controls": HEADER
     + "^CFCC|\n%%MIDI nobarlines\n^CFCC|\n%%MIDI barlines\n^CFCC|",
+    "accidental_scope_preserves_cache": HEADER
+    + "^F [I:MIDI nobarlines] F [I:MIDI barlines] F F|",
+    "accidental_scope_octave": HEADER
+    + "%%propagate-accidentals octave\n^F [I:MIDI barlines] f F F|",
+    "accidental_scope_overlay": "%%MIDI nobarlines\n" + HEADER + "^FFFf & ^CCCc|",
+    "accidental_scope_repeat": HEADER
+    + "|: ^FFFf | [I:MIDI nobarlines] ^FFFf :| ^FFFf|",
+    "accidental_scope_part_order": HEADER.replace("K:C", "P:BA\nK:C")
+    + "P:A\n%%MIDI nobarlines\n^FFFf|\nP:B\n^FFFf|",
+    "drummap_across_voices": HEADER
+    + "V:1\n%%MIDI channel 10\n%%MIDI drummap C 36\nCCCC|\n"
+    + "V:2\n%%MIDI channel 10\nCCCC|",
+    "drummap_backing": "%%MIDI drummap C,, 42\n"
+    + HEADER
+    + "%%MIDI drum dd 36 38 80 80\n%%MIDI drumon\nCDEF|",
+    "drummap_tie": HEADER
+    + "%%MIDI channel 10\n%%MIDI drummap C 36\n"
+    + "C- [I:MIDI drummap C 38] C C D|",
     "transpose_percussion": HEADER + "%%MIDI channel 10\n%%MIDI transpose 2\nCDEF|",
     "channel_setup": (
         HEADER.replace("K:C", "%%MIDI pitchbendrange 5\n%%MIDI portamento 12\nK:C")

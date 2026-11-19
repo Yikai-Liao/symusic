@@ -28,52 +28,34 @@ struct Sound {
     bool      tie;
 };
 
-enum class AccidentalScope { pitch, octave, none };
-
+// The measure remembers values, not the policy that wrote them. A pitch-wide
+// write replaces older octave overrides for that letter; a local write does not.
 class Accidentals {
 public:
-    Alteration resolve(Pitch pitch, const Key& key);
-    void       reset() { measure.clear(); }
-    void       propagation(std::string_view value, Location at, Diagnostics& diagnostics);
-    bool       midi_scope(std::string_view name);
+    Alteration resolve(Pitch pitch, const Key& key, AccidentalScope scope);
+    void       reset() { letters = {}; }
 
 private:
-    AccidentalScope                            scope = AccidentalScope::pitch;
-    std::map<std::pair<char, int>, Alteration> measure;
+    struct Slots {
+        std::optional<Alteration> all_octaves;
+        std::map<int, Alteration> by_octave;
+    };
+    std::array<Slots, 7> letters;
 };
 
-Alteration Accidentals::resolve(Pitch pitch, const Key& key) {
-    if (scope == AccidentalScope::none)
-        return pitch.accidental.value_or(key.alterations[letter_index(pitch.letter)]);
-    const auto slot = std::pair{pitch.letter, scope == AccidentalScope::pitch ? 0 : pitch.octave};
-    if (pitch.accidental) measure.insert_or_assign(slot, *pitch.accidental);
-    const auto found = measure.find(slot);
-    return found == measure.end() ? key.alterations[letter_index(pitch.letter)] : found->second;
-}
-
-void Accidentals::propagation(std::string_view value, Location at, Diagnostics& diagnostics) {
-    if (value == "octave")
-        scope = AccidentalScope::octave;
-    else if (value == "pitch")
-        scope = AccidentalScope::pitch;
-    else if (value == "not")
-        scope = AccidentalScope::none;
-    else
-        diagnostics.warn(
-            at,
-            "invalid-accidental-scope",
-            "expected 'pitch', 'octave' or 'not' for propagate-accidentals"
-        );
-}
-
-bool Accidentals::midi_scope(std::string_view name) {
-    if (name == "nobarlines")
-        scope = AccidentalScope::none;
-    else if (name == "barlines")
-        scope = AccidentalScope::pitch;
-    else
-        return false;
-    return true;
+Alteration Accidentals::resolve(Pitch pitch, const Key& key, AccidentalScope scope) {
+    const auto index = letter_index(pitch.letter);
+    auto&      slots = letters[index];
+    if (pitch.accidental) {
+        if (scope == AccidentalScope::pitch)
+            slots = {*pitch.accidental, {}};
+        else if (scope == AccidentalScope::octave)
+            slots.by_octave.insert_or_assign(pitch.octave, *pitch.accidental);
+        return *pitch.accidental;
+    }
+    if (const auto slot = slots.by_octave.find(pitch.octave); slot != slots.by_octave.end())
+        return slot->second;
+    return slots.all_octaves.value_or(key.alterations[index]);
 }
 
 struct TieNote {
@@ -342,10 +324,14 @@ bool LyricLine::align(std::string_view text) const {
 
 class VoicePlayer {
 public:
-    VoicePlayer(const TuneSettings& settings, std::string name, Diagnostics& diagnostics) :
-        diagnostics(diagnostics), output(std::move(name), diagnostics), tuning(settings.tuning),
+    VoicePlayer(
+        const TuneSettings& settings, std::string name, DrumMap& drum_map, Diagnostics& diagnostics
+    ) :
+        diagnostics(diagnostics), drum_map(drum_map),
+        output(std::move(name), drum_map, diagnostics), tuning(settings.tuning),
+        accidental_policy(settings.accidentals),
         written{settings.meter, settings.key, settings.unit},
-        accompaniment(settings.meter, diagnostics), symbols(settings.symbols),
+        accompaniment(settings.meter, drum_map, diagnostics), symbols(settings.symbols),
         lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
         initial_tempo(settings.tempo), midi_shift(settings.midi_shift) {}
 
@@ -353,8 +339,10 @@ public:
 
 private:
     Diagnostics&                               diagnostics;
+    DrumMap&                                   drum_map;
     VoiceOutput                                output;
     const PitchTuning&                         tuning;
+    const AccidentalPolicy&                    accidental_policy;
     WrittenState                               written;
     Accompaniment                              accompaniment;
     std::array<std::string_view, 128>          symbols;
@@ -538,7 +526,9 @@ int VoicePlayer::sounding_shift() {
 }
 
 Sound VoicePlayer::sound(Pitch pitch, Location at, bool tie) {
-    return resolve_sound(pitch, lane().accidentals.resolve(pitch, written.tone), at, tie);
+    const auto alteration
+        = lane().accidentals.resolve(pitch, written.tone, accidental_policy.at(at));
+    return resolve_sound(pitch, alteration, at, tie);
 }
 
 Sound VoicePlayer::resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie) {
@@ -967,7 +957,10 @@ void VoicePlayer::set_symbols(std::string_view value, Location at) {
 void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name = word(command);
     if (PitchTuning::handles_midi(name)) return;   // Already compiled in source order.
-    if (lane().accidentals.midi_scope(name)) return;
+    if (name == "drummap") {
+        drum_map.assign(command, at, diagnostics);
+        return;
+    }
     if (midi_transposition(name, command, midi_shift, diagnostics, at)) return;
     if (!lane().expression.directive(name, command, written.unit, at, diagnostics)
         && !output.effect(name, command, lanes.id(), at_tick(at), at)
@@ -980,8 +973,6 @@ void VoicePlayer::information(std::string_view value, Location at) {
     const auto command = word(value);
     if (command == "MIDI")
         midi(value, at);
-    else if (command == "propagate-accidentals")
-        lane().accidentals.propagation(trim(value), at, diagnostics);
     else if (command == "abc-include" || command == "include") {
         diagnostics.warn(
             at,
@@ -1166,9 +1157,10 @@ Performance perform(
     const vec<Token>&   preamble,
     const PlayOrder&    order,
     std::string         name,
+    DrumMap&            drum_map,
     Diagnostics&        diagnostics
 ) {
-    return VoicePlayer(settings, std::move(name), diagnostics).render(preamble, order);
+    return VoicePlayer(settings, std::move(name), drum_map, diagnostics).render(preamble, order);
 }
 
 }   // namespace symusic::abc::detail

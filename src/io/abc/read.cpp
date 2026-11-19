@@ -166,10 +166,6 @@ void Voices::header(const Token& token, TuneSettings& settings) {
 
 void Voices::header_midi(const Token& token, std::string_view command, TuneSettings& settings) {
     const auto name = word(command);
-    if (name == "drummap" || name == "barlines" || name == "nobarlines") {
-        common.push_back(token);
-        return;
-    }
     if (voices.front().id.empty()
         && midi_transposition(name, command, settings.midi_shift, diagnostics, token.at))
         return;
@@ -179,13 +175,15 @@ void Voices::header_midi(const Token& token, std::string_view command, TuneSetti
 Voices::Voices(const Tune& tune, TuneSettings& settings, Diagnostics& diagnostics) :
     diagnostics(diagnostics) {
     voices.push_back({});
-    for (const auto& token : tune.header) header(token, settings);
+    for (const auto& token : tune.header)
+        if (!settings.accidentals.consume(token, diagnostics)) header(token, settings);
     // A header K: transpose follows the global MIDI preamble. Body K:/V:
     // shifts, by contrast, are local to the current written voice.
     if (settings.key.transpose) settings.midi_shift = *settings.key.transpose;
     settings.key.transpose.reset();
     selected = 0;
     for (const auto& token : tune.body) {
+        if (settings.accidentals.consume(token, diagnostics)) continue;
         const auto* field = std::get_if<Field>(&token.value);
         if (field && field->kind == 'P')
             current_part = token;
@@ -241,11 +239,15 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
     const Voices        voices(tune, settings, diagnostics);
     const PartItinerary itinerary(header.order, header.order_at, diagnostics);
     Performance         music;
+    DrumMap             drum_map;
     for (const auto& voice : voices.all()) {
         const auto order = itinerary.arrange(voice.music);
         auto name = voice.name.empty() ? (music.tracks.empty() ? settings.title : std::string{}) :
                                          unquote_text(voice.name);
-        merge(music, perform(settings, voices.preamble(), order, std::move(name), diagnostics));
+        merge(
+            music,
+            perform(settings, voices.preamble(), order, std::move(name), drum_map, diagnostics)
+        );
     }
     ScoreNative<Tick> score(tpq);
     const auto [numerator, denominator, free] = settings.meter;

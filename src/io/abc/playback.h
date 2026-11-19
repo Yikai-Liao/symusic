@@ -11,6 +11,7 @@ struct TuneSettings {
     Meter                             meter;
     Key                               key;
     PitchTuning                       tuning;
+    AccidentalPolicy                  accidentals;
     i32                               tempo      = 500000;
     long double                       unit       = whole / 8;
     int                               midi_shift = 0;
@@ -40,6 +41,7 @@ Performance perform(
     const vec<Token>&   preamble,
     const PlayOrder&    order,
     std::string         name,
+    DrumMap&            drum_map,
     Diagnostics&        diagnostics
 );
 

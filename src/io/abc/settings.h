@@ -44,6 +44,30 @@ struct VoiceSpec {
     std::optional<int> octave;
 };
 
+enum class AccidentalScope { pitch, octave, none };
+
+// A tune-wide notation policy. Consume directives in source order, before
+// splitting voices or expanding repeats; queries use the original note location.
+class AccidentalPolicy {
+public:
+    bool                          consume(const Token& token, Diagnostics& diagnostics);
+    [[nodiscard]] AccidentalScope at(Location written) const;
+
+private:
+    vec<std::pair<Location, AccidentalScope>> changes;
+};
+
+// A tune's percussion routes persist across MIDI tracks in render order.
+// Both melody and backing resolve the destination once, at attack time.
+class DrumMap {
+public:
+    void              assign(std::string_view args, Location at, Diagnostics& diagnostics);
+    [[nodiscard]] int pitch(int source) const { return routes[source].value_or(source); }
+
+private:
+    std::array<std::optional<int>, midi_max + 1> routes{};
+};
+
 int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at);
 
 // MIDI transpose shifts sounding pitches independently of K:/V: transposition.
