@@ -1247,3 +1247,14 @@ def test_live_shape_attacks_grace_mute_and_drum(upstream, tmp_path, body):
     assert performed(Score.from_abc(abc)) == performed(
         oracle_score(upstream, abc, tmp_path)
     )
+
+
+@pytest.mark.parametrize("ornament", ["{A}F", "~F", "RF3", "TF3"])
+def test_live_ornament_attacks_accept_separate_lyric_syllables(
+    upstream, tmp_path, ornament
+):
+    abc = HEADER + f"D {ornament} E F G|\nw: one two three four five"
+    score = Score.from_abc(abc)
+    actual = oracle_score(upstream, abc, tmp_path, "-lyrics")
+    assert note_rows(score) == note_rows(actual)
+    assert lyric_rows(score) == lyric_rows(actual)

@@ -466,12 +466,10 @@ private:
     long double play_cut(
         Pitch pitch, const Prepared& atom, long double start, long double duration
     );
-    Sound       ornament_neighbor(Pitch pitch, Location at, int direction = 1);
-    Sound       resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
-    Sound       sound(Pitch pitch, Location at, bool tie);
-    LyricAnchor note(
-        Sound sound, long double start, long double duration, int stagger, int loudness, Location at
-    );
+    Sound ornament_neighbor(Pitch pitch, Location at, int direction = 1);
+    Sound resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
+    Sound sound(Pitch pitch, Location at, bool tie);
+    void  ornament_attack(Sound sound, long double start, long double duration, Location at);
     std::optional<NoteAddress> sustain(Sound& sound, i32 end);
     vec<ChordMember>           resolve_chord(const Prepared& atom, long double end);
     void                       set_symbols(std::string_view value, Location at);
@@ -625,10 +623,12 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch, Location at, int direction) {
     return resolve_sound(pitch, written.tone.alterations[letter_index(pitch.letter)], at, false);
 }
 
-LyricAnchor VoicePlayer::note(
-    Sound sound, long double start, long double duration, int stagger, int loudness, Location at
+void VoicePlayer::ornament_attack(
+    Sound sound, long double start, long double duration, Location at
 ) {
-    return output.attack(lanes.id(), sound.pitch, start, duration, stagger, loudness, at).lyric;
+    const auto hit
+        = output.attack(lanes.id(), sound.pitch, start, duration, 0, velocity(start), at);
+    lyric_line.attack(hit.lyric);
 }
 
 std::optional<NoteAddress> VoicePlayer::sustain(Sound& sound, i32 end) {
@@ -741,7 +741,7 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
     auto start = lane().time;
     for (const auto& pitch : pitches) {
         const auto duration = pitch.length.fraction() * length;
-        note(sound(pitch, atom.grace.at, false), start, duration, 0, velocity(start), atom.at);
+        ornament_attack(sound(pitch, atom.grace.at, false), start, duration, atom.at);
         start += duration;
     }
     return total;
@@ -755,9 +755,8 @@ void VoicePlayer::play_roll(
     };
     const auto step = duration / notes.size();
     for (size_t index = 0; index < notes.size(); ++index) {
-        const auto onset  = start + index * step;
-        const auto anchor = note(notes[index], onset, step, 0, velocity(onset), atom.at);
-        if (index == 0) lyric_line.attack(anchor);
+        const auto onset = start + index * step;
+        ornament_attack(notes[index], onset, step, atom.at);
     }
 }
 
@@ -766,7 +765,7 @@ long double VoicePlayer::play_cut(
 ) {
     const auto length = written.unit / lane().expression.grace_divider;
     if (length + epsilon >= duration) return 0;
-    note(ornament_neighbor(pitch, atom.at), start, length, 0, velocity(start), atom.at);
+    ornament_attack(ornament_neighbor(pitch, atom.at), start, length, atom.at);
     return length;
 }
 
@@ -778,9 +777,8 @@ void VoicePlayer::play_trill(
     const auto step   = duration / count;
     const auto higher = ornament_neighbor(pitch, atom.at);
     for (int i = 0; i < count; ++i) {
-        const auto onset  = start + i * step;
-        const auto anchor = note(i % 2 ? main : higher, onset, step, 0, velocity(onset), atom.at);
-        if (i == 0) lyric_line.attack(anchor);
+        const auto onset = start + i * step;
+        ornament_attack(i % 2 ? main : higher, onset, step, atom.at);
     }
 }
 

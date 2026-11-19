@@ -1181,3 +1181,19 @@ def test_abc_shape_controller_default_does_not_use_a_future_overlay_event():
         (1, 11, 10),
         (480, 11, 127),
     ]
+
+
+@pytest.mark.parametrize(
+    ("ornament", "times"),
+    [
+        ("{A}F", [1, 481, 601, 961, 1441]),
+        ("~F", [1, 481, 601, 961, 1441]),
+        ("RF3", [1, 481, 769, 1057, 1345]),
+        ("TF3", [1, 481, 541, 601, 661]),
+    ],
+)
+def test_abc_ornament_attacks_are_individual_lyric_slots(ornament, times):
+    score = Score.from_abc(HEADER + f"D {ornament} E F G|\nw: one two three four five")
+    assert [(event.time, event.text) for event in score.tracks[0].lyrics] == list(
+        zip(times, ["one", "two", "three", "four", "five"], strict=True)
+    )
