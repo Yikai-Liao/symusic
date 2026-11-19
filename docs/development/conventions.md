@@ -35,7 +35,7 @@ Identifiers never start with an underscore followed by a capital letter or conta
 - Dependencies point from the binding to the core, never back. The core (`include/`, `src/`) does not include `py_src/`, nanobind or pyvec, and the core target does not link them, so the build rejects a violation; a namespace alone does not prevent one. The core still uses pyvec today ([roadmap](../ROADMAP.md#architecture)).
 - Headers use `#pragma once` only, without an `#ifndef` guard.
 - Include what the file uses, in four groups separated by a blank line: the file's own header, the standard library, third-party headers, project headers. Standard and third-party headers use `<...>`, project headers use `"symusic/..."` (core) or a path relative to `py_src/` (binding). `.clang-format` does not sort includes, so keep each group sorted by hand.
-- A header declares what its users need. Template definitions that every unit instantiates go in `src/` with an explicit instantiation for each unit, so that headers stay light and the build stays incremental.
+- A header declares what its users need. Template definitions that every unit instantiates go in `src/` with an explicit instantiation for each unit, so that headers stay light and the build stays incremental. Once storage is a template parameter ([roadmap](../ROADMAP.md#architecture)), the definitions move to `include/symusic/detail/*_impl.h`, included only by the translation units that instantiate them: `src/` for the core storage, `py_src/` for the binding storage.
 
 ### Types
 
@@ -49,7 +49,7 @@ Use the aliases in `include/symusic/mtype.h`, never the spelled-out standard typ
 | `shared<T>` | `std::shared_ptr<T>` |
 | `pyvec<T>` | Reference-stable container from `3rdparty/pyvec` |
 
-Declare aliases with `using`, not `typedef`. Inside a template over a time unit, name the scalar `unit` (`using unit = typename T::unit;`), and constrain templates with the existing concepts (`TType`, `TimeEvent`) instead of SFINAE or unconstrained `typename`. A field's type states its range: a MIDI data byte is `u8`, a signed offset is a signed type, and a count or index is `size_t`.
+Declare aliases with `using`, not `typedef`. Inside a template over a time unit, name the scalar `unit` (`using unit = typename T::unit;`), and constrain templates with the existing concepts (`TType`, `TimeEvent`) instead of SFINAE or unconstrained `typename`. Code that builds a new event list fills a `vec` and moves it into the container once (today `pyvec(std::vector<T>&&)`); it does not append to a `pyvec` element by element. A field's type states its range: a MIDI data byte is `u8`, a signed offset is a signed type, and a count or index is `size_t`.
 
 ### Integers and time
 
