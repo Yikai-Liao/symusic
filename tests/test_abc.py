@@ -1220,3 +1220,26 @@ def test_abc_harp_mode_warns_at_invalid_value(value):
             HEADER + f"%%MIDI harpmode 1\n~F [I:MIDI harpmode {value}] ~F|"
         )
     assert [n.pitch for n in score.tracks[0].notes] == [65] * 6
+
+
+@pytest.mark.parametrize(
+    ("earlier", "bends"),
+    [
+        ("^/D", [(121, 2048), (1081, 0)]),
+        ("_/D", [(121, -2048), (481, 2048), (1081, 0)]),
+        ("D", [(481, 2048), (1081, 0)]),
+    ],
+)
+def test_abc_tuning_follows_staggered_attack_time(earlier, bends):
+    abc = (
+        HEADER + "[I:MIDI expand 1/1][I:MIDI chordattack 480][C^/E]/4 "
+        f"[I:MIDI expand 0/1]{earlier}2 =EF|"
+    )
+    with pytest.warns(UserWarning, match=r"\[shared-pitch-wheel\]"):
+        track = Score.from_abc(abc).tracks[0]
+    assert sorted((n.time, n.pitch) for n in track.notes)[:3] == [
+        (1, 60),
+        (121, 62),
+        (481, 64),
+    ]
+    assert [(e.time, e.value) for e in track.pitch_bends] == bends

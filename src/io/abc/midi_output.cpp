@@ -156,15 +156,6 @@ VoiceOutput::ChannelOutput& VoiceOutput::channel(Target target) {
         .first->second;
 }
 
-void VoiceOutput::tune(
-    ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at
-) {
-    if (target.channel == midi_drum_channel || owner.accidental_wheel == pitch.wheel) return;
-    owner.tuning_checks.emplace_back(owner.track.notes.size(), at);
-    owner.accidental_wheel = pitch.wheel;
-    writes.push_back({target, time, 0, pitch.wheel, event_order++, WireKind::tuning});
-}
-
 Attack VoiceOutput::attack(
     int                   lane,
     MidiPitch             pitch,
@@ -185,14 +176,15 @@ Attack VoiceOutput::attack(
     const auto destination = target(lane);
     auto&      owner       = channel(destination);
     Attack     hit{LyricAnchor(owner.track, time), {}};
-    if (velocity == 0 && !envelopes[lane].pending) return hit;
+    diagnostics.spend(PlaybackWork::attack, at);
     const auto gate = note_gate(time, duration, stagger, at);
-    if (velocity == 0) {
-        attach_envelope(owner, destination, gate);
-    } else {
-        hit.note = emit_note(owner, destination, pitch, gate, velocity, at);
-        attach_envelope(owner, destination, hit.note->index);
-    }
+    if (velocity != 0) hit.note = emit_note(owner, destination, pitch, gate, velocity);
+    const auto note = hit.note ? std::optional{hit.note->index} : std::nullopt;
+    if (destination.channel != midi_drum_channel)
+        owner.tuning.push_back({time, pitch.wheel, event_order++, at, note});
+    attach_envelope(
+        owner, destination, note ? EnvelopeGate{*note} : EnvelopeGate{gate}, pitch.wheel
+    );
     return hit;
 }
 
@@ -205,10 +197,8 @@ VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int sta
 }
 
 NoteAddress VoiceOutput::emit_note(
-    ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity, Location at
+    ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity
 ) {
-    diagnostics.spend(PlaybackWork::attack, at);
-    tune(owner, destination, pitch, gate.time, at);
     if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
     owner.track.notes.emplace_back(
         gate.time, gate.duration, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
@@ -410,7 +400,9 @@ size_t VoiceOutput::NoteEnvelope::work() const {
     return count;
 }
 
-void VoiceOutput::attach_envelope(ChannelOutput& owner, Target destination, EnvelopeGate gate) {
+void VoiceOutput::attach_envelope(
+    ChannelOutput& owner, Target destination, EnvelopeGate gate, int wheel
+) {
     auto& state = envelopes[destination.lane];
     if (!state.pending) return;
     const auto [mark, at] = *std::exchange(state.pending, {});
@@ -420,7 +412,7 @@ void VoiceOutput::attach_envelope(ChannelOutput& owner, Target destination, Enve
         destination,
         bend_for(state, mark),
         mark == EnvelopeMark::shape ? state.controllers : ControllerLayers{},
-        owner.accidental_wheel,
+        wheel,
         event_order++,
         at
     };
@@ -512,14 +504,38 @@ void VoiceOutput::complete_envelopes() {
             );
         }
     }
-    for (auto& [key, owner] : output) complete_channel_envelopes(owner);
+    for (auto& [key, owner] : output) {
+        const auto [lane, channel, program] = key;
+        complete_tuning({lane, channel, program}, owner);
+        complete_channel_envelopes(owner);
+    }
+}
+
+void VoiceOutput::complete_tuning(Target target, ChannelOutput& owner) {
+    auto& attacks = owner.tuning;
+    if (std::ranges::none_of(attacks, [](const auto& attack) { return attack.wheel != 0; })) return;
+    // A delayed chord member can sound after notes that were visited later.
+    // Only adjacent requests on the performed timeline can share a wheel write.
+    if (!std::ranges::is_sorted(attacks, {}, &TuningAttack::time))
+        std::ranges::stable_sort(attacks, {}, &TuningAttack::time);
+    int wheel          = 0;
+    i32 sounding_until = 0;
+    for (const auto& [time, value, order, at, note] : attacks) {
+        if (value != wheel) {
+            if (time < sounding_until) warn_tuning_overlap(at);
+            wheel = value;
+            writes.push_back({target, time, 0, value, order, WireKind::tuning});
+        }
+        if (note) {
+            const auto& sounding = owner.track.notes[*note];
+            sounding_until       = std::max(sounding_until, sounding.time + sounding.duration);
+        }
+    }
 }
 
 void VoiceOutput::complete_channel_envelopes(ChannelOutput& owner) {
-    if (owner.note_envelopes.empty() && owner.tuning_checks.empty()) return;
+    if (owner.note_envelopes.empty()) return;
     const NoteActivity activity(owner.track.notes);
-    for (const auto& [index, at] : owner.tuning_checks)
-        if (activity.overlaps[index].prior) warn_tuning_overlap(at);
     for (const auto& envelope : owner.note_envelopes)
         complete_envelope(envelope, owner.track.notes, activity);
 }

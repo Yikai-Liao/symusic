@@ -1285,3 +1285,14 @@ def test_live_harp_cut_lyrics(upstream, tmp_path):
     score = Score.from_abc(abc)
     assert note_rows(score) == note_rows(oracle)
     assert lyric_rows(score) == lyric_rows(oracle)
+
+
+@pytest.mark.parametrize("mark", ["", "!bend!"])
+def test_live_muted_microtone(upstream, tmp_path, mark):
+    abc = HEADER + f"[I:MIDI bendstring 300][I:MIDI vol 0]{mark}^/CDEF|"
+    native = Score.from_abc(abc)
+    oracle = oracle_score(upstream, abc, tmp_path)
+    assert performed(native) == performed(oracle)
+    assert [(e.time, e.value) for e in native.tracks[0].pitch_bends] == [
+        (e.time, e.value) for e in oracle.tracks[0].pitch_bends
+    ]

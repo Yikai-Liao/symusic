@@ -139,17 +139,22 @@ private:
     };
     std::array<LaneEnvelope, max_voice_lanes> envelopes;
 
+    struct TuningAttack {
+        i32                   time;
+        int                   wheel;
+        size_t                order;
+        Location              at;
+        std::optional<size_t> note;
+    };
+
     struct ChannelOutput {
         ChannelOutput(std::string name, u8 program, bool drums) :
             track(std::move(name), program, drums) {}
 
-        TrackNative<Tick>                track;
-        vec<NoteEnvelope>                note_envelopes;
-        vec<std::pair<size_t, Location>> tuning_checks;
-        // Playback and emission both remember the accidental tuning. The
-        // latter is visited in chronological order after gates are final.
-        int accidental_wheel = 0;
-        int restore_wheel    = 0;
+        TrackNative<Tick> track;
+        vec<NoteEnvelope> note_envelopes;
+        vec<TuningAttack> tuning;
+        int               restore_wheel = 0;
     };
 
     // Deferred envelope samples share the direct events' timeline. At the
@@ -186,13 +191,13 @@ private:
     ChannelOutput&       channel(Target target);
     bool                 route(std::string_view name, std::string_view args, int lane, Location at);
     void                 program(int lane, std::string_view args, Location at);
-    void tune(ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at);
-    bool channel_effect(
+    void                 complete_tuning(Target target, ChannelOutput& owner);
+    bool                 channel_effect(
         std::string_view name, std::string_view args, int lane, i32 time, Location at
     );
     bool envelope_directive(std::string_view name, std::string_view args, int lane, Location at);
     void controller_curve(LaneEnvelope& state, std::string_view args, Location at);
-    void attach_envelope(ChannelOutput& owner, Target destination, EnvelopeGate gate);
+    void attach_envelope(ChannelOutput& owner, Target destination, EnvelopeGate gate, int wheel);
     void write_bend(const NoteEnvelope& envelope, Gate gate);
     void write_shape(const NoteEnvelope& envelope, Gate gate);
     void complete_envelopes();
@@ -203,12 +208,7 @@ private:
     );
     Gate        note_gate(i32 time, long double duration, int stagger, Location at);
     NoteAddress emit_note(
-        ChannelOutput& owner,
-        Target         destination,
-        MidiPitch      pitch,
-        Gate           gate,
-        int            velocity,
-        Location       at
+        ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity
     );
     void               warn_envelope_overlap(const NoteEnvelope& envelope);
     void               warn_tuning_overlap(Location at);
