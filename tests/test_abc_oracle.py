@@ -430,6 +430,48 @@ def test_abc_lyrics_follow_notation(abc: str, upstream: Path, tmp_path: Path):
     )
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        (
+            "|: CDEF |\nw: one two three four\nGABc :|\nw: five six seven eight\n"
+            "cBAG|\nw: nine ten eleven twelve"
+        ),
+        (
+            "|: CDEF |\nw: one two three four\nGABc :| cBAG|\n"
+            "w: five six seven eight nine ten eleven twelve"
+        ),
+        "|: CDEF |\nw: one two three four\nGABc :|\ncBAG|\nw: nine ten eleven twelve",
+        (
+            "CDEF |:\nw: one two three four\nGABc |\nw: five six seven eight\n"
+            "cBAG :|\nw: nine ten eleven twelve"
+        ),
+        "CDEF |\nw: one two three four\nGABc :|\nw: five six seven eight",
+        "[V:solo] CDEF |\nw: one two three four\nGABc :|\nw: five six seven eight",
+        (
+            "|: CDEF |\nw: one two three four\n[1 GABc :|\nw: five six seven eight\n"
+            "[2 cBAG|\nw: nine ten eleven twelve"
+        ),
+        "|: CDEF :| GABc|\nw: one two three four five six seven eight nine ten eleven twelve",
+    ],
+    ids=[
+        "close",
+        "tail",
+        "unvoiced-close",
+        "opening-at-eol",
+        "implicit",
+        "implicit-inline-voice",
+        "numbered-endings",
+        "single-line",
+    ],
+)
+def test_abc_lyrics_at_repeat_boundaries(body: str, upstream: Path, tmp_path: Path):
+    abc = HEADER + body
+    assert lyric_rows(Score.from_abc(abc)) == lyric_rows(
+        oracle_score(upstream, abc, tmp_path, "-lyrics")
+    )
+
+
 def test_shorthand_decoration_spelling(upstream: Path, tmp_path: Path):
     abc = HEADER + "'C !'! D !H! E !T! F|"
     with pytest.warns(UserWarning, match=r"\[ignored-decoration\]") as warnings:

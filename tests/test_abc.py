@@ -370,6 +370,17 @@ def test_abc_aligns_lyrics_to_attacks_on_their_music_line():
     ]
 
 
+def test_abc_lyrics_follow_repeat_jump_without_restarting_verse():
+    first = "First line goes here"
+    repeated = "The next four words cross the repeat bar"
+    score = Score.from_abc(
+        HEADER + f"|: CDEF|\nw: {first}\nGABc :| cBAG|\nw: {repeated}"
+    )
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == list(
+        zip(range(1, 9601, 480), first.split() + repeated.split() * 2, strict=True)
+    )
+
+
 @pytest.mark.parametrize(
     ("lyrics", "times"),
     [

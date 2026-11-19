@@ -278,6 +278,7 @@ public:
         written(written), diagnostics(diagnostics) {}
     void start(size_t line);
     void enter_part(size_t occurrence);
+    void continue_across_jump() { carry_verse = true; }
     void attack(LyricAnchor anchor) {
         if (verse) attacks.push_back(anchor);
     }
@@ -288,9 +289,10 @@ public:
 private:
     const VoiceLyrics& written;
     Diagnostics&       diagnostics;
-    size_t             line       = 0;
-    size_t             occurrence = 0;
-    const LyricVerse*  verse      = nullptr;
+    size_t             line        = 0;
+    size_t             occurrence  = 0;
+    bool               carry_verse = false;
+    const LyricVerse*  verse       = nullptr;
     vec<LyricAnchor>   attacks;
     vec<size_t>        boundaries;
 
@@ -298,7 +300,9 @@ private:
 };
 
 void LyricLine::start(size_t next) {
-    if (!next || line == next) return;
+    if (!next) return;
+    if (std::exchange(carry_verse, false)) line = next;
+    if (line == next) return;
     finish();
     line = next;
     if (const auto found = written.find(line); found != written.end()) {
@@ -320,8 +324,9 @@ void LyricLine::finish() {
                 verse->at, "extra-lyrics", "more lyric syllables than notes on the music line"
             );
     }
-    line  = 0;
-    verse = nullptr;
+    line        = 0;
+    carry_verse = false;
+    verse       = nullptr;
     attacks.clear();
     boundaries.clear();
 }
@@ -1148,7 +1153,10 @@ void VoicePlayer::visit_step(PlayStep step) {
         flush();
         repeat_entry = {written.tone, written.unit, output.selected_channel(lanes.id())};
         break;
-    case Flow::jump_repeat: jump_repeat(); break;
+    case Flow::jump_repeat:
+        jump_repeat();
+        if (step.continues_lyrics) lyric_line.continue_across_jump();
+        break;
     case Flow::soft_bar:
     case Flow::hard_bar:
         play_bar(Bar{.repeat_end = step.flow == Flow::soft_bar}, token.at, token.music_line);

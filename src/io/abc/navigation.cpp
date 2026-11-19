@@ -164,6 +164,7 @@ private:
     void                  step(size_t index, Flow flow);
     void                  slice(size_t first, size_t end);
     void                  region(size_t first, size_t first_bar, size_t last_bar, int passes);
+    bool                  jumps_inside_music_line(size_t first, size_t first_bar) const;
     void                  play_pass(size_t first, size_t first_bar, size_t last_bar, int pass);
 };
 
@@ -243,17 +244,27 @@ void RepeatOrder::play_pass(size_t first, size_t first_bar, size_t last_bar, int
     }
 }
 
+bool RepeatOrder::jumps_inside_music_line(size_t first, size_t first_bar) const {
+    // An implicit opening bar is inserted after the initial music-line entry.
+    if (first_bar == 0) return true;
+    const auto& opening = bars[first_bar - 1];
+    return opening.bar.repeat_start && source[opening.index].music_line == source[first].music_line;
+}
+
 void RepeatOrder::region(size_t first, size_t first_bar, size_t last_bar, int passes) {
     step(first, Flow::enter_repeat);
     for (int pass = 1; pass <= passes; ++pass) {
-        if (pass > 1) step(first, Flow::jump_repeat);
+        if (pass > 1) {
+            step(first, Flow::jump_repeat);
+            output.back().continues_lyrics = jumps_inside_music_line(first, first_bar);
+        }
         play_pass(first, first_bar, last_bar, pass);
     }
 }
 
 void RepeatOrder::append_part(u32 occurrence) {
     reserve_steps(1, 0);
-    output.push_back({&source.front(), Flow::enter_part, occurrence});
+    output.push_back({&source.front(), Flow::enter_part, false, occurrence});
     append();
 }
 

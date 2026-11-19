@@ -6,11 +6,13 @@ namespace symusic::abc::detail {
 
 // The score clock only moves forward. Repeat jumps restore written state, not
 // emitted notes, the accent clock, or running MIDI effects.
-enum class Flow { token, enter_part, enter_repeat, jump_repeat, soft_bar, hard_bar };
+enum class Flow : u8 { token, enter_part, enter_repeat, jump_repeat, soft_bar, hard_bar };
 struct PlayStep {
     const Token* token;
-    Flow         flow            = Flow::token;
-    u32          part_occurrence = 0;   // only meaningful at enter_part
+    Flow         flow = Flow::token;
+    // The jump bypasses the written music-line entry, so the singer keeps the verse.
+    bool continues_lyrics = false;   // only at jump_repeat
+    u32  part_occurrence  = 0;       // only at enter_part
 };
 using PlayOrder = vec<PlayStep>;
 
