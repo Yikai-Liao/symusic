@@ -94,6 +94,7 @@ public:
     Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics);
     [[nodiscard]] const auto& all() const { return voices; }
     [[nodiscard]] const auto& preamble() const { return common; }
+    [[nodiscard]] bool        declares_voices() const { return !voices.front().id.empty(); }
 
 private:
     Diagnostics&         diagnostics;
@@ -311,7 +312,7 @@ ScoreNative<Tick> score_from_tune(const Tune& tune, Diagnostics& diagnostics) {
         = global_events(initial_meter, music.meters, diagnostics, "meter changes");
     score.key_signatures = global_events(initial_key, music.keys, diagnostics, "key changes");
     const int tempo_offset
-        = PlaybackGrid::tempo_offset(music.needs_conductor || voices.all().size() > 1);
+        = PlaybackGrid::tempo_offset(music.needs_conductor || voices.declares_voices());
     for (auto& [tempo, at] : music.tempos)
         tempo.time = tick(static_cast<long double>(tempo.time) + tempo_offset, diagnostics, at);
     score.tempos

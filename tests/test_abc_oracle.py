@@ -68,6 +68,7 @@ CASES = {
     "named_tempo": HEADER.replace("Q:1/4=120", 'Q:"Largo"').replace("L:1/4", "L:1/8")
     + "CDEFGABc|",
     "relative_tempo": HEADER + "C [L:1/8][Q:C=120] D E F|",
+    "explicit_solo_tempo": HEADER + "V:solo\nCDEF|[Q:90]GABc|",
     "conductor_tempo": HEADER + "V:1\nCDEF|[Q:1/4=90] GABc| [Q:1/4=60] cBAG|"
     "\nV:2\nC,4| G,4| C,4|",
     "lyric_tempo": HEADER
@@ -645,19 +646,23 @@ def test_export_playback_events(kind: str, upstream: Path, tmp_path: Path):
     }
 
 
-def test_export_conductor_tempo(upstream: Path, tmp_path: Path):
+@pytest.mark.parametrize("voices", [1, 2])
+def test_export_conductor_tempo(voices: int, upstream: Path, tmp_path: Path):
     score = Score(480)
-    score.tempos.extend([Tempo(0, mspq=500_000), Tempo(720, mspq=625_000)])
-    for index in range(2):
-        track = Track(str(index), 24 + index)
+    score.tempos.extend(
+        [Tempo(0, mspq=500_000), Tempo(1, mspq=750_000), Tempo(720, mspq=625_000)]
+    )
+    for index in range(voices):
+        track = Track(f"  Voice {index}  ", 24 + index)
         track.notes.extend(
-            [Note(1, 240, 60 + index, 90), Note(961, 240, 62 + index, 90)]
+            [Note(15, 240, 60 + index, 90), Note(961, 240, 62 + index, 90)]
         )
         score.tracks.append(track)
     abc = score.dumps_abc()
     native = Score.from_abc(abc)
     actual = oracle_score(upstream, abc, tmp_path)
     assert native.tempos == actual.tempos == score.tempos
+    assert [track.name for track in native.tracks] == [track.name for track in score.tracks]
     assert performed(native) == performed(actual)
 
 

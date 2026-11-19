@@ -355,8 +355,6 @@ private:
     }
 };
 
-// Plan voices before placing global events: partitioning can change the
-// tempo clock even if the original Score had only one track.
 template<TType T>
 struct PlannedVoice {
     Timeline        timeline;
@@ -480,9 +478,9 @@ std::string ScoreWriter<T>::fields(
     }
     if (auto at_zero = ordered.extract(0); !at_zero.empty()) fallback = std::move(at_zero.mapped());
     for (const auto& [time, value] : ordered) {
-        const auto playback_time
-            = key == 'Q' ? time - PlaybackGrid::tempo_offset(voices.size() > 1) : time;
-        global[playback_time].fields.push_back(fmt::format("[{}:{}]", key, value));
+        // Even a solo export declares V: to preserve the track name. The
+        // conductor reads all global fields on the written clock.
+        global[time].fields.push_back(fmt::format("[{}:{}]", key, value));
     }
     return fallback;
 }
