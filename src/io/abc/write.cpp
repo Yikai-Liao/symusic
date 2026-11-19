@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <bitset>
 #include <cmath>
 #include <limits>
 #include <map>
@@ -157,21 +158,17 @@ using Timeline = std::map<i32, Moment>;
 using Fields   = std::map<i32, vec<std::string>>;
 
 struct VoiceLane {
-    Timeline             timeline;
-    std::array<i32, 128> ends{};
-    i32                  recent_start    = -1;
-    int                  recent_velocity = 0;
+    Timeline                      timeline;
+    std::array<i32, midi_max + 1> ends{};
 
-    bool accepts(WrittenNote note) const {
-        return ends[note.pitch] <= note.start
-               && (recent_start != note.start || recent_velocity == note.velocity)
-               && std::ranges::count_if(ends, [&](i32 end) { return end > note.start; })
-                      < max_active_notes;
+    bool holds(int pitch, i32 time) const { return ends[pitch] > time; }
+    int  room_at(i32 time) const {
+        return max_active_notes - static_cast<int>(std::ranges::count_if(ends, [time](i32 end) {
+                   return end > time;
+               }));
     }
     void add(WrittenNote note) {
         ends[note.pitch] = note.end;
-        recent_start     = note.start;
-        recent_velocity  = note.velocity;
         timeline[note.start].attacks.push_back(note);
         timeline[note.end].releases.push_back(note.pitch);
     }
@@ -181,12 +178,12 @@ struct VoiceLane {
 // not a proof of the minimum voice count.
 void prioritize_attacks(std::span<WrittenNote> chord, const vec<VoiceLane>& lanes) {
     if (chord.size() < 2) return;
-    std::array<int, 128> pressure{};
+    std::array<int, midi_max + 1> pressure{};
     for (const auto& note : chord) {
         auto& rank = pressure[note.pitch];
         if (rank == 0)
             rank = std::ranges::count_if(lanes, [&](const VoiceLane& lane) {
-                return lane.ends[note.pitch] > note.start;
+                return lane.holds(note.pitch, note.start);
             });
         ++rank;   // simultaneous copies also compete for lanes
     }
@@ -195,21 +192,156 @@ void prioritize_attacks(std::span<WrittenNote> chord, const vec<VoiceLane>& lane
     });
 }
 
-// A lane already attacking at this velocity cannot serve another velocity
-// at this onset. Reuse it before claiming a lane that is still uncommitted.
-VoiceLane* available_lane(vec<VoiceLane>& lanes, WrittenNote note) {
-    VoiceLane* unused = nullptr;
-    for (auto& lane : lanes) {
-        if (!lane.accepts(note)) continue;
-        if (lane.recent_start == note.start) return &lane;
-        if (!unused) unused = &lane;
+struct VoiceLimit {
+    size_t           available;
+    std::string_view message;
+
+    [[noreturn]] void fail(std::string_view where) const { ExportIssues::invalid(where, message); }
+};
+
+class PlacementBudget {
+public:
+    void try_candidate(std::string_view where) {
+        if (!remaining)
+            ExportIssues::invalid(
+                where,
+                "[voice-search-limit] could not fit an onset within the remaining ABC voices; "
+                "reduce simultaneous velocities or use MIDI export"
+            );
+        --remaining;
     }
-    return unused;
+
+private:
+    // All onsets share this budget, so a file cannot trigger a large retry at every chord.
+    size_t remaining = 100'000;
+};
+
+// Allocate all attacks of one onset before touching the timeline. Tentative
+// lanes share one acceptance rule for greedy placement and bounded retry.
+class OnsetPlacement {
+public:
+    OnsetPlacement(
+        vec<VoiceLane>& lanes, VoiceLimit limit, PlacementBudget& budget, std::string_view where
+    ) : lanes(lanes), limit(limit), budget(budget), where(where) {}
+
+    void add(std::span<const WrittenNote> attacks);
+
+private:
+    struct Candidate {
+        const VoiceLane*          held = nullptr;
+        std::bitset<midi_max + 1> pitches;
+        int                       room     = max_active_notes;
+        int                       velocity = -1;
+
+        bool accepts(WrittenNote note) const;
+        void add(WrittenNote note);
+        void undo(WrittenNote note);
+    };
+
+    vec<VoiceLane>&                                          lanes;
+    VoiceLimit                                               limit;
+    PlacementBudget&                                         budget;
+    std::string_view                                         where;
+    std::span<const WrittenNote>                             attacks;
+    std::array<Candidate, max_export_voices>                 candidates;
+    std::array<size_t, max_export_voices * max_active_notes> choice;
+
+    void   reset(size_t count);
+    bool   greedy();
+    size_t first_fit(WrittenNote note, size_t used) const;
+    bool   retry(size_t next);
+};
+
+bool OnsetPlacement::Candidate::accepts(WrittenNote note) const {
+    return room > 0 && (velocity < 0 || velocity == note.velocity) && !pitches[note.pitch]
+           && (!held || !held->holds(note.pitch, note.start));
 }
 
-vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_view where) {
+void OnsetPlacement::Candidate::add(WrittenNote note) {
+    pitches.set(note.pitch);
+    --room;
+    velocity = note.velocity;
+}
+
+void OnsetPlacement::Candidate::undo(WrittenNote note) {
+    pitches.reset(note.pitch);
+    ++room;
+    if (pitches.none()) velocity = -1;
+}
+
+void OnsetPlacement::reset(size_t count) {
+    const auto onset = attacks.front().start;
+    for (size_t i = 0; i < lanes.size(); ++i)
+        candidates[i] = {&lanes[i], {}, lanes[i].room_at(onset)};
+    std::fill(candidates.begin() + lanes.size(), candidates.begin() + count, Candidate{});
+}
+
+// Prefer a lane already committed to this velocity over an unclaimed lane.
+size_t OnsetPlacement::first_fit(WrittenNote note, size_t used) const {
+    size_t spare = used;
+    for (size_t i = 0; i < used; ++i) {
+        const auto& lane = candidates[i];
+        if (!lane.accepts(note)) continue;
+        if (lane.velocity == note.velocity) return i;
+        spare = std::min(spare, i);
+    }
+    return spare;
+}
+
+bool OnsetPlacement::greedy() {
+    size_t used = lanes.size();
+    reset(used);
+    for (size_t i = 0; i < attacks.size(); ++i) {
+        const auto lane = first_fit(attacks[i], used);
+        if (lane == limit.available) return false;
+        if (lane == used) candidates[used++] = {};
+        candidates[lane].add(attacks[i]);
+        choice[i] = lane;
+    }
+    return true;
+}
+
+bool OnsetPlacement::retry(size_t next) {
+    if (next == attacks.size()) return true;
+    const auto note       = attacks[next];
+    bool       tried_idle = false;
+    for (size_t i = 0; i < limit.available; ++i) {
+        // Completely idle lanes are interchangeable for one onset.
+        auto& lane = candidates[i];
+        if (lane.room == max_active_notes && std::exchange(tried_idle, true)) continue;
+        budget.try_candidate(where);
+        if (!lane.accepts(note)) continue;
+        lane.add(note);
+        choice[next] = i;
+        if (retry(next + 1)) return true;
+        lane.undo(note);
+    }
+    return false;
+}
+
+void OnsetPlacement::add(std::span<const WrittenNote> chord) {
+    if (chord.size() > limit.available * max_active_notes) limit.fail(where);
+    attacks = chord;
+    if (!greedy()) {
+        std::bitset<midi_max + 1> velocities;
+        for (const auto& note : attacks) velocities.set(note.velocity);
+        if (velocities.count() > limit.available) limit.fail(where);
+        reset(limit.available);
+        if (!retry(0)) limit.fail(where);
+    }
+    for (size_t i = 0; i < attacks.size(); ++i) {
+        const auto lane = choice[i];
+        if (lane >= lanes.size()) lanes.resize(lane + 1);
+        lanes[lane].add(attacks[i]);
+    }
+}
+
+vec<VoiceLane> partition(
+    vec<WrittenNote> notes, VoiceLimit limit, PlacementBudget& budget, std::string_view where
+) {
     std::ranges::sort(notes, {}, &WrittenNote::start);
-    vec<VoiceLane> lanes(1);
+    vec<VoiceLane> lanes;
+    OnsetPlacement placement(lanes, limit, budget, where);
     auto           remaining = std::span(notes);
     while (!remaining.empty()) {
         const auto next  = std::ranges::find_if(remaining, [&](WrittenNote note) {
@@ -217,17 +349,10 @@ vec<VoiceLane> partition(vec<WrittenNote> notes, size_t max_lanes, std::string_v
         });
         const auto onset = remaining.first(static_cast<size_t>(next - remaining.begin()));
         prioritize_attacks(onset, lanes);
+        placement.add(onset);
         remaining = remaining.subspan(onset.size());
-        for (const auto note : onset) {
-            auto* lane = available_lane(lanes, note);
-            if (!lane) {
-                if (lanes.size() == max_lanes)
-                    ExportIssues::invalid(where, "voice allocation used too many ABC lanes");
-                lane = &lanes.emplace_back();
-            }
-            lane->add(note);
-        }
     }
+    if (lanes.empty()) lanes.emplace_back();   // a control-only track still needs a voice
     return lanes;
 }
 
@@ -521,6 +646,7 @@ private:
     ExportIssues         issues;
     ExportBudget         budget;
     ExportBudget         planning_budget;
+    PlacementBudget      placement_budget;
     std::string          output;
     Fields               global;
     vec<PlannedTrack<T>> tracks;
@@ -543,12 +669,13 @@ private:
         std::string_view         where,
         size_t                   copies
     );
-    void reserve_voices(size_t lanes, bool drums, std::string_view where);
-    void limitations(const Track<T>& track, std::string_view where);
-    void header();
-    void render_voices();
-    void plan_track(const Track<T>& track, size_t index);
-    int  onset_offset();
+    VoiceLimit voice_limit(bool drums) const;
+    void       reserve_voices(size_t lanes, bool drums, std::string_view where);
+    void       limitations(const Track<T>& track, std::string_view where);
+    void       header();
+    void       render_voices();
+    void       plan_track(const Track<T>& track, size_t index);
+    int        onset_offset();
 
     template<class Event, class Format>
     std::string fields(char key, const pyvec<Event>& events, std::string fallback, Format format);
@@ -793,9 +920,8 @@ void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
     if (track.program > midi_max)
         ExportIssues::invalid(where, "program must be in MIDI range 0–127");
     limitations(track, where);
-    auto lanes = partition(
-        notes(track, where), track.is_drum ? max_export_voices : melodic_channels, where
-    );
+    auto lanes
+        = partition(notes(track, where), voice_limit(track.is_drum), placement_budget, where);
     if (lanes.size() > 1)
         issues.warn(where, "split-voice", "used multiple ABC voices to preserve note events");
     // These events emit one token per lane even when they all share a tick.
@@ -811,11 +937,17 @@ void ScoreWriter<T>::plan_track(const Track<T>& track, size_t index) {
 }
 
 template<TType T>
+VoiceLimit ScoreWriter<T>::voice_limit(bool drums) const {
+    const auto remaining = max_export_voices - total_voices;
+    const auto melodic   = melodic_channels - melodic_voices;
+    if (drums || remaining <= melodic) return {remaining, "export uses more than 30 ABC voices"};
+    return {melodic, "voice allocation used more than 15 melodic ABC voices"};
+}
+
+template<TType T>
 void ScoreWriter<T>::reserve_voices(size_t lanes, bool drums, std::string_view where) {
-    if (total_voices + lanes > max_export_voices)
-        ExportIssues::invalid(where, "export uses more than 30 ABC voices");
-    if (!drums && melodic_voices + lanes > melodic_channels)
-        ExportIssues::invalid(where, "voice allocation used more than 15 melodic ABC voices");
+    const auto limit = voice_limit(drums);
+    if (lanes > limit.available) limit.fail(where);
     if (drums && total_voices - melodic_voices + lanes > 1)
         issues.warn(
             "score",

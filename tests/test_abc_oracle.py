@@ -16,7 +16,12 @@ import pytest
 from mido import MidiFile, merge_tracks
 from symusic import ControlChange, Note, Pedal, PitchBend, Score, Tempo, Track
 
-from tests.test_abc import HEADER, note_rows, roundtrip_score
+from tests.test_abc import (
+    HEADER,
+    note_rows,
+    roundtrip_score,
+    score_with_constrained_onset,
+)
 from tests.utils import TESTCASES_PATH
 
 SNAPSHOT = TESTCASES_PATH / "abc_oracle.json"
@@ -849,6 +854,27 @@ def test_export_full_channel_set(drum_position: int, upstream: Path, tmp_path: P
     assert {(t.program, t.is_drum) for t in actual.tracks} == {
         (t.program, t.is_drum) for t in score.tracks
     }
+
+
+def test_export_reassigned_onset_plays_upstream(upstream: Path, tmp_path: Path):
+    score = score_with_constrained_onset()
+    played = oracle_score(upstream, score.dumps_abc(), tmp_path)
+    assert len(played.tracks) == 15
+    # All five held lead notes need ties across the second onset. abc2midi
+    # releases those ties one tick early; compare every other field exactly.
+    for program in [*range(12), 30]:
+        original = next(track for track in score.tracks if track.program == program)
+        expected = sorted(
+            (n.time, n.pitch, n.velocity, n.duration - (program == 30 and n.time == 15))
+            for n in original.notes
+        )
+        actual = sorted(
+            (n.time, n.pitch, n.velocity, n.duration)
+            for track in played.tracks
+            if track.program == program
+            for n in track.notes
+        )
+        assert actual == expected
 
 
 def test_export_full_voice_set(upstream: Path, tmp_path: Path):

@@ -803,6 +803,37 @@ def test_abc_export_reuses_voices_at_the_same_velocity(reverse: bool):
     assert note_rows(exported) == note_rows(score)
 
 
+def score_with_constrained_onset(reverse: bool = False) -> Score:
+    score = Score(480)
+    for program in range(12):
+        track = Track(str(program), program)
+        track.notes.append(Note(15, 240, 61, 83))
+        score.tracks.append(track)
+    lead = Track("Lead", 30)
+    lead.notes.extend(
+        Note(*row)
+        for row in [
+            (15, 240, 50, 70),
+            (15, 240, 51, 71),
+            (15, 240, 60, 72),
+            (15, 240, 61, 71),
+            (15, 240, 62, 71),
+        ]
+    )
+    attacks = [Note(45, 30, 60, 80), Note(45, 30, 61, 81), Note(45, 30, 62, 82)]
+    lead.notes.extend(reversed(attacks) if reverse else attacks)
+    score.tracks.append(lead)
+    return score
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_abc_export_reassigns_a_constrained_onset(reverse: bool):
+    score = score_with_constrained_onset(reverse)
+    exported = Score.from_abc(score.dumps_abc())
+    assert len(exported.tracks) == 15
+    assert note_rows(exported) == note_rows(score)
+
+
 def test_abc_export_rejects_more_than_30_total_voices():
     score = Score(480)
     for index in range(31):
