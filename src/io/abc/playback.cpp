@@ -97,6 +97,12 @@ struct Prepared {
     [[nodiscard]] long double played_duration() const { return duration * rhythm_scale; }
 };
 
+// Grace consumes time from the first attack only; the second keeps its length.
+struct HarpLead {
+    long double first;
+    long double second;
+};
+
 struct TupletState {
     int                        left = 0;
     Length                     ratio;
@@ -460,8 +466,9 @@ private:
     long double lead_in(const Prepared& atom);
     long double grace_room(const Prepared& atom);
     long double play_ornament_lead(
-        const Prepared& atom, long double duration, std::optional<long double> harp_first
+        const Prepared& atom, long double duration, std::optional<HarpLead> harp_lead
     );
+    long double grace_step(const Prepared& atom, long double weights);
     long double play_grace(const Prepared& atom);
     void play_notes(const Prepared& atom, long double start, long double duration, int spread);
     bool play_expanded_ornament(
@@ -483,7 +490,7 @@ private:
     void play_roll(
         Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
     );
-    long double play_harp_cut(const Prepared& atom, long double first);
+    long double play_harp_cut(const Prepared& atom, HarpLead lead);
     long double play_cut(
         Pitch pitch, const Prepared& atom, long double start, long double duration
     );
@@ -501,7 +508,7 @@ private:
     void                      change_tempo(std::string_view value, Location at);
     void                      change_voice(std::string_view value, Location at);
     void                      articulation(
-        const Prepared& atom, long double duration, std::optional<long double> harp_first
+        const Prepared& atom, long double duration, std::optional<HarpLead> harp_lead
     );
     void visit(const Directive& command, Location at);
     void visit(const Field& field, Location at);
@@ -769,16 +776,11 @@ std::optional<LyricAnchor> VoicePlayer::emit_chord(
 
 long double VoicePlayer::grace_room(const Prepared& atom) {
     if (!atom.harp_cut) return atom.played_duration();
-    const auto attacks = lane().expression.harp_attacks(*atom.harp_cut, false);
-    return attacks.length(atom.last_scale) * written.unit * atom.rhythm_scale;
+    const auto attacks = lane().expression.harp_attacks(*atom.harp_cut, atom.ornament.fermata);
+    return attacks.first * written.unit * atom.rhythm_scale;
 }
 
-long double VoicePlayer::play_grace(const Prepared& atom) {
-    if (!atom.grace.notes || atom.grace.notes->pitches.empty()) return 0;
-    const auto& pitches = atom.grace.notes->pitches;
-    long double weights = 0;
-    for (const auto& pitch : pitches) weights += pitch.length.fraction();
-    if (weights == 0) return 0;
+long double VoicePlayer::grace_step(const Prepared& atom, long double weights) {
     const auto duration = grace_room(atom);
     const auto length   = lane().expression.grace_ratio > 0 ?
                               duration * lane().expression.grace_ratio / weights :
@@ -788,17 +790,30 @@ long double VoicePlayer::play_grace(const Prepared& atom) {
         diagnostics.warn(
             atom.at,
             "grace-too-long",
-            "grace sequence would consume its host note; ignored the grace notes"
+            atom.harp_cut ?
+                "grace sequence would consume the first harp attack; ignored the grace notes" :
+                "grace sequence would consume its host note; ignored the grace notes"
         );
         return 0;
     }
+    return length;
+}
+
+long double VoicePlayer::play_grace(const Prepared& atom) {
+    if (!atom.grace.notes || atom.grace.notes->pitches.empty()) return 0;
+    const auto& pitches = atom.grace.notes->pitches;
+    long double weights = 0;
+    for (const auto& pitch : pitches) weights += pitch.length.fraction();
+    if (weights == 0) return 0;
+    const auto length = grace_step(atom, weights);
+    if (length == 0) return 0;
     auto start = lane().time;
     for (const auto& pitch : pitches) {
         const auto duration = pitch.length.fraction() * length;
         ornament_attack(sound(pitch, atom.grace.at, false), start, duration, atom.at);
         start += duration;
     }
-    return total;
+    return length * weights;
 }
 
 void VoicePlayer::play_roll(
@@ -814,11 +829,11 @@ void VoicePlayer::play_roll(
     }
 }
 
-long double VoicePlayer::play_harp_cut(const Prepared& atom, long double first) {
+long double VoicePlayer::play_harp_cut(const Prepared& atom, HarpLead lead) {
     const auto pitch = sound(atom.atom->pitches.front(), atom.at, false);
-    ornament_attack(pitch, lane().time, first, atom.at);
-    ornament_attack(pitch, lane().time + first, first, atom.at);
-    return 2 * first;
+    ornament_attack(pitch, lane().time, lead.first, atom.at);
+    ornament_attack(pitch, lane().time + lead.first, lead.second, atom.at);
+    return lead.first + lead.second;
 }
 
 long double VoicePlayer::play_cut(
@@ -844,7 +859,7 @@ void VoicePlayer::play_trill(
 }
 
 void VoicePlayer::articulation(
-    const Prepared& atom, long double duration, std::optional<long double> harp_first
+    const Prepared& atom, long double duration, std::optional<HarpLead> harp_lead
 ) {
     const auto& pitches = atom.atom->pitches;
     const auto  spread  = atom.atom->chord ? lane().expression.take_chord_spread() : 0;
@@ -852,15 +867,15 @@ void VoicePlayer::articulation(
         report_ties(lane().ties, diagnostics);
         return;
     }
-    const auto cut = play_ornament_lead(atom, duration, harp_first);
+    const auto cut = play_ornament_lead(atom, duration, harp_lead);
     if (cut > 0) lane().ties.clear();
     play_notes(atom, lane().time + cut, duration - cut, spread);
 }
 
 long double VoicePlayer::play_ornament_lead(
-    const Prepared& atom, long double duration, std::optional<long double> harp_first
+    const Prepared& atom, long double duration, std::optional<HarpLead> harp_lead
 ) {
-    if (harp_first) return play_harp_cut(atom, *harp_first);
+    if (harp_lead) return play_harp_cut(atom, *harp_lead);
     const auto& pitches = atom.atom->pitches;
     if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll && !atom.ornament.trill)
         return play_cut(pitches.front(), atom, lane().time, duration);
@@ -881,21 +896,21 @@ long double VoicePlayer::lead_in(const Prepared& atom) {
 void VoicePlayer::play(const Prepared& atom) {
     const auto start = lane().time;
     lyric_line.start(atom.music_line);
-    const auto grace_ticks = lead_in(atom);
-    auto       attacks     = harp_attacks(atom);
-    auto       duration    = atom.played_duration();
-    if (attacks) {
-        attacks->last *= atom.last_scale;
-        duration = attacks->length() * written.unit * atom.rhythm_scale;
-    } else if (atom.ornament.fermata)
+    const auto              grace_ticks = lead_in(atom);
+    auto                    duration    = atom.played_duration();
+    std::optional<HarpLead> harp_lead;
+    if (const auto attacks = harp_attacks(atom)) {
+        const auto scale = written.unit * atom.rhythm_scale;
+        duration         = attacks->length(atom.last_scale) * scale;
+        const auto step  = attacks->first * scale;
+        harp_lead        = HarpLead{step - grace_ticks, step};
+    } else if (atom.ornament.fermata) {
         duration = lane().expression.fermata(duration, written.unit);
+    }
     const auto end = start + duration;
     (void)tick(end, diagnostics, atom.at);
     if (lanes.id() == 0) accompaniment.advance(end, atom.at);
-    const auto remaining = duration - grace_ticks;
-    const auto harp_first
-        = attacks ? std::optional{remaining * attacks->first / attacks->length()} : std::nullopt;
-    articulation(atom, remaining, harp_first);
+    articulation(atom, duration - grace_ticks, harp_lead);
     lane().time = end;
 }
 

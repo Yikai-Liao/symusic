@@ -1277,6 +1277,8 @@ def test_live_ornament_attacks_accept_separate_lyric_syllables(
         ("%%MIDI harpmode 1\n", "~C>D/2 E|"),
         ("%%MIDI harpmode 1\n", "C2>~D E|"),
         ("%%MIDI harpmode 1\n", "R~C T~D E|"),
+        ("%%MIDI harpmode 1\n", "{G}~C2 D E F|"),
+        ("%%MIDI harpmode 1\n", "{G}H~C D E F|"),
     ],
 )
 def test_live_harp_cut(upstream, tmp_path, head, body):
@@ -1285,6 +1287,13 @@ def test_live_harp_cut(upstream, tmp_path, head, body):
     assert performed(Score.from_abc(abc)) == performed(
         oracle_score(upstream, abc, tmp_path)
     )
+
+
+def test_live_harp_cut_rejects_grace_that_consumes_its_first_attack(upstream, tmp_path):
+    abc = "%%MIDI harpmode 1\n" + HEADER.replace("L:1/4", "L:1/8") + "{G}~C D E F|"
+    with pytest.warns(UserWarning, match=r"\[grace-too-long\].*first harp attack"):
+        native = Score.from_abc(abc)
+    assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
 
 
 def test_live_harp_cut_lyrics(upstream, tmp_path):
