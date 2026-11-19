@@ -115,8 +115,10 @@ jobs:
           submodules: recursive
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
       - run: uv build --sdist
-      - name: Verify the source distribution builds a wheel
-        run: uv build --wheel dist/*.tar.gz --out-dir "$RUNNER_TEMP/sdist-wheel"
+      - name: Build and import a wheel from the source distribution
+        run: |
+          uv build --python 3.12 --wheel dist/*.tar.gz --out-dir "$RUNNER_TEMP/sdist-wheel"
+          uv run --no-project --python 3.12 --with "$RUNNER_TEMP/sdist-wheel/"*.whl python -c 'import symusic'
       - uses: actions/upload-artifact@v7
         with:
           name: sdist
