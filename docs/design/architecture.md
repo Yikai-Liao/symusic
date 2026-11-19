@@ -45,6 +45,12 @@ Each container exists in two representations:
 | Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |
 | Synthesis | `prestosynth` renders a `Score<Second>` (`src/synth.cpp`); `symusic.soundfont` downloads SoundFonts |
 
+### ABC playback state
+
+ABC has two orders. Located tokens retain **written order** across voices and line continuations. Assembly uses that order to resolve tuning and accidental propagation policy and to attach verses to a voice's music lines. Navigation builds **performed order** from those tokens and identifies each scheduled occurrence of a part. Returning to a passage does not reapply a later written policy to its pitches.
+
+Playback keeps a clock and measure-accidental cache per overlay lane. Channel output owns track routing, note releases and pedal pairing; lyric alignment uses timed attack anchors without needing a note-on. The tune shares one percussion map between channel 10 and generated drums so both resolve the same destination at attack time. The core returns a score and located warnings without invoking a converter; abc2midi is only a test oracle.
+
 ## Python typing
 
 The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList`, ...) and generic placeholders (`Score`, `Note`, `PyVec`, ...) that only exist for type checkers and raise `TypeError` when instantiated (`py_src/bindings/core/module.cpp`). At install time nanobind writes `core.raw.pyi`; `scripts/lift_generic_stubs.py` rewrites it into `core.pyi` so that concrete classes appear as specializations of the generics. Cross builds consume that generated file from a native build of the same revision through `SYMUSIC_PYTHON_STUB`, because the host cannot import the target extension. The experimental wheel workflow regenerates it on the target and compares declaration syntax trees, ignoring demangler whitespace around C++ template delimiters. `tests/typecheck/` checks the result with mypy. `symusic.factory` gives users unit-agnostic constructors such as `Score(path, ttype="tick")` and makes `isinstance(x, Score)` match every unit.
