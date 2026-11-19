@@ -204,7 +204,8 @@ struct VoiceLimit {
         ExportIssues::invalid(
             where,
             fmt::format(
-                "[voice-placement] cannot place attacks at tick {} in {} available voices "
+                "[voice-placement] cannot place attacks at playback tick {} (480 TPQ) in {} "
+                "available voices "
                 "(limit: {}); earlier onsets are not reassigned. Use MIDI export for this score",
                 tick,
                 available,
@@ -226,7 +227,8 @@ public:
         ExportIssues::invalid(
             where,
             fmt::format(
-                "[voice-search-limit] stopped searching at tick {} with {} available voices "
+                "[voice-search-limit] stopped searching at playback tick {} (480 TPQ) with {} "
+                "available voices "
                 "after {} retry candidates across the score; use MIDI export for this score",
                 tick,
                 available,
@@ -439,11 +441,14 @@ private:
     static constexpr i32 max_atom_ticks = tpq * 1024;
     void                 interval(i32 start, i32 end, const Moment* next);
     void                 write_span(i32 start, i32 end);
-    bool                 repeats_untied_pitch(i32 start, i32 end, const Moment& next) const;
-    void                 warn_early_chord_release(i32 start, i32 end, const Moment& next);
-    void                 atom(i32 duration, i32 end);
-    void                 moment(const Moment& change);
-    void                 play(const Timeline& notes, const Fields& channel, const Fields& global);
+    struct Reattack {
+        bool              repeats_pitch = false;
+        std::optional<i8> other_release;
+    };
+    Reattack reattack(i32 start, i32 end, const Moment& next) const;
+    void     atom(i32 duration, i32 end);
+    void     moment(const Moment& change);
+    void     play(const Timeline& notes, const Fields& channel, const Fields& global);
 };
 
 void VoiceWriter::token(std::string_view text, size_t steps) {
@@ -457,34 +462,27 @@ void VoiceWriter::token(std::string_view text, size_t steps) {
     columns += text.size() + 1;
 }
 
-bool VoiceWriter::repeats_untied_pitch(i32 start, i32 end, const Moment& next) const {
-    if (end - start > max_atom_ticks) return false;   // already split by write_span
-    return std::ranges::any_of(next.attacks, [&](const WrittenNote& attack) {
-        const auto note = active.find(attack.pitch);
-        return note != active.end() && note->second.end == end && note->second.start == start;
-    });
-}
-
-void VoiceWriter::warn_early_chord_release(i32 start, i32 end, const Moment& next) {
+VoiceWriter::Reattack VoiceWriter::reattack(i32 start, i32 end, const Moment& next) const {
+    Reattack result;
+    if (next.attacks.empty() || end - start > max_atom_ticks) return result;
+    std::bitset<midi_max + 1> next_pitches;
+    for (const auto& hit : next.attacks) next_pitches.set(hit.pitch);
     for (const auto& [pitch, note] : active) {
-        if (note.start != start || note.end != end) continue;   // already tied or still held
-        if (std::ranges::find(next.attacks, pitch, &WrittenNote::pitch) != next.attacks.end())
-            continue;
-        issues.warn(
-            where,
-            "midi-chord-release",
-            "abc2midi releases chord pitch {} one tick before tick {} to preserve the order of "
-            "a different pitch's reattack; use MIDI export for exact releases",
-            pitch,
-            end + PlaybackGrid::attack_offset
-        );
-        break;
+        // A note that started earlier is already tied. Check only notes
+        // whose otherwise untied release coincides with the next attack.
+        if (note.start != start || note.end != end) continue;
+        if (next_pitches[pitch])
+            result.repeats_pitch = true;
+        else
+            result.other_release = pitch;
     }
+    return result;
 }
 
 void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
     if (start == end) return;
-    if (drums || !next || !repeats_untied_pitch(start, end, *next)) {
+    const auto release = !drums && next ? reattack(start, end, *next) : Reattack{};
+    if (!release.repeats_pitch) {
         write_span(start, end);
         return;
     }
@@ -501,7 +499,15 @@ void VoiceWriter::interval(i32 start, i32 end, const Moment* next) {
     // abc2midi ignores expand on a tie. Release one tick before the next
     // attack there, rather than emit Note Off after the reattack at equal
     // time. The native reader still performs the entire tied duration.
-    warn_early_chord_release(start, end, *next);
+    if (release.other_release)
+        issues.warn(
+            where,
+            "midi-chord-release",
+            "the reattack planned at playback tick {} (480 TPQ) uses a tie that can shorten "
+            "chord pitch {} by one tick in abc2midi; use MIDI export for exact releases",
+            end + PlaybackGrid::attack_offset,
+            *release.other_release
+        );
     write_span(start, end - 1);
     atom(1, end);
 }

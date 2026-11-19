@@ -814,7 +814,7 @@ def test_export_reattack_releases_before_attack(
     if chord:
         with pytest.warns(
             UserWarning,
-            match=rf"track 1.*\[midi-chord-release\].*pitch 64.*tick {1 + duration}",
+            match=rf"track 1.*\[midi-chord-release\].*tick {1 + duration} \(480 TPQ\).*pitch 64",
         ):
             abc = score.dumps_abc(warn=True)
     else:
@@ -825,6 +825,33 @@ def test_export_reattack_releases_before_attack(
     if chord:
         expected[64] = [(1, 80), (duration, 0)]
     assert midi_note_events(oracle_midi(upstream, abc, tmp_path)) == expected
+
+
+def test_export_reattack_bend_diagnostic_uses_planned_clock(
+    upstream: Path, tmp_path: Path
+):
+    score = Score(480)
+    track = Track()
+    track.notes.extend(
+        [Note(15, 30, 60, 80), Note(15, 30, 64, 80), Note(45, 30, 60, 90)]
+    )
+    track.pitch_bends.append(PitchBend(7, 50))
+    score.tracks.append(track)
+    with pytest.warns(
+        UserWarning, match=r"\[midi-(bend-timing|chord-release)\]"
+    ) as warnings:
+        abc = score.dumps_abc(warn=True)
+    messages = [str(notice.message) for notice in warnings]
+    assert any("[midi-bend-timing]" in message for message in messages)
+    assert any(
+        "[midi-chord-release]" in message
+        and "planned at playback tick 45 (480 TPQ)" in message
+        for message in messages
+    )
+    wire = midi_note_events(oracle_midi(upstream, abc, tmp_path))
+    assert wire[64][-1] == (37, 0)
+    assert wire[60][2] == (38, 90)
+    assert note_rows(Score.from_abc(abc)) == note_rows(score)
 
 
 def test_export_one_tick_reattack_warns():

@@ -796,14 +796,16 @@ def test_abc_export_reuses_channel_events_across_split_voices():
     assert native.tempos[-1] == score.tempos[0]
 
 
-def test_abc_export_rejects_too_many_voices():
-    score = Score(480)
+@pytest.mark.parametrize("tpq", [480, 960])
+def test_abc_export_rejects_too_many_voices(tpq: int):
+    score = Score(tpq)
     for program in range(16):
         track = Track(str(program), program)
-        track.notes.append(Note(15, 30, 60, 80))
+        track.notes.append(Note(tpq // 32, tpq // 16, 60, 80))
         score.tracks.append(track)
     with pytest.raises(
-        ValueError, match=r"\[voice-placement\].*at tick \d+.*15 melodic ABC voices"
+        ValueError,
+        match=r"\[voice-placement\].*at playback tick 15 \(480 TPQ\).*15 melodic ABC voices",
     ):
         score.dumps_abc()
 
@@ -896,7 +898,7 @@ def test_abc_export_voice_search_limit():
     score.tracks.append(track)
     with pytest.raises(
         ValueError,
-        match=r"track 1.*\[voice-search-limit\].*tick 45.*15 available voices.*100000 retry candidates",
+        match=r"track 1.*\[voice-search-limit\].*tick 45 \(480 TPQ\).*15 available voices.*100000 retry candidates",
     ):
         score.dumps_abc()
 
@@ -909,7 +911,7 @@ def test_abc_export_rejects_more_than_30_total_voices():
         score.tracks.append(track)
     with pytest.raises(
         ValueError,
-        match=r"\[voice-placement\].*at tick 15.*0 available voices.*30 ABC voices",
+        match=r"\[voice-placement\].*at playback tick 15.*0 available voices.*30 ABC voices",
     ):
         score.dumps_abc()
 
