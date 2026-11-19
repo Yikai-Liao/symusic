@@ -8,6 +8,8 @@ Use `%%MIDIdef name command` to name a MIDI command and `%%MIDIx name …` to ap
 
 In a key field such as `K:Dm exp _A`, `exp` leaves the D minor key signature in the score but replaces its implied accidentals with only those written in the field. Fractional accidentals in notes and key signatures produce MIDI pitch bends. Bends are shared by notes on a track: if overlapping notes require different bends, the reader warns and retains the channel's bend changes. Per-pitch-class offsets from `%%temperament` also produce bends; they apply in written order across voices and repeats. The reader also supports `%%MIDI temperamentlinear`, `%%MIDI temperamentequal`, and `%%MIDI temperamentnormal`.
 
+Use `!bend!` with `%%MIDI bendstring`, `bendstringex`, or `bendvelocity` to bend the next performed attack, including a grace note. The curve spans the sounding note, including tied continuations, and returns to its accidental tuning at release. On a shared channel this affects other sounding notes too. Symusic keeps the written note clock when the legacy MIDI writer would move later notes, for example for a bend with no curve specified. Controller envelopes and the combined `!shape!` decoration are not performed.
+
 ## Diagnostics
 
 - **Recoverable input:** Python issues a `UserWarning` and returns the score, for example after ignoring a stray closing bracket or encountering a second tune. Warnings include the source, one-based line, UTF-8 byte column, and a code. Unsupported non-binary note-length divisors are rounded up to the next power of two, with a warning.

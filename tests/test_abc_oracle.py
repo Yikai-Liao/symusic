@@ -46,6 +46,17 @@ RECOVERED = {
 }
 WARNINGS = RECOVERED | {"chord_channels": "shared-pitch-wheel"}
 CASES = {
+    "bend_string": HEADER.replace("K:C", "%%MIDI bendstring 1000 1000 -500 -500\nK:C")
+    + "!bend!CDEF|",
+    "bend_smoothed": HEADER + "[I:MIDI bendstringex 21 -40] !bend!CDEF|",
+    "bend_velocity": HEADER + "[I:MIDI bendvelocity 100 -70 3] !bend!CDEF|",
+    "bend_grace": HEADER + "[I:MIDI bendstring 300 -200] !bend!{A}CDEF|",
+    "bend_tied": HEADER + "[I:MIDI bendstring 300 -200] !bend!C-CDEF|",
+    "bend_after_continuation": HEADER + "[I:MIDI bendstring 300 -200] C-!bend!CDEF|",
+    "bend_after_rest": HEADER + "[I:MIDI bendstring 300 -200] !bend!z4| CDEF|",
+    "bend_accidental_baseline": HEADER + "C [I:MIDI bendstring 300] !bend!^/D EF|",
+    "bend_redefined": HEADER
+    + "[I:MIDI bendstring 300 -200] |: !bend!C [I:MIDI bendstring 100] !bend!DEF :| GABc|",
     "straight": HEADER + "C D E F | G A B c |",
     "rests": HEADER + "C z2 D | x E2 z |",
     "engraving_block_after_continuation": HEADER
@@ -710,6 +721,19 @@ def test_program_base_drone(settings: str, upstream: Path, tmp_path: Path):
         == actual.tracks[-1].program
         == (0 if settings else 69)
     )
+
+
+def test_default_bend_preserves_note_clock(upstream: Path, tmp_path: Path):
+    abc = HEADER + "!bend!CDEF|"
+    native = Score.from_abc(abc).tracks[0]
+    actual = oracle_score(upstream, abc, tmp_path).tracks[0]
+    assert [(e.time, e.value) for e in native.pitch_bends[:-1]] == [
+        (e.time, e.value) for e in actual.pitch_bends[:-1]
+    ]
+    # The legacy default contour advances the MIDI delta on its reset.
+    assert (native.pitch_bends[-1].time, native.pitch_bends[-1].value) == (480, 0)
+    assert (actual.pitch_bends[-1].time, actual.pitch_bends[-1].value) == (487, 0)
+    assert (native.notes[1].time, actual.notes[1].time) == (481, 488)
 
 
 def test_upstream_ordered_verses(upstream: Path, tmp_path: Path):

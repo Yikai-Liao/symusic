@@ -1,8 +1,71 @@
 #include "midi_output.h"
 
+#include <cmath>
 #include <limits>
 
 namespace symusic::abc::detail {
+
+namespace {
+
+constexpr size_t bend_steps = 256;
+constexpr int    wheel_min  = -midi_bend_center;
+constexpr int    wheel_max  = midi_bend_center - 1;
+
+constexpr std::array<int64_t, 8> default_bend{100, 400, 700, 1000, 1300, 1600, 1900, 2200};
+
+int bend_integer(std::string_view& args, Location at, Diagnostics& diagnostics) {
+    const auto value = integer(word(args));
+    if (!value) diagnostics.error(at, "invalid-bend-curve", "expected a signed integer bend value");
+    return *value;
+}
+
+vec<int64_t> bend_string(
+    std::string_view args, size_t subdivisions, Location at, Diagnostics& diagnostics
+) {
+    vec<int64_t> contour;
+    while (!trim(args).empty()) {
+        if (contour.size() == bend_steps)
+            diagnostics.error(
+                at, "bend-curve-limit", fmt::format("bend curve exceeds {} segments", bend_steps)
+            );
+        const auto delta    = bend_integer(args, at, diagnostics);
+        int64_t    previous = 0;
+        for (size_t step = 1; step <= subdivisions; ++step) {
+            const auto cumulative = std::llround(static_cast<double>(delta) * step / subdivisions);
+            contour.push_back(cumulative - previous);
+            previous = cumulative;
+        }
+    }
+    if (contour.empty())
+        diagnostics.error(at, "invalid-bend-curve", "bend curve needs at least one value");
+    return contour;
+}
+
+vec<int64_t> bend_velocity(std::string_view args, Location at, Diagnostics& diagnostics) {
+    int64_t    velocity     = bend_integer(args, at, diagnostics);
+    const auto acceleration = bend_integer(args, at, diagnostics);
+    int        count        = 8;
+    if (!trim(args).empty()) {
+        const auto written = bend_integer(args, at, diagnostics);
+        if (written >= 1 && written < 100)
+            count = written;
+        else
+            diagnostics.warn(
+                at, "invalid-bend-steps", "bendvelocity steps must be 1 to 99; used 8"
+            );
+    }
+    if (!trim(args).empty())
+        diagnostics.warn(at, "extra-bend-arguments", "ignored extra bendvelocity arguments");
+    vec<int64_t> contour;
+    contour.reserve(static_cast<size_t>(count));
+    for (int step = 0; step < count; ++step) {
+        contour.push_back(velocity);
+        velocity += acceleration;
+    }
+    return contour;
+}
+
+}   // namespace
 
 void NoteAddress::release_at(i32 end) const {
     auto& event    = note();
@@ -87,11 +150,13 @@ Attack VoiceOutput::attack(
     diagnostics.spend(PlaybackWork::attack, at);
     tune(owner, destination, pitch, time, at);
     if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
+    const auto overlaps  = time < owner.sounding_until;
     owner.sounding_until = std::max(owner.sounding_until, time + gate);
     owner.track.notes.emplace_back(
         time, gate, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
     );
     attack.note = NoteAddress(owner.track, owner.track.notes.size() - 1, owner.sounding_until);
+    attach_bend(lane, *attack.note, owner.accidental_wheel, overlaps);
     return attack;
 }
 
@@ -152,17 +217,25 @@ bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, 
 bool VoiceOutput::effect(
     std::string_view name, std::string_view args, int lane, i32 time, Location at
 ) {
+    if (name == "pitchbend") {
+        const int low  = midi_integer(args, 0, midi_max, diagnostics, at);
+        const int high = trim(args).empty() ? 0 : midi_integer(args, 0, midi_max, diagnostics, at);
+        channel(target(lane))
+            .track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
+        return true;
+    }
+    return route(name, args, lane, at) || bend_directive(name, args, lane, at)
+           || channel_effect(name, args, lane, time, at);
+}
+
+bool VoiceOutput::channel_effect(
+    std::string_view name, std::string_view args, int lane, i32 time, Location at
+) {
     const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
     const auto cc   = [&](int number, int value) { control(lane, time, number, value, at); };
-    if (route(name, args, lane, at)) return true;
     if (name == "control") {
         const int number = byte();
         cc(number, byte());
-    } else if (name == "pitchbend") {
-        const int low  = byte();
-        const int high = trim(args).empty() ? 0 : byte();
-        channel(target(lane))
-            .track.pitch_bends.emplace_back(time, (high << 7) + low - midi_bend_center);
     } else if (name == "pitchbendrange") {
         const int semitones = byte();
         cc(101, 0);
@@ -179,8 +252,66 @@ bool VoiceOutput::effect(
     return true;
 }
 
+bool VoiceOutput::bend_directive(
+    std::string_view name, std::string_view args, int lane, Location at
+) {
+    vec<int64_t> contour;
+    if (name == "bendvelocity")
+        contour = bend_velocity(args, at, diagnostics);
+    else if (name == "bendstring" || name == "bendstringex")
+        contour = bend_string(args, name == "bendstring" ? 1 : 4, at, diagnostics);
+    else
+        return false;
+    diagnostics.spend(contour.size(), at);
+    bends[lane].curve = std::make_shared<const vec<int64_t>>(std::move(contour));
+    return true;
+}
+
+void VoiceOutput::bend_next(int lane, Location at) { bends[lane].next = at; }
+
+void VoiceOutput::attach_bend(int lane, NoteAddress note, int base, bool overlapping) {
+    auto& setting = bends[lane];
+    if (!setting.next) return;
+    const auto mark = *std::exchange(setting.next, {});
+    if (overlapping)
+        diagnostics.warn(
+            mark, "shared-pitch-wheel", "bend also affects overlapping notes on this voice"
+        );
+    diagnostics.spend((setting.curve ? setting.curve->size() : default_bend.size()) + 1, mark);
+    bent_notes.push_back({note, setting.curve, base, mark});
+}
+
+void VoiceOutput::write_bend(const BentNote& bend) {
+    const auto& note    = bend.note.note();
+    auto&       events  = bend.note.track->pitch_bends;
+    const auto  curve   = bend.curve ? std::span<const int64_t>(*bend.curve) :
+                                       std::span<const int64_t>(default_bend);
+    const auto  step    = note.duration / static_cast<i32>(curve.size());
+    const auto  release = note.time + note.duration;
+    auto        segment = bend.curve ? 0 : 1;
+    int64_t     value   = bend.base;
+    bool        clipped = false;
+    for (const auto delta : curve) {
+        const auto requested = value + delta;
+        value                = std::clamp<int64_t>(requested, wheel_min, wheel_max);
+        clipped |= value != requested;
+        events.emplace_back(note.time + segment++ * step, static_cast<i32>(value));
+    }
+    events.emplace_back(release, bend.base);
+    if (bend.curve && clipped)
+        diagnostics.warn(bend.mark, "bend-range", "clipped the bend curve to the MIDI wheel range");
+}
+
 void VoiceOutput::finish(vec<TrackNative<Tick>>& tracks) {
+    for (const auto& setting : bends) {
+        if (setting.next)
+            diagnostics.warn(*setting.next, "orphan-decoration", "bend has no following attack");
+    }
+    for (const auto& bend : bent_notes) write_bend(bend);
     for (auto& [key, owner] : output) {
+        auto& events = owner.track.pitch_bends;
+        if (!bent_notes.empty() && !std::ranges::is_sorted(events, {}, &PitchBend<Tick>::time))
+            std::ranges::stable_sort(events, {}, &PitchBend<Tick>::time);
         if (!owner.track.empty()) tracks.push_back(std::move(owner.track));
     }
 }

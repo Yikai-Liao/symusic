@@ -894,6 +894,11 @@ void VoicePlayer::visit(const Decoration& decoration, Location at) {
         output.control(lanes.id(), at_tick(at), 64, *pedal, at);
         return;
     }
+    if (mark == "bend") {
+        flush();
+        output.bend_next(lanes.id(), at);
+        return;
+    }
     if (mark == "arpeggio") {
         flush();
         lane().expression.arpeggiate_next_chord();

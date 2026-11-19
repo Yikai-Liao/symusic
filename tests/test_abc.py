@@ -135,6 +135,34 @@ def test_midi_program_base_in_file_header_is_ignored():
     assert [track.program for track in score.tracks] == [48]
 
 
+@pytest.mark.parametrize("directive", ["bendstring", "bendstring x", "bendvelocity 4"])
+def test_bend_curve_reports_bad_values(directive: str):
+    with pytest.raises(ValueError, match=r"<string>:7:1: ABC \[invalid-bend-curve\]"):
+        Score.from_abc(HEADER + f"%%MIDI {directive}\n!bend!CDEF|")
+
+
+def test_bend_curve_step_limit():
+    with pytest.raises(
+        ValueError, match=r"7:1: ABC \[bend-curve-limit\].*256 segments"
+    ):
+        Score.from_abc(HEADER + "%%MIDI bendstringex" + " 1" * 65 + "\n!bend!CDEF|")
+
+
+def test_bend_curve_clips_at_wheel_range():
+    with pytest.warns(UserWarning, match=r"<string>:8:1: ABC \[bend-range\]"):
+        score = Score.from_abc(HEADER + "%%MIDI bendstring 999999 -999999\n!bend!CDEF|")
+    assert [(e.time, e.value) for e in score.tracks[0].pitch_bends] == [
+        (1, 8191),
+        (240, -8192),
+        (480, 0),
+    ]
+
+
+def test_bend_reports_missing_attack():
+    with pytest.warns(UserWarning, match=r"<string>:7:2: ABC \[orphan-decoration\]"):
+        Score.from_abc(HEADER + "C!bend!z|")
+
+
 def test_missing_key_not_recovered():
     with pytest.raises(ValueError, match=r"<string>:3:1: ABC \[missing-key\]"):
         Score.from_abc("X:1\nM:4/4\nCDEF\n")

@@ -71,6 +71,23 @@ TEST_CASE("ABC ornament neighbors use the key signature", "[abc]") {
 }
 
 
+TEST_CASE("ABC bend envelopes follow tied releases", "[abc]") {
+    const auto [score, warnings] = abc::read(
+        "X:1\nM:4/4\nL:1/4\nK:C\n%%MIDI bendvelocity 2147483647 -2147483648 3\n"
+        "!bend!C-C !bend!D E|"
+    );
+    const auto& track = *score.tracks->front();
+    const auto& bends = *track.pitch_bends;
+    REQUIRE(warnings.size() == 2);
+    REQUIRE(bends.size() == 8);
+    CHECK(bends[0] == PitchBend<Tick>{1, 8191});
+    CHECK(bends[1] == PitchBend<Tick>{320, 8190});
+    CHECK(bends[2] == PitchBend<Tick>{639, -8192});
+    CHECK(bends[3] == PitchBend<Tick>{960, 0});
+    CHECK(bends[4] == PitchBend<Tick>{961, 8191});
+    CHECK(track.notes->front().duration == 959);
+}
+
 TEST_CASE("ABC export reports loss and still emits readable notation", "[abc]") {
     auto [score, warnings] = abc::read("X:1\nM:4/4\nL:1/4\nK:C\nCDEF");
     REQUIRE(warnings.empty());

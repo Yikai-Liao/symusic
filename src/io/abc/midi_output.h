@@ -70,6 +70,9 @@ public:
     int  selected_channel(int lane) const { return routing[lane].selected; }
     void select_channel(int lane, int channel) { routing[lane].selected = channel; }
     void control(int lane, i32 time, int number, int value, Location at);
+    // Apply !bend! to the next emitted attack, including a grace attack.
+    // Its envelope is written only after the attack's tied release is known.
+    void bend_next(int lane, Location at);
     // Map channel-effect directives onto Score events; leave unrelated MIDI
     // commands to the playback and accompaniment state owners.
     bool effect(std::string_view name, std::string_view args, int lane, i32 time, Location at);
@@ -109,6 +112,20 @@ private:
         int accidental_wheel = 0;
     };
 
+    using BendCurve = shared<const vec<int64_t>>;
+    struct LaneBend {
+        BendCurve               curve;
+        std::optional<Location> next;
+    };
+    struct BentNote {
+        NoteAddress note;
+        BendCurve   curve;
+        int         base;
+        Location    mark;
+    };
+    std::array<LaneBend, max_voice_lanes> bends;
+    vec<BentNote>                         bent_notes;
+
     std::string                                              name;
     Diagnostics&                                             diagnostics;
     const DrumMap&                                           drum_map;
@@ -121,6 +138,12 @@ private:
     bool                 route(std::string_view name, std::string_view args, int lane, Location at);
     void                 program(int lane, std::string_view args, Location at);
     void tune(ChannelOutput& owner, Target target, MidiPitch pitch, i32 time, Location at);
+    bool channel_effect(
+        std::string_view name, std::string_view args, int lane, i32 time, Location at
+    );
+    bool bend_directive(std::string_view name, std::string_view args, int lane, Location at);
+    void attach_bend(int lane, NoteAddress note, int base, bool overlapping);
+    void write_bend(const BentNote& bend);
     void sustain(ChannelKey channel, TrackNative<Tick>& track, i32 time, int value, Location at);
 };
 
