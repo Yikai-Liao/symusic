@@ -1258,3 +1258,30 @@ def test_live_ornament_attacks_accept_separate_lyric_syllables(
     actual = oracle_score(upstream, abc, tmp_path, "-lyrics")
     assert note_rows(score) == note_rows(actual)
     assert lyric_rows(score) == lyric_rows(actual)
+
+
+@pytest.mark.parametrize(
+    ("head", "body"),
+    [
+        ("%%MIDI harpmode 1\n", "~F ~F2 ~F3 ~F6/2 ~F/2 ~F3/ A|"),
+        ("", "%%MIDI harpmode 1\n(3~FGA ~F- F4|"),
+        ("", "~F [I:MIDI harpmode 1] ~F [I:MIDI harpmode 0] ~F A|"),
+        ("", "|: ~F [I:MIDI harpmode 1] ~F F6 :| ~F A7|"),
+        ("", "V:1\n~F [I:MIDI harpmode 1] ~F F6|\nV:2\n~A, A,7|"),
+        ("%%MIDI harpmode 1\n", "RF TF ~F0 A|"),
+    ],
+)
+def test_live_harp_cut(upstream, tmp_path, head, body):
+    header = HEADER.replace("L:1/4", "L:1/8").replace("K:C", f"{head}K:D")
+    abc = header + body
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
+
+
+def test_live_harp_cut_lyrics(upstream, tmp_path):
+    abc = "%%MIDI harpmode 1\n" + HEADER + "~F G|\nw: one two three four"
+    oracle = oracle_score(upstream, abc, tmp_path, "-lyrics")
+    score = Score.from_abc(abc)
+    assert note_rows(score) == note_rows(oracle)
+    assert lyric_rows(score) == lyric_rows(oracle)

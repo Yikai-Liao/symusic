@@ -81,15 +81,16 @@ struct GraceGroup {
 };
 
 struct Prepared {
-    const Atom* atom;
-    Location    at;
-    size_t      music_line;
-    long double duration;
-    GraceGroup  grace;
-    Ornament    ornament;
-    bool        tied;
-    bool        slur;
-    bool        unit_numerator;
+    const Atom*            atom;
+    Location               at;
+    size_t                 music_line;
+    long double            duration;
+    GraceGroup             grace;
+    Ornament               ornament;
+    std::optional<HarpCut> harp_cut;
+    bool                   tied;
+    bool                   slur;
+    bool                   unit_numerator;
 };
 
 struct TupletState {
@@ -386,7 +387,7 @@ public:
     ) :
         diagnostics(diagnostics), drum_map(drum_map),
         output(std::move(name), drum_map, settings.programs, diagnostics), tuning(settings.tuning),
-        accidental_policy(settings.accidentals),
+        accidental_policy(settings.accidentals), harp_cuts(settings.harp_cuts),
         written{settings.meter, settings.key, settings.unit},
         accompaniment(settings.meter, drum_map, settings.programs, diagnostics),
         symbols(settings.symbols), lanes(settings.rhythm, diagnostics), tempo_unit(settings.unit),
@@ -401,6 +402,7 @@ private:
     VoiceOutput                                output;
     const PitchTuning&                         tuning;
     const AccidentalPolicy&                    accidental_policy;
+    const HarpCuts&                            harp_cuts;
     WrittenState                               written;
     Accompaniment                              accompaniment;
     std::array<std::string_view, 128>          symbols;
@@ -446,7 +448,7 @@ private:
     void        arm_envelope(std::optional<EnvelopeCue> cue);
     bool        swing_candidate();
     void        broken_pair(Prepared& next);
-    long double atom_duration(const Atom& atom, Location at);
+    long double atom_duration(long double raw, Location at);
     void        play(const Prepared& atom);
     long double play_grace(const Prepared& atom);
     void play_notes(const Prepared& atom, long double start, long double duration, int spread);
@@ -463,6 +465,7 @@ private:
     void play_roll(
         Pitch pitch, Sound main, const Prepared& atom, long double start, long double duration
     );
+    long double play_harp_cut(const Prepared& atom, long double start, long double duration);
     long double play_cut(
         Pitch pitch, const Prepared& atom, long double start, long double duration
     );
@@ -546,9 +549,7 @@ void VoicePlayer::broken_pair(Prepared& next) {
     next.duration *= 2 - first;
 }
 
-long double VoicePlayer::atom_duration(const Atom& atom, Location at) {
-    const auto raw
-        = (atom.measure_rest ? written.meter.measure() : written.unit) * atom.length.fraction();
+long double VoicePlayer::atom_duration(long double raw, Location at) {
     if (!tuplet.left) return raw;
     --tuplet.left;
     if (!tuplet.first)
@@ -563,13 +564,17 @@ void VoicePlayer::push(const Atom& atom, Location at, size_t music_line) {
     // abc2midi tests the written numerator before reducing the duration.
     const bool unit_numerator
         = atom.length.numerator == 1 && (!tuplet.left || tuplet.numerator == 1);
-    Prepared next{
+    const auto harp_cut = harp_cuts.for_atom(atom, ornament, at);
+    const auto raw      = (atom.measure_rest ? written.meter.measure() : written.unit)
+                          * (harp_cut ? harp_cut->length() : atom.length.fraction());
+    Prepared   next{
         &atom,
         at,
         music_line,
-        atom_duration(atom, at),
+        atom_duration(raw, at),
         std::exchange(grace, {}),
         std::exchange(ornament, {}),
+        harp_cut,
         atom.tie,
         lane().slur > 0,
         unit_numerator
@@ -760,6 +765,16 @@ void VoicePlayer::play_roll(
     }
 }
 
+long double VoicePlayer::play_harp_cut(
+    const Prepared& atom, long double start, long double duration
+) {
+    const auto first = duration * atom.harp_cut->first / atom.harp_cut->length();
+    const auto pitch = sound(atom.atom->pitches.front(), atom.at, false);
+    ornament_attack(pitch, start, first, atom.at);
+    ornament_attack(pitch, start + first, first, atom.at);
+    return 2 * first;
+}
+
 long double VoicePlayer::play_cut(
     Pitch pitch, const Prepared& atom, long double start, long double duration
 ) {
@@ -792,9 +807,10 @@ void VoicePlayer::articulation(const Prepared& atom, long double duration) {
     }
     auto lead_in = play_grace(atom);
     arm_envelope(atom.grace.following_mark);
-    if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll) {
+    if (atom.harp_cut)
+        lead_in += play_harp_cut(atom, lane().time + lead_in, duration - lead_in);
+    else if (pitches.size() == 1 && atom.ornament.cut && !atom.ornament.roll)
         lead_in += play_cut(pitches.front(), atom, lane().time + lead_in, duration - lead_in);
-    }
     // Grace attacks, including an Irish cut, break the incoming tie. A
     // trill or roll is instead an attribute of an attack that may not occur.
     if (lead_in > 0) lane().ties.clear();

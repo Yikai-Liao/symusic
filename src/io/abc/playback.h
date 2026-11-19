@@ -14,6 +14,7 @@ struct TuneSettings {
     Key                               key;
     PitchTuning                       tuning;
     AccidentalPolicy                  accidentals;
+    HarpCuts                          harp_cuts;
     ProgramNumbers                    programs;
     i32                               tempo      = 500000;
     long double                       unit       = whole / 8;

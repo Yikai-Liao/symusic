@@ -12,6 +12,8 @@ Use `!bend!` with `%%MIDI bendstring`, `bendstringex`, or `bendvelocity` to bend
 
 An envelope spans the note's gate, including tied continuations of a sounding note. Muted attacks can send envelopes without creating a note; percussion attacks consume the mark without sending one. At release, the pitch wheel returns to the current accidental tuning, and each controller returns to its default or latest explicit `%%MIDI control` value at release in the same written voice. Overlay lanes use playback time for these defaults, so a setting later in playback never affects an earlier reset. Other notes sharing the channel can hear the effect. In cases where `abc2midi` shortens the gate, delays envelope samples until note-off, or moves later attacks, Symusic keeps the written rhythm and applies the curve over the sounding note.
 
+Use `%%MIDI harpmode 1` to perform `~` as three attacks at the host pitch instead of a cut from an adjacent note. The mode follows written order across voices and repeats; `%%MIDI harpmode 0` restores the cut. Dotted harp cuts follow abc2midi’s subdivision, which can differ from the written duration.
+
 ## Diagnostics
 
 - **Recoverable input:** Python issues a `UserWarning` and returns the score, for example after ignoring a stray closing bracket or encountering a second tune. Warnings include the source, one-based line, UTF-8 byte column, and a code. Unsupported non-binary note-length divisors are rounded up to the next power of two, with a warning.

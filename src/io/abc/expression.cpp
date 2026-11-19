@@ -257,4 +257,45 @@ bool Expression::timing(
     return true;
 }
 
+bool HarpCuts::consume(const Token& token, Diagnostics& diagnostics) {
+    auto args = token.information().value_or("");
+    if (word(args) != "MIDI" || word(args) != "harpmode") return false;
+    const auto value = integer(word(args));
+    if (!value || *value < 0 || !trim(args).empty()) {
+        diagnostics.warn(
+            token.at, "invalid-harpmode", "expected a nonnegative integer for MIDI harpmode"
+        );
+        return true;
+    }
+    changes.emplace_back(token.at, *value != 0);
+    return true;
+}
+
+namespace {
+
+HarpCut harp_pattern(Length length) {
+    // abc2midi recognizes the dotted cut by its reduced ratio, but apportions
+    // the attacks with integer arithmetic on the original numerator.
+    if (length.fraction() == 3) {
+        const auto denominator = static_cast<long double>(length.denominator);
+        return HarpCut{
+            (length.numerator - 1) / (4 * denominator), (length.numerator / 2 + 1) / denominator
+        };
+    }
+    const auto total = (length.numerator == 0 ? 1.L : length.numerator) / length.denominator;
+    return HarpCut{total / 4, total / 2};
+}
+
+}   // namespace
+
+std::optional<HarpCut> HarpCuts::for_atom(
+    const Atom& atom, Ornament ornament, Location written
+) const {
+    if (!ornament.cut || ornament.roll || atom.chord || atom.pitches.empty()) return {};
+    const auto next
+        = std::ranges::upper_bound(changes, written, {}, &decltype(changes)::value_type::first);
+    if (next == changes.begin() || !std::prev(next)->second) return {};
+    return harp_pattern(atom.length);
+}
+
 }   // namespace symusic::abc::detail

@@ -230,7 +230,8 @@ void Voices::body(const Token& token, bool ordered) {
 
 bool Voices::written_setting(const Token& token) {
     return settings.programs.consume(token, reference, diagnostics)
-           || settings.accidentals.consume(token, diagnostics);
+           || settings.accidentals.consume(token, diagnostics)
+           || settings.harp_cuts.consume(token, diagnostics);
 }
 
 Voices::Voices(const Tune& tune, TuneSettings& settings, bool ordered, Diagnostics& diagnostics) :

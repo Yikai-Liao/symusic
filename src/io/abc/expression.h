@@ -98,4 +98,25 @@ struct Ornament {
     bool roll     = false;
 };
 
+struct HarpCut {
+    long double               first;   // first two attacks have this length, in written units
+    long double               last;
+    [[nodiscard]] long double length() const { return 2 * first + last; }
+};
+
+// Resolve harp-mode cuts in written order, before navigation can replay them.
+// A cut's three attacks have the host pitch; their total may differ from the
+// written length. Other ornament styles are unaffected.
+class HarpCuts {
+public:
+    bool                                 consume(const Token& token, Diagnostics& diagnostics);
+    [[nodiscard]] std::optional<HarpCut> for_atom(
+        const Atom& atom, Ornament ornament, Location written
+    ) const;
+
+private:
+    vec<std::pair<Location, bool>> changes;
+};
+
+
 }   // namespace symusic::abc::detail

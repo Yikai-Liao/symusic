@@ -1197,3 +1197,26 @@ def test_abc_ornament_attacks_are_individual_lyric_slots(ornament, times):
     assert [(event.time, event.text) for event in score.tracks[0].lyrics] == list(
         zip(times, ["one", "two", "three", "four", "five"], strict=True)
     )
+
+
+def test_abc_harp_cut_preserves_written_scope():
+    score = Score.from_abc(HEADER + "~F [I:MIDI harpmode 1] ~F3 F|")
+    assert [(n.time, n.duration, n.pitch) for n in score.tracks[0].notes] == [
+        (1, 119, 67),
+        (121, 359, 65),
+        (481, 239, 65),
+        (721, 239, 65),
+        (961, 959, 65),
+        (1921, 479, 65),
+    ]
+
+
+@pytest.mark.parametrize("value", ["", "-1", "harp", "1 extra"])
+def test_abc_harp_mode_warns_at_invalid_value(value):
+    with pytest.warns(
+        UserWarning, match=r"<string>:8:5: ABC \[invalid-harpmode\].*harpmode"
+    ):
+        score = Score.from_abc(
+            HEADER + f"%%MIDI harpmode 1\n~F [I:MIDI harpmode {value}] ~F|"
+        )
+    assert [n.pitch for n in score.tracks[0].notes] == [65] * 6
