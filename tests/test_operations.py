@@ -281,5 +281,16 @@ def test_clip_keeps_global_events_in_effect_at_start(ttype):
     assert [(ts.time, ts.numerator) for ts in later.time_signatures] == [(start, 3)]
 
 
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("inplace", [False, True])
+def test_event_shift_time(ttype, inplace):
+    note = Note(10, 5, 60, 100, ttype=ttype)
+    tempo = Tempo(10, 120.0, ttype=ttype)
+    for event in (note, tempo):
+        shifted = event.shift_time(4, inplace=inplace)
+        assert shifted.time == 14
+        assert event.time == (14 if inplace else 10)
+
+
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])

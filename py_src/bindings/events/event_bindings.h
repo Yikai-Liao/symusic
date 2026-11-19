@@ -360,7 +360,7 @@ auto bind_time_stamp(
             "shift_time",
             [](const self_t& self, const unit offset, const bool inplace) {
                 self_t ans = inplace ? self : std::make_shared<T>(*self);
-                ans->shift_time(offset);
+                ans->shift_time_inplace(offset);
                 return ans;
             },
             nb::rv_policy::copy,
