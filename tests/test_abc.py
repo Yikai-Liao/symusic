@@ -574,7 +574,9 @@ def test_abc_export_preserves_pitch_bends():
     track.pitch_bends.extend(
         [PitchBend(0, -8192), PitchBend(143, 8191), PitchBend(480, 0)]
     )
-    loaded = Score.from_abc(score.dumps_abc(warn=True))
+    with pytest.warns(UserWarning, match=r"\[midi-bend-timing\].*shift later notes"):
+        abc = score.dumps_abc(warn=True)
+    loaded = Score.from_abc(abc)
     assert loaded.tracks[0].pitch_bends == track.pitch_bends
     assert note_rows(loaded) == note_rows(score)
 

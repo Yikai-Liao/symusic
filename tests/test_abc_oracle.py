@@ -13,7 +13,7 @@ from itertools import groupby
 from pathlib import Path
 
 import pytest
-from symusic import ControlChange, Note, Pedal, Score, Tempo, Track
+from symusic import ControlChange, Note, Pedal, PitchBend, Score, Tempo, Track
 
 from tests.test_abc import HEADER, note_rows, roundtrip_score
 from tests.utils import TESTCASES_PATH
@@ -662,7 +662,9 @@ def test_export_conductor_tempo(voices: int, upstream: Path, tmp_path: Path):
     native = Score.from_abc(abc)
     actual = oracle_score(upstream, abc, tmp_path)
     assert native.tempos == actual.tempos == score.tempos
-    assert [track.name for track in native.tracks] == [track.name for track in score.tracks]
+    assert [track.name for track in native.tracks] == [
+        track.name for track in score.tracks
+    ]
     assert performed(native) == performed(actual)
 
 
@@ -703,6 +705,26 @@ def test_export_controls_inside_sustains(upstream: Path, tmp_path: Path):
     assert [(n.time, n.pitch, n.velocity) for n in actual.tracks[0].notes] == [
         (n.time, n.pitch, n.velocity) for n in track.notes
     ]
+
+
+def test_export_bend_inside_sustain(upstream: Path, tmp_path: Path):
+    score = Score(480)
+    track = Track("Lead", 24)
+    track.notes.extend([Note(15, 240, 60, 80), Note(400, 40, 64, 73)])
+    score.tracks.append(track)
+    assert note_rows(oracle_score(upstream, score.dumps_abc(), tmp_path)) == note_rows(
+        score
+    )
+    track.pitch_bends.append(PitchBend(50, 1024))
+    with pytest.warns(UserWarning, match=r"track 1.*\[midi-bend-timing\]"):
+        abc = score.dumps_abc(warn=True)
+    native = Score.from_abc(abc)
+    assert note_rows(native) == note_rows(score)
+    assert list(native.tracks[0].pitch_bends) == [PitchBend(50, 1024)]
+    # abc2midi writes the wheel at delta zero and drops the elapsed delta.
+    actual = oracle_score(upstream, abc, tmp_path)
+    assert note_rows(actual) == [(15, 203, 60, 80), (364, 40, 64, 73)]
+    assert list(actual.tracks[0].pitch_bends) == [PitchBend(15, 1024)]
 
 
 def single_note(time: int, duration: int) -> Score:

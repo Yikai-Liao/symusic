@@ -557,8 +557,17 @@ Timeline ScoreWriter<T>::channel_events(const Track<T>& track, std::string_view 
             fmt::format("[I:MIDI control {} {}]", event.number, event.value)
         );
     }
-    for (const auto& bend : *track.pitch_bends)
-        timeline[scale(bend.time, where)].fields.push_back(bend_field(bend.value, where));
+    for (const auto& bend : *track.pitch_bends) {
+        const auto at = scale(bend.time, where);
+        timeline[at].fields.push_back(bend_field(bend.value, where));
+        if (at > 0)
+            issues.warn(
+                where,
+                "midi-bend-timing",
+                "abc2midi may emit timed pitch bends early and shift later notes; "
+                "use MIDI export for interoperable bend timing"
+            );
+    }
     // Prefer explicit CC64: it can carry half-pedal values. Compare only
     // what reaches the playback grid; float storage error is not a conflict.
     if (pedal_controls.empty())
