@@ -153,7 +153,7 @@ void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typena
     if (events.empty()) return;
 
     T sentinel{};
-    sentinel.time = std::numeric_limits<typename T::unit>::min();
+    sentinel.time = std::numeric_limits<typename T::unit>::lowest();
     events.filter([start, end, &sentinel](const T& event) {
         if (event.time <= start) {
             if ((sentinel.time) < event.time) { sentinel = *event; }
@@ -163,7 +163,7 @@ void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typena
         return false;
     });
 
-    if (sentinel.time != std::numeric_limits<typename T::unit>::min()) {
+    if (sentinel.time != std::numeric_limits<typename T::unit>::lowest()) {
         sentinel.time = start;
         events.insert(events.begin(), sentinel);
     }

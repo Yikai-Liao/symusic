@@ -261,5 +261,25 @@ def test_invert_notes():
     assert inverted_track.notes[2].pitch == 53  # G -> F below C
 
 
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_clip_keeps_global_events_in_effect_at_start(ttype):
+    score = Score(480)
+    score.tempos.append(Tempo(0, 120.0))
+    score.time_signatures.append(TimeSignature(0, 3, 4))
+    score.tempos.append(Tempo(960, 90.0))
+    score = score.to(ttype)
+    tempo_change = score.tempos[1].time
+
+    at_zero = score.clip(0, tempo_change)
+    assert [t.time for t in at_zero.tempos] == [0]
+    assert [ts.time for ts in at_zero.time_signatures] == [0]
+
+    start = tempo_change / 2 if ttype != "tick" else tempo_change // 2
+    later = score.clip(start, score.end() + 1)
+    assert [t.time for t in later.tempos] == [start, tempo_change]
+    assert later.tempos[0].qpm == pytest.approx(120.0)
+    assert [(ts.time, ts.numerator) for ts in later.time_signatures] == [(start, 3)]
+
+
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])
