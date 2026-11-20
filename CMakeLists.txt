@@ -28,6 +28,7 @@ add_library(symusic
     src/io/abc/playback.cpp
     src/io/abc/read.cpp
     src/io/abc/settings.cpp
+    src/io/abc/stress.cpp
     src/io/abc/syntax.cpp
     src/io/abc/write.cpp
     src/io/common.cpp
@@ -40,6 +41,18 @@ add_library(symusic
     src/track.cpp
     src/utils.cpp
 )
+
+# Use the same version source as the Python package metadata for the ABC creator field.
+set(symusic_version_file "${CMAKE_CURRENT_SOURCE_DIR}/python/symusic/__init__.py")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${symusic_version_file}")
+file(STRINGS "${symusic_version_file}" symusic_version_line REGEX "^__version__[ \t]*=")
+if(NOT symusic_version_line MATCHES "^__version__[ \t]*=[ \t]*\"([0-9][0-9A-Za-z.+!_-]*)\"[ \t]*$")
+    message(FATAL_ERROR "Expected a literal __version__ in ${symusic_version_file}")
+endif()
+set_property(SOURCE src/io/abc/write.cpp APPEND PROPERTY COMPILE_DEFINITIONS
+    "SYMUSIC_VERSION=\"${CMAKE_MATCH_1}\""
+)
+
 target_include_directories(symusic
     PUBLIC include 3rdparty 3rdparty/pdqsort
     PRIVATE 3rdparty/zpp_bits

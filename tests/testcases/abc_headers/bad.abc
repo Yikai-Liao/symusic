@@ -1,0 +1,6 @@
+%abc-2.1
+X:1
+T:Invalid header
+I:abc-include bad.abh
+K:C
+C |]

@@ -83,8 +83,11 @@ Track<T> to_shared(TrackNative<T>&& track) {
 template<TType T>
 Score<T> to_shared(ScoreNative<T>&& score) {
     Score<T> new_score{score.ticks_per_quarter};
-    new_score.tempos  = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
-    new_score.markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
+    new_score.tempos       = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
+    new_score.markers      = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
+    new_score.note_tunings = std::make_shared<pyvec<NoteTuning<T>>>(std::move(score.note_tunings));
+    new_score.copyright_notices = std::move(score.copyright_notices);
+    new_score.explicit_end      = score.explicit_end;
     new_score.time_signatures
         = std::make_shared<pyvec<TimeSignature<T>>>(std::move(score.time_signatures));
     new_score.key_signatures
@@ -114,10 +117,13 @@ TrackNative<T> to_native(const Track<T>& track) {
 template<TType T>
 ScoreNative<T> to_native(const Score<T>& score) {
     ScoreNative<T> new_score{score.ticks_per_quarter};
-    new_score.time_signatures = std::move(score.time_signatures->collect());
-    new_score.key_signatures  = std::move(score.key_signatures->collect());
-    new_score.tempos          = std::move(score.tempos->collect());
-    new_score.markers         = std::move(score.markers->collect());
+    new_score.time_signatures   = std::move(score.time_signatures->collect());
+    new_score.key_signatures    = std::move(score.key_signatures->collect());
+    new_score.tempos            = std::move(score.tempos->collect());
+    new_score.markers           = std::move(score.markers->collect());
+    new_score.note_tunings      = score.note_tunings->collect();
+    new_score.copyright_notices = score.copyright_notices;
+    new_score.explicit_end      = score.explicit_end;
 
     new_score.tracks.reserve(score.tracks->size());
     for (const shared<Track<T>>& track : *score.tracks) {

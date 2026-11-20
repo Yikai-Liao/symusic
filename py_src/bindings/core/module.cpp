@@ -40,6 +40,7 @@ struct TempoTypingPlaceholder {};
 struct ControlChangeTypingPlaceholder {};
 struct PedalTypingPlaceholder {};
 struct PitchBendTypingPlaceholder {};
+struct NoteTuningTypingPlaceholder {};
 struct TextMetaTypingPlaceholder {};
 }   // namespace typing_detail
 
@@ -99,6 +100,7 @@ NB_MODULE(core, m) {
     define_time_generic<typing_detail::ControlChangeTypingPlaceholder>(m, "ControlChange");
     define_time_generic<typing_detail::PedalTypingPlaceholder>(m, "Pedal");
     define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
+    define_time_generic<typing_detail::NoteTuningTypingPlaceholder>(m, "NoteTuning");
     define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
     auto tick = nb::class_<Tick>(m, "Tick", time_unit_docstrings::kTickDoc)

@@ -1,0 +1,8 @@
+X:1
+T:External stress
+M:4/4
+L:1/4
+%%MIDI ptstress "stress pattern.txt"
+%%MIDI ptstress ../abc_inputs.json
+K:C
+CDEF |]

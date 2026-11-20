@@ -1,6 +1,8 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <ranges>
 #include <span>
 
 #include "zpp_bits.h"
@@ -41,9 +43,7 @@ constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Memb
         return archive(zpp::bits::as_bytes(data));                    \
     }
 
-REPEAT_ON(
-    SERIALIZE_NON_HEAP, Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend
-)
+REPEAT_ON(SERIALIZE_NON_HEAP, Note, Pedal, ControlChange, KeySignature, Tempo, PitchBend)
 
 #undef SERIALIZE_NON_HEAP
 
@@ -70,8 +70,27 @@ constexpr auto serialize(auto& archive, const symusic::ControlChange<T>& d) {
 }
 
 template<symusic::TType T>
-constexpr auto serialize(auto& archive, const symusic::TimeSignature<T>& d) {
-    return serialize_zeroed_padding(archive, d, d.time, d.numerator, d.denominator);
+constexpr auto serialize(auto& archive, const TimeSignature<T>& meter) {
+    // Keep the original numeric event image. Grouping is stored in a sparse tail.
+    static_assert(sizeof(typename T::unit) == 4);
+    std::array<u8, 8> bytes{};
+    std::memcpy(bytes.data(), &meter.time, 4);
+    bytes[4] = meter.numerator;
+    bytes[5] = meter.denominator;
+    return archive(zpp::bits::as_bytes(bytes));
+}
+
+template<symusic::TType T>
+constexpr auto serialize(auto& archive, TimeSignature<T>& meter) {
+    std::array<u8, 8> bytes{};
+    auto              result = archive(zpp::bits::as_bytes(bytes));
+    if constexpr (std::is_same_v<decltype(result), zpp::bits::errc>) {
+        if (zpp::bits::failure(result)) return result;
+        std::memcpy(&meter.time, bytes.data(), 4);
+        meter.numerator   = bytes[4];
+        meter.denominator = bytes[5];
+    }
+    return result;
 }
 
 template<symusic::TType T>
@@ -94,8 +113,6 @@ template<class T>
 inline constexpr std::size_t padded_payload<Note<T>> = 2 * sizeof(typename T::unit) + 2;
 template<class T>
 inline constexpr std::size_t padded_payload<ControlChange<T>> = sizeof(typename T::unit) + 2;
-template<class T>
-inline constexpr std::size_t padded_payload<TimeSignature<T>> = sizeof(typename T::unit) + 2;
 template<class T>
 inline constexpr std::size_t padded_payload<KeySignature<T>> = sizeof(typename T::unit) + 2;
 
@@ -159,6 +176,7 @@ constexpr decltype(auto) zeroed(V&& value) {
 
 
 SERIALIZE_COMMON(TextMeta, d, d.time, d.text)
+SERIALIZE_COMMON(NoteTuning, d, d.time, d.key, d.pitch)
 
 SERIALIZE_COMMON(
     TrackNative,
@@ -178,7 +196,7 @@ SERIALIZE_COMMON(
     d,
     d.ticks_per_quarter,
     d.tracks,
-    zeroed(d.time_signatures),
+    d.time_signatures,
     zeroed(d.key_signatures),
     d.tempos,
     d.markers
@@ -195,10 +213,78 @@ namespace symusic {
 namespace details {
 
 template<class T>
+auto meter_events(T& score)
+    requires requires { score.time_signatures; }
+{
+    return std::span(score.time_signatures);
+}
+
+template<TType T>
+auto meter_events(const TimeSignature<T>& event) {
+    return std::span(&event, 1);
+}
+
+template<TType T>
+auto meter_events(TimeSignature<T>& event) {
+    return std::span(&event, 1);
+}
+
+template<TType T>
+auto meter_events(const vec<TimeSignature<T>>& events) {
+    return std::span(events);
+}
+
+template<TType T>
+auto meter_events(vec<TimeSignature<T>>& events) {
+    return std::span(events);
+}
+
+using GroupedMeters = vec<std::pair<u32, vec<u8>>>;
+
+GroupedMeters collect_meter_groups(const auto& data) {
+    GroupedMeters groups;
+    if constexpr (requires { meter_events(data); }) {
+        const auto meters = meter_events(data);
+        for (auto it = meters.begin(); it != meters.end(); ++it) {
+            if (it->beat_groups.empty()) continue;
+            const auto index = it - meters.begin();
+            if (static_cast<u64>(index) > std::numeric_limits<u32>::max())
+                throw std::invalid_argument("too many time signatures to serialize");
+            groups.emplace_back(static_cast<u32>(index), it->beat_groups);
+        }
+    }
+    return groups;
+}
+
+void read_meter_groups(auto& in, auto& data) {
+    if constexpr (requires { meter_events(data); }) {
+        if (in.remaining_data().empty()) return;
+        GroupedMeters groups;
+        in(groups).or_throw();
+        const auto meters = meter_events(data);
+        for (auto& [index, beats] : groups) {
+            if (index >= meters.size() || !meters[index].beat_groups.empty() || beats.empty())
+                throw std::invalid_argument("invalid grouped time signature in pickle");
+            meters[index].beat_groups = std::move(beats);
+        }
+    }
+}
+
+template<class T>
 vec<u8> serailize_zpp(const T& data) {
     vec<u8> buffer;
     auto    out = zpp::bits::out(buffer);
     out(data).or_throw();
+    const auto groups = collect_meter_groups(data);
+    if constexpr (requires { data.note_tunings; }) {
+        const bool has_extent_or_groups = data.explicit_end || !groups.empty();
+        if (!data.note_tunings.empty() || !data.copyright_notices.empty() || has_extent_or_groups)
+            out(data.note_tunings).or_throw();
+        if (!data.copyright_notices.empty() || has_extent_or_groups)
+            out(data.copyright_notices).or_throw();
+        if (has_extent_or_groups) out(data.explicit_end).or_throw();
+    }
+    if (!groups.empty()) out(groups).or_throw();
     return buffer;
 }
 
@@ -207,6 +293,13 @@ T deserailize_zpp(std::span<const u8> buffer) {
     auto in = zpp::bits::in(buffer);
     T    data{};
     in(data).or_throw();
+    if constexpr (requires { data.note_tunings; }) {
+        // Old scores stop after the marker list.
+        if (!in.remaining_data().empty()) in(data.note_tunings).or_throw();
+        if (!in.remaining_data().empty()) in(data.copyright_notices).or_throw();
+        if (!in.remaining_data().empty()) in(data.explicit_end).or_throw();
+    }
+    read_meter_groups(in, data);
     return data;
 }
 
@@ -254,6 +347,7 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
+    NoteTuning,
     TextMeta,
     TrackNative,
     ScoreNative

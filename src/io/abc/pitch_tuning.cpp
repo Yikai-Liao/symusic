@@ -1,5 +1,7 @@
 #include "pitch_tuning.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <locale>
 #include <sstream>
@@ -18,6 +20,25 @@ MidiPitch fractional_pitch(int base, Alteration alteration) {
         fraction < 0 ? -steps : steps, -midi_bend_center, midi_bend_center - 1
     );
     return {base + (wide ? numerator / denominator : 0), static_cast<int>(wheel)};
+}
+
+MidiPitch quantize_comma53(MidiPitch pitch) {
+    constexpr int  kWheelStepsPerSemitone = midi_bend_center / 2;
+    constexpr auto kSplitSlots            = std::array{4, 12, 24, 32, 40};
+    constexpr auto kSemitonesPerComma     = 0.22641509f;
+    const auto     bend      = static_cast<float>(pitch.wheel) / kWheelStepsPerSemitone;
+    const auto     semitones = static_cast<float>(pitch.note) + bend;
+    const auto     octave    = static_cast<int>(std::floor(semitones / 12.0));
+    const auto     slot      = static_cast<int>(std::floor(semitones * 4.0)) - 48 * octave;
+    const auto     split     = std::ranges::lower_bound(kSplitSlots, slot);
+    // abc2midi leaves a second comma in each black-key slot for alternate spellings.
+    auto commas = 53 * octave + slot + static_cast<int>(split - kSplitSlots.begin());
+    if (split != kSplitSlots.end() && *split == slot && (bend > 1.1 || bend < -0.8)) ++commas;
+
+    // Use the converter's single-precision step and a lower MIDI note with an upward bend.
+    const auto quantized = static_cast<float>(commas) * kSemitonesPerComma;
+    const auto note      = static_cast<int>(std::floor(quantized));
+    return {note, static_cast<int>((quantized - note) * kWheelStepsPerSemitone)};
 }
 
 // Keep values small enough for bounded pitch and wheel arithmetic even with
@@ -51,8 +72,8 @@ float quantized_fifth(float octave, int divisions, int fifth_steps) {
 }   // namespace
 
 PitchTuning::PitchTuning(const Tune& tune, Diagnostics& diagnostics) {
-    for (const auto& token : tune.header) read(token, diagnostics);
-    for (const auto& token : tune.body) read(token, diagnostics);
+    for (const auto& token : tune.header) read(token, tune.reference, diagnostics);
+    for (const auto& token : tune.body) read(token, tune.reference, diagnostics);
 }
 
 std::optional<PitchTuning::Detune> PitchTuning::detune(std::string_view args) {
@@ -102,10 +123,11 @@ std::optional<PitchTuning::Scale> PitchTuning::equal(std::string_view args) {
 }
 
 std::optional<PitchTuning::Midi> PitchTuning::midi(std::string_view name) {
-    if (name == "C") return Midi::middle_c;
-    if (name == "temperamentnormal") return Midi::normal;
-    if (name == "temperamentlinear") return Midi::linear;
-    if (name == "temperamentequal") return Midi::equal;
+    if (name == "C") return Midi::MiddleC;
+    if (name == "temperamentnormal") return Midi::Normal;
+    if (name == "temperamentlinear") return Midi::Linear;
+    if (name == "temperamentequal") return Midi::Equal;
+    if (name == "tuningsystem") return Midi::TuningSystem;
     return {};
 }
 
@@ -117,9 +139,11 @@ const PitchTuning::State& PitchTuning::current() const {
 }
 
 void PitchTuning::read_detune(std::string_view args, Location at, Diagnostics& diagnostics) {
-    if (const auto offsets = detune(args))
-        changes.push_back({at, {current().middle_c, *offsets}});
-    else
+    if (const auto offsets = detune(args)) {
+        auto next   = current();
+        next.temper = *offsets;
+        changes.push_back({at, next});
+    } else
         diagnostics.warn(
             at,
             "invalid-temperament",
@@ -127,41 +151,62 @@ void PitchTuning::read_detune(std::string_view args, Location at, Diagnostics& d
         );
 }
 
-void PitchTuning::read_midi(std::string_view args, Location at, Diagnostics& diagnostics) {
+void PitchTuning::read_midi(
+    std::string_view args, Location at, Location tune_start, Diagnostics& diagnostics
+) {
     if (word(args) != "MIDI") return;
     const auto name    = word(args);
     const auto command = midi(name);
     if (!command) return;
-    if (*command == Midi::middle_c) {
-        auto next     = current();
-        next.middle_c = midi_integer(args, 0, midi_max, diagnostics, at);
-        changes.push_back({at, next});
-        return;
+    auto next = current();
+    switch (*command) {
+    case Midi::MiddleC: next.middle_c = midi_integer(args, 0, midi_max, diagnostics, at); break;
+    case Midi::Normal:
+        next.middle_c = 60;
+        next.temper   = Detune{};
+        break;
+    case Midi::Linear:
+    case Midi::Equal: {
+        const auto tuning = *command == Midi::Linear ? linear(args) : equal(args);
+        if (!tuning) {
+            diagnostics.warn(
+                at, "invalid-temperament", fmt::format("ignored invalid MIDI {}", name)
+            );
+            return;
+        }
+        if (tuning->sharp < 0)
+            diagnostics.warn(
+                at, "inverted-accidentals", "temperament makes sharps lower the pitch"
+            );
+        // The MIDI temperament commands reset the anchor to C4, not the comma53 quantizer.
+        next.middle_c = 60;
+        next.temper   = *tuning;
+        break;
     }
-    if (*command == Midi::normal) {
-        changes.push_back({at, {}});
-        return;
+    case Midi::TuningSystem:
+        if (at < tune_start) {
+            diagnostics.warn(at, "tuning-system-placement", "ignored tuningsystem before X:");
+            return;
+        }
+        if (trim(args) != "comma53") {
+            diagnostics.warn(at, "invalid-tuning-system", "expected comma53 after tuningsystem");
+            return;
+        }
+        next.comma53 = true;
+        break;
     }
-    const auto scale = *command == Midi::linear ? linear(args) : equal(args);
-    if (!scale) {
-        diagnostics.warn(at, "invalid-temperament", fmt::format("ignored invalid MIDI {}", name));
-        return;
-    }
-    if (scale->sharp < 0)
-        diagnostics.warn(at, "inverted-accidentals", "temperament makes sharps lower the pitch");
-    // All three MIDI temperament commands reset the tuning anchor to C4.
-    changes.push_back({at, {60, *scale}});
+    changes.push_back({at, next});
 }
 
-void PitchTuning::read(const Token& token, Diagnostics& diagnostics) {
+void PitchTuning::read(const Token& token, Location tune_start, Diagnostics& diagnostics) {
     if (const auto* directive = std::get_if<Directive>(&token.value)) {
         auto args = directive->value;
         if (word(args) == "temperament")
             read_detune(args, token.at, diagnostics);
         else
-            read_midi(directive->value, token.at, diagnostics);
+            read_midi(directive->value, token.at, tune_start, diagnostics);
     } else if (const auto* field = std::get_if<Field>(&token.value)) {
-        if (field->kind == 'I') read_midi(field->value, token.at, diagnostics);
+        if (field->kind == 'I') read_midi(field->value, token.at, tune_start, diagnostics);
         // X: resets a file-level temperament, but not an earlier MIDI C.
         if (field->kind == 'X' && !changes.empty())
             changes.push_back({token.at, {current().middle_c, Detune{}}});
@@ -191,19 +236,24 @@ MidiPitch PitchTuning::Scale::pitch(
     return {note, std::clamp(wheel, 0, 2 * midi_bend_center - 1) - midi_bend_center};
 }
 
+MidiPitch PitchTuning::State::tempered_pitch(char letter, int octave, Alteration alteration) const {
+    if (const auto* scale = std::get_if<Scale>(&temper))
+        return scale->pitch(letter, octave, middle_c, alteration);
+    const int natural = natural_pitch[letter_index(letter)];
+    const int base    = middle_c + 12 * octave + natural;
+    if (alteration.denominator != 0 && alteration.numerator != 0)
+        return fractional_pitch(base, alteration);
+    const int   semitone = natural + alteration.numerator;
+    const auto& offsets  = std::get<Detune>(temper);
+    return {base + alteration.numerator, offsets[(semitone % 12 + 12) % 12]};
+}
+
 MidiPitch PitchTuning::pitch(char letter, int octave, Alteration alteration, Location at) const {
     static const State standard;
     const auto         change = std::ranges::upper_bound(changes, at, {}, &Change::at);
     const auto&        state  = change == changes.begin() ? standard : std::prev(change)->state;
-    if (const auto* scale = std::get_if<Scale>(&state.temper))
-        return scale->pitch(letter, octave, state.middle_c, alteration);
-    const int natural = natural_pitch[letter_index(letter)];
-    const int base    = state.middle_c + 12 * octave + natural;
-    if (alteration.denominator != 0 && alteration.numerator != 0)
-        return fractional_pitch(base, alteration);
-    const int   semitone = natural + alteration.numerator;
-    const auto& offsets  = std::get<Detune>(state.temper);
-    return {base + alteration.numerator, offsets[(semitone % 12 + 12) % 12]};
+    const auto         tuned  = state.tempered_pitch(letter, octave, alteration);
+    return state.comma53 ? quantize_comma53(tuned) : tuned;
 }
 
 }   // namespace symusic::abc::detail

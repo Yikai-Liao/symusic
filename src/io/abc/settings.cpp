@@ -53,8 +53,9 @@ const Mode* mode_of(std::string_view name) {
     return nullptr;
 }
 
-void set_signature(Key& key, int fifths) {
+void set_signature(Key& key, int fifths, int minor = 0) {
     key.fifths = fifths;
+    key.minor  = minor;
     key.alterations.fill({});
     const auto order = fifths < 0 ? flat_order : sharp_order;
     for (const auto c : order.substr(0, static_cast<size_t>(std::abs(fifths)))) {
@@ -106,8 +107,7 @@ bool parse_named_signature(
     }
     constexpr Mode major{"", 0, 0};
     const auto&    effective = mode ? *mode : major;
-    set_signature(result, supported_signature(*fifths + effective.shift));
-    result.minor = effective.minor;
+    set_signature(result, supported_signature(*fifths + effective.shift), effective.minor);
     return true;
 }
 
@@ -116,9 +116,14 @@ bool parse_signature(
 ) {
     const auto name    = word(options);
     const auto special = ascii_lower(name);
-    if (special == "none") return true;
+    if (name.empty() || special == "none") {
+        set_signature(result, 0);
+        return true;
+    }
     if (special == "hp") {
         set_signature(result, 2);
+        // HP omits the printed signature but uses the same pipe scale as Hp.
+        if (name == "HP") result.fifths = 0;
         return true;
     }
     return parse_named_signature(name, options, result, diagnostics, at);
@@ -155,37 +160,56 @@ int shift_value(
     return *shift;
 }
 
-// A clef is engraving-only except for explicit sounding octave shifts.
 std::optional<int> clef_octave(std::string_view value) {
-    if (value.ends_with("+8")) return 1;
-    if (value.ends_with("-8")) return -1;
-    return {};
+    // ABC 2.1 section 4.6: the suffix sounds an octave away without changing the written note.
+    const auto shift = value.ends_with("+8") ? 1 : value.ends_with("-8") ? -1 : 0;
+    if (shift) value.remove_suffix(2);
+    if (!value.empty() && value.back() >= '1' && value.back() <= '5') value.remove_suffix(1);
+    constexpr std::array names{"treble"sv, "alto"sv, "tenor"sv, "bass"sv, "perc"sv, "none"sv};
+    if (std::ranges::find(names, ascii_lower(value)) == names.end()) return {};
+    return shift;
 }
 
-struct OctaveOptions {
-    std::optional<int> explicit_shift;
-    std::optional<int> clef_shift;
+enum class PitchOption { unknown, clef, octave, transpose, engraving };
 
-    bool read(
-        std::string_view name, std::string_view value, Diagnostics& diagnostics, Location at
-    ) {
-        if (name == "octave")
-            explicit_shift = shift_value(value, diagnostics, at, name, 16);
-        else if (name == "clef")
-            clef_shift = clef_octave(value);
-        else
-            return false;
-        return true;
-    }
+PitchOption pitch_option(std::string_view name) {
+    const auto lower = ascii_lower(name);
+    if (lower == "clef") return PitchOption::clef;
+    if (lower == "octave") return PitchOption::octave;
+    if (lower == "transpose" || lower == "t") return PitchOption::transpose;
+    if (lower == "middle" || lower == "m" || lower == "stafflines") return PitchOption::engraving;
+    return PitchOption::unknown;
+}
 
-    void offer_clef(std::string_view name) {
-        if (auto shift = clef_octave(name)) clef_shift = shift;
+void read_pitch_option(
+    PitchChange&     pitch,
+    std::string_view name,
+    std::string_view value,
+    Diagnostics&     diagnostics,
+    Location         at
+) {
+    switch (pitch_option(name)) {
+    case PitchOption::clef:
+        if (const auto shift = clef_octave(value)) pitch.clef_shift = shift;
+        break;
+    case PitchOption::octave:
+        pitch.written_octave = shift_value(value, diagnostics, at, name, 16);
+        break;
+    case PitchOption::transpose:
+        pitch.transpose = shift_value(value, diagnostics, at, name, 127);
+        break;
+    case PitchOption::engraving: break;
+    case PitchOption::unknown:
+        if (value.empty()) {
+            if (const auto shift = clef_octave(name)) pitch.clef_shift = shift;
+        }
+        break;
     }
+}
 
-    std::optional<int> sounding_shift() const {
-        return explicit_shift ? explicit_shift : clef_shift;
-    }
-};
+std::string_view option_name(std::string_view text) {
+    return text.substr(0, text.find_first_of("= \t\r\f\v"));
+}
 
 std::string_view quoted_option(std::string_view& options) {
     options.remove_prefix(1);
@@ -201,11 +225,16 @@ std::string_view quoted_option(std::string_view& options) {
 std::pair<std::string_view, std::string_view> option(std::string_view& options) {
     options = trim(options);
     if (options.find_first_of("=^_") == 0) return {word(options), {}};
-    const auto key = options.substr(0, options.find_first_of("= \t"));
-    options        = trim(options.substr(key.size()));
-    if (!options.starts_with('=')) return {key, {}};
+    const auto name = option_name(options);
+    const auto tail = options.substr(name.size());
+    options         = trim(tail);
+    if (!options.starts_with('=')
+        || (!tail.starts_with('=') && (clef_octave(name) || ascii_lower(name) == "exp"))) {
+        // A natural after a bare clef name or exp belongs to the key signature.
+        return {name, {}};
+    }
     options = trim(options.substr(1));
-    return {key, options.starts_with('"') ? quoted_option(options) : word(options)};
+    return {name, options.starts_with('"') ? quoted_option(options) : word(options)};
 }
 
 // Explicit mode replaces the implied scale, not the key signature metadata.
@@ -214,51 +243,35 @@ struct KeyAccidentals {
     bool               explicit_scale = false;
     WrittenAccidentals overrides;
 
-    bool read_explicit(std::string_view& options) {
-        auto       remaining = options;
-        const auto token     = word(remaining);
-        if (ascii_lower(token.substr(0, token.find('='))) != "exp") return false;
-        explicit_scale = true;
-        options        = remaining;
-        return true;
+    [[nodiscard]] bool sets_scale() const {
+        return explicit_scale || std::ranges::any_of(overrides, [](const auto& value) {
+                   return value.has_value();
+               });
     }
 
     void apply(Key& key) const {
         if (explicit_scale) key.alterations.fill({});
         for (size_t i = 0; i < overrides.size(); ++i) {
-            if (overrides[i]) key.alterations[i] = *overrides[i];
+            if (const auto& alteration = overrides[i]) key.alterations[i] = *alteration;
         }
     }
 };
 
-void key_options(std::string_view options, Key& result, Diagnostics& diagnostics, Location at) {
-    OctaveOptions  octave;
+struct KeyOptions {
+    PitchChange    pitch;
     KeyAccidentals accidentals;
-    while (!trim(options).empty()) {
-        // exp is a flag; a separated =F starts a natural accidental, not a value.
-        if (accidentals.read_explicit(options)) continue;
-        const auto [name, value] = option(options);
-        if (octave.read(name, value, diagnostics, at)) continue;
-        if (name == "transpose")
-            result.transpose = shift_value(value, diagnostics, at, name, 127);
-        else if (!custom_accidental(name, accidentals.overrides, diagnostics, at) && value.empty())
-            octave.offer_clef(name);
-    }
-    accidentals.apply(result);
-    result.octave = octave.sounding_shift().value_or(result.octave);
-}
+};
 
-std::string_view tempo_label(std::string_view& text) {
-    text = trim(text);
-    if (!text.starts_with('"')) return {};
-    const auto end = text.find('"', 1);
-    if (end == text.npos) {
-        text = {};
-        return {};
+KeyOptions key_options(std::string_view options, Diagnostics& diagnostics, Location at) {
+    KeyOptions result;
+    while (!trim(options).empty()) {
+        const auto [name, value] = option(options);
+        if (ascii_lower(name) == "exp")
+            result.accidentals.explicit_scale = true;
+        else if (!custom_accidental(name, result.accidentals.overrides, diagnostics, at))
+            read_pitch_option(result.pitch, name, value, diagnostics, at);
     }
-    const auto label = text.substr(1, end - 1);
-    text             = trim(text.substr(end + 1));
-    return label;
+    return result;
 }
 
 int named_tempo(std::string_view label) {
@@ -292,20 +305,13 @@ int named_tempo(std::string_view label) {
     return found == std::end(names) ? 0 : found->bpm;
 }
 
-long double tempo_beat(
-    std::string_view text, long double unit, Diagnostics& diagnostics, Location at
-) {
-    if (text.starts_with('C')) {
-        text = trim(text.substr(1));
-        return text.empty() ? unit : unit * ratio(text, diagnostics, at, "tempo beat").fraction();
-    }
-    long double beats = 0;
-    while (!trim(text).empty())
-        beats += ratio(word(text), diagnostics, at, "tempo beat").fraction();
-    return whole * beats;
-}
-
 }   // namespace
+
+void Key::apply(const PitchChange& change) {
+    if (change.transpose) transpose = change.transpose;
+    if (change.written_octave) written_octave = *change.written_octave;
+    if (change.clef_shift) clef_shift = *change.clef_shift;
+}
 
 bool AccidentalPolicy::consume(const Token& token, Diagnostics& diagnostics) {
     const auto info = token.information();
@@ -346,9 +352,11 @@ AccidentalScope AccidentalPolicy::at(Location written) const {
     return next == changes.begin() ? AccidentalScope::pitch : std::prev(next)->second;
 }
 
-void DrumMap::assign(std::string_view args, Location at, Diagnostics& diagnostics) {
+std::optional<DrumRoute> DrumMap::read(
+    std::string_view args, Location at, Diagnostics& diagnostics
+) {
     const auto source = drum_spelling(word(args), at, diagnostics);
-    if (!source) return;
+    if (!source) return {};
     const auto alteration = source->accidental.value_or(Alteration{});
     const auto note       = 60 + 12 * source->octave + natural_pitch[letter_index(source->letter)]
                             + alteration.numerator;
@@ -361,7 +369,14 @@ void DrumMap::assign(std::string_view args, Location at, Diagnostics& diagnostic
         diagnostics.warn(
             at, "drummap-range", "destination is outside General MIDI percussion (35–81)"
         );
-    routes[note] = destination;
+    return DrumRoute{note, destination};
+}
+
+bool DrumMap::consume(const Token& token, Diagnostics& diagnostics) {
+    auto command = token.information().value_or("");
+    if (word(command) != "MIDI" || word(command) != "drummap") return false;
+    if (const auto route = read(command, token.at, diagnostics)) apply(*route);
+    return true;
 }
 
 bool ProgramNumbers::consume(const Token& token, Location reference, Diagnostics& diagnostics) {
@@ -380,7 +395,14 @@ bool ProgramNumbers::consume(const Token& token, Location reference, Diagnostics
 }
 
 int ProgramNumbers::read(std::string_view& args, Diagnostics& diagnostics, Location at) const {
-    return midi(midi_integer(args, 0, midi_max + base, diagnostics, at));
+    return midi(midi_integer(args, 0, midi_max + base.value_or(0), diagnostics, at));
+}
+
+int ProgramNumbers::read_chord(
+    std::string_view& args, Diagnostics& diagnostics, Location at
+) const {
+    if (base || !one_based_chords) return read(args, diagnostics, at);
+    return midi_integer(args, 1, midi_max + 1, diagnostics, at) - 1;
 }
 
 int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnostics, Location at) {
@@ -391,19 +413,44 @@ int midi_integer(std::string_view& args, int low, int high, Diagnostics& diagnos
     );
 }
 
-bool midi_transposition(
-    std::string_view name, std::string_view args, int& shift, Diagnostics& diagnostics, Location at
-) {
-    if (name != "transpose" && name != "rtranspose") return false;
-    const auto amount = shift_value(word(args), diagnostics, at, name, 127);
-    shift             = name == "transpose" ? amount : std::clamp(shift + amount, -127, 127);
-    return true;
+int MidiTransposition::apply(int shift) const {
+    return relative ? std::clamp(shift + amount, -127, 127) : amount;
 }
 
-int Meter::accent_beats() const {
-    if (numerator % 3 == 0) return 3;
-    if (numerator % 2 == 0) return 2;
-    return numerator;
+void MidiTrackSettings::apply(const MidiTrackCommand& command) {
+    if (const auto* change = std::get_if<MidiTransposition>(&command)) {
+        shift = change->apply(shift);
+    } else {
+        const auto& spacing                                 = std::get<ChordAttackChange>(command);
+        (spacing.random ? attack.random_limit : attack.gap) = spacing.ticks;
+    }
+}
+
+std::optional<MidiTrackCommand> midi_track_command(const Token& token, Diagnostics& diagnostics) {
+    auto args = token.information().value_or("");
+    if (word(args) != "MIDI") return {};
+    const auto name = word(args);
+    if (name == "chordattack" || name == "randomchordattack")
+        return ChordAttackChange{
+            midi_integer(args, 0, tpq, diagnostics, token.at), name == "randomchordattack"
+        };
+    if (name != "transpose" && name != "rtranspose") return {};
+    return MidiTransposition{
+        shift_value(word(args), diagnostics, token.at, name, 127), name == "rtranspose"
+    };
+}
+
+bool Meter::default_accent(long double position) const {
+    constexpr auto tolerance = 0.0000001L;
+    if (group_starts.none()) {
+        const auto step = numerator % 3 == 0 ? 3 : numerator % 2 == 0 ? 2 : numerator;
+        return std::abs(std::remainder(position, step * beat())) < tolerance;
+    }
+    // ABC 2.1 section 3.1.6: accent each written group, including when bar lines are omitted.
+    const auto offset = std::fmod(position, measure());
+    const auto pulse  = static_cast<int>(std::round(offset / beat()));
+    if (std::abs(offset - pulse * beat()) >= tolerance) return false;
+    return pulse == 0 || pulse == numerator || group_starts.test(pulse);
 }
 
 Length ratio(
@@ -430,84 +477,61 @@ long double unit_length(std::string_view text, Diagnostics& diagnostics, Locatio
     return whole * value.fraction();
 }
 
-namespace {
-
-int meter_numerator(std::string_view numerator, Diagnostics& diagnostics, Location at) {
-    numerator = trim(numerator);
-    if (numerator.starts_with('(') && numerator.ends_with(')'))
-        numerator = numerator.substr(1, numerator.size() - 2);
-    int beats = 0;
-    while (!numerator.empty()) {
-        const auto plus = numerator.find('+');
-        const auto part = integer(trim(numerator.substr(0, plus)));
-        if (!part || *part < 1 || *part > 255 - beats)
-            diagnostics.error(at, "invalid-meter", "meter numerator must be between 1 and 255");
-        beats += *part;
-        if (plus == numerator.npos) break;
-        numerator.remove_prefix(plus + 1);
-    }
-    return beats;
-}
-
-}   // namespace
-
 Meter meter(std::string_view text, Diagnostics& diagnostics, Location at) {
     if (text == "C") return {};
     if (text == "C|") return {2, 2};
     if (ascii_lower(text) == "none") return {4, 4, true};
-    const auto slash = text.find('/');
-    if (slash == text.npos)
-        diagnostics.error(at, "invalid-meter", "expected a meter such as 4/4, C or none");
-    const auto beats       = meter_numerator(text.substr(0, slash), diagnostics, at);
-    const auto denominator = integer(trim(text.substr(slash + 1)));
-    if (!beats || !denominator || *denominator < 1 || *denominator > 128
+    const auto written = meter_numbers(text);
+    if (!written) diagnostics.error(at, "invalid-meter", "expected a meter such as 4/4, C or none");
+    const auto denominator = integer(written->denominator);
+    if (!denominator || *denominator < 1 || *denominator > 128
         || !std::has_single_bit(static_cast<unsigned>(*denominator))) {
         diagnostics.error(
             at, "invalid-meter", "meter denominator must be a power of two between 1 and 128"
         );
     }
-    return {beats, *denominator};
-}
-
-std::optional<Key> key(
-    std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
-) {
-    Key  result  = previous;
-    auto options = text;
-    result.alterations.fill({});
-    result.fifths = result.minor = 0;
-    if (!parse_signature(options, result, diagnostics, at)) {
-        const auto first = text.substr(0, text.find_first_of("= \t"));
-        if (header || text.empty())
-            diagnostics.error(at, "invalid-key", "expected a key signature such as C, F#m or none");
-        result = previous;
-        if (first != "clef" && first != "octave" && first != "transpose") {
-            diagnostics.warn(at, "invalid-inline-key", "ignored an unrecognized key change");
-            return {};
-        }
-        options = text;
+    Meter result{.numerator = 0, .denominator = *denominator};
+    for (const auto group : written->groups) {
+        const auto beats = integer(group);
+        if (!beats || *beats < 1 || *beats > 255 - result.numerator)
+            diagnostics.error(at, "invalid-meter", "meter numerator must be between 1 and 255");
+        if (result.numerator) result.group_starts.set(result.numerator);
+        result.numerator += *beats;
     }
-    key_options(options, result, diagnostics, at);
     return result;
 }
 
-i32 tempo(std::string_view text, long double unit, Diagnostics& diagnostics, Location at) {
-    const auto label = tempo_label(text);
-    text             = trim(text.substr(0, text.find('"')));
-    if (text.empty()) {
-        if (const auto bpm = named_tempo(label)) return 60'000'000 / bpm;
+std::optional<KeyField> key(
+    std::string_view text, const Key& previous, Diagnostics& diagnostics, Location at, bool header
+) {
+    text               = trim(text);
+    Key        result  = previous;
+    auto       options = text;
+    const auto first   = option_name(text);
+    // In first position, bare none is the key signature, not a clef change.
+    const bool options_only = pitch_option(first) != PitchOption::unknown
+                              || (clef_octave(first) && ascii_lower(first) != "none");
+    if (!options_only && !parse_signature(options, result, diagnostics, at)) {
+        if (header)
+            diagnostics.error(at, "invalid-key", "expected a key signature such as C, F#m or none");
+        diagnostics.warn(at, "invalid-inline-key", "ignored an unrecognized key change");
+        return {};
+    }
+    const auto settings = key_options(options, diagnostics, at);
+    settings.accidentals.apply(result);
+    return KeyField{result, !options_only || settings.accidentals.sets_scale(), settings.pitch};
+}
+
+i32 tempo(const TempoNotation& written, long double unit, Diagnostics& diagnostics, Location at) {
+    if (!written.bpm) {
+        if (const auto bpm = named_tempo(written.label)) return 60'000'000 / bpm;
         diagnostics.warn(
             at, "text-tempo", "tempo text has no recognized metronome value; kept the current tempo"
         );
         return 0;
     }
-    const auto eq = text.find('=');
-    const auto beat
-        = eq == text.npos ? tpq : tempo_beat(trim(text.substr(0, eq)), unit, diagnostics, at);
-    const auto value = integer(trim(eq == text.npos ? text : text.substr(eq + 1)));
-    if (!value || *value <= 0 || beat <= 0)
-        diagnostics.error(at, "invalid-tempo", "tempo needs a positive metronome value");
-    const auto usec = 60'000'000.L * tpq / (beat * *value);
+    const auto beat = written.beat * (written.unit_relative ? unit : whole);
+    const auto usec = 60'000'000.L * tpq / (beat * *written.bpm);
     if (usec < 1 || usec > std::numeric_limits<i32>::max())
         diagnostics.error(at, "tempo-range", "tempo is outside the score's range");
     return static_cast<i32>(usec);
@@ -517,34 +541,18 @@ VoiceSpec voice_spec(std::string_view text, Diagnostics& diagnostics, Location a
     VoiceSpec result{};
     result.id = word(text);
     if (result.id.empty()) diagnostics.error(at, "invalid-voice", "V: needs a voice identifier");
-    OctaveOptions octave;
     while (!trim(text).empty()) {
         const auto [name, value] = option(text);
         if (name == "name" || name == "nm")
             result.name = value;
-        else if (name == "transpose")
-            result.transpose = shift_value(value, diagnostics, at, name, 127);
         else
-            octave.read(name, value, diagnostics, at);
+            read_pitch_option(result.pitch, name, value, diagnostics, at);
     }
-    result.octave = octave.sounding_shift();
     return result;
 }
 
 std::string_view key_name(int fifths, bool minor) {
     return (minor ? minor_names : major_names).at(static_cast<size_t>(fifths + 7));
-}
-
-std::string unquote_text(std::string_view text) {
-    std::string out;
-    out.reserve(text.size());
-    for (size_t i = 0; i < text.size(); ++i) {
-        if (text[i] == '\\' && i + 1 < text.size()
-            && std::string_view("\\\"%").find(text[i + 1]) != text.npos)
-            ++i;
-        out.push_back(text[i]);
-    }
-    return out;
 }
 
 i32 tick(long double time, Diagnostics& diagnostics, Location at) {

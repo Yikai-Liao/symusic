@@ -55,7 +55,7 @@ A notation format is connected in three layers:
 |---|---|
 | MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
-| ABC read/write | The PEGTL grammar in `src/io/abc/syntax.cpp` builds located music tokens. Navigation expands parts and repeats; playback renders notes, tracks and global events directly to `Score<Tick>`. Export validates and projects original event endpoints onto the ABC tick grid, then writes ABC voices from the resulting timeline. The binding handles paths, read-time unit conversion, and Python warnings. |
+| ABC read/write | The PEGTL grammar in `src/io/abc/syntax.cpp` builds located music tokens. Navigation expands parts and repeats; playback renders notes, tracks and global events directly to `Score<Tick>`. Export validates and projects original event endpoints onto the ABC tick grid, then writes ABC voices from the resulting timeline. The core reads ABC files and resolves their header includes. The binding handles read-time unit conversion and Python warnings. |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
@@ -64,9 +64,26 @@ A notation format is connected in three layers:
 
 ### ABC playback state
 
-ABC has two orders. Located tokens retain **written order** across voices and line continuations. Assembly uses that order to resolve tuning and accidental propagation policy and to attach verses to a voice's music lines. Navigation builds **performed order** from those tokens and identifies each scheduled occurrence of a part. Returning to a passage does not reapply a later written policy to its pitches.
+Located ABC tokens retain **written order** across voices and line continuations. Tokenization resolves shorthand definitions. Assembly uses written positions to resolve tuning, accidental propagation policy and custom chord names, and to place ABC 2.1 lyric syllables and symbol-line marks on written notes. Symbol-line marks become the same tokens as inline marks. Navigation builds **performed order** from those tokens and identifies each scheduled occurrence of a part, which selects the verse.
 
-Playback keeps a clock and measure-accidental cache per overlay lane. Channel output owns track routing, note releases and pedal pairing; lyric alignment uses timed attack anchors without needing a note-on. The tune shares one percussion map between channel 10 and generated drums so both resolve the same destination at attack time. The core returns a score and located warnings without invoking a converter; abc2midi is only a test oracle.
+When playback jumps to a part or skips an ending, it restores the written key, measure accidentals, unit length and meter at the destination. The reader assigns tuplet ratios and cross-part broken rhythm to the written notes before rendering. A grace group can borrow from a host in the next written part when playback continues across the label. The lane tracks performed meter for accompaniment and repeat-bar downbeats. A written meter change keeps the beats already counted in the current measure.
+
+Playback keeps a clock and measure-accidental cache per overlay lane. Before rendering, the reader counts each lane's performed chord-channel requests and assigns MIDI numbers in track order. This lets a secondary lane sound before a later primary-lane request without reversing their allocation order. Channel output owns track routing, note releases and pedal pairing; it can record a timed lyric without a new note-on. Legacy lyrics align to performed attacks on the music line. Chord, drum, and drone parts run on the clock of their melody lane, each with its own gate. The final tracks are published in **MIDI track order**, with backing following its melody and overlay lanes placed by their first written split. The conductor primes the percussion map from the first voice's performed primary lane. Each later pass applies its own `drummap` changes at each attack and uses the inherited map for source pitches it has not yet assigned. Its final changes advance the map for subsequent tracks. The core returns a score and located warnings without invoking a converter.
+
+The writer maps timed lyrics onto its planned voice lanes before rendering. It can insert a tied continuation inside a held note to preserve a lyric at that time. As the writer emits each music line, it counts the actual note and chord slots and emits the matching `w:` field.
+
+ABC 2.1 defines the meaning of written notation. `abc2midi` is a test oracle for conventions the standard leaves open and for MIDI extensions. The shared compatibility fixtures cover behavior on which the two agree; native tests assert the standard directly where it differs, for example on chord lengths and implicit tuplet ratios. The upstream revision lives in `tests/testcases/abc_oracle.json`, which CI also reads when building the reference executable.
+
+### ABC input diagnostics
+
+The first line of a diagnostic is `source:line:column: ABC [code]: message`. Lines and UTF-8 byte columns start at 1 and refer to the physical input, including after a line continuation or inside an included header. When that line exists, the next line quotes its original text. Long lines show only the area around the location, with `...` marking omitted text. Control characters and invalid bytes are escaped. The position marks the start of the relevant token or construct, not a highlighted range. For example, if line 5 is `[Cz/0] D`, the diagnostic points to the slash:
+
+```text
+<string>:5:4: ABC [zero-length-divisor]: duration divides by zero
+"[Cz/0] D"
+```
+
+Consumers can use the location and bracketed code without matching the English message. A fatal diagnostic stops the read (`std::invalid_argument` in C++, `ValueError` in Python). Recoverable diagnostics accompany the score in `Result::warnings`; the Python binding emits them as `UserWarning`.
 
 ## Python typing
 

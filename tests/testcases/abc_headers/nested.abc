@@ -1,0 +1,6 @@
+%abc-2.1
+I:abc-include nested-outer.abh
+X:1
+T:Nested headers
+K:C
+hC2 D E |]

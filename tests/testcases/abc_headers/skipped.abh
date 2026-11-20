@@ -1,0 +1,4 @@
+% The following lines are invalid in an included header.
+X:2
+ABC |]
+L:1/8

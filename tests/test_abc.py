@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import pickle
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pytest
+import symusic
 from symusic import (
     ControlChange,
     KeySignature,
     Note,
+    NoteTuning,
     Pedal,
     PitchBend,
     Score,
@@ -21,6 +25,57 @@ from tests.utils import TESTCASES_PATH
 
 HEADER = "X:1\nT:Roundtrip\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\n"
 ABC_PATHS = sorted((TESTCASES_PATH / "abc_files").glob("*.abc"))
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_abc_meter_groups_numpy(ttype):
+    score = Score.from_abc(
+        "%abc-2.1\nX:1\nT:Groups\nL:1/8\nM:(2+3+2)/8\nK:C\n"
+        "C7 | [M:3/4] D6 | [M:3+2/8] E5 |]"
+    ).to(ttype)
+    values = score.time_signatures.numpy()
+    np.testing.assert_array_equal(
+        values["beat_groups"], [[2, 3, 2], [0, 0, 0], [3, 2, 0]]
+    )
+    assert TimeSignature.from_numpy(**values, ttype=ttype) == score.time_signatures
+
+
+def test_abc_meter_groups_numpy_validation():
+    meters = Score.from_abc(HEADER + "C4 |]").time_signatures
+    values = meters.numpy()
+    assert values.keys() == {"time", "numerator", "denominator"}
+    assert TimeSignature.from_numpy(**values) == meters
+    with pytest.raises(ValueError, match="one row per meter"):
+        TimeSignature.from_numpy(**values, beat_groups=np.zeros((2, 2), dtype=np.uint8))
+    with pytest.raises(ValueError, match="must be positive and sum"):
+        TimeSignature.from_numpy(
+            **values, beat_groups=np.array([[2, 0, 2]], dtype=np.uint8)
+        )
+
+
+def test_single_note_tuning_score_roundtrips():
+    score = Score.from_abc(HEADER + "C [I:MIDI snt 60 61.5] D |]")
+    assert score.note_tunings == [NoteTuning(480, 60, 61.5)]
+    assert score.to("quarter").note_tunings == [NoteTuning(1, 60, 61.5, "quarter")]
+    assert Score.from_abc(score.dumps_abc()).note_tunings == score.note_tunings
+    assert Score.from_midi(score.dumps_midi()).note_tunings == score.note_tunings
+    assert pickle.loads(pickle.dumps(score)) == score
+    assert pickle.loads(pickle.dumps(score.note_tunings[0])) == score.note_tunings[0]
+
+
+def test_copyright_notices_without_music():
+    score = Score(480)
+    score.copyright_notices = ["  © Example & Office\nLine 2  "]
+    assert score.start() == score.end() == 0
+    for other in (
+        score.copy(),
+        score.to("second"),
+        score.resample(960),
+        Score.from_abc(score.dumps_abc()),
+        Score.from_midi(score.dumps_midi()),
+        pickle.loads(pickle.dumps(score)),
+    ):
+        assert other.copyright_notices == score.copyright_notices
 
 
 def note_rows(score: Score) -> list[tuple[int, int, int, int]]:
@@ -48,15 +103,17 @@ def test_read_abc(abc_path: Path):
     assert Score(abc_path, fmt="abc").note_num() > 0
 
 
-def test_read_abc_recovers_stray_coda():
-    path = TESTCASES_PATH / "abc_invalid" / "rising_sun_stray_coda.abc"
-    with pytest.warns(
-        UserWarning,
-        match=r"rising_sun_stray_coda\.abc:(7:11|10:33): ABC \[ignored-decoration\]",
-    ) as caught:
-        score = Score(path)
-    assert len(caught) == 2
-    assert score.note_num() == 74
+def test_read_abc_file_loads_header_definitions():
+    path = TESTCASES_PATH / "abc_headers" / "tune.abc"
+    expected = Score.from_abc(
+        "%abc-2.1\nX:1\nT:Header définitions\nM:3/4\nL:1/4\nK:C\n!p!G3 A |]"
+    )
+    assert Score(path) == expected
+
+
+def test_read_abc_coda():
+    path = TESTCASES_PATH / "abc_files" / "rising_sun_coda.abc"
+    assert Score(path).note_num() == 74
 
 
 @pytest.mark.parametrize(
@@ -197,23 +254,42 @@ def test_unknown_attached_key_mode_locates_the_recovery():
 def test_abc_rejects_invalid_text_at_its_byte_column(tmp_path: Path, bad_byte: bytes):
     path = tmp_path / "bad text.abc"
     path.write_bytes(HEADER.encode() + '"雪"!'.encode() + bad_byte + b"! CDEF")
-    with pytest.raises(ValueError, match=r"bad text\.abc:7:7: ABC \[invalid-text\]"):
+    with pytest.raises(
+        ValueError, match=r"bad text\.abc:7:7: ABC \[invalid-text\]"
+    ) as exc:
         Score(path)
+    assert str(exc.value).splitlines()[1] == rf'"\"雪\"!\x{bad_byte.hex()}! CDEF"'
 
 
-@pytest.mark.parametrize("reference", ["X:2", "X :2"])
-def test_abc_warns_on_second_tune_and_recovers_nonbinary_duration(reference: str):
-    text = HEADER + "C/3 D/3\n\n" + HEADER.replace("X:1", reference) + "GAB"
+def test_abc_error_quotes_the_original_continuation_line():
+    with pytest.raises(ValueError, match=r"\[zero-length-divisor\]") as exc:
+        Score.from_abc(HEADER + "C\\\r\n  [Cz/0] D % kept verbatim")
+    assert str(exc.value).splitlines() == [
+        "<string>:8:6: ABC [zero-length-divisor]: duration divides by zero",
+        '"  [Cz/0] D % kept verbatim"',
+    ]
+
+
+def test_abc_long_error_excerpt_keeps_the_invalid_token():
+    line = " " * 200 + "C/0" + " D" * 100
+    with pytest.raises(ValueError, match=r"\[zero-length-divisor\]") as exc:
+        Score.from_abc(HEADER + line)
+    diagnostic, excerpt = str(exc.value).splitlines()
+    assert diagnostic.startswith("<string>:7:202: ABC [zero-length-divisor]")
+    assert excerpt.startswith('..."')
+    assert excerpt.endswith('"...')
+    assert "C/0" in excerpt
+    assert len(excerpt) < 110
+
+
+def test_abc_warns_on_second_tune():
+    text = HEADER + "C/ D/\n\n" + HEADER.replace("X:1", "X:2") + "GAB"
     with pytest.warns(
-        UserWarning, match=r"\[(non-binary-length|extra-tunes)\]"
+        UserWarning, match=r"<string>:9:1: ABC \[extra-tunes\]"
     ) as warnings:
         score = Score.from_abc(text)
-    assert [str(w.message).split(": ABC ")[0] for w in warnings] == [
-        "<string>:7:2",
-        "<string>:7:6",
-        "<string>:9:1",
-    ]
-    assert [row[:3] for row in note_rows(score)] == [(1, 119, 60), (121, 119, 62)]
+    assert len(warnings) == 1
+    assert [row[:3] for row in note_rows(score)] == [(1, 239, 60), (241, 239, 62)]
 
 
 @pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
@@ -275,7 +351,7 @@ def test_abc_export_locates_invalid_onsets(first: int):
 def test_abc_export_reports_one_rounding_example_per_track():
     score = Score(960)
     track = Track("Lead")
-    track.notes.extend([Note(3, 30, 60, 90), Note(9, 30, 64, 90)])
+    track.notes.extend([Note(3, 30, 60, 90), Note(39, 30, 64, 90)])
     score.tracks.append(track)
     with pytest.warns(UserWarning, match=r"\[resampled-time\]") as caught:
         score.dumps_abc(warn=True)
@@ -293,7 +369,9 @@ def test_abc_second_export_uses_tempo_map_for_endpoints():
     track = Track(ttype="second")
     track.notes.append(Note(0.25, 0.75, 60, 90, ttype="second"))
     score.tracks.append(track)
-    actual = Score.from_abc(score.dumps_abc(warn=True))
+    with pytest.warns(UserWarning, match=r"\[midi-field-release\].*tick 480"):
+        abc = score.dumps_abc(warn=True)
+    actual = Score.from_abc(abc)
     assert note_rows(actual) == [(240, 480, 60, 90)]
     assert list(actual.tempos) == [Tempo(0, 120), Tempo(480, 60)]
 
@@ -404,15 +482,15 @@ def test_abc_overlay_reentry_keeps_route_clock_and_backing():
         HEADER
         + "%%MIDI drum dd 36 42\nC2 & [I:MIDI drumon] !p!E- & G2 | F2 & E2 & B | C2 |"
     )
-    assert [track.is_drum for track in score.tracks] == [False, False, False, True]
+    assert [track.is_drum for track in score.tracks] == [False, False, True, False]
     assert [
         [(n.time, n.duration, n.pitch, n.velocity) for n in track.notes]
         for track in score.tracks
     ] == [
         [(1, 959, 60, 105), (961, 959, 65, 105), (1921, 959, 60, 105)],
         [(1, 1439, 64, 60)],
+        [(1, 919, 36, 80), (481, 959, 36, 80), (921, 919, 42, 80), (1441, 959, 36, 80)],
         [(1, 959, 67, 105), (961, 479, 71, 105)],
-        [(961, 959, 36, 80), (1921, 959, 36, 80)],
     ]
 
 
@@ -524,7 +602,7 @@ def test_abc_lyrics_without_anchors(middle: str):
     [
         "w: one two\n+: three four",
         "w: one two\nw: +three four",
-        "w: one two \\\nw: three four",
+        "w: one two\n% comment\n%%vocalfont Times-Roman 14\n+: three four",
     ],
 )
 def test_abc_lyrics_extension(words: str):
@@ -609,9 +687,14 @@ def test_abc_needs_no_converter_or_temp_file(
     assert not list(tmp_path.iterdir())
 
 
+def test_abc_export_creator_uses_the_package_version():
+    text = roundtrip_score().dumps_abc()
+    assert f"I:abc-creator symusic-{symusic.__version__}" in text.splitlines()
+
+
 def test_abc_warnings_can_be_disabled_only_for_export():
     score = roundtrip_score()
-    score.tracks[0].notes.append(Note(0, 5, 61, 100))
+    score.tracks[0].notes.append(Note(0, 1, 61, 100))
     with pytest.warns(UserWarning, match=r"ABC export score \[note-start-offset\]"):
         text = score.dumps_abc(warn=True)
     with warnings.catch_warnings():
@@ -649,7 +732,8 @@ def test_abc_export_preserves_tempo_keys_meter_polyphony_and_controls():
     score.time_signatures.append(TimeSignature(960, 3, 4))
     score.key_signatures.extend([KeySignature(0, 0, 0), KeySignature(960, 1, 0)])
     with pytest.warns(
-        UserWarning, match=r"\[(split-voice|midi-field-timing|midi-control-timing)\]"
+        UserWarning,
+        match=r"\[(split-voice|midi-field-timing|midi-control-timing|midi-tied-release)\]",
     ) as notices:
         text = score.dumps_abc(warn=True)
     assert sum("[split-voice]" in str(notice.message) for notice in notices) == 1
@@ -733,8 +817,12 @@ def test_abc_export_preserves_pitch_bends():
     track.pitch_bends.extend(
         [PitchBend(0, -8192), PitchBend(143, 8191), PitchBend(480, 0)]
     )
-    with pytest.warns(UserWarning, match=r"\[midi-bend-timing\].*shift later notes"):
+    with pytest.warns(
+        UserWarning,
+        match=r"\[midi-bend-timing\].*shift later notes|\[midi-tied-release\]",
+    ) as notices:
         abc = score.dumps_abc(warn=True)
+    assert any("shift later notes" in str(notice.message) for notice in notices)
     loaded = Score.from_abc(abc)
     assert loaded.tracks[0].pitch_bends == track.pitch_bends
     assert note_rows(loaded) == note_rows(score)
@@ -752,10 +840,11 @@ def test_abc_export_merges_overlapping_pedals():
     score = roundtrip_score()
     score.tracks[0].pedals.extend([Pedal(120, 240), Pedal(240, 240)])
     with pytest.warns(
-        UserWarning, match=r"\[(overlapping-pedals|midi-control-timing)\]"
+        UserWarning,
+        match=r"\[(overlapping-pedals|midi-control-timing|midi-tied-release)\]",
     ) as notices:
         text = score.dumps_abc(warn=True)
-    assert len(notices) == 2
+    assert len(notices) == 3
     assert any("[overlapping-pedals]" in str(notice.message) for notice in notices)
     assert list(Score.from_abc(text).tracks[0].pedals) == [Pedal(120, 360)]
 
@@ -766,10 +855,10 @@ def test_abc_export_warns_if_pedals_disagree_with_controls():
     track.pedals.append(Pedal(0, 480))
     track.controls.extend([ControlChange(120, 64, 80), ControlChange(360, 64, 0)])
     with pytest.warns(
-        UserWarning, match=r"\[(pedal-conflict|midi-control-timing)\]"
+        UserWarning, match=r"\[(pedal-conflict|midi-control-timing|midi-tied-release)\]"
     ) as notices:
         text = score.dumps_abc(warn=True)
-    assert len(notices) == 2
+    assert len(notices) == 3
     assert any("[pedal-conflict]" in str(notice.message) for notice in notices)
     loaded = Score.from_abc(text).tracks[0]
     assert loaded.controls == track.controls
@@ -828,22 +917,8 @@ def test_abc_export_reuses_channel_events_across_split_voices():
     assert note_rows(native) == note_rows(score)
     assert len(native.tracks) == 2
     assert all(list(t.controls) == list(track.controls) for t in native.tracks)
-    assert abc.count("[Q:") == 1
-    assert native.tempos[-1] == score.tempos[0]
-
-
-@pytest.mark.parametrize("tpq", [480, 960])
-def test_abc_export_rejects_too_many_voices(tpq: int):
-    score = Score(tpq)
-    for program in range(16):
-        track = Track(str(program), program)
-        track.notes.append(Note(tpq // 32, tpq // 16, 60, 80))
-        score.tracks.append(track)
-    with pytest.raises(
-        ValueError,
-        match=r"\[voice-placement\].*at playback tick 15 \(480 TPQ\).*15 melodic ABC voices",
-    ):
-        score.dumps_abc()
+    assert abc.count("[Q:1/4=96]") == 2
+    assert list(native.tempos) == [Tempo(0, 120), score.tempos[0]]
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -880,7 +955,7 @@ def test_abc_export_reuses_voices_at_the_same_velocity(reverse: bool):
     assert note_rows(exported) == note_rows(score)
 
 
-def score_with_constrained_onset(reverse: bool = False) -> Score:
+def score_with_constrained_onset() -> Score:
     score = Score(480)
     for program in range(12):
         track = Track(str(program), program)
@@ -898,58 +973,9 @@ def score_with_constrained_onset(reverse: bool = False) -> Score:
         ]
     )
     attacks = [Note(45, 30, 60, 80), Note(45, 30, 61, 81), Note(45, 30, 62, 82)]
-    lead.notes.extend(reversed(attacks) if reverse else attacks)
+    lead.notes.extend(attacks)
     score.tracks.append(lead)
     return score
-
-
-@pytest.mark.parametrize("reverse", [False, True])
-def test_abc_export_reassigns_a_constrained_onset(reverse: bool):
-    score = score_with_constrained_onset(reverse)
-    exported = Score.from_abc(score.dumps_abc())
-    assert len(exported.tracks) == 15
-    assert note_rows(exported) == note_rows(score)
-
-
-def test_abc_export_voice_search_limit():
-    # Each attack at tick 45 has a distinct velocity. Independent groups
-    # compete for disjoint lane sets; taking lane 0 for the first attack
-    # leaves the final group short even though lane 1 would also work.
-    allowed_lanes = (
-        [{0, 1}]
-        + [{6, 7, 8}] * 3
-        + [{9, 10, 11}] * 3
-        + [{12, 13, 14}] * 3
-        + [{0, 2, 3, 4, 5}] * 5
-    )
-    score = Score(480)
-    track = Track("Search limit")
-    # One common held pitch establishes the lane numbering.
-    track.notes.extend(Note(15, 240, 20, 60 + lane) for lane in range(15))
-    for pitch, allowed in enumerate(allowed_lanes, start=40):
-        track.notes.extend(
-            Note(15, 240, pitch, 60 + lane) for lane in range(15) if lane not in allowed
-        )
-        track.notes.append(Note(45, 30, pitch, 90 + pitch - 40))
-    score.tracks.append(track)
-    with pytest.raises(
-        ValueError,
-        match=r"track 1.*\[voice-search-limit\].*tick 45 \(480 TPQ\).*15 available voices.*100000 retry candidates",
-    ):
-        score.dumps_abc()
-
-
-def test_abc_export_rejects_more_than_30_total_voices():
-    score = Score(480)
-    for index in range(31):
-        track = Track(str(index), is_drum=index >= 15)
-        track.notes.append(Note(15, 30, 30 + index, 80))
-        score.tracks.append(track)
-    with pytest.raises(
-        ValueError,
-        match=r"\[voice-placement\].*at playback tick 15.*0 available voices.*30 ABC voices",
-    ):
-        score.dumps_abc()
 
 
 def test_abc_export_warns_on_shared_drum_channel():

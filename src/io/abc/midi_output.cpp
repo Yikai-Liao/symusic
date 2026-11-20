@@ -3,6 +3,10 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <utility>
+
+#include "expression.h"
+#include "symusic/utils.h"
 
 namespace symusic::abc::detail {
 
@@ -20,17 +24,17 @@ int bend_integer(std::string_view& args, Location at, Diagnostics& diagnostics) 
     return *value;
 }
 
-vec<int64_t> bend_string(
+vec<i64> bend_string(
     std::string_view args, size_t subdivisions, Location at, Diagnostics& diagnostics
 ) {
-    vec<int64_t> contour;
+    vec<i64> contour;
     while (!trim(args).empty()) {
         if (contour.size() == bend_steps)
             diagnostics.error(
                 at, "bend-curve-limit", fmt::format("bend curve exceeds {} segments", bend_steps)
             );
         const auto delta    = bend_integer(args, at, diagnostics);
-        int64_t    previous = 0;
+        i64        previous = 0;
         for (size_t step = 1; step <= subdivisions; ++step) {
             const auto cumulative = std::llround(static_cast<double>(delta) * step / subdivisions);
             contour.push_back(cumulative - previous);
@@ -42,8 +46,8 @@ vec<int64_t> bend_string(
     return contour;
 }
 
-vec<int64_t> bend_velocity(std::string_view args, Location at, Diagnostics& diagnostics) {
-    int64_t    velocity     = bend_integer(args, at, diagnostics);
+vec<i64> bend_velocity(std::string_view args, Location at, Diagnostics& diagnostics) {
+    i64        velocity     = bend_integer(args, at, diagnostics);
     const auto acceleration = bend_integer(args, at, diagnostics);
     int        count        = 8;
     if (!trim(args).empty()) {
@@ -57,7 +61,7 @@ vec<int64_t> bend_velocity(std::string_view args, Location at, Diagnostics& diag
     }
     if (!trim(args).empty())
         diagnostics.warn(at, "extra-bend-arguments", "ignored extra bendvelocity arguments");
-    vec<int64_t> contour;
+    vec<i64> contour;
     contour.reserve(static_cast<size_t>(count));
     for (int step = 0; step < count; ++step) {
         contour.push_back(velocity);
@@ -96,7 +100,8 @@ VoiceOutput::NoteActivity::NoteActivity(const vec<Note<Tick>>& notes) : overlaps
     i32                   open_until = 0;
     std::optional<size_t> last;
     for (const auto index : order) {
-        const auto& note      = notes[index];
+        const auto& note = notes[index];
+        if (note.velocity == 0) continue;
         overlaps[index].prior = note.time < open_until;
         if (note.duration <= 0) continue;
         if (last) {
@@ -122,6 +127,11 @@ void AttackGate::release_at(i32 end) const {
         update(*std::get<Range*>(address));
 }
 
+void AttackGate::use_unstressed_velocity() const {
+    if (const auto* note = std::get_if<Sounding>(&address); note && unstressed)
+        note->note().velocity = *unstressed;
+}
+
 AttackGate::Range AttackGate::range() const {
     if (const auto* note = std::get_if<Sounding>(&address))
         return {note->note().time, note->note().duration};
@@ -133,69 +143,206 @@ std::optional<size_t> AttackGate::note_index() const {
     return {};
 }
 
-VoiceOutput::VoiceOutput(
-    std::string           name,
-    const DrumMap&        drum_map,
-    const ProgramNumbers& programs,
-    Diagnostics&          diagnostics
-) : name(std::move(name)), diagnostics(diagnostics), drum_map(drum_map), programs(programs) {}
-
-void VoiceOutput::Routing::attack_on(size_t chord_member) {
-    if (extra_channels == 0) return;
-    selected = chord_member > 0 && chord_member <= extra_channels ?
-                   midi_channels + static_cast<int>(chord_member) :
-                   chord_base;
+std::optional<size_t> AttackGate::sounding_index() const {
+    const auto* note = std::get_if<Sounding>(&address);
+    return note && note->note().velocity != 0 ? std::optional{note->index} : std::nullopt;
 }
 
-void VoiceOutput::Routing::allocate_chord_channels(size_t count) {
-    chord_base     = selected;
-    extra_channels = count;
-    std::fill_n(programs.begin() + midi_channels, count, programs[selected - 1]);
+VoiceOutput::VoiceOutput(
+    std::string name, const ProgramNumbers& programs, Diagnostics& diagnostics
+) : name(std::move(name)), diagnostics(diagnostics), programs(programs) {}
+
+void RenderedTrack::append_drum(Note<Tick> note, const DrumMap& changes) {
+    if (const auto pitch = changes.destination(note.pitch))
+        note.pitch = static_cast<i8>(*pitch);
+    else
+        inherited_drums.push_back(track.notes.size());
+    track.notes.push_back(note);
+}
+
+void RenderedTrack::discard_silent_notes() {
+    if (inherited_drums.empty()) {
+        std::erase_if(track.notes, [](const auto& note) { return note.velocity == 0; });
+        return;
+    }
+    size_t kept = 0, read = 0, written = 0;
+    for (size_t i = 0; i < track.notes.size(); ++i) {
+        const bool inherited = read < inherited_drums.size() && inherited_drums[read] == i;
+        if (inherited) ++read;
+        if (track.notes[i].velocity == 0) continue;
+        if (inherited) inherited_drums[written++] = kept;
+        if (kept != i) track.notes[kept] = track.notes[i];
+        ++kept;
+    }
+    track.notes.resize(kept);
+    inherited_drums.resize(written);
+}
+
+void RenderedTrack::resolve_drums(const DrumMap& initial) {
+    for (const auto index : inherited_drums) {
+        auto& note = track.notes[index];
+        note.pitch = static_cast<i8>(initial.pitch(note.pitch));
+    }
+}
+
+void PlaybackPass::publish(vec<TrackNative<Tick>>& output, DrumMap& drum_map) {
+    for (auto& rendered : tracks) {
+        rendered.resolve_drums(drum_map);
+        auto& notes = rendered.track.notes;
+        if (!std::ranges::is_sorted(notes, {}, &Note<Tick>::time))
+            std::ranges::stable_sort(notes, {}, &Note<Tick>::time);
+        output.push_back(std::move(rendered.track));
+    }
+    drum_map.apply(drum_changes);
+}
+
+void VoiceOutput::map_drums(int lane, DrumRoute route) { drum_changes[lane].apply(route); }
+
+bool VoiceOutput::Selection::is_drum() const { return channel == midi_drum_channel; }
+
+MidiPitch VoiceOutput::Selection::transpose(MidiPitch pitch, int semitones) const {
+    if (!is_drum()) pitch.note += semitones;
+    return pitch;
+}
+
+VoiceOutput::Selection VoiceOutput::current_route(int lane) const {
+    return Selection(routing[lane].selected);
+}
+
+VoiceOutput::Selection VoiceOutput::chord_route(int lane, size_t member) const {
+    const auto& channels = routing[lane].chord_channels;
+    if (member < channels.size() && channels[member] != 0) return Selection(channels[member]);
+    return channels.front() != 0 ? Selection(channels.front()) : current_route(lane);
+}
+
+void VoiceOutput::restore_route(int lane, Selection route) {
+    routing[lane].selected = route.channel;
+}
+
+void VoiceOutput::set_channels(int lane, const MidiTrackChannels& channels) {
+    routing[lane].selected = channels.initial;
+    routing[lane].unused   = channels.extras;
+}
+
+std::optional<int> chord_channel_request(std::string_view name, std::string_view args) {
+    if (name != "makechordchannels") return {};
+    return std::clamp(integer(word(args)).value_or(0), 0, max_chord_channels);
+}
+
+void VoiceOutput::allocate_chord_channels(int lane, int count, Location at) {
+    if (count == 0) return;
+    auto& route = routing[lane];
+    if (static_cast<size_t>(count) > route.unused.size())
+        diagnostics.error(at, "midi-channels-exhausted", "all 16 MIDI channels are in use");
+    const int program = route.programs[route.selected - 1];
+    route.chord_channels.fill(0);
+    route.chord_channels.front() = route.selected;
+    for (int member = 0; member < count; ++member) {
+        const int channel                = route.unused[member];
+        route.chord_channels[member + 1] = channel;
+        route.programs[channel - 1]      = program;
+    }
+    route.unused = route.unused.subspan(count);
 }
 
 VoiceOutput::Target VoiceOutput::target(int lane) const {
     const auto& route = routing[lane];
-    return {lane, route.selected, route.programs[route.selected - 1]};
+    return {lane, route.selected, route.programs[route.selected - 1], voice_bank};
 }
 
 VoiceOutput::ChannelOutput& VoiceOutput::channel(Target target) {
-    const auto [lane, channel, program] = target;
     return output
         .try_emplace(
-            {lane, channel, program},
-            lane == 0 ? name : "",
-            static_cast<u8>(program),
-            channel == midi_drum_channel
+            target,
+            target.lane == 0 ? name : "",
+            static_cast<u8>(target.program),
+            target.channel == midi_drum_channel
         )
         .first->second;
 }
 
 Attack VoiceOutput::attack(
-    int                   lane,
-    MidiPitch             pitch,
-    long double           start,
-    long double           duration,
-    int                   stagger,
-    int                   velocity,
-    Location              at,
-    std::optional<size_t> chord_member
+    int            lane,
+    Selection      route,
+    MidiPitch      pitch,
+    long double    start,
+    long double    duration,
+    int            stagger,
+    AttackVelocity velocity,
+    Location       at
+) {
+    restore_route(lane, route);
+    const auto  time        = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
+    const auto  destination = target(lane);
+    const auto* drums = destination.channel == midi_drum_channel ? &drum_changes[lane] : nullptr;
+    auto        hit   = emit_attack(
+        destination, voice_muted, drums, pitch, time, duration, stagger, velocity, at
+    );
+    attach_envelope(channel(destination), destination, hit.gate, pitch.wheel);
+    return hit;
+}
+
+VoiceOutput::RetainedRoute VoiceOutput::retain_route(int lane) const {
+    const auto destination = target(lane);
+    return {
+        destination,
+        voice_muted,
+        destination.channel == midi_drum_channel ? std::make_unique<DrumMap>(drum_changes[lane]) :
+                                                   nullptr
+    };
+}
+
+Attack VoiceOutput::attack(
+    const RetainedRoute& route,
+    MidiPitch            pitch,
+    long double          start,
+    long double          duration,
+    i8                   velocity,
+    Location             at
+) {
+    const auto time = tick(start + PlaybackGrid::attack_offset, diagnostics, at);
+    return emit_attack(
+        route.target, route.muted, route.drums.get(), pitch, time, duration, 0, {velocity}, at
+    );
+}
+
+void VoiceOutput::revise_attack(
+    const AttackGate& attack, long double duration, i8 velocity, Location at
+) {
+    attack.release_at(note_gate(attack.range().time, duration, 0, at).end());
+    if (const auto* sounding = std::get_if<AttackGate::Sounding>(&attack.address))
+        sounding->note().velocity = velocity;
+}
+
+Attack VoiceOutput::emit_attack(
+    Target         destination,
+    bool           silent,
+    const DrumMap* drums,
+    MidiPitch      pitch,
+    i32            time,
+    long double    duration,
+    int            stagger,
+    AttackVelocity velocity,
+    Location       at
 ) {
     if (pitch.note < 0 || pitch.note > midi_max) {
         diagnostics.error(
             at, "pitch-range", fmt::format("pitch {} is outside MIDI range 0–127", pitch.note)
         );
     }
-    if (chord_member) routing[lane].attack_on(*chord_member);
-    const auto time        = tick(start + PlaybackGrid::attack_offset + stagger, diagnostics, at);
-    const auto destination = target(lane);
-    auto&      owner       = channel(destination);
+    auto& owner = channel(destination);
     diagnostics.spend(PlaybackWork::attack, at);
-    const auto gate
-        = store_attack(owner, destination, pitch, note_gate(time, duration, stagger, at), velocity);
+    const auto gate = store_attack(
+        owner, silent, drums, pitch, note_gate(time, duration, stagger, at), velocity
+    );
     if (destination.channel != midi_drum_channel)
         owner.tuning.push_back({time, pitch.wheel, event_order++, at, gate.note_index()});
-    attach_envelope(owner, destination, gate, pitch.wheel);
-    return {LyricAnchor(owner.track, time), gate};
+    return {LyricAnchor(owner.rendered.track, time), gate};
+}
+
+LyricAnchor VoiceOutput::lyric_anchor(int lane, long double start, Location at) {
+    const auto time = tick(start + PlaybackGrid::attack_offset, diagnostics, at);
+    return LyricAnchor(channel(target(lane)).rendered.track, time);
 }
 
 VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int stagger, Location at) {
@@ -207,29 +354,45 @@ VoiceOutput::Gate VoiceOutput::note_gate(i32 time, long double duration, int sta
 }
 
 AttackGate VoiceOutput::store_attack(
-    ChannelOutput& owner, Target destination, MidiPitch pitch, Gate gate, int velocity
+    ChannelOutput& owner,
+    bool           silent,
+    const DrumMap* drums,
+    MidiPitch      pitch,
+    Gate           gate,
+    AttackVelocity velocity
 ) {
-    if (velocity == 0) return AttackGate(muted.emplace_back(gate));
-    if (destination.channel == midi_drum_channel) pitch.note = drum_map.pitch(pitch.note);
-    owner.track.notes.emplace_back(
-        gate.time, gate.duration, static_cast<i8>(pitch.note), static_cast<i8>(velocity)
-    );
-    return AttackGate(owner.track, owner.track.notes.size() - 1);
+    if (silent || (velocity.value == 0 && velocity.without_stress.value_or(0) == 0))
+        return AttackGate(muted.emplace_back(gate));
+    const Note<Tick> note{gate.time, gate.duration, static_cast<i8>(pitch.note), velocity.value};
+    auto&            track = owner.rendered.track;
+    if (drums)
+        owner.rendered.append_drum(note, *drums);
+    else
+        track.notes.push_back(note);
+    return AttackGate(track, track.notes.size() - 1, velocity.without_stress);
 }
 
-void VoiceOutput::sustain(ChannelKey channel, TrackNative<Tick>& owner, i32 time, int value) {
+void SustainPedal::control(TrackNative<Tick>& owner, i32 time, int value) {
     if (value >= 64) {
-        pedal_starts.try_emplace(channel, &owner, time);
-        return;
+        if (!start_track) {
+            start_track = &owner;
+            start       = time;
+        }
+    } else if (auto* held = std::exchange(start_track, nullptr)) {
+        held->pedals.emplace_back(start, details::sub_time(time, start));
     }
-    auto pedal = pedal_starts.extract(channel);
-    if (pedal.empty()) return;
-    const auto [start_track, start] = pedal.mapped();
-    start_track->pedals.emplace_back(start, time - start);
 }
 
 void VoiceOutput::control(int lane, i32 time, int number, int value) {
     writes.push_back({target(lane), time, number, value, event_order++, WireKind::controller});
+}
+
+void VoiceOutput::set_instrument(const VoiceInstrument& change) {
+    if (change.patch) {
+        voice_bank = change.patch->bank;
+        for (auto& lane : routing) lane.programs.fill(change.patch->program);
+    }
+    voice_muted = voice_muted || change.mute;
 }
 
 void VoiceOutput::write_events() {
@@ -246,11 +409,12 @@ void VoiceOutput::write_events() {
 
 void VoiceOutput::write_event(const WireWrite& event, ControllerDefaults& defaults) {
     auto& owner = channel(event.destination);
+    auto& track = owner.rendered.track;
     switch (event.kind) {
     case WireKind::tuning: owner.restore_wheel = event.value; [[fallthrough]];
-    case WireKind::wheel: owner.track.pitch_bends.emplace_back(event.time, event.value); break;
+    case WireKind::wheel: track.pitch_bends.emplace_back(event.time, event.value); break;
     case WireKind::restore_wheel:
-        owner.track.pitch_bends.emplace_back(event.time, owner.restore_wheel);
+        track.pitch_bends.emplace_back(event.time, owner.restore_wheel);
         break;
     default: write_controller(owner, event, defaults); break;
     }
@@ -262,8 +426,9 @@ void VoiceOutput::write_controller(
     const auto [dest, time, number, value, order, kind] = event;
     if (kind == WireKind::controller_default) defaults[number] = value;
     const auto setting = kind == WireKind::restore_controller ? defaults[number] : value;
-    owner.track.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(setting));
-    if (number == 64) sustain({dest.lane, dest.channel}, owner.track, time, setting);
+    auto&      track   = owner.rendered.track;
+    track.controls.emplace_back(time, static_cast<u8>(number), static_cast<u8>(setting));
+    if (number == 64) pedals[{dest.lane, dest.channel}].control(track, time, setting);
 }
 
 void VoiceOutput::program(int lane, std::string_view args, Location at) {
@@ -287,60 +452,67 @@ bool VoiceOutput::route(std::string_view name, std::string_view args, int lane, 
     if (name == "program")
         program(lane, args, at);
     else if (name == "channel")
-        select_channel(lane, midi_integer(args, 1, midi_channels, diagnostics, at));
-    else if (name == "makechordchannels")
-        routing[lane].allocate_chord_channels(
-            midi_integer(args, 1, max_chord_channels, diagnostics, at)
-        );
+        restore_route(lane, Selection(midi_integer(args, 1, midi_channels, diagnostics, at)));
+    else if (const auto count = chord_channel_request(name, args))
+        allocate_chord_channels(lane, *count, at);
     else
         return false;
     return true;
 }
 
-bool VoiceOutput::effect(
-    std::string_view name, std::string_view args, int lane, i32 time, Location at
+bool VoiceOutput::directive(std::string_view name, std::string_view args, int lane, Location at) {
+    return route(name, args, lane, at) || envelope_directive(name, args, lane, at);
+}
+
+std::optional<ChannelEffect> channel_effect(
+    std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
 ) {
-    if (name == "pitchbend") {
-        const int low  = midi_integer(args, 0, midi_max, diagnostics, at);
-        const int high = trim(args).empty() ? 0 : midi_integer(args, 0, midi_max, diagnostics, at);
-        writes.push_back(
-            {target(lane),
-             time,
-             0,
-             (high << 7) + low - midi_bend_center,
-             event_order++,
-             WireKind::wheel}
-        );
-        return true;
+    if (name != "control" && name != "pitchbend" && name != "pitchbendrange" && name != "portamento"
+        && name != "noportamento")
+        return {};
+    using Destination = ChannelEffect::Destination;
+    using Kind        = ChannelEffect::Kind;
+    using Write       = ChannelEffect::Write;
+    auto destination  = Destination::voice;
+    if (name != "pitchbendrange") {
+        auto       remaining = args;
+        const auto part      = word(remaining);
+        if (part == "bass") destination = Destination::bass;
+        if (part == "chord") destination = Destination::chord;
+        if (destination != Destination::voice) args = remaining;
     }
-    return route(name, args, lane, at) || envelope_directive(name, args, lane, at)
-           || channel_effect(name, args, lane, time, at);
+    const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
+    const auto cc   = [](u8 number, int value) { return Write{Kind::control, value, number}; };
+    if (name == "control") {
+        const auto number = static_cast<u8>(byte());   // Validated MIDI data byte.
+        return ChannelEffect{destination, {Write{Kind::control_default, byte(), number}}, 1};
+    }
+    if (name == "pitchbend") {
+        const int low  = byte();
+        const int high = trim(args).empty() ? 0 : byte();
+        return ChannelEffect{
+            destination, {Write{Kind::wheel, (high << 7) + low - midi_bend_center}}, 1
+        };
+    }
+    if (name == "pitchbendrange") {
+        const int semitones = byte();
+        return ChannelEffect{destination, {cc(101, 0), cc(6, semitones), cc(38, 0)}, 3};
+    }
+    if (name == "portamento") {
+        const int speed = midi_integer(args, 0, 63, diagnostics, at);
+        return ChannelEffect{destination, {cc(65, midi_max), cc(5, speed)}, 2};
+    }
+    return ChannelEffect{destination, {cc(65, 0)}, 1};
 }
 
-bool VoiceOutput::channel_effect(
-    std::string_view name, std::string_view args, int lane, i32 time, Location at
-) {
-    const auto byte = [&] { return midi_integer(args, 0, midi_max, diagnostics, at); };
-    const auto cc   = [&](int number, int value) { control(lane, time, number, value); };
-    if (name == "control") {
-        const int number = byte();
-        writes.push_back(
-            {target(lane), time, number, byte(), event_order++, WireKind::controller_default}
-        );
-    } else if (name == "pitchbendrange") {
-        const int semitones = byte();
-        cc(101, 0);
-        cc(6, semitones);
-        cc(38, 0);
-    } else if (name == "portamento") {
-        const int speed = midi_integer(args, 0, 63, diagnostics, at);
-        cc(65, 127);
-        cc(5, speed);
-    } else if (name == "noportamento")
-        cc(65, 0);
-    else
-        return false;
-    return true;
+void VoiceOutput::apply(const ChannelEffect& effect, int lane, i32 time) {
+    using Kind = ChannelEffect::Kind;
+    for (const auto& [kind, value, controller] : effect.writes()) {
+        auto wire = WireKind::controller;
+        if (kind == Kind::wheel) wire = WireKind::wheel;
+        if (kind == Kind::control_default) wire = WireKind::controller_default;
+        writes.push_back({target(lane), time, controller, value, event_order++, wire});
+    }
 }
 
 void VoiceOutput::controller_curve(LaneEnvelope& state, std::string_view args, Location at) {
@@ -379,7 +551,7 @@ bool VoiceOutput::envelope_directive(
         controller_curve(state, args, at);
         return true;
     }
-    vec<int64_t> contour;
+    vec<i64> contour;
     if (name == "bendvelocity")
         contour = bend_velocity(args, at, diagnostics);
     else if (name == "bendstring" || name == "bendstringex")
@@ -457,11 +629,11 @@ void VoiceOutput::write_bend(const NoteEnvelope& bend, Gate gate) {
     const auto  step    = gate.duration / static_cast<i32>(curve.deltas.size());
     const auto  release = gate.end();
     int         segment = curve.leading_pause ? 1 : 0;
-    int64_t     value   = bend.base;
+    i64         value   = bend.base;
     bool        clipped = false;
     for (const auto delta : curve.deltas) {
         const auto requested = value + delta;
-        value                = std::clamp<int64_t>(requested, wheel_min, wheel_max);
+        value                = std::clamp<i64>(requested, wheel_min, wheel_max);
         clipped |= value != requested;
         writes.push_back(
             {bend.destination,
@@ -515,9 +687,8 @@ void VoiceOutput::complete_envelopes() {
             );
         }
     }
-    for (auto& [key, owner] : output) {
-        const auto [lane, channel, program] = key;
-        complete_tuning({lane, channel, program}, owner);
+    for (auto& [target, owner] : output) {
+        complete_tuning(target, owner);
         complete_channel_envelopes(owner);
     }
 }
@@ -538,21 +709,22 @@ void VoiceOutput::complete_tuning(Target target, ChannelOutput& owner) {
             writes.push_back({target, time, 0, value, order, WireKind::tuning});
         }
         if (note) {
-            const auto& sounding = owner.track.notes[*note];
-            sounding_until       = std::max(sounding_until, sounding.time + sounding.duration);
+            const auto& sounding = owner.rendered.track.notes[*note];
+            if (sounding.velocity != 0)
+                sounding_until = std::max(sounding_until, sounding.time + sounding.duration);
         }
     }
 }
 
 void VoiceOutput::complete_channel_envelopes(ChannelOutput& owner) {
     if (owner.note_envelopes.empty()) return;
-    const NoteActivity activity(owner.track.notes);
+    const NoteActivity activity(owner.rendered.track.notes);
     for (const auto& envelope : owner.note_envelopes) complete_envelope(envelope, activity);
 }
 
 void VoiceOutput::complete_envelope(const NoteEnvelope& envelope, const NoteActivity& activity) {
     const auto gate = envelope.gate.range();
-    if (const auto index = envelope.gate.note_index()) {
+    if (const auto index = envelope.gate.sounding_index()) {
         const auto [prior, later] = activity.overlaps[*index];
         if (prior || later) warn_envelope_overlap(envelope);
     } else if (activity.intersects(gate)) {
@@ -566,11 +738,25 @@ void VoiceOutput::write_envelope(const NoteEnvelope& envelope, Gate gate) {
     if (envelope.controllers) write_shape(envelope, gate);
 }
 
-void VoiceOutput::finish(vec<TrackNative<Tick>>& tracks) {
+void VoiceOutput::finish(std::span<PlaybackPass> passes) {
     complete_envelopes();
     write_events();
-    for (auto& [key, owner] : output)
-        if (!owner.track.empty()) tracks.push_back(std::move(owner.track));
+    for (size_t lane = 0; lane < passes.size(); ++lane)
+        passes[lane].drum_changes = drum_changes[lane];
+    for (auto& [target, owner] : output) {
+        auto& track = owner.rendered.track;
+        // Keep indices stable until all ties and envelopes have read the final attacks.
+        owner.rendered.discard_silent_notes();
+        if (track.empty()) continue;
+        if (const auto bank = target.bank; bank != 0) {
+            const std::array selection{
+                ControlChange<Tick>{0, 0, static_cast<u8>(bank >> 7)},
+                ControlChange<Tick>{0, 32, static_cast<u8>(bank & midi_max)},
+            };
+            track.controls.insert(track.controls.begin(), selection.begin(), selection.end());
+        }
+        passes[target.lane].tracks.push_back(std::move(owner.rendered));
+    }
 }
 
 }   // namespace symusic::abc::detail

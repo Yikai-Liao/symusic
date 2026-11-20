@@ -30,3 +30,6 @@
 [submodule "3rdparty/pegtl"]
 	path = 3rdparty/pegtl
 	url = https://github.com/taocpp/PEGTL.git
+[submodule "3rdparty/picojson"]
+	path = 3rdparty/picojson
+	url = https://github.com/kazuho/picojson.git

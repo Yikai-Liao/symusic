@@ -15,6 +15,7 @@ __all__ = [
     "ControlChange",
     "KeySignature",
     "Note",
+    "NoteTuning",
     "Pedal",
     "PitchBend",
     "Score",
@@ -203,7 +204,7 @@ class KeySignatureFactory:
 
 @dataclass(frozen=True)
 class TimeSignatureFactory:
-    """``TimeSignature(time, numerator, denominator, ttype="tick")`` creates a time signature."""
+    """Create a time signature. Use ``numerator=0, denominator=0`` for free meter."""
 
     __core_classes = CoreClasses(
         core.TimeSignatureTick,
@@ -234,12 +235,15 @@ class TimeSignatureFactory:
         numerator: ndarray,
         denominator: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
+        *,
+        beat_groups: ndarray | None = None,
     ) -> smt.GeneralTimeSignatureList:
-        """Build a time signature list from one array per field."""
+        """Build time signatures from arrays, with optional zero-padded beat groups."""
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             numerator,
             denominator,
+            beat_groups=beat_groups,
         )
 
 
@@ -390,6 +394,27 @@ class PitchBendFactory:
 
 
 @dataclass(frozen=True)
+class NoteTuningFactory:
+    """``NoteTuning(time, key, pitch, ttype="tick")`` retunes one MIDI key."""
+
+    __core_classes = CoreClasses(
+        core.NoteTuningTick, core.NoteTuningQuarter, core.NoteTuningSecond
+    )
+
+    def __call__(
+        self,
+        time: smt.TimeDtype,
+        key: int,
+        pitch: float,
+        ttype: smt.GeneralTimeUnit = "tick",
+    ) -> smt.NoteTuning:
+        return self.__core_classes.dispatch(ttype)(time, key, pitch)  # type: ignore
+
+    def __instancecheck__(self, instance) -> bool:
+        return isinstance(instance, self.__core_classes)  # type: ignore
+
+
+@dataclass(frozen=True)
 class TextMetaFactory:
     """``TextMeta(time, text, ttype="tick")`` creates a lyric or marker."""
 
@@ -536,7 +561,26 @@ class ScoreFactory:
         abc: str,
         ttype: smt.GeneralTimeUnit = "tick",
     ) -> smt.Score:
-        """Read the first tune from ABC text. See the core method for diagnostics."""
+        """Read the first tune from ABC text as performed music.
+
+        Parameters
+        ----------
+        abc : str
+            ABC notation, not a file path. Use ``Score(path)`` to load a file.
+        ttype : {'tick', 'quarter', 'second'} or TimeUnit, default 'tick'
+            Time unit for the returned score. Unit names are case-insensitive.
+
+        Returns
+        -------
+        Score
+            A new score in the requested unit. See the core ``from_abc``
+            method for the rendering and diagnostic contract.
+
+        Raises
+        ------
+        ValueError
+            If the time unit is invalid or the tune cannot be rendered.
+        """
         return self.__core_classes.dispatch(ttype).from_abc(abc)
 
     def from_tpq(
@@ -611,6 +655,7 @@ ControlChange = ControlChangeFactory()
 Tempo = TempoFactory()
 Pedal = PedalFactory()
 PitchBend = PitchBendFactory()
+NoteTuning = NoteTuningFactory()
 TextMeta = TextMetaFactory()
 Track = TrackFactory()
 Score = ScoreFactory()

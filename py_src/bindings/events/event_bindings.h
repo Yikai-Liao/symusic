@@ -54,7 +54,9 @@ const char* key_signature_doc() {
 template<TType T>
 const char* time_signature_doc() {
     static const std::string doc = with_units<T>(
-        "A time signature change, such as ``numerator=6, denominator=8``.", "``time`` is"
+        "A time signature change, such as ``numerator=6, denominator=8``. "
+        "Set both values to zero for free meter. Beat groups use denominator units.",
+        "``time`` is"
     );
     return doc.c_str();
 }
@@ -132,6 +134,16 @@ constexpr const char* kVecNumpyDoc
     = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
 constexpr const char* kVecFromNumpyDoc
     = R"pbdoc(Build a list from one NumPy array per field; the arrays must have equal length.)pbdoc";
+constexpr const char* kMeterNumpyDoc     = R"pbdoc(
+Return the time, numerator and denominator as NumPy arrays. For additive meters, the dict
+also contains ``beat_groups``, a two-dimensional array with one row per meter. Each row
+contains the written group lengths followed by zero padding. A zero row is ungrouped.
+)pbdoc";
+constexpr const char* kMeterFromNumpyDoc = R"pbdoc(
+Build time signatures from arrays of equal length. The optional ``beat_groups`` array has
+one row per meter and uses trailing zeros as padding. The positive values in a grouped row
+must sum to its numerator.
+)pbdoc";
 constexpr const char* kTextMetaNumpyDoc
     = R"pbdoc(Not supported for text events; raises ``RuntimeError``.)pbdoc";
 
@@ -434,27 +446,27 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
 
 template<TType T>
 auto bind_timesig(nb::module_& m, const std::string& name_) {
-    using unit       = typename T::unit;
-    using self_t     = shared<TimeSignature<T>>;
-    using self_inner = TimeSignature<T>;
+    using unit   = typename T::unit;
+    using self_t = shared<TimeSignature<T>>;
 
     const std::string name      = "TimeSignature" + name_;
     auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(
         m, name, "TimeSignature", name_, event_docstrings::time_signature_doc<T>()
     );
 
-    auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
-
     // clang-format off
     timesig.def_prop_rw(RW_COPY(u8, "numerator", numerator))
         .def_prop_rw(RW_COPY(u8, "denominator", denominator))
+        .def_prop_rw(RW_COPY(vec<u8>, "beat_groups", beat_groups))
         .def("__init__", &pyinit<TimeSignature<T>, unit, u8, u8>,
             nb::arg("time"), nb::arg("numerator"), nb::arg("denominator"))
     ;
 
     timesig_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &timesig_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", &timesig_to_numpy<T>, event_docstrings::kMeterNumpyDoc)
+        .def_static("from_numpy", &timesig_from_numpy<T>,
+            nb::arg("time"), nb::arg("numerator"), nb::arg("denominator"),
+            nb::arg("beat_groups").none() = nb::none(), event_docstrings::kMeterFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(timesig, timesig_vec);
@@ -596,6 +608,26 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     ;
     // clang-format on
     return std::make_tuple(pitchbend, pitchbend_vec);
+}
+
+template<TType T>
+void bind_note_tuning(nb::module_& m, const std::string& suffix) {
+    using unit          = typename T::unit;
+    using self_t        = shared<NoteTuning<T>>;
+    auto [tuning, list] = bind_time_stamp<NoteTuning<T>>(
+        m, "NoteTuning" + suffix, "NoteTuning", suffix, "A timed change of one MIDI key's pitch."
+    );
+    tuning.def_prop_rw(RW_COPY(u8, "key", key), "The MIDI key to retune, from 0 to 127.")
+        .def_prop_rw(
+            RW_COPY(f32, "pitch", pitch), "Absolute pitch in semitones, with middle C at 60."
+        )
+        .def(
+            "__init__",
+            &pyinit<NoteTuning<T>, unit, u8, f32>,
+            nb::arg("time"),
+            nb::arg("key"),
+            nb::arg("pitch")
+        );
 }
 
 template<TType T>

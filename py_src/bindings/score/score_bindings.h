@@ -17,6 +17,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 #include "../../utils/python_helpers.h"
 #include "symusic/io/abc.h"
@@ -55,8 +56,41 @@ Read MIDI bytes. A channel message data byte above 127 raises ``RuntimeError``; 
 *sanitize_data* it is clamped to 127 instead.
 )pbdoc";
 constexpr const char* kFromAbcDoc  = R"pbdoc(
-Read the first tune from ABC text. Recoverable problems issue ``UserWarning``; invalid ABC raises
-``ValueError``. Both include a source location.
+Read the first tune from ABC notation as performed music.
+
+Parameters
+----------
+abc : str
+    ABC text, not a path. To read a file and resolve its supported relative
+    references, use ``from_file``.
+
+Returns
+-------
+Score
+    A new score in the time unit of the receiving class. Import first renders
+    at 480 ticks per quarter note, then converts to quarters or seconds if
+    requested. Parts and repeats are expanded; engraving is not retained.
+
+Raises
+------
+ValueError
+    If invalid input prevents recovery or the tune exceeds playback limits.
+
+Warns
+-----
+UserWarning
+    For recoverable input problems, including skipped external references
+    and additional tunes. Read diagnostics identify the source, physical
+    line, UTF-8 byte column and a diagnostic code.
+
+Examples
+--------
+>>> from symusic import Score
+>>> score = Score.from_abc("X:1\nT:Example\nL:1/4\nK:C\nC D E F |]")
+>>> score.ticks_per_quarter
+480
+>>> [note.pitch for note in score.tracks[0].notes]
+[60, 62, 64, 65]
 )pbdoc";
 constexpr const char* kDumpMidiDoc = R"pbdoc(
 Write the score to a MIDI file. ``pedals`` are not written; the sustain pedal reaches the file
@@ -64,20 +98,65 @@ through control change 64 in ``controls``.
 )pbdoc";
 constexpr const char* kDumpsMidiDoc
     = R"pbdoc(Return the score as MIDI bytes, as ``dump_midi`` writes them.)pbdoc";
-constexpr const char* kDumpAbcDoc = R"pbdoc(
-Write the score as playable ABC. With *warn*, report rounding, omissions, and playback
-compatibility limitations as ``UserWarning``.
+constexpr const char* kDumpAbcDoc      = R"pbdoc(
+Write playable ABC to a file without modifying the score.
+
+Parameters
+----------
+path : str or os.PathLike
+    Destination file. An existing file is overwritten once encoding succeeds.
+warn : bool, default False
+    Emit ``UserWarning`` for losses such as rounding and omitted events, and
+    for known playback compatibility limits. This does not suppress errors.
+
+Raises
+------
+ValueError
+    If the score has invalid values or exceeds the ABC export limits.
+RuntimeError
+    If the destination cannot be opened or written.
+
+See Also
+--------
+dumps_abc : Encode the same ABC text without writing a file.
 )pbdoc";
-constexpr const char* kDumpsAbcDoc
-    = R"pbdoc(Return the score as ABC text, as ``dump_abc`` writes it.)pbdoc";
+constexpr const char* kDumpsAbcDoc     = R"pbdoc(
+Encode the score as playable ABC without modifying it.
+
+Parameters
+----------
+warn : bool, default False
+    Emit ``UserWarning`` for rounding, omissions and known playback
+    compatibility limits. This does not suppress errors.
+
+Returns
+-------
+str
+    One ABC 2.1 tune. Times are converted to a 480-tick-per-quarter grid.
+    If an audible note rounds to tick zero, all note onsets move one tick
+    later to accommodate the ABC playback offset; aligned lyrics move with
+    them. Arbitrary timed markers are not represented. The text describes
+    playback rather than reproducing the original engraving.
+
+Raises
+------
+ValueError
+    If the score has invalid values or exceeds the ABC export limits.
+
+See Also
+--------
+dump_abc : Write the encoded text to a file.
+)pbdoc";
 constexpr const char* kGetBeatsDoc     = R"pbdoc(
 Return the beat times from *start_time* to the end of the score as a NumPy array. As in
 pretty_midi, compound meters (numerator 6, 9, 12, ...) count one beat per three notes of the
-denominator. Without a time signature a beat is a quarter note.
+denominator. A meter with explicit beat groups counts one beat per written group. Without a
+time signature a beat is a quarter note.
 )pbdoc";
 constexpr const char* kGetDownbeatsDoc = R"pbdoc(
 Return the time of the first beat of every bar from *start_time* to the end of the score as a
-NumPy array. Without a time signature at *start_time*, 4/4 is assumed.
+NumPy array. Without a time signature at *start_time*, 4/4 is assumed. Free meter has no
+downbeats.
 )pbdoc";
 constexpr const char* kToDoc           = R"pbdoc(
 Return a new score converted to *ttype*: ``"tick"``, ``"quarter"``, ``"second"`` or a time unit
@@ -128,21 +207,13 @@ constexpr const char* kEmptyDoc
     = R"pbdoc(Return whether the score has no tracks and no global events.)pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
-Returns a new score unless *inplace* is true.
+anchors must be sorted and of equal length, with at least two. Events outside the anchor interval
+are dropped. Trailing silence is clipped to that interval before its endpoint is mapped. Returns a
+new score unless *inplace* is true.
 )pbdoc";
 constexpr const char* kUseCountDoc
     = R"pbdoc(Return the number of references to the score, for debugging.)pbdoc";
 }   // namespace score_docstrings
-
-inline std::string path_to_utf8_string(const std::filesystem::path& path) {
-#ifdef _WIN32
-    const auto utf8 = path.u8string();
-    return std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size());
-#else
-    return path.string();
-#endif
-}
 
 template<TType T>
 typename T::unit cast_time(const nb::object& t) {
@@ -222,8 +293,7 @@ inline std::string get_format(const std::filesystem::path& path) {
 }
 
 template<TType T>
-shared<Score<T>> read_abc(std::string_view text, std::string_view source) {
-    auto result = abc::read(text, source);
+shared<Score<T>> abc_score(abc::Result<Score<Tick>> result) {
     emit_abc_warnings(result.warnings);
     if constexpr (std::is_same_v<T, Tick>)
         return std::make_shared<Score<T>>(std::move(result.value));
@@ -233,16 +303,12 @@ shared<Score<T>> read_abc(std::string_view text, std::string_view source) {
 
 template<TType T>
 shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
-    const auto data = read_file(path);
-    const auto text = data.empty() ?
-                          std::string_view{} :
-                          std::string_view(reinterpret_cast<const char*>(data.data()), data.size());
-    return read_abc<T>(text, path_to_utf8_string(path));
+    return abc_score<T>(abc::read_file(path));
 }
 
 template<TType T>
 shared<Score<T>> from_abc(const std::string& text) {
-    return read_abc<T>(text, "<string>");
+    return abc_score<T>(abc::read(text));
 }
 
 template<TType T>
@@ -371,6 +437,9 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "The ``KeySignature`` events.")
         .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "The ``Tempo`` events.")
         .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "The markers, as ``TextMeta`` events.")
+        .def_prop_rw(RW_COPY(shared<pyvec<NoteTuning<T>>>, "note_tunings", note_tunings), "The score-wide single-note tuning changes for MIDI device 0 and tuning program 0.")
+        .def_prop_rw(RW_COPY(vec<std::string>, "copyright_notices", copyright_notices), "The score-wide copyright notices. Assign a list to replace the notices.")
+        .def_prop_rw(RW_COPY(std::optional<unit>, "explicit_end", explicit_end), "The optional playback endpoint for trailing silence, in the score's time unit.")
         .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.")
         .def("__use_count", [](const self_t& self) { return self.use_count(); }, score_docstrings::kUseCountDoc)
         .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), score_docstrings::kToDoc)

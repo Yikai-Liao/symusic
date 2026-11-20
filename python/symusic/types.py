@@ -7,6 +7,7 @@ __all__ = [
     "GeneralTimeUnit",
     "KeySignature",
     "Note",
+    "NoteTuning",
     "Pedal",
     "PitchBend",
     "PyVec",
@@ -30,6 +31,7 @@ ControlChange = core.ControlChange
 Tempo = core.Tempo
 Pedal = core.Pedal
 PitchBend = core.PitchBend
+NoteTuning = core.NoteTuning
 TextMeta = core.TextMeta
 Track = core.Track
 Score = core.Score

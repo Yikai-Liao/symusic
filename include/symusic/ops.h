@@ -235,80 +235,97 @@ vec<shared<T>> clamp_dur(
 }
 
 namespace details {
+
+// Cache the active segment for events that arrive in time order. A segment
+// maps both ends of an interval in the same units as the original anchors.
+template<class Unit>
+class TimeAdjustment {
+    using Wide = symusic::details::wide_time_t<Unit>;
+
+    const vec<Unit>& original_;
+    const vec<Unit>& targets_;
+    Unit             start_;
+    Unit             end_;
+    Unit             target_;
+    Unit             target_end_;
+    f64              factor_;
+
+    static f64 difference(Unit time, Unit anchor) {
+        return static_cast<f64>(static_cast<Wide>(time) - static_cast<Wide>(anchor));
+    }
+
+    void select(size_t next) {
+        start_      = original_[next - 1];
+        end_        = original_[next];
+        target_     = targets_[next - 1];
+        target_end_ = targets_[next];
+        factor_     = difference(target_end_, target_) / difference(end_, start_);
+    }
+
+public:
+    TimeAdjustment(const vec<Unit>& original, const vec<Unit>& targets) :
+        original_{original}, targets_{targets} {
+        select(1);
+    }
+
+    bool contains(Unit start, Wide end) const {
+        // The release is wide so an out-of-range integer time is discarded before narrowing.
+        return start >= original_.front() && start <= original_.back() && end >= original_.front()
+               && end <= original_.back();
+    }
+
+    Unit project(Unit time) {
+        if (time < start_ || time > end_) {
+            const auto next = std::lower_bound(original_.begin() + 1, original_.end(), time);
+            select(static_cast<size_t>(next - original_.begin()));
+        }
+        // Use the exact target at the right anchor, retaining the checked tick displacement.
+        if (time == end_ && end_ != start_) {
+            if constexpr (std::integral<Unit>)
+                (void)trunc_time<Unit>(difference(target_end_, target_));
+            return target_end_;
+        }
+        const auto offset = trunc_time<Unit>(factor_ * difference(time, start_));
+        return symusic::details::add_time<Unit>(target_, offset);
+    }
+
+    // The endpoint bounds an interval of silence. The source window can
+    // shorten that interval or exclude it entirely.
+    std::optional<Unit> project_endpoint(Unit time) {
+        const auto clipped = std::min(time, original_.back());
+        if (clipped <= original_.front()) return std::nullopt;
+        return project(clipped);
+    }
+};
+
 template<TimeEvent T>
 void adjust_time_inplace_inner(
     pyvec<T>&                    events,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    using unit = typename T::unit;
-    // check if the events have duration
+    using unit             = typename T::unit;
     constexpr bool has_dur = HashDuration<T>;
-    // Difference of two times as f64, exact for Tick (i64) and in unit precision for floats.
-    auto diff = [](const unit lhs, const unit rhs) {
-        return static_cast<f64>(static_cast<wide_t<T>>(lhs) - static_cast<wide_t<T>>(rhs));
-    };
-    // Wide end so that an event ending beyond the tick range is rejected by `valid`, not wrapped.
-    auto get_end = [has_dur](const T& event) {
+    const auto     get_end = [has_dur](const T& event) {
         if constexpr (has_dur) { return wide_end(event); }
         return static_cast<wide_t<T>>(event.time);
     };
-    // return empty vector if events is empty
     if (events.empty()) return;
-    auto get_factor = [&original_times, &new_times, diff](const size_t x) {
-        f64 factor
-            = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
-        return factor;
-    };
-
-    const auto range = std::make_pair(original_times.front(), original_times.back());
-
-    auto valid = [get_end, range](const T& event) {
-        return (event.time >= range.first) & (get_end(event) <= range.second);
-    };
-
-    auto cur_range  = std::make_pair(original_times[0], original_times[1]);
-    auto cur_factor = get_factor(1);
-    auto pivot_new  = new_times[0];
-
-    size_t i = 0;
-    // clang-format off
-    for (size_t j = 0; j < events.size(); j++) {
-        T& event = events[j];
-        if (!valid(event)) continue;
-        if ((event.time) < cur_range.first | (event.time) > cur_range.second) {
-            auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), event.time)
-                - original_times.begin();
-            cur_factor = get_factor(idx);
-            cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-            pivot_new  = new_times[idx - 1];
-        }
-        unit start = symusic::details::add_time<unit>(
-            pivot_new,
-            trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
-        );
+    TimeAdjustment adjustment(original_times, new_times);
+    auto           output = events.pbegin();
+    for (auto input = events.pbegin(); input != events.pend(); ++input) {
+        auto&      event        = **input;
+        const auto original_end = get_end(event);
+        if (!adjustment.contains(event.time, original_end)) continue;
+        const auto start = adjustment.project(event.time);
         if constexpr (has_dur) {
-            // `valid` guarantees original_end <= original_times.back(), so it fits in `unit`.
-            const auto original_end = static_cast<unit>(get_end(event));
-            if (original_end > cur_range.second) {
-                auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
-                    - original_times.begin();
-                cur_factor = get_factor(idx);
-                cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-                pivot_new  = new_times[idx - 1];
-            }
-            unit end = symusic::details::add_time<unit>(
-                pivot_new,
-                trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
-            );
+            const auto end = adjustment.project(static_cast<unit>(original_end));
             event.duration = symusic::details::sub_time<unit>(end, start);
         }
         event.time = start;
-        *(events.pbegin() + i) = *(events.pbegin() + j);
-        ++i;
+        *output++  = *input;
     }
-    events.resize(i);
-    // clang-format on
+    events.resize(static_cast<size_t>(output - events.pbegin()));
 }
 
 template<typename T>
@@ -372,6 +389,11 @@ void adjust_time_inplace(
     adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
     adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
     adjust_time_inplace<false>(*(score.markers), original_times, new_times);
+    adjust_time_inplace<false>(*score.note_tunings, original_times, new_times);
+    if (score.explicit_end) {
+        details::TimeAdjustment adjustment(original_times, new_times);
+        score.explicit_end = adjustment.project_endpoint(*score.explicit_end);
+    }
 }
 
 template<typename T>

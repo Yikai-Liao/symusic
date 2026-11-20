@@ -13,6 +13,10 @@ Score<To> convertInner(
     Score<To> new_s(score.ticks_per_quarter);
     new_s.markers
         = std::make_shared<pyvec<TextMeta<To>>>(std::move(converter.time_vec(*score.markers)));
+    new_s.note_tunings
+        = std::make_shared<pyvec<NoteTuning<To>>>(converter.time_vec(*score.note_tunings));
+    new_s.copyright_notices = score.copyright_notices;
+    if (score.explicit_end) new_s.explicit_end = converter.time_value(*score.explicit_end);
     new_s.tempos = std::make_shared<pyvec<Tempo<To>>>(std::move(converter.time_vec(*score.tempos)));
     new_s.time_signatures = std::make_shared<pyvec<TimeSignature<To>>>(
         std::move(converter.time_vec(*score.time_signatures))
@@ -106,10 +110,13 @@ Score<Tick> resample_inner(const Score<Tick>& score, const i32 tpq, const i32 mi
         return details::round_to_i32(scale_rate * static_cast<f64>(t));
     };
 
-    ans.time_signatures = resample_time(*score.time_signatures, convert);
-    ans.key_signatures  = resample_time(*score.key_signatures, convert);
-    ans.tempos          = resample_time(*score.tempos, convert);
-    ans.markers         = resample_time(*score.markers, convert);
+    ans.time_signatures   = resample_time(*score.time_signatures, convert);
+    ans.key_signatures    = resample_time(*score.key_signatures, convert);
+    ans.tempos            = resample_time(*score.tempos, convert);
+    ans.markers           = resample_time(*score.markers, convert);
+    ans.note_tunings      = resample_time(*score.note_tunings, convert);
+    ans.copyright_notices = score.copyright_notices;
+    if (score.explicit_end) ans.explicit_end = convert(*score.explicit_end);
 
     const size_t track_num = score.tracks->size();
     ans.tracks             = std::make_shared<vec<shared<Track<Tick>>>>();

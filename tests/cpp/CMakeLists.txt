@@ -1,6 +1,7 @@
 symusic_add_dependency(Catch2)
 
-add_executable(symusic_test test_main.cpp test_abc.cpp)
+add_executable(symusic_test test_main.cpp test_abc.cpp test_abc_parser.cpp
+    test_abc_regressions.cpp test_abc_oracle.cpp)
 target_link_libraries(symusic_test PRIVATE Catch2::Catch2WithMain symusic)
 set_property(TARGET symusic_test PROPERTY RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 add_custom_command(TARGET symusic_test POST_BUILD

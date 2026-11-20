@@ -1,0 +1,12 @@
+%abc-2.1
+I:abc-charset utf-8
+%%abc-include defaults.abh
+
+X:1
+T:Header définitions
+L:1/16
+I:abc-include "tune
++: defs.abh"
+%%MIDI C 60
+K:C
+~G3 A |]

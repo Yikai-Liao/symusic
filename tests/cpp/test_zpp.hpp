@@ -206,10 +206,16 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
         check([] { return Note<Second>(1.5f, 0.5f, 60, 80); }, 10);
         check([] { return ControlChange<Tick>(240, 7, 100); }, 6);
         check([] { return ControlChange<Second>(0.5f, 7, 100); }, 6);
-        check([] { return TimeSignature<Tick>(0, 3, 4); }, 6);
-        check([] { return TimeSignature<Quarter>(0.f, 3, 4); }, 6);
         check([] { return KeySignature<Tick>(0, -2, 1); }, 6);
         check([] { return KeySignature<Second>(0.f, -2, 1); }, 6);
+    }
+
+    SECTION("A numeric time signature keeps its original wire image") {
+        const vec<u8> legacy{0, 0, 0, 0, 3, 4, 0xaa, 0x55};
+        const vec<u8> clean{0, 0, 0, 0, 3, 4, 0, 0};
+        const auto    meter = TimeSignature<Tick>::parse<DataFormat::ZPP>(legacy);
+        CHECK(meter == TimeSignature<Tick>{0, 3, 4});
+        CHECK(meter.dumps<DataFormat::ZPP>() == clean);
     }
 
     SECTION("Padded events in a vector") {
@@ -237,7 +243,6 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             };
             dirty(*track->notes, 10);
             dirty(*track->controls, 6);
-            dirty(*score.time_signatures, 6);
             dirty(*score.key_signatures, 6);
             score.tracks->push_back(track);
             return score;

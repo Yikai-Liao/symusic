@@ -4,6 +4,8 @@
 
 namespace symusic::abc::detail {
 
+// MIDI note number and signed bend offset (zero is the centered wheel).
+// The selected output route validates the final note before narrowing it.
 struct MidiPitch {
     int note;
     int wheel;
@@ -17,12 +19,15 @@ public:
     PitchTuning(const Tune& tune, Diagnostics& diagnostics);
 
     [[nodiscard]] static bool handles_midi(std::string_view name);
-    [[nodiscard]] MidiPitch   pitch(
+    // Resolve written spelling using the state's source position. The caller
+    // supplies the effective octave and accidental; channel transposition and
+    // drum mapping are subsequent playback decisions.
+    [[nodiscard]] MidiPitch pitch(
         char letter, int octave, Alteration alteration, Location at
     ) const;
 
 private:
-    enum class Midi { middle_c, normal, linear, equal };
+    enum class Midi { MiddleC, Normal, Linear, Equal, TuningSystem };
     using Detune = std::array<int, 12>;
     struct Scale {
         float octave;
@@ -37,6 +42,11 @@ private:
     struct State {
         int                         middle_c = 60;
         std::variant<Detune, Scale> temper{Detune{}};
+        bool                        comma53 = false;
+
+        [[nodiscard]] MidiPitch tempered_pitch(
+            char letter, int octave, Alteration alteration
+        ) const;
     };
     struct Change {
         Location at;
@@ -51,8 +61,10 @@ private:
     );
     [[nodiscard]] static std::optional<Scale> linear(std::string_view args);
     [[nodiscard]] static std::optional<Scale> equal(std::string_view args);
-    void                                      read(const Token& token, Diagnostics& diagnostics);
-    void read_midi(std::string_view args, Location at, Diagnostics& diagnostics);
+    void read(const Token& token, Location tune_start, Diagnostics& diagnostics);
+    void read_midi(
+        std::string_view args, Location at, Location tune_start, Diagnostics& diagnostics
+    );
     void read_detune(std::string_view args, Location at, Diagnostics& diagnostics);
     [[nodiscard]] const State& current() const;
 };

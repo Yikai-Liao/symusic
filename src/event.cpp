@@ -18,6 +18,7 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
+    NoteTuning,
     TextMeta
 )
 
@@ -44,7 +45,16 @@ inline i8 safe_add(const i8 a, const i8 b) {
     }
 
 REPEAT_ON(
-    SHIFT_TIME, Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
+    SHIFT_TIME,
+    Note,
+    Pedal,
+    ControlChange,
+    TimeSignature,
+    KeySignature,
+    Tempo,
+    PitchBend,
+    NoteTuning,
+    TextMeta
 )
 
 #undef SHIFT_TIME
@@ -85,6 +95,7 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
+    NoteTuning,
     TextMeta
 )
 

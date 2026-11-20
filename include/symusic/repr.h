@@ -178,6 +178,17 @@ FORMATTER(
 )
 
 FORMATTER(
+    NoteTuning,
+    d,
+    "NoteTuning(time={}, key={}, pitch={}, ttype='{}')",
+    "NoteTuning({}, {}, {}, '{}')",
+    fix_float(d.time),
+    d.key,
+    d.pitch,
+    T()
+)
+
+FORMATTER(
     TextMeta,
     d,
     "Text(time={}, text='{}', ttype='{}')",
@@ -219,6 +230,7 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
+    NoteTuning,
     TextMeta,
     Track,
     Score

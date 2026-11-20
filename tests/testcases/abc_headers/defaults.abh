@@ -1,0 +1,7 @@
+% Defaults shared by the file.
+%%abc-charset us-ascii
+M:3/4
+L:1/16
+U:h=!f!
+m: ~G3 = hG3
+%%MIDI C 64
