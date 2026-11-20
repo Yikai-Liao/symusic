@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import tempfile
+import warnings
 from contextlib import nullcontext
 from itertools import groupby
 from pathlib import Path
@@ -179,6 +180,23 @@ def upstream() -> Path:
     if executable := os.environ.get("SYMUSIC_TEST_ABC2MIDI"):
         return Path(executable)
     pytest.skip("set SYMUSIC_TEST_ABC2MIDI to compare against a local abc2midi")
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_native_matches_snapshot(name: str, golden: dict):
+    sample = CASES[name]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        score = Score.from_abc(sample["abc"])
+    messages = [str(w.message) for w in caught]
+    if code := sample.get("warning"):
+        assert any(f"[{code}]" in message for message in messages), messages
+    else:
+        assert not messages
+    expected = dict(golden[name])
+    # Some cases pin tempos that differ from the upstream converter's.
+    expected["tempos"] = sample.get("native_tempos", expected["tempos"])
+    assert performed(score) == expected
 
 
 @pytest.mark.parametrize("name", CASES)
