@@ -150,13 +150,11 @@ dump_abc : Write the encoded text to a file.
 constexpr const char* kGetBeatsDoc     = R"pbdoc(
 Return the beat times from *start_time* to the end of the score as a NumPy array. As in
 pretty_midi, compound meters (numerator 6, 9, 12, ...) count one beat per three notes of the
-denominator. A meter with explicit beat groups counts one beat per written group. Without a
-time signature a beat is a quarter note.
+denominator. Without a time signature a beat is a quarter note.
 )pbdoc";
 constexpr const char* kGetDownbeatsDoc = R"pbdoc(
 Return the time of the first beat of every bar from *start_time* to the end of the score as a
-NumPy array. Without a time signature at *start_time*, 4/4 is assumed. Free meter has no
-downbeats.
+NumPy array. Without a time signature at *start_time*, 4/4 is assumed.
 )pbdoc";
 constexpr const char* kToDoc           = R"pbdoc(
 Return a new score converted to *ttype*: ``"tick"``, ``"quarter"``, ``"second"`` or a time unit
@@ -207,9 +205,8 @@ constexpr const char* kEmptyDoc
     = R"pbdoc(Return whether the score has no tracks and no global events.)pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two. Events outside the anchor interval
-are dropped. Trailing silence is clipped to that interval before its endpoint is mapped. Returns a
-new score unless *inplace* is true.
+anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+Returns a new score unless *inplace* is true.
 )pbdoc";
 constexpr const char* kUseCountDoc
     = R"pbdoc(Return the number of references to the score, for debugging.)pbdoc";
@@ -437,9 +434,6 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "The ``KeySignature`` events.")
         .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "The ``Tempo`` events.")
         .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "The markers, as ``TextMeta`` events.")
-        .def_prop_rw(RW_COPY(shared<pyvec<NoteTuning<T>>>, "note_tunings", note_tunings), "The score-wide single-note tuning changes for MIDI device 0 and tuning program 0.")
-        .def_prop_rw(RW_COPY(vec<std::string>, "copyright_notices", copyright_notices), "The score-wide copyright notices. Assign a list to replace the notices.")
-        .def_prop_rw(RW_COPY(std::optional<unit>, "explicit_end", explicit_end), "The optional playback endpoint for trailing silence, in the score's time unit.")
         .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.")
         .def("__use_count", [](const self_t& self) { return self.use_count(); }, score_docstrings::kUseCountDoc)
         .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), score_docstrings::kToDoc)

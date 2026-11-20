@@ -55,7 +55,6 @@ namespace symusic {
  *  - KeySignature(key: i8, tonality: u8)                        \
  *  - Tempo(mspq: i32)                                           \
  *  - PitchBend(value: i32)                                      \
- *  - NoteTuning(key: u8, pitch: f32)                            \
  *  - TextMeta(text: string)                                     \
  */
 
@@ -147,29 +146,13 @@ struct TimeSignature : TimeStamp<T> {
     BASIC_TIMESTAMP_METHODS(TimeSignature, T);
 
     u8 numerator{4}, denominator{4};
-    // Explicit group lengths in denominator units, e.g. {2, 3, 2} for (2+3+2)/8.
-    vec<u8> beat_groups;
 
     TimeSignature(const unit time, const u8 numerator, const u8 denominator) :
         TimeStamp<T>{time}, numerator{numerator}, denominator{denominator} {}
 
     template<class U>
     TimeSignature(const unit time, const TimeSignature<U>& other) :
-        TimeStamp<T>{time}, numerator{other.numerator}, denominator{other.denominator},
-        beat_groups{other.beat_groups} {}
-
-    // The zero pair denotes an explicit span without metrical bar boundaries.
-    [[nodiscard]] static TimeSignature free_meter(unit time) { return {time, 0, 0}; }
-    [[nodiscard]] bool is_free_meter() const { return numerator == 0 && denominator == 0; }
-    [[nodiscard]] bool valid_beat_groups() const {
-        if (beat_groups.empty()) return true;
-        int total = 0;
-        for (const auto group : beat_groups) {
-            if (!group || group > numerator - total) return false;
-            total += group;
-        }
-        return beat_groups.size() > 1 && denominator > 0 && total == numerator;
-    }
+        TimeStamp<T>{time}, numerator{other.numerator}, denominator{other.denominator} {}
 
     auto default_key() const { return this->time; }
 };
@@ -243,21 +226,6 @@ struct PitchBend : TimeStamp<T> {
     template<class U>
     PitchBend(const unit time, const PitchBend<U>& other) :
         TimeStamp<T>{time}, value{other.value} {}
-
-    auto default_key() const { return this->time; }
-};
-
-template<TType T>
-struct NoteTuning : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(NoteTuning, T);
-
-    u8  key   = 0;
-    f32 pitch = 0;   // Absolute pitch in semitones, where middle C is 60.
-
-    NoteTuning(unit time, u8 key, f32 pitch) : TimeStamp<T>{time}, key(key), pitch(pitch) {}
-
-    template<TType U>
-    NoteTuning(unit time, const NoteTuning<U>& other) : NoteTuning(time, other.key, other.pitch) {}
 
     auto default_key() const { return this->time; }
 };

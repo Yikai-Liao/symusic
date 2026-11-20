@@ -23,7 +23,6 @@
 #include <utf8.h>
 
 #include "settings.h"
-#include "../note_tuning.h"
 #include "symusic/detail/time_conversion.h"
 #include "symusic/utils.h"
 
@@ -422,8 +421,7 @@ public:
         int              program,
         const Timeline&  notes,
         const Fields&    channel,
-        FieldRange       global,
-        i32              explicit_end = 0
+        FieldRange       global
     );
 
 private:
@@ -456,7 +454,7 @@ private:
     Reattack reattack(i32 start, i32 end, const Moment& next) const;
     void     atom(i32 duration, i32 end);
     void     moment(const Moment& change);
-    void play(const Timeline& notes, const Fields& channel, FieldRange global, i32 explicit_end);
+    void play(const Timeline& notes, const Fields& channel, FieldRange global);
 };
 
 void VoiceWriter::token(std::string_view text, size_t steps) {
@@ -643,8 +641,7 @@ void VoiceWriter::write(
     int              program,
     const Timeline&  notes,
     const Fields&    channel,
-    FieldRange       global,
-    i32              explicit_end
+    FieldRange       global
 ) {
     has_lyrics       = std::ranges::any_of(notes, [](const auto& entry) {
         return entry.second.lyric != nullptr;
@@ -660,16 +657,14 @@ void VoiceWriter::write(
     token(fmt::format("[I:MIDI program {}]", program));
     token("[I:MIDI chordattack 0]");
     token(fmt::format("[I:MIDI expand {}/{}]", PlaybackGrid::export_release_extension, tpq));
-    play(notes, channel, global, explicit_end);
+    play(notes, channel, global);
     token("|]");
     finish_line();
 }
 
 // Merge schedules without copying fields into every lane. At a shared tick,
 // global fields precede channel effects, which precede note attacks.
-void VoiceWriter::play(
-    const Timeline& notes, const Fields& channel, FieldRange global, i32 explicit_end
-) {
+void VoiceWriter::play(const Timeline& notes, const Fields& channel, FieldRange global) {
     constexpr auto end     = std::numeric_limits<i32>::max();
     const auto     tick_of = [end](auto iter, const auto& sequence) {
         return iter == sequence.end() ? end : iter->first;
@@ -717,8 +712,7 @@ void VoiceWriter::play(
     }
     // Pad by a tick when the last release still needs its gate extension.
     if (!notes.empty() && notes.rbegin()->first == previous)
-        explicit_end = std::max(explicit_end, previous + PlaybackGrid::export_tail);
-    if (explicit_end > previous) write_span(previous, explicit_end);
+        write_span(previous, previous + PlaybackGrid::export_tail);
 }
 
 // Validate times in the input unit, then round each endpoint to the ABC grid.
@@ -829,7 +823,6 @@ private:
     PlacementBudget       placement_budget;
     std::string           output;
     Fields                global;
-    std::optional<Fields> first_voice_fields;
     vec<PlannedTrack<T>>  tracks;
     size_t                total_voices   = 0;
     size_t                melodic_voices = 0;
@@ -839,7 +832,6 @@ private:
     vec<WrittenNote> notes(const Track<T>& track, std::string_view where);
     Lyrics           lyrics(const Track<T>& track, std::string_view where);
     void   place_lyrics(const Track<T>& track, vec<VoiceLane>& lanes, std::string_view where);
-    void   add_note_tunings(Fields& fields);
     Fields channel_events(const Track<T>& track, std::string_view where, size_t copies);
     void   add_control(Fields& fields, i32 at, int number, int value, std::string_view where);
     void   release_limits(i32 start, i32 duration, bool drums, std::string_view where);
@@ -930,21 +922,12 @@ vec<WrittenNote> ScoreWriter<T>::notes(const Track<T>& track, std::string_view w
 
 template<TType T>
 std::string meter_text(const TimeSignature<T>& event) {
-    if (!event.valid_beat_groups())
-        ExportIssues::invalid("meter", "beat groups must be positive and sum to the numerator");
-    if (event.is_free_meter()) return "none";
     if (!event.numerator || !event.denominator || !std::has_single_bit(event.denominator)) {
         ExportIssues::invalid(
             "meter", "expected a positive numerator and a power-of-two denominator"
         );
     }
-    if (event.beat_groups.empty()) return fmt::format("{}/{}", event.numerator, event.denominator);
-    std::string groups = "(";
-    for (const auto group : event.beat_groups) {
-        if (groups.size() > 1) groups += '+';
-        groups += std::to_string(group);
-    }
-    return fmt::format("{})/{}", groups, event.denominator);
+    return fmt::format("{}/{}", event.numerator, event.denominator);
 }
 
 template<TType T>
@@ -1012,24 +995,6 @@ void ScoreWriter<T>::header() {
         m,
         q
     );
-    if (!score.note_tunings->empty()) {
-        first_voice_fields = global;
-        add_note_tunings(*first_voice_fields);
-    }
-    for (const auto& notice : score.copyright_notices) {
-        planning_budget.spend(PlaybackWork::text(notice), "score copyright");
-        if (!utf8::is_valid(notice.begin(), notice.end()))
-            ExportIssues::invalid("score copyright", "copyright notice must be valid UTF-8");
-        if (notice.empty()) {
-            issues.warn("score copyright", "omitted-empty-copyright", "omitted an empty notice");
-            continue;
-        }
-        auto text = encode_text(notice, TextContext::Title);
-        // The parser trims a field before decoding the text.
-        if (text.back() == ' ') text.replace(text.size() - 1, 1, "\\u0020");
-        if (text.front() == ' ') text.replace(0, 1, "\\u0020");
-        output += fmt::format("Z:abc-copyright {}\n", text);
-    }
     output += fmt::format("K:{}\n", k);
 }
 
@@ -1299,47 +1264,10 @@ void ScoreWriter<T>::reserve_voices(size_t lanes, bool drums, std::string_view w
 }
 
 template<TType T>
-void ScoreWriter<T>::add_note_tunings(Fields& fields) {
-    bool timed   = false;
-    bool rounded = false;
-    planning_budget.spend(score.note_tunings->size(), "note tuning");
-    for (const auto& tuning : *score.note_tunings) {
-        if (!details::valid_note_tuning(tuning.key, tuning.pitch))
-            ExportIssues::invalid("note tuning", "expected a MIDI key and encodable pitch");
-        const auto time  = scale(tuning.time, "note tuning");
-        const auto pitch = details::decode_tuning_pitch(details::encode_tuning_pitch(tuning.pitch));
-        if (time == 0) {
-            // Run opening changes before the first voice's Program Change.
-            const auto line = fmt::format("I:MIDI snt {} {}\n", tuning.key, pitch);
-            budget.spend(PlaybackWork::token + PlaybackWork::text(line), "note tuning");
-            output += line;
-        } else {
-            // The message targets a device and program, independent of the voice.
-            fields[time].push_back(fmt::format("[I:MIDI snt {} {}]", tuning.key, pitch));
-            timed = true;
-        }
-        rounded |= pitch != tuning.pitch;
-    }
-    if (rounded)
-        issues.warn("note tuning", "rounded-tuning", "rounded pitches to the MIDI tuning grid");
-    if (timed)
-        issues.warn(
-            "note tuning",
-            "midi-note-tuning-timing",
-            "ABC places tuning at a preceding MIDI event's tick. Use MIDI for exact timing"
-        );
-}
-
-template<TType T>
 void ScoreWriter<T>::render_voices() {
-    // The first voice carries score-wide tuning changes and trailing silence.
-    const auto& opening = first_voice_fields ? *first_voice_fields : global;
-    const auto  extent  = score.explicit_end ? scale(*score.explicit_end, "explicit end")
-                                                   + PlaybackGrid::attack_offset - start_offset :
-                                               0;
     if (tracks.empty()) {
         VoiceWriter(output, budget, issues, "score", false)
-            .write(1, "", 0, {}, {}, opening, extent);
+            .write(1, "", 0, {}, {}, global);
         return;
     }
     int id = 0;
@@ -1353,13 +1281,10 @@ void ScoreWriter<T>::render_voices() {
             // ABC 2.1 section 7.3 repeats fields in each affected voice. The first
             // voice also carries changes after the music so they survive export.
             const FieldRange fields    = id == 0 ?
-                                             FieldRange(opening) :
+                                             FieldRange(global) :
                                              FieldRange(global.cbegin(), global.lower_bound(end));
-            const auto       voice_end = id == 0 ? extent : 0;
             VoiceWriter(output, budget, issues, plan.where, track.is_drum)
-                .write(
-                    ++id, track.name, track.program, lane.timeline, plan.channel, fields, voice_end
-                );
+                .write(++id, track.name, track.program, lane.timeline, plan.channel, fields);
         }
     }
 }

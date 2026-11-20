@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import pickle
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import numpy as np
 import pytest
 import symusic
 from symusic import (
     ControlChange,
     KeySignature,
     Note,
-    NoteTuning,
     Pedal,
     PitchBend,
     Score,
@@ -27,55 +24,40 @@ HEADER = "X:1\nT:Roundtrip\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\n"
 ABC_PATHS = sorted((TESTCASES_PATH / "abc_files").glob("*.abc"))
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_abc_meter_groups_numpy(ttype):
+def test_abc_additive_meter_is_a_plain_fraction():
     score = Score.from_abc(
         "%abc-2.1\nX:1\nT:Groups\nL:1/8\nM:(2+3+2)/8\nK:C\n"
         "C7 | [M:3/4] D6 | [M:3+2/8] E5 |]"
-    ).to(ttype)
-    values = score.time_signatures.numpy()
-    np.testing.assert_array_equal(
-        values["beat_groups"], [[2, 3, 2], [0, 0, 0], [3, 2, 0]]
     )
-    assert TimeSignature.from_numpy(**values, ttype=ttype) == score.time_signatures
+    assert [(m.time, m.numerator, m.denominator) for m in score.time_signatures] == [
+        (0, 7, 8),
+        (1680, 3, 4),
+        (3120, 5, 8),
+    ]
 
 
-def test_abc_meter_groups_numpy_validation():
-    meters = Score.from_abc(HEADER + "C4 |]").time_signatures
-    values = meters.numpy()
-    assert values.keys() == {"time", "numerator", "denominator"}
-    assert TimeSignature.from_numpy(**values) == meters
-    with pytest.raises(ValueError, match="one row per meter"):
-        TimeSignature.from_numpy(**values, beat_groups=np.zeros((2, 2), dtype=np.uint8))
-    with pytest.raises(ValueError, match="must be positive and sum"):
-        TimeSignature.from_numpy(
-            **values, beat_groups=np.array([[2, 0, 2]], dtype=np.uint8)
-        )
+def test_abc_free_meter_reads_as_the_common_pulse():
+    score = Score.from_abc("%abc-2.1\nX:1\nT:Free\nM:none\nL:1/4\nK:C\nC D |]")
+    assert [(m.time, m.numerator, m.denominator) for m in score.time_signatures] == [
+        (0, 4, 4)
+    ]
 
 
-def test_single_note_tuning_score_roundtrips():
-    score = Score.from_abc(HEADER + "C [I:MIDI snt 60 61.5] D |]")
-    assert score.note_tunings == [NoteTuning(480, 60, 61.5)]
-    assert score.to("quarter").note_tunings == [NoteTuning(1, 60, 61.5, "quarter")]
-    assert Score.from_abc(score.dumps_abc()).note_tunings == score.note_tunings
-    assert Score.from_midi(score.dumps_midi()).note_tunings == score.note_tunings
-    assert pickle.loads(pickle.dumps(score)) == score
-    assert pickle.loads(pickle.dumps(score.note_tunings[0])) == score.note_tunings[0]
+def test_single_note_tuning_has_no_score_effect():
+    plain = Score.from_abc(HEADER + "C D |]")
+    tuned = Score.from_abc(HEADER + "C [I:MIDI snt 60 61.5] D |]")
+    assert tuned == plain
+    with pytest.warns(UserWarning, match="invalid-midi"):
+        Score.from_abc(HEADER + "C [I:MIDI snt 128 61] D |]")
 
 
-def test_copyright_notices_without_music():
-    score = Score(480)
-    score.copyright_notices = ["  © Example & Office\nLine 2  "]
-    assert score.start() == score.end() == 0
-    for other in (
-        score.copy(),
-        score.to("second"),
-        score.resample(960),
-        Score.from_abc(score.dumps_abc()),
-        Score.from_midi(score.dumps_midi()),
-        pickle.loads(pickle.dumps(score)),
-    ):
-        assert other.copyright_notices == score.copyright_notices
+def test_copyright_fields_are_discarded():
+    plain = Score.from_abc(HEADER + "C D |]")
+    marked = Score.from_abc(
+        HEADER.replace("K:C", "Z:abc-copyright Example\nK:C")
+        + "%%abc-copyright Other\nC D |]"
+    )
+    assert marked == plain
 
 
 def note_rows(score: Score) -> list[tuple[int, int, int, int]]:

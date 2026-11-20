@@ -358,49 +358,25 @@ TEST_CASE("An expanded chord may release after the next written attack", "[abc]"
     CHECK(notes.at(6).time == 1441);
 }
 
-TEST_CASE("ABC export keeps transcription copyright notices", "[abc]") {
+TEST_CASE("ABC import discards copyright fields and directives", "[abc]") {
+    const auto plain = abc::read("%abc-2.1\nX:1\nT:Example\nK:C\nC |]");
     const auto [score, warnings] = abc::read(
         "%abc-2.1\nZ:abc-copyright &copy; Collection\n"
         "X:1\nT:Example\nZ:Transcribed by Alice\nZ:abc-copyright Bob\\u0025\nK:C\nC |]"
     );
     REQUIRE(warnings.empty());
-    CHECK(score.copyright_notices == vec<std::string>{"© Collection", "Bob%"});
-    const auto rendered = abc::write(score);
-    CHECK(rendered.warnings.empty());
-    CHECK(rendered.value.find("Z:abc-copyright © Collection\n") != std::string::npos);
-    CHECK(rendered.value.find("Z:abc-copyright Bob\\%\n") != std::string::npos);
-    CHECK(abc::read(rendered.value).value.copyright_notices == score.copyright_notices);
-    CHECK(
-        Score<Tick>::parse<DataFormat::MIDI>(score.dumps<DataFormat::MIDI>()).copyright_notices
-        == score.copyright_notices
-    );
-    CHECK(Score<Tick>::parse<DataFormat::ZPP>(score.dumps<DataFormat::ZPP>()) == score);
+    CHECK(score == plain.value);
+    CHECK(abc::write(score).value.find("abc-copyright") == std::string::npos);
+    const auto [legacy, legacy_warnings]
+        = abc::read("X:1\nT:Example\nK:C\n%%abc-copyright Example\nC [I:abc-copyright x] |]");
+    CHECK(legacy_warnings.empty());
+    CHECK(legacy == abc::read("X:1\nT:Example\nK:C\nC |]").value);
 }
-
-TEST_CASE("ABC decodes deprecated copyright directives once in written order", "[abc]") {
-    const auto [score, warnings] = abc::read(
-        "%%abc-copyright Ignored file directive\n" + header
-            + "|: C [I:abc-copyright \\x20 Space\\nLine] D E F\n"
-              "%%abc-copyright \\X25 percent\\tTab\\rCR\\\\Backslash\\q\n:|\n"
-              "%%abc-copyright "
-            + std::string(200, 'a'),
-        "copyright.abc"
-    );
-    REQUIRE(warnings.size() == 1);
-    CHECK(warnings.front().starts_with("copyright.abc:10:1: ABC [abridged-copyright]"));
-    const vec<std::string> expected{
-        "  Space\nLine", "% percent\tTab\rCR\\Backslashq", std::string(199, 'a')
-    };
-    CHECK(score.copyright_notices == expected);
-    CHECK(score.tracks->front()->notes->size() == 8);
-    CHECK(abc::read(abc::write(score).value).value.copyright_notices == expected);
-}
-
 TEST_CASE("Single-note SysEx tuning leaves the other chord pitches alone", "[abc]") {
     const auto [score, warnings]
         = abc::read(header + "%%MIDI snt 60 60.25\n[CE] D F G |]", "single-note.abc");
     REQUIRE(warnings.empty());
-    CHECK(score.note_tunings->collect() == vec<NoteTuning<Tick>>{{0, 60, 60.25f}});
+    CHECK(score == abc::read(header + "[CE] D F G |]").value);
     REQUIRE(score.tracks->size() == 1);
     const auto& track = *score.tracks->front();
     REQUIRE(track.notes->size() == 5);
@@ -408,7 +384,6 @@ TEST_CASE("Single-note SysEx tuning leaves the other chord pitches alone", "[abc
     CHECK(track.notes->at(1).pitch == 64);
     CHECK(track.pitch_bends->empty());
 }
-
 TEST_CASE("A cut uses grace-note articulation", "[abc]") {
     for (const auto& [directive, lead, host, following] : {
              std::tuple{"expand 1/24", 139, 379, 499},
@@ -1644,7 +1619,8 @@ TEST_CASE("ABC export keeps free meter until the first supplied signature", "[ab
     const auto [loaded, read_warnings] = abc::read(text);
     REQUIRE(read_warnings.empty());
     REQUIRE(loaded.time_signatures->size() == 2);
-    CHECK(loaded.time_signatures->front() == TimeSignature<Tick>{0, 0, 0});
+    // Free meter reads as the 4/4 pulse that abc2midi writes.
+    CHECK(loaded.time_signatures->front() == TimeSignature<Tick>{0, 4, 4});
     CHECK(loaded.time_signatures->back() == TimeSignature<Tick>{960, 3, 8});
     REQUIRE(loaded.tracks->size() == 2);
     for (size_t voice = 0; voice < loaded.tracks->size(); ++voice)
@@ -2128,143 +2104,45 @@ TEST_CASE("ABC lyrics prefer attacks in split voices and diagnose missing slots"
     CHECK(attack.front().text == "attack");
 }
 
-TEST_CASE("ABC 2.1 preserves free meter through export", "[abc]") {
+TEST_CASE("ABC free meter reads as the common time pulse", "[abc]") {
     const std::string prefix   = "%abc-2.1\nX:1\nT:Free\nL:1/4\n";
     const auto        original = abc::read(prefix + "M:none\nK:C\nC [M:3/4] D3 | [M:none] E F |]");
     REQUIRE(original.warnings.empty());
     const auto& score = original.value;
-    CHECK(
-        *score.time_signatures == pyvec<TimeSignature<Tick>>{{0, 0, 0}, {480, 3, 4}, {1920, 0, 0}}
-    );
-    CHECK(score.get_downbeats() == vec<i32>{480});
+    CHECK(*score.time_signatures == pyvec<TimeSignature<Tick>>{{0, 4, 4}, {480, 3, 4}, {1920, 4, 4}});
 
     const auto exported = abc::write(score);
-    CHECK_THAT(exported.value, Catch::Matchers::ContainsSubstring("\nM:none\n"));
-    CHECK_THAT(exported.value, Catch::Matchers::ContainsSubstring("[M:none]"));
     const auto reloaded = abc::read(exported.value);
     CHECK(reloaded.warnings.empty());
     CHECK(reloaded.value == score);
-
     const auto midi = Score<Tick>::parse<DataFormat::MIDI>(score.dumps<DataFormat::MIDI>());
-    CHECK(
-        *midi.time_signatures == pyvec<TimeSignature<Tick>>{{0, 4, 4}, {480, 3, 4}, {1920, 4, 4}}
-    );
+    CHECK(*midi.time_signatures == *score.time_signatures);
 }
-
-TEST_CASE("ABC 2.1 preserves the order of meter groups", "[abc]") {
+TEST_CASE("ABC additive meters become plain fractions", "[abc]") {
     const auto original = abc::read(
         "%abc-2.1\nX:1\nT:Groups\nL:1/8\nM:( 2 + 3 + 2 ) / 8\nK:C\n"
         "C D E F G A B | [M:3+2+2/8] c B A G F E D |]"
     );
     REQUIRE(original.warnings.empty());
     const auto& score = original.value;
-    REQUIRE(score.time_signatures->size() == 2);
-    CHECK(score.time_signatures->front().beat_groups == vec<u8>{2, 3, 2});
-    CHECK(score.time_signatures->back().beat_groups == vec<u8>{3, 2, 2});
-    const auto exported = abc::write(original.value);
-    CHECK_THAT(exported.value, Catch::Matchers::ContainsSubstring("\nM:(2+3+2)/8\n"));
-    CHECK_THAT(exported.value, Catch::Matchers::ContainsSubstring("[M:(3+2+2)/8]"));
+    CHECK(*score.time_signatures == pyvec<TimeSignature<Tick>>{{0, 7, 8}, {1680, 7, 8}});
+    const auto exported = abc::write(score);
+    CHECK_THAT(exported.value, Catch::Matchers::ContainsSubstring("\nM:7/8\n"));
     const auto reloaded = abc::read(exported.value);
     CHECK(reloaded.warnings.empty());
-    CHECK(reloaded.value == original.value);
+    CHECK(reloaded.value == score);
     CHECK(Score<Tick>::parse<DataFormat::ZPP>(score.dumps<DataFormat::ZPP>()) == score);
-    const auto meter = score.time_signatures->front();
-    CHECK(TimeSignature<Tick>::parse<DataFormat::ZPP>(meter.dumps<DataFormat::ZPP>()) == meter);
-    const auto meters = score.time_signatures->collect();
-    CHECK(TimeSignatureArr<Tick>(*score.time_signatures).to_vec() == meters);
-    CHECK(
-        parse<DataFormat::ZPP, vec<TimeSignature<Tick>>>(dumps<DataFormat::ZPP>(meters)) == meters
-    );
 }
-
-TEST_CASE("ABC grouped meter defines the score beat grid", "[abc]") {
-    const auto original = abc::read(
-        "%abc-2.1\nX:1\nT:Beat grid\nL:1/8\nM:(2+3+2)/8\nK:C\n"
-        "C7 | C5 [M:3+2+2/8] D7 | D7 |]"
-    );
-    REQUIRE(original.warnings.empty());
-    const auto& score = original.value;
-    CHECK(
-        score.get_beats() == vec<i32>{0, 480, 1200, 1680, 2160, 2880, 3600, 4080, 4560, 5280, 5760}
-    );
-    CHECK(score.get_downbeats() == vec<i32>{0, 1680, 2880, 4560});
-    const auto quarter = convert<Quarter>(score);
-    CHECK(quarter.get_beats() == vec<f32>{0, 1, 2.5f, 3.5f, 4.5f, 6, 7.5f, 8.5f, 9.5f, 11, 12});
-    CHECK(quarter.get_downbeats() == vec<f32>{0, 3.5f, 6, 9.5f});
-}
-
-TEST_CASE("Meter group columns align with numeric rows", "[abc]") {
-    TimeSignatureArr<Tick> columns(std::span<const TimeSignature<Tick>>{});
-    columns.time.push_back(0);
-    columns.numerator.push_back(4);
-    columns.denominator.push_back(4);
-    columns.emplace_back(1920, 7, 8, {2, 3, 2});
-    REQUIRE(columns.beat_groups.size() == 2);
-    const auto meters = columns.to_vec();
-    CHECK(meters.front().beat_groups.empty());
-    CHECK(meters.back().beat_groups == vec<u8>{2, 3, 2});
-
-    columns.beat_groups.pop_back();
-    CHECK_THROWS_AS(columns.to_vec(), std::invalid_argument);
-}
-
-TEST_CASE("Trailing ABC rests extend the score past the last attack", "[abc]") {
+TEST_CASE("Trailing ABC rests do not extend the score", "[abc]") {
     const std::string prefix = "%abc-2.1\nX:1\nT:Rests\nM:3/4\nL:1/4\nK:C\n";
-    for (const auto& [music, expected] : {
-             std::pair{"C3 | Z2 |]", 4320},
-             {"C3 | X2 |]", 4320},
-             {"C3 | z3 |]", 2880},
-             {"C3 | x3 |]", 2880},
-             {"z3 |]", 1440},
-         }) {
+    for (const auto* music : {"C3 | Z2 |]", "C3 | X2 |]", "C3 | z3 |]", "C3 | x3 |]"}) {
         CAPTURE(music);
         const auto original = abc::read(prefix + music);
         REQUIRE(original.warnings.empty());
-        CHECK(original.value.end() == expected);
-        const auto exported = abc::write(original.value);
-        const auto reloaded = abc::read(exported.value);
-        CHECK(reloaded.warnings.empty());
-        CHECK(reloaded.value == original.value);
-        CHECK(reloaded.value.end() == expected);
+        CHECK(original.value.end() == original.value.tracks->front()->end());
+        CHECK(original.value.end() == 1440);
     }
 }
-
-TEST_CASE("The ABC endpoint follows score time operations", "[abc]") {
-    const auto score = abc::read(header + "C2 z2 |]").value;
-    CHECK(score.explicit_end == 1920);
-    CHECK(score.deepcopy() == score);
-    CHECK(Score<Tick>::parse<DataFormat::ZPP>(score.dumps<DataFormat::ZPP>()) == score);
-    CHECK(resample(score, 960).end() == 3840);
-    CHECK(convert<Quarter>(score).end() == 4);
-    CHECK(convert<Second>(score).end() == 2);
-    CHECK(score.shift_time(240).end() == 2160);
-    CHECK(score.clip(0, 1440).end() == 1440);
-    CHECK(score.trim(0, 1440).end() == 1440);
-    CHECK_FALSE(score.clip(1920, 2400).explicit_end.has_value());
-}
-
-TEST_CASE("Time adjustment maps the ABC endpoint", "[abc]") {
-    const auto score    = abc::read(header + "C2 z2 |]").value;
-    auto       adjusted = ops::adjust_time(score, {0, 960, 2400}, {1, 481, 1921});
-    CHECK(score.explicit_end == 1920);
-    CHECK(adjusted.explicit_end == 1441);
-    CHECK(abc::read(abc::write(adjusted).value).value.end() == 1441);
-
-    adjusted = score.deepcopy();
-    ops::adjust_time_inplace(adjusted, {0, 1440}, {0, 720});
-    CHECK(adjusted.explicit_end == 720);
-    CHECK(adjusted.end() == 720);
-
-    adjusted = ops::adjust_time(score, {1920, 2400}, {0, 240});
-    CHECK_FALSE(adjusted.explicit_end);
-}
-
-TEST_CASE("An ABC endpoint at a time anchor maps exactly", "[abc]") {
-    const auto score = abc::read("%abc-2.1\nX:1\nT:Short rest\nL:1/1920\nK:C\nz49 |]").value;
-    REQUIRE(score.explicit_end == 49);
-    CHECK(ops::adjust_time(score, {0, 49}, {0, 1}).explicit_end == 1);
-}
-
 TEST_CASE("Omitting the meter is free meter", "[abc]") {
     const std::string music         = "K:C\nCDEF||GABc|";
     const auto [implicit, warnings] = abc::read("X:1\nT:Free meter\n" + music);
@@ -3288,7 +3166,7 @@ TEST_CASE("A configured chord gap also applies when backing slots shorten releas
     }
 }
 
-TEST_CASE("Single-note tuning follows each voice and replays in repeats", "[abc]") {
+TEST_CASE("Single-note tuning directives do not change the score", "[abc]") {
     const auto [score, warnings] = abc::read(
         "%abc-2.1\nX:1\nT:Tuning\nM:4/4\nL:1/4\n%%MIDI snt 60 61.5\nK:C\n"
         "[V:1] |: C [I:MIDI snt 60 62.125] C z2 :|\n"
@@ -3296,88 +3174,13 @@ TEST_CASE("Single-note tuning follows each voice and replays in repeats", "[abc]
     );
     for (const auto& warning : warnings) UNSCOPED_INFO(warning);
     REQUIRE(warnings.empty());
-    const vec<NoteTuning<Tick>> expected{
-        {0, 60, 61.5f},
-        {0, 61, 60.0009765625f},
-        {0, 61, 63.25f},
-        {480, 60, 62.125f},
-        {2400, 60, 62.125f}
-    };
-    CHECK(score.note_tunings->collect() == expected);
-    REQUIRE(score.tracks->size() == 2);
-    CHECK(score.tracks->at(0)->notes->at(0).pitch == 60);
-    CHECK(score.tracks->at(0)->notes->at(1).pitch == 60);
-
-    const auto written = abc::write(score);
-    CHECK(abc::read(written.value).value.note_tunings->collect() == expected);
-    const auto midi = score.dumps<DataFormat::MIDI>();
-    CHECK(Score<Tick>::parse<DataFormat::MIDI>(midi).note_tunings->collect() == expected);
-    CHECK(Score<Tick>::parse<DataFormat::ZPP>(score.dumps<DataFormat::ZPP>()) == score);
-}
-
-TEST_CASE("A score containing only note tuning preserves its timing in MIDI", "[abc]") {
-    Score<Tick> score(480);
-    score.note_tunings->emplace_back(960, 0, 0);
-    score.note_tunings->emplace_back(240, 127, 127.9998779296875f);
-    CHECK_FALSE(score.empty());
-    CHECK(score.start() == 240);
-    CHECK(score.end() == 960);
-    const vec<NoteTuning<Tick>> expected{{240, 127, 127.9998779296875f}, {960, 0, 0}};
-    const auto                  written = abc::write(score);
-    REQUIRE(written.warnings.size() == 1);
-    CHECK_THAT(
-        written.warnings.front(), Catch::Matchers::ContainsSubstring("midi-note-tuning-timing")
+    const auto plain = abc::read(
+        "%abc-2.1\nX:1\nT:Tuning\nM:4/4\nL:1/4\nK:C\n"
+        "[V:1] |: C C z2 :|\n[V:2] z E z2 |]"
     );
-    CHECK(
-        abc::read(written.value).value.note_tunings->collect()
-        == vec<NoteTuning<Tick>>{{1, 127, 127.9998779296875f}, {1, 0, 0}}
-    );
-    CHECK(
-        Score<Tick>::parse<DataFormat::MIDI>(score.dumps<DataFormat::MIDI>())
-            .note_tunings->collect()
-        == expected
-    );
-    const auto roundtrip = Score<Tick>::parse<DataFormat::ZPP>(score.dumps<DataFormat::ZPP>());
-    CHECK(roundtrip == score);
-    CHECK(score.shift_time(20).note_tunings->at(1).time == 260);
-    CHECK(resample(score, 960).note_tunings->at(1).time == 480);
-    score.note_tunings->emplace_back(960, 128, 60);
-    CHECK_THROWS_AS(abc::write(score), std::invalid_argument);
-    CHECK_THROWS_AS(score.dumps<DataFormat::MIDI>(), std::invalid_argument);
+    REQUIRE(plain.warnings.empty());
+    CHECK(score == plain.value);
 }
-
-TEST_CASE("Note tuning after a rest uses the last emitted event", "[abc]") {
-    for (const auto version : {"", "%abc-2.1\n"}) {
-        const auto [score, warnings]
-            = abc::read(version + header + "z [I:MIDI snt 60 61] C z [I:MIDI snt 60 62] D |]");
-        REQUIRE(warnings.empty());
-        CHECK(score.note_tunings->collect() == vec<NoteTuning<Tick>>{{0, 60, 61}, {960, 60, 62}});
-        const auto& notes = *score.tracks->front()->notes;
-        REQUIRE(notes.size() == 2);
-        CHECK(notes[0].time == 481);
-        CHECK(notes[1].time == 1441);
-    }
-}
-
-TEST_CASE("Note tuning follows the MIDI clock of each generated pass", "[abc]") {
-    const std::string tuning = "[I:MIDI snt 60 61.5]";
-    const auto        check  = [&](const std::string& body, const vec<i32>& ticks) {
-        CAPTURE(body);
-        const auto [score, warnings] = abc::read(header + body);
-        REQUIRE(warnings.empty());
-        vec<NoteTuning<Tick>> expected;
-        for (const auto tick : ticks) expected.emplace_back(tick, 60, 61.5f);
-        CHECK(score.note_tunings->collect() == expected);
-    };
-    check("z [I:MIDI program 0] " + tuning + " C z2 |]", {481});
-    check("z [Q:1/4=90] " + tuning + " C z2 |]", {481});
-    check("[V:one] z [Q:1/4=90] " + tuning + " C z2 |]\n[V:two] E4 |]", {0});
-    check("%%MIDI drum dddd 36 37 38 39\n%%MIDI drumon\nz " + tuning + " C z2 |]", {0, 480});
-    check("%%MIDI drumon\n%%MIDI drumoff\nz " + tuning + " C z2 |]", {0, 0});
-    check("\"C\"z " + tuning + " D z2 |]", {0, 240});
-    check("z [I:MIDI droneon] " + tuning + " C D [I:MIDI droneoff] z |]", {0, 1443});
-}
-
 TEST_CASE("A delayed drone reuses the program delta on its two attacks", "[abc]") {
     const auto [score, warnings]
         = abc::read(header + "C [I:MIDI droneon] D E [I:MIDI droneoff] F |]");
@@ -3395,7 +3198,6 @@ TEST_CASE("Invalid ABC single-note tuning reports the directive and keeps playin
           + "[I:MIDI snt 128 61] [I:MIDI snt 60 127.99993896484375] [I:MIDI snt 60 NaN]\n"
             "[I:MIDI snt 60] [I:MIDI snt 60 60x] [I:MIDI snt 60 59.25 extra] C |]";
     const auto [score, warnings] = abc::read(abc, "tuning.abc");
-    CHECK(score.note_tunings->empty());
     CHECK(score.note_num() == 1);
     REQUIRE(warnings.size() == 6);
     CHECK_THAT(warnings.front(), Catch::Matchers::StartsWith("tuning.abc:6:2: ABC [invalid-midi]"));

@@ -12,24 +12,10 @@
 
 namespace symusic::abc::detail {
 
-inline TimeSignature<Tick> score_meter(const Meter& meter, i32 time, ExpressionDialect dialect) {
-    if (meter.free && dialect == ExpressionDialect::abc_2_1)
-        return TimeSignature<Tick>::free_meter(time);
-    // Numeric meters and the free-meter playback pulse both fit in u8.
-    TimeSignature<Tick> signature(
-        time, static_cast<u8>(meter.numerator), static_cast<u8>(meter.denominator)
-    );
-    if (meter.group_starts.any() && dialect == ExpressionDialect::abc_2_1) {
-        int start = 0;
-        for (int beat = 1; beat < meter.numerator; ++beat) {
-            if (meter.group_starts.test(beat)) {
-                signature.beat_groups.push_back(static_cast<u8>(beat - start));
-                start = beat;
-            }
-        }
-        signature.beat_groups.push_back(static_cast<u8>(meter.numerator - start));
-    }
-    return signature;
+// The free-meter playback pulse and an additive meter's total both fit in u8.
+// The score keeps only the numerator and denominator, as a MIDI file does.
+inline TimeSignature<Tick> score_meter(const Meter& meter, i32 time) {
+    return {time, static_cast<u8>(meter.numerator), static_cast<u8>(meter.denominator)};
 }
 
 // Opening values and tune-wide policies compiled before navigation. tempo is
@@ -78,8 +64,6 @@ struct Performance {
     vec<Located<TimeSignature<Tick>>> meters;
     vec<Located<KeySignature<Tick>>>  keys;
     vec<TextMeta<Tick>>               markers;
-    vec<NoteTuning<Tick>>             note_tunings;
-    i32                               trailing_rest_end = 0;
 };
 
 struct LanePlan {
@@ -101,7 +85,6 @@ struct VoicePlan {
     vec<LanePlan>          lanes;
     bool                   uses_conductor   = false;
     bool                   expands_releases = false;
-    bool                   tunes_notes      = false;
 };
 
 VoicePlan plan_voice(

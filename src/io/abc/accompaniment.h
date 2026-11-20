@@ -84,10 +84,6 @@ public:
     void meter(int lane, Meter change);
     void bar(int lane, long double time, Location at);
     void advance(int lane, long double end, Location at);
-    // Drone MIDI deltas may put the last emitted event past the written time.
-    [[nodiscard]] i32 drone_event_time(int lane) const {
-        return harmonic_parts[lane].drone.emitted;
-    }
     // Close active gates and return the backing for each lane, in lane order.
     vec<PerformedBacking> finish(std::span<const long double> lane_ends, Location at);
 

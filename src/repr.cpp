@@ -27,7 +27,6 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
-    NoteTuning,
     TextMeta
 )
 
@@ -107,7 +106,6 @@ REPEAT_ON(
     KeySignature,
     Tempo,
     PitchBend,
-    NoteTuning,
     TextMeta,
     Track,
     Score

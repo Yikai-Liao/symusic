@@ -705,74 +705,6 @@ void merge(Performance& all, Performance voice) {
     append_fields(all.meters, voice.meters);
     append_fields(all.keys, voice.keys);
     append(all.markers, voice.markers);
-    append(all.note_tunings, voice.note_tunings);
-    all.trailing_rest_end = std::max(all.trailing_rest_end, voice.trailing_rest_end);
-}
-
-std::string legacy_copyright(std::string_view text, Location at, Diagnostics& diagnostics) {
-    // The abc2midi directive uses C-style byte escapes and a 199-byte payload.
-    constexpr size_t limit = 199;
-    std::string      result;
-    while (!text.empty() && result.size() < limit) {
-        auto byte = text.front();
-        text.remove_prefix(1);
-        if (byte == '\\' && !text.empty()) {
-            byte = text.front();
-            text.remove_prefix(1);
-            switch (byte) {
-            case 'n': byte = '\n'; break;
-            case 'r': byte = '\r'; break;
-            case 't': byte = '\t'; break;
-            case 'x':
-            case 'X': {
-                unsigned                   value  = 0;
-                size_t                     digits = 0;
-                constexpr std::string_view hex    = "0123456789abcdefABCDEF";
-                for (const char next : text) {
-                    const auto digit = hex.find(next);
-                    if (digit == hex.npos) break;
-                    const auto nibble = static_cast<unsigned>(digit < 16 ? digit : digit - 6);
-                    value             = (value * 16 + nibble) & 0xff;
-                    ++digits;
-                }
-                if (digits) byte = static_cast<char>(value);
-                text.remove_prefix(digits);
-                break;
-            }
-            default: break;
-            }
-        }
-        if (byte == '\0') break;
-        result.push_back(byte);
-    }
-    if (!text.empty() && result.size() == limit)
-        diagnostics.warn(at, "abridged-copyright", "copyright notice exceeds 199 decoded bytes");
-    return symusic::details::strip_non_utf_8(result);
-}
-
-vec<std::string> copyright_notices(const Tune& tune, Diagnostics& diagnostics) {
-    vec<std::string> result;
-    bool             in_tune = false;
-    const auto       collect = [&](const Token& token) {
-        constexpr std::string_view name = "abc-copyright";
-        std::string                notice;
-        if (const auto* field = std::get_if<Field>(&token.value); field && field->kind == 'X') {
-            in_tune = true;
-        } else if (field && field->kind == 'Z') {
-            auto text = field->value;
-            if (word(text) != name) return;
-            diagnostics.spend(PlaybackWork::text(text), token.at);
-            notice = decode_text(trim(text), TextContext::Title, tune.version);
-        } else if (auto args = token.information(); in_tune && args && word(*args) == name) {
-            diagnostics.spend(PlaybackWork::text(*args), token.at);
-            notice = legacy_copyright(trim(*args), token.at, diagnostics);
-        }
-        if (!notice.empty()) result.push_back(std::move(notice));
-    };
-    // Read each written notice once, regardless of playback order.
-    for (const auto& token : tune.header) collect(token);
-    for (const auto& token : tune.body) collect(token);
-    return result;
 }
 
 Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnostics& diagnostics) {
@@ -810,7 +742,7 @@ Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnosti
         merge(music, std::move(performance));
     }
     ScoreNative<Tick> score(tpq);
-    const auto        initial_meter = score_meter(settings.meter, 0, settings.expression);
+    const auto        initial_meter = score_meter(settings.meter, 0);
     const auto        initial_key   = KeySignature<Tick>(
         0, static_cast<i8>(settings.key.fifths), static_cast<i8>(settings.key.minor)
     );
@@ -825,13 +757,8 @@ Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnosti
     // A split voice can be declared after another named voice already exists.
     std::ranges::stable_sort(music.passes, {}, &PlaybackPass::declaration);
     for (auto& pass : music.passes) pass.publish(score.tracks, drum_map);
-    score.markers           = std::move(music.markers);
-    score.copyright_notices = copyright_notices(tune, diagnostics);
-    std::ranges::stable_sort(music.note_tunings, {}, &NoteTuning<Tick>::time);
-    score.note_tunings = std::move(music.note_tunings);
-    auto result        = to_shared(std::move(score));
-    if (music.trailing_rest_end > result.end()) result.explicit_end = music.trailing_rest_end;
-    return result;
+    score.markers = std::move(music.markers);
+    return to_shared(std::move(score));
 }
 
 Result<Score<Tick>> read_text(

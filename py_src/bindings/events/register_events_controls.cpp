@@ -21,8 +21,7 @@ void bind_controller_family_types(nb::module_& m) {
         pyutils::bind_tempo,
         pyutils::bind_controlchange,
         pyutils::bind_pedal,
-        pyutils::bind_pitchbend,
-        pyutils::bind_note_tuning
+        pyutils::bind_pitchbend
     )
 
 #undef BIND_EVENT

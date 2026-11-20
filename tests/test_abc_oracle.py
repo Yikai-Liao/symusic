@@ -59,13 +59,10 @@ def performed(score: Score) -> dict:
         "tempos": [[event.time, event.mspq] for event in score.tempos],
         # abc2midi can copy identical time signatures into the conductor
         # and backing tracks. Keep real changes, including changes at tick 0.
-        # MIDI represents free meter with the same 4/4 pulse as Symusic's MIDI writer.
         "meters": [
             list(meter)
             for meter, _ in groupby(
-                (event.time, 4, 4)
-                if (event.numerator, event.denominator) == (0, 0)
-                else (event.time, event.numerator, event.denominator)
+                (event.time, event.numerator, event.denominator)
                 for event in score.time_signatures
             )
         ],
@@ -103,60 +100,31 @@ def oracle_score(
     )
 
 
-def test_live_single_note_tuning_bytes(upstream: Path, tmp_path: Path):
-    abc = HEADER + "[I:MIDI snt 60 61.5] C [I:MIDI snt 60 62.125] D E F |]"
-    actual = oracle_midi(upstream, abc, tmp_path)
-    score = Score.from_abc(abc)
-    native = tmp_path / "native.mid"
-    score.dump_midi(native)
-
-    def tuning_messages(path: Path) -> list[tuple[int, tuple[int, ...]]]:
-        tick = 0
-        messages = []
-        for message in merge_tracks(MidiFile(path).tracks):
-            tick += message.time
-            if message.type == "sysex":
-                messages.append((tick, tuple(message.data)))
-        return messages
-
-    expected = [
-        (0, (127, 0, 8, 2, 0, 1, 60, 61, 64, 0)),
-        (480, (127, 0, 8, 2, 0, 1, 60, 62, 16, 0)),
-    ]
-    assert tuning_messages(actual) == tuning_messages(native) == expected
-    assert Score(actual).note_tunings == score.note_tunings
-    assert (
-        tuning_messages(oracle_midi(upstream, score.dumps_abc(), tmp_path)) == expected
+@pytest.mark.parametrize("version", ["", "%abc-2.1\n"])
+@pytest.mark.parametrize(
+    "music",
+    [
+        "[I:MIDI snt 60 61.5] C [I:MIDI snt 60 62.125] D E F |]",
+        "z [I:MIDI snt 60 61] C z [I:MIDI snt 60 62] D |]",
+        "z [I:MIDI program 0] [I:MIDI snt 60 61.5] C z2 |]",
+        "z [Q:1/4=90] [I:MIDI snt 60 61.5] C z2 |]",
+        '"C"z [I:MIDI snt 60 61.5] D z2 |]',
+        "z [I:MIDI droneon] [I:MIDI snt 60 61.5] C D [I:MIDI droneoff] z |]",
+    ],
+)
+def test_live_tuning_leaves_no_trace(upstream, tmp_path, version, music):
+    # The MIDI reader skips the tuning SysEx that abc2midi writes.
+    abc = version + HEADER + music
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
     )
 
 
-@pytest.mark.parametrize("version", ["", "%abc-2.1\n"])
-def test_live_tuning_after_rests(upstream: Path, tmp_path: Path, version: str):
-    abc = version + HEADER + "z [I:MIDI snt 60 61] C z [I:MIDI snt 60 62] D |]"
-    native = Score.from_abc(abc)
-    reference = oracle_score(upstream, abc, tmp_path)
-    assert native.note_tunings == reference.note_tunings
-    assert [tuning.time for tuning in native.note_tunings] == [0, 960]
-
-
-@pytest.mark.parametrize(
-    ("setup", "body", "ticks"),
-    [
-        ("", "z [I:MIDI program 0] {tune} C z2 |]", [481]),
-        ("", "z [Q:1/4=90] {tune} C z2 |]", [481]),
-        ("", "[V:one] z [Q:1/4=90] {tune} C z2 |]\n[V:two] E4 |]", [0]),
-        ("%%MIDI drum dddd 36 37 38 39\n%%MIDI drumon\n", "z {tune} C z2 |]", [0, 480]),
-        ("%%MIDI drumon\n%%MIDI drumoff\n", "z {tune} C z2 |]", [0, 0]),
-        ("", '"C"z {tune} D z2 |]', [0, 240]),
-        ("", "z [I:MIDI droneon] {tune} C D [I:MIDI droneoff] z |]", [0, 1443]),
-    ],
-)
-def test_live_tuning_across_midi_passes(upstream, tmp_path, setup, body, ticks):
-    abc = HEADER + setup + body.format(tune="[I:MIDI snt 60 61.5]")
-    native = Score.from_abc(abc)
-    reference = oracle_score(upstream, abc, tmp_path)
-    assert native.note_tunings == reference.note_tunings
-    assert [tuning.time for tuning in native.note_tunings] == ticks
+def test_live_copyright_is_not_imported(upstream: Path, tmp_path: Path):
+    abc = HEADER + "%%abc-copyright Copyright Example\\nLine \\x32\nCDEF |]"
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
+    )
 
 
 @pytest.mark.parametrize("gap", [0, 4, 10])
@@ -173,17 +141,6 @@ def test_live_expanded_release_queue(
     native = note_rows(Score.from_abc(abc))
     reference = note_rows(oracle_score(upstream, abc, tmp_path))
     assert [row[:3] for row in native] == [row[:3] for row in reference]
-
-
-def test_live_legacy_copyright_payload(upstream: Path, tmp_path: Path):
-    abc = HEADER + "%%abc-copyright Copyright Example\\nLine \\x32\nCDEF |]"
-    native = Score.from_abc(abc)
-    reference = oracle_score(upstream, abc, tmp_path)
-    assert (
-        native.copyright_notices
-        == reference.copyright_notices
-        == ["Copyright Example\nLine 2"]
-    )
 
 
 def test_live_numeric_voice_ids(upstream: Path, tmp_path: Path):

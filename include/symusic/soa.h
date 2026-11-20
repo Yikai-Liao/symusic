@@ -1,8 +1,6 @@
 #ifndef LIBSYMUSIC_SOA_H
 #define LIBSYMUSIC_SOA_H
 
-#include <stdexcept>
-
 #include "symusic/event.h"
 #include "MetaMacro.h"
 namespace symusic {
@@ -154,34 +152,17 @@ struct TimeSignatureArr {
 
     vec<unit> time;
     vec<u8>   numerator, denominator;
-    // The optional column is empty when every row has an ordinary meter.
-    vec<vec<u8>> beat_groups;
 
-    void reserve(size_t size) {
-        time.reserve(size);
-        numerator.reserve(size);
-        denominator.reserve(size);
-    }
+    void reserve(const size_t _size) { REPEAT_ON(RESERVE, time, numerator, denominator) }
 
-    void emplace_back(unit at, u8 count, u8 base, vec<u8> groups = {}) {
-        if (!groups.empty() || !beat_groups.empty()) {
-            if (beat_groups.size() > time.size())
-                throw std::invalid_argument("time signature columns have different lengths");
-            beat_groups.resize(time.size());
-            beat_groups.push_back(std::move(groups));
-        }
-        time.push_back(at);
-        numerator.push_back(count);
-        denominator.push_back(base);
+    void emplace_back(const unit _time, const u8 _numerator, const u8 _denominator) {
+        time.emplace_back(_time);
+        numerator.emplace_back(_numerator);
+        denominator.emplace_back(_denominator);
     }
 
     void emplace_back(const TimeSignature<T>& time_signature) {
-        emplace_back(
-            time_signature.time,
-            time_signature.numerator,
-            time_signature.denominator,
-            time_signature.beat_groups
-        );
+        emplace_back(time_signature.time, time_signature.numerator, time_signature.denominator);
     }
 
     explicit TimeSignatureArr(std::span<const TimeSignature<T>> data) {
@@ -195,14 +176,10 @@ struct TimeSignatureArr {
     }
 
     vec<TimeSignature<T>> to_vec() const {
-        if (time.size() != numerator.size() || time.size() != denominator.size()
-            || (!beat_groups.empty() && time.size() != beat_groups.size()))
-            throw std::invalid_argument("time signature columns have different lengths");
         vec<TimeSignature<T>> ans;
         ans.reserve(time.size());
         for (size_t i = 0; i < time.size(); ++i) {
             ans.emplace_back(time[i], numerator[i], denominator[i]);
-            if (!beat_groups.empty()) ans.back().beat_groups = beat_groups[i];
         }
         return ans;
     }

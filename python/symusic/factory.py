@@ -15,7 +15,6 @@ __all__ = [
     "ControlChange",
     "KeySignature",
     "Note",
-    "NoteTuning",
     "Pedal",
     "PitchBend",
     "Score",
@@ -204,7 +203,7 @@ class KeySignatureFactory:
 
 @dataclass(frozen=True)
 class TimeSignatureFactory:
-    """Create a time signature. Use ``numerator=0, denominator=0`` for free meter."""
+    """``TimeSignature(time, numerator, denominator, ttype="tick")`` creates a time signature."""
 
     __core_classes = CoreClasses(
         core.TimeSignatureTick,
@@ -235,15 +234,12 @@ class TimeSignatureFactory:
         numerator: ndarray,
         denominator: ndarray,
         ttype: smt.GeneralTimeUnit = "tick",
-        *,
-        beat_groups: ndarray | None = None,
     ) -> smt.GeneralTimeSignatureList:
-        """Build time signatures from arrays, with optional zero-padded beat groups."""
+        """Build a time signature list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(
             time,
             numerator,
             denominator,
-            beat_groups=beat_groups,
         )
 
 
@@ -391,27 +387,6 @@ class PitchBendFactory:
     ) -> smt.GeneralPitchBendList:
         """Build a pitch bend list from one array per field."""
         return self.__core_lists.dispatch(ttype).from_numpy(time, value)
-
-
-@dataclass(frozen=True)
-class NoteTuningFactory:
-    """``NoteTuning(time, key, pitch, ttype="tick")`` retunes one MIDI key."""
-
-    __core_classes = CoreClasses(
-        core.NoteTuningTick, core.NoteTuningQuarter, core.NoteTuningSecond
-    )
-
-    def __call__(
-        self,
-        time: smt.TimeDtype,
-        key: int,
-        pitch: float,
-        ttype: smt.GeneralTimeUnit = "tick",
-    ) -> smt.NoteTuning:
-        return self.__core_classes.dispatch(ttype)(time, key, pitch)  # type: ignore
-
-    def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, self.__core_classes)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -655,7 +630,6 @@ ControlChange = ControlChangeFactory()
 Tempo = TempoFactory()
 Pedal = PedalFactory()
 PitchBend = PitchBendFactory()
-NoteTuning = NoteTuningFactory()
 TextMeta = TextMetaFactory()
 Track = TrackFactory()
 Score = ScoreFactory()

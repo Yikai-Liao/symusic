@@ -112,66 +112,15 @@ auto controlchange_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8
 }
 
 template<TType T, typename unit = typename T::unit>
-auto timesig_from_numpy(
-    NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1) denominator, NDARR(u8, 2) beat_groups
-) {
+auto timesig_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1) denominator) {
     const auto size = time.size();
     if (size != numerator.size() || size != denominator.size()) {
         throw std::invalid_argument("time, numerator, denominator must have the same size");
     }
-    const auto has_groups = beat_groups.is_valid();
-    if (has_groups && (beat_groups.shape(0) != size || beat_groups.shape(1) > 255)) {
-        throw std::invalid_argument("beat_groups needs one row per meter and at most 255 columns");
-    }
     vec<TimeSignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        auto& meter = ans.emplace_back(time(i), numerator(i), denominator(i));
-        if (!has_groups) continue;
-        for (size_t j = 0; j < beat_groups.shape(1); ++j)
-            meter.beat_groups.push_back(beat_groups(i, j));
-        // Zero pads the right edge. An interior zero remains invalid.
-        while (!meter.beat_groups.empty() && meter.beat_groups.back() == 0)
-            meter.beat_groups.pop_back();
-        if (!meter.valid_beat_groups())
-            throw std::invalid_argument("beat groups must be positive and sum to the numerator");
-    }
+    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), numerator(i), denominator(i)); }
     return details::to_shared_vec(std::move(ans));
-}
-
-template<TType T>
-nb::dict timesig_to_numpy(const shared<pyvec<TimeSignature<T>>>& events) {
-    using Arrays  = TimeSignatureArr<T>;
-    auto  storage = std::make_unique<Arrays>(*events);
-    auto& data    = *storage;
-    auto  owner
-        = nb::capsule(storage.get(), [](void* ptr) noexcept { delete static_cast<Arrays*>(ptr); });
-    storage.release();
-    const auto column = [&owner]<class Scalar>(vec<Scalar>& values) {
-        return nb::ndarray<nb::numpy, Scalar>(values.data(), {values.size()}, owner);
-    };
-    nb::dict result;
-    result["time"]        = column(data.time);
-    result["numerator"]   = column(data.numerator);
-    result["denominator"] = column(data.denominator);
-
-    size_t width = 0;
-    for (const auto& groups : data.beat_groups) width = std::max(width, groups.size());
-    if (width == 0) return result;
-    if (width > 255 || data.size() > vec<u8>().max_size() / width)
-        throw std::invalid_argument("beat_groups array is too large");
-    auto padded = std::make_unique<vec<u8>>(data.size() * width);
-    auto row    = padded->data();
-    for (const auto& groups : data.beat_groups) {
-        std::ranges::copy(groups, row);
-        row += width;
-    }
-    auto group_owner
-        = nb::capsule(padded.get(), [](void* ptr) noexcept { delete static_cast<vec<u8>*>(ptr); });
-    auto* group_data = padded.release()->data();
-    result["beat_groups"]
-        = nb::ndarray<nb::numpy, u8>(group_data, {data.size(), width}, group_owner);
-    return result;
 }
 
 template<TType T, typename unit = typename T::unit>

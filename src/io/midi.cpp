@@ -14,7 +14,6 @@
 #include "symusic/ops.h"
 #include "symusic/utils.h"
 #include "symusic/conversion.h"
-#include "note_tuning.h"
 
 namespace symusic {
 
@@ -211,51 +210,6 @@ public:
  * @param tick2unit Converter that maps MIDI ticks to the desired time unit.
  * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range before parsing.
  */
-// Read the real-time single-note changes for device 0, tuning program 0.
-// MiniMidi exposes the SMF length prefix along with the SysEx payload.
-template<TType T>
-void read_note_tunings(std::span<const u8> data, typename T::unit time, vec<NoteTuning<T>>& out) {
-    constexpr auto prefix = std::array<u8, 5>{0x7f, 0, 8, 2, 0};
-    for (int i = 0; i < 4; ++i) {
-        if (data.empty()) return;
-        const bool last = data.front() < 0x80;
-        data            = data.subspan(1);
-        if (last) break;
-        if (i == 3) return;
-    }
-    if (data.size() < 7 || !std::ranges::equal(data.first(prefix.size()), prefix) || data[5] > 127
-        || data.size() != 7 + 4 * size_t{data[5]} || data.back() != 0xf7)
-        return;
-    for (auto entries = data.subspan(6, 4 * size_t{data[5]}); !entries.empty();
-         entries      = entries.subspan(4)) {
-        if (!std::ranges::all_of(entries.first(4), is_valid_midi_data_byte)) continue;
-        const auto pitch = decode_tuning_pitch((entries[1] << 14) | (entries[2] << 7) | entries[3]);
-        if (valid_note_tuning(entries[0], pitch)) out.emplace_back(time, entries[0], pitch);
-    }
-}
-
-minimidi::Message<> write_note_tuning(const NoteTuning<Tick>& tuning) {
-    if (tuning.time < 0 || !valid_note_tuning(tuning.key, tuning.pitch))
-        throw std::invalid_argument("Invalid time, key or pitch in MIDI note tuning");
-    const int pitch = encode_tuning_pitch(tuning.pitch);
-    return minimidi::Message<>(
-        tuning.time,
-        0xf0,
-        {11,
-         0x7f,
-         0,
-         8,
-         2,
-         0,
-         1,
-         tuning.key,
-         static_cast<u8>(pitch >> 14),
-         static_cast<u8>((pitch >> 7) & 0x7f),
-         static_cast<u8>(pitch & 0x7f),
-         0xf7}
-    );
-}
-
 template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
     requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
 [[nodiscard]] Score<T> parse_midi(
@@ -287,11 +241,6 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
             const auto cur_tick = static_cast<Tick::unit>(msg.time);
             const auto cur_time = tick2unit(cur_tick);
             switch (msg.type()) {
-            case minimidi::MessageType::SysExStart:
-                read_note_tunings<T>(
-                    {msg.data().data(), msg.data().size()}, cur_time, score.note_tunings
-                );
-                break;
             case minimidi::MessageType::NoteOn: {
                 const auto& note_on = msg.template cast<minimidi::NoteOn>();
                 ensure_valid_midi_data_byte("pitch", note_on.pitch(), sanitize_data);
@@ -366,12 +315,6 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 // Meta Message
             case minimidi::MessageType::Meta: {
                 switch (const auto& meta = msg.template cast<minimidi::Meta>(); meta.meta_type()) {
-                case minimidi::MetaType::CopyrightNote: {
-                    auto data = meta.meta_value();
-                    auto text = strip_non_utf_8(std::string(data.begin(), data.end()));
-                    if (!text.empty()) score.copyright_notices.push_back(std::move(text));
-                    break;
-                }
                 case (minimidi::MetaType::TrackName): {
                     auto data = meta.meta_value();
                     auto tmp  = std::string(data.begin(), data.end());
@@ -428,7 +371,6 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
     sort_by_time(score.key_signatures);
     sort_by_time(score.tempos);
     sort_by_time(score.markers);
-    std::ranges::stable_sort(score.note_tunings, {}, &NoteTuning<T>::time);
     return to_shared(std::move(score));
 }
 
@@ -442,19 +384,14 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
     {   // add meta messages
         auto&        msgs        = init_msgs;
         const size_t message_num = score.time_signatures->size() + score.key_signatures->size()
-                                   + score.tempos->size() + score.markers->size()
-                                   + score.note_tunings->size() + score.copyright_notices.size();
+                                   + score.tempos->size() + score.markers->size();
         msgs.reserve(message_num);
-        for (const auto& notice : score.copyright_notices)
-            msgs.emplace_back(minimidi::Meta(0, minimidi::MetaType::CopyrightNote, notice));
         // add time signatures
         for (const auto& time_signature : *score.time_signatures) {
-            // Standard MIDI Files require a numeric signature. Keep the conventional pulse.
-            const auto& meter = *time_signature;
-            const auto  numeric
-                = meter.is_free_meter() ? TimeSignature<Tick>(meter.time, 4, 4) : meter;
             msgs.emplace_back(
-                minimidi::TimeSignature(numeric.time, numeric.numerator, numeric.denominator)
+                minimidi::TimeSignature(
+                    time_signature->time, time_signature->numerator, time_signature->denominator
+                )
             );
         }
         // add key signatures
@@ -473,7 +410,6 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
         for (const auto& marker : *score.markers) {
             msgs.emplace_back(minimidi::Marker(marker->time, marker->text));
         }
-        for (const auto& tuning : *score.note_tunings) msgs.push_back(write_note_tuning(tuning));
     }
     const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
@@ -575,10 +511,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
             idx += 1;
         }
     }
-    if (!init_msgs.empty()) {
-        std::ranges::stable_sort(init_msgs, {}, &minimidi::Message<>::time);
-        midi.tracks.emplace_back(std::move(init_msgs));
-    }
+    if (!init_msgs.empty()) { midi.tracks.emplace_back(std::move(init_msgs)); }
     return std::move(midi);
 }
 

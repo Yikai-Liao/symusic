@@ -22,7 +22,6 @@
 #include <fmt/format.h>
 
 #include "channel_effect.h"
-#include "../note_tuning.h"
 
 namespace symusic::abc::detail {
 namespace {
@@ -234,58 +233,6 @@ private:
     }
 };
 
-// abc2midi writes tuning with a zero delta. Resolve it against the
-// output of its own notation lane after the final note releases are known.
-class NoteTuningSchedule {
-public:
-    enum class Pass { melody, backing, drone };
-
-    void add(int lane, NoteTuning<Tick> change, i32 drone_anchor) {
-        auto& state = by_lane[lane];
-        state.changes.push_back({change, state.melody_anchor, drone_anchor});
-    }
-
-    void advance_melody(int lane, i32 tick) { by_lane[lane].melody_anchor = tick; }
-
-    void publish(
-        int lane, Pass pass, std::span<const RenderedTrack> tracks, vec<NoteTuning<Tick>>& out
-    ) const {
-        const auto state = by_lane.find(lane);
-        if (state == by_lane.end() || state->second.changes.empty()) return;
-        if (pass == Pass::drone) {
-            for (const auto& change : state->second.changes)
-                out.emplace_back(change.drone_anchor, change.tuning);
-            return;
-        }
-        vec<i32> events{0};
-        for (const auto& track : tracks) {
-            for (const auto& note : track.track.notes) {
-                events.push_back(note.time);
-                events.push_back(note.end());
-            }
-        }
-        std::ranges::sort(events);
-        for (const auto& change : state->second.changes) {
-            auto tuning = change.tuning;
-            tuning.time = *std::prev(std::ranges::upper_bound(events, tuning.time));
-            if (pass == Pass::melody) tuning.time = std::max(tuning.time, change.melody_anchor);
-            out.push_back(tuning);
-        }
-    }
-
-private:
-    struct Change {
-        NoteTuning<Tick> tuning;
-        i32              melody_anchor;
-        i32              drone_anchor;
-    };
-    struct Lane {
-        vec<Change> changes;
-        i32         melody_anchor = 0;
-    };
-    std::map<int, Lane> by_lane;
-};
-
 struct EnvelopeCue {
     VoiceOutput::EnvelopeMark mark;
     Location                  at;
@@ -466,7 +413,6 @@ TupletState written_tuplet(Tuplet group, Meter meter, Location at) {
 // unwarped stress grid. The three positions are all in fractional ticks.
 struct PlaybackLane {
     long double time              = 0;
-    i32         trailing_rest_end = 0;
     long double bar               = 0;
     bool        before_first_bar  = true;
     bool        part_pickup       = false;
@@ -798,7 +744,6 @@ bool discover_tracks(VoicePlan& plan, const vec<Token>& music, Location declarat
         auto command = token.information().value_or("");
         if (word(command) != "MIDI") continue;
         const auto name = word(command);
-        plan.tunes_notes |= name == "snt";
         if (name == "channel" && !lane.declared_channel) {
             const auto channel = integer(word(command));
             if (channel && *channel >= 1 && *channel <= midi_channels)
@@ -1207,7 +1152,7 @@ public:
         lanes(Expression{settings.expression}, diagnostics, &accompaniment),
         planned_lanes(plan.lanes), expression_dialect(settings.expression),
         opening_meter(settings.meter), opening_unit(settings.unit), initial_tempo(settings.tempo),
-        tunes_notes(plan.tunes_notes), separate_conductor(settings.separate_conductor),
+        separate_conductor(settings.separate_conductor),
         chord_attacks(chord_attacks), lyric_line(lyrics, diagnostics) {
         lane().played_meter = settings.meter;
         accompaniment.open_lane(0, settings.meter, 0, plan.lanes.front().backing_opening);
@@ -1251,9 +1196,7 @@ private:
     Ornament                                   ornament;
     std::deque<TiedOrnament>                   tied_ornaments;
     std::optional<ExpandedReleaseSchedule>     expanded_releases;
-    const bool                                 tunes_notes;
     const bool                                 separate_conductor;
-    NoteTuningSchedule                         note_tunings;
     ChordAttackSequence&                       chord_attacks;
     LyricLine                                  lyric_line;
     Performance                                result;
@@ -2263,7 +2206,6 @@ void VoicePlayer::play_segment(const Prepared& atom, const std::string* syllable
     play_notes(atom, timing, lengths, syllable);
     accompaniment.advance(lanes.id(), end, atom.at);
     lane().time              = end;
-    lane().trailing_rest_end = atom.atom->pitches.empty() ? end_tick : 0;
 }
 
 void VoicePlayer::visit(const Grace& next, const Token& token) {
@@ -2523,16 +2465,18 @@ void VoicePlayer::play_bar(const Bar& bar, Location at, size_t music_line, Flow 
         lanes.primary_boundary();
 }
 
-std::optional<NoteTuning<Tick>> note_tuning(std::string_view args, i32 time) {
+// The MIDI message that "snt" selects has no counterpart in the score, so the
+// arguments are validated and then discarded.
+bool valid_note_tuning(std::string_view args) {
     const auto key  = integer(word(args));
     const auto text = word(args);
-    if (!key || text.empty() || !trim(args).empty()) return {};
-    float              pitch = 0;
+    if (!key || text.empty() || !trim(args).empty()) return false;
+    constexpr float limit = 128.0f - 1.0f / (1 << 14);
+    float           pitch = 0;
     std::istringstream number{std::string(text)};
     number.imbue(std::locale::classic());
-    if (!(number >> pitch) || !number.eof() || !details::valid_note_tuning(*key, pitch)) return {};
-    pitch = details::decode_tuning_pitch(details::encode_tuning_pitch(pitch));
-    return NoteTuning<Tick>(time, static_cast<u8>(*key), pitch);
+    return number >> pitch && number.eof() && *key >= 0 && *key <= 127 && pitch >= 0
+           && pitch < limit;
 }
 
 void VoicePlayer::midi(std::string_view command, Location at) {
@@ -2540,9 +2484,7 @@ void VoicePlayer::midi(std::string_view command, Location at) {
     const auto name     = word(command);
     if (PitchTuning::handles_midi(name) || WrittenNoteLengths::handles(name)) return;
     if (name == "snt") {
-        if (const auto tuning = note_tuning(command, at_tick(at)))
-            note_tunings.add(lanes.id(), *tuning, accompaniment.drone_event_time(lanes.id()));
-        else
+        if (!valid_note_tuning(command))
             diagnostics.warn(at, "invalid-midi", "expected 'snt <MIDI key> <absolute pitch>'");
         return;
     }
@@ -2564,11 +2506,6 @@ void VoicePlayer::midi(std::string_view command, Location at) {
         else
             accompaniment.apply(*effect, lanes.id(), time);
         return;
-    }
-    if (name == "program" && tunes_notes) {
-        note_tunings.advance_melody(
-            lanes.id(), tick(lane().time + PlaybackGrid::attack_offset, diagnostics, at)
-        );
     }
     if (!lane().expression.directive(name, command, written.unit, written.meter, at, diagnostics)
         && !output.directive(name, command, lanes.id(), at)
@@ -2628,7 +2565,7 @@ void VoicePlayer::set_notated_meter(Meter next) {
 
 void VoicePlayer::publish_meter(Meter next, Location at) {
     set_notated_meter(next);
-    result.meters.emplace_back(score_meter(next, at_tick(at), expression_dialect), at);
+    result.meters.emplace_back(score_meter(next, at_tick(at)), at);
 }
 
 void VoicePlayer::apply_written_meter(MeterChange change) {
@@ -2643,10 +2580,6 @@ void VoicePlayer::visit(const TempoNotation& speed, Location at) {
     flush();
     if (const auto usec = tempo(speed, written.unit, diagnostics, at)) {
         result.tempos.emplace_back(Tempo<Tick>(at_tick(at), usec), at);
-        if (tunes_notes && !separate_conductor)
-            note_tunings.advance_melody(
-                lanes.id(), tick(lane().time + PlaybackGrid::attack_offset, diagnostics, at)
-            );
     }
 }
 
@@ -2891,24 +2824,14 @@ Performance VoicePlayer::render(const VoicePlan& plan) {
     vec<long double> lane_ends;
     for (const auto& clock : lanes.clocks()) {
         lane_ends.push_back(clock.time);
-        result.trailing_rest_end = std::max(result.trailing_rest_end, clock.trailing_rest_end);
     }
     auto backing = accompaniment.finish(lane_ends, end);
-    using Pass   = NoteTuningSchedule::Pass;
     for (size_t i = 0; i < backing.size(); ++i) {
         auto&      parts    = backing[i];
-        const auto lane     = static_cast<int>(i);
-        const auto declared = i < planned_lanes.size() ? planned_lanes[i].backing : BackingTracks{};
         PlaybackPass pass{.declaration = result.passes[i].declaration};
-        note_tunings.publish(lane, Pass::melody, result.passes[i].tracks, result.note_tunings);
-        const auto append = [&](vec<RenderedTrack>& tracks, bool declared, Pass kind) {
-            if (declared || !tracks.empty())
-                note_tunings.publish(lane, kind, tracks, result.note_tunings);
-            std::ranges::move(tracks, std::back_inserter(pass.tracks));
-        };
-        append(parts.harmony, declared.chords, Pass::backing);
-        append(parts.drums, declared.drums, Pass::backing);
-        append(parts.drone, declared.drone, Pass::drone);
+        std::ranges::move(parts.harmony, std::back_inserter(pass.tracks));
+        std::ranges::move(parts.drums, std::back_inserter(pass.tracks));
+        std::ranges::move(parts.drone, std::back_inserter(pass.tracks));
         if (!pass.tracks.empty()) result.passes.push_back(std::move(pass));
     }
     return std::move(result);

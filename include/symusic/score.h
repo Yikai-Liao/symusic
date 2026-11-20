@@ -3,8 +3,6 @@
 #ifndef LIBSYMUSIC_TRACK_HSCORE_H
 #define LIBSYMUSIC_TRACK_HSCORE_H
 
-#include <optional>
-
 #include "symusic/event.h"
 #include "symusic/track.h"
 
@@ -21,10 +19,6 @@ struct Score {
     shared<pyvec<KeySignature<T>>>  key_signatures;
     shared<pyvec<Tempo<T>>>         tempos;
     shared<pyvec<TextMeta<T>>>      markers;
-    shared<pyvec<NoteTuning<T>>>    note_tunings = std::make_shared<pyvec<NoteTuning<T>>>();
-    vec<std::string>                copyright_notices;
-    // An explicit ending can extend playback through silence after all events.
-    std::optional<unit> explicit_end;
 
     Score() : ticks_per_quarter{0} {
         tracks          = std::make_shared<vec<shared<Track<T>>>>();
@@ -36,9 +30,7 @@ struct Score {
 
     Score(const Score&) = default;
 
-    Score(Score&& other) noexcept :
-        note_tunings{std::move(other.note_tunings)},
-        copyright_notices{std::move(other.copyright_notices)}, explicit_end{other.explicit_end} {
+    Score(Score&& other) noexcept {
         // move constructor
         ticks_per_quarter = other.ticks_per_quarter;
         tracks            = std::move(other.tracks);
@@ -97,10 +89,7 @@ struct Score {
                && *time_signatures == *other.time_signatures
                && *key_signatures == *other.key_signatures
                && *tempos == *other.tempos
-               && *markers == *other.markers
-               && *note_tunings == *other.note_tunings
-               && copyright_notices == other.copyright_notices
-               && explicit_end == other.explicit_end;
+               && *markers == *other.markers;
         // clang-format on
     }
 
@@ -114,7 +103,7 @@ struct Score {
         for (const auto& track : *tracks) {
             new_tracks->push_back(std::make_shared<Track<T>>(std::move(track->deepcopy())));
         }
-        Score copy{
+        return {
             ticks_per_quarter,
             std::move(new_tracks),
             std::move(time_signatures->deepcopy()),
@@ -122,10 +111,6 @@ struct Score {
             std::move(tempos->deepcopy()),
             std::move(markers->deepcopy())
         };
-        copy.note_tunings      = std::make_shared<pyvec<NoteTuning<T>>>(note_tunings->deepcopy());
-        copy.copyright_notices = copyright_notices;
-        copy.explicit_end      = explicit_end;
-        return copy;
     }
 
     explicit Score(const i32 tpq) : Score() { ticks_per_quarter = tpq; }
@@ -214,15 +199,12 @@ struct Score {
 
 template<typename T>
 struct ScoreNative {
-    i32                             ticks_per_quarter;
-    vec<TimeSignature<T>>           time_signatures;
-    vec<KeySignature<T>>            key_signatures;
-    vec<Tempo<T>>                   tempos;
-    vec<TextMeta<T>>                markers;
-    vec<NoteTuning<T>>              note_tunings;
-    vec<std::string>                copyright_notices;
-    std::optional<typename T::unit> explicit_end;
-    vec<TrackNative<T>>             tracks;
+    i32                   ticks_per_quarter;
+    vec<TimeSignature<T>> time_signatures;
+    vec<KeySignature<T>>  key_signatures;
+    vec<Tempo<T>>         tempos;
+    vec<TextMeta<T>>      markers;
+    vec<TrackNative<T>>   tracks;
 
     ScoreNative() : ticks_per_quarter(0) {}
 
@@ -230,7 +212,7 @@ struct ScoreNative {
 
     [[nodiscard]] bool empty() const {
         return time_signatures.empty() && key_signatures.empty() && tempos.empty()
-               && markers.empty() && note_tunings.empty() && tracks.empty() && !explicit_end;
+               && markers.empty() && tracks.empty();
     }
 
     template<DataFormat F>
