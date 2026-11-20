@@ -32,16 +32,9 @@ struct TuneSettings {
     ProgramNumbers     programs;
     i32                tempo              = 500000;
     long double        unit               = whole / 8;
-    ExpressionDialect  expression         = ExpressionDialect::legacy;
     bool               separate_conductor = false;
     std::string        title;
 };
-
-struct LyricVerse {
-    Location    at;
-    std::string text;
-};
-using LegacyLyrics = std::map<size_t, vec<LyricVerse>>;
 
 // Sparse syllables keyed by the zero-based verse within this passage. Retain
 // the full count so an empty verse takes its turn when the part repeats.
@@ -50,7 +43,6 @@ struct WrittenSyllables {
     vec<std::pair<size_t, std::string>> by_verse;
 };
 using WrittenLyrics = vec<WrittenSyllables>;
-using VoiceLyrics   = std::variant<LegacyLyrics, WrittenLyrics>;
 
 template<class T>
 using Located = std::pair<T, Location>;
@@ -105,7 +97,7 @@ void prime_drum_map(const PlayOrder& first_voice, DrumMap& drum_map, Diagnostics
 Performance perform(
     const TuneSettings&  settings,
     const VoicePlan&     plan,
-    const VoiceLyrics&   lyrics,
+    const WrittenLyrics& lyrics,
     std::string          name,
     ChordAttackSequence& chord_attacks,
     Diagnostics&         diagnostics

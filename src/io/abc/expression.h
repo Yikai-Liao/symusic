@@ -34,7 +34,6 @@ private:
 
 bool starts_hornpipe_pair(const Meter& opening_meter, long double offset, long double duration);
 
-enum class ExpressionDialect { legacy, abc_2_1 };
 enum class GateArticulation { normal, staccato, unshaped };
 enum class FermataMode { proportional, fixed };
 
@@ -104,7 +103,7 @@ HarpAttacks harp_attacks(Length length);
 // durations and unit lengths are fractional ticks; stress gate ratios are
 // dimensionless. An articulation gate is independent of cursor advance.
 struct Expression {
-    explicit Expression(ExpressionDialect dialect = ExpressionDialect::legacy);
+    Expression();
 
     std::array<int, 3> beat{105, 95, 80};
     std::string_view   beat_string;
@@ -120,7 +119,6 @@ struct Expression {
     );
     void        apply(Dynamic mark);
     void        reset_beat_spacing() { beat_step = 0; }
-    void        arpeggiate_next_chord() { legacy_arpeggio = true; }
     ChordSpread take_chord_spread(ChordAttackSettings attack, bool marked = false);
     void        enable_stress() { stress_enabled = true; }
     // Resolve velocity at a position relative to the accent origin, consuming
@@ -129,9 +127,7 @@ struct Expression {
     long double    gate(
         long double duration, bool slur, GateArticulation style, std::optional<long double> stress
     ) const;
-    long double tied_gate(
-        long double duration, GateArticulation style, ExpressionDialect dialect
-    ) const;
+    long double tied_gate(long double duration, GateArticulation style) const;
 
 private:
     static constexpr int dynamic_beat_step = -1;
@@ -144,7 +140,6 @@ private:
     std::optional<long double> trim_ticks;   // An explicit zero disables stress trim too.
     long double                expand_ticks    = 0;
     bool                       stress_enabled  = true;
-    bool                       legacy_arpeggio = false;
     void                       shift(int amount);
     void set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
     int  beat_velocity(long double position, Meter meter) const;

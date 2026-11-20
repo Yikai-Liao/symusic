@@ -75,11 +75,9 @@ vec<Boundary> boundaries(Section source, Diagnostics& diagnostics) {
 // A region is replayed once per selected pass; intermediate endings are skipped.
 class RepeatOrder {
 public:
-    RepeatOrder(
-        Section source, PlayOrder& output, Diagnostics& diagnostics, bool infer_section_repeats
-    ) :
+    RepeatOrder(Section source, PlayOrder& output, Diagnostics& diagnostics) :
         source(source), bars(boundaries(source, diagnostics)), output(output),
-        diagnostics(diagnostics), infer_section_repeats(infer_section_repeats) {}
+        diagnostics(diagnostics) {}
     void append(std::optional<size_t> part_pass = {});
     void append_part(u32 occurrence, size_t visits);
 
@@ -88,7 +86,6 @@ private:
     vec<Boundary> bars;
     PlayOrder&    output;
     Diagnostics&  diagnostics;
-    bool          infer_section_repeats;
 
     using BarIterator   = vec<Boundary>::const_iterator;
     using TokenIterator = Section::iterator;
@@ -168,7 +165,7 @@ std::optional<RepeatOrder::TrailingEnding> RepeatOrder::trailing_ending(BarItera
     if (marker == bars.end()) return {};
     for (auto end = std::next(marker); end != bars.end(); ++end) {
         // ABC 2.1 section 4.10 closes the ending at the next double bar.
-        // In incomplete legacy notation, do not consume the next repeat or ending.
+        // Incomplete notation does not consume the next repeat or ending.
         if (end->bar.repeat_start || end->repeat_end || !end->bar.endings.empty())
             return TrailingEnding{marker, end->token, end};
         if (end->bar.section) return TrailingEnding{marker, std::next(end->token), std::next(end)};
@@ -243,7 +240,7 @@ bool RepeatOrder::jumps_inside_music_line(BarIterator first_bar, size_t played_f
     // An implicit opening bar is inserted after the initial music-line entry.
     if (first_bar == bars.begin()) return true;
     const auto& opening = *std::prev(first_bar);
-    if (!opening.bar.repeat_start && !(infer_section_repeats && opening.bar.section)) return false;
+    if (!opening.bar.repeat_start && !opening.bar.section) return false;
     const auto played = std::span(output).subspan(played_from);
     const auto entry  = std::ranges::find_if(played, [](const PlayStep& step) {
         return step.token->anchors_lyrics();
@@ -305,7 +302,7 @@ void RepeatOrder::append(std::optional<size_t> part_pass) {
             first = after;
             ++marker;
         } else {
-            if (infer_section_repeats && marker->bar.section && marker->bar.endings.empty())
+            if (marker->bar.section && marker->bar.endings.empty())
                 latest_section = marker;
             ++marker;
             continue;
@@ -356,19 +353,19 @@ Parts split_parts(Section source, Diagnostics& diagnostics) {
 }   // namespace
 
 PartItinerary::PartItinerary(
-    std::string_view order, Location at, std::optional<AbcVersion> version, Diagnostics& diagnostics
-) : at(at), diagnostics(diagnostics), infer_section_repeats(version >= AbcVersion{2, 1}) {
+    std::string_view order, Location at, Diagnostics& diagnostics
+) : at(at), diagnostics(diagnostics) {
     if (!order.empty()) labels = part_order(order, kMaxMaterializedSteps, at, diagnostics);
 }
 
 PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
     PlayOrder tokens;
     if (!labels) {
-        RepeatOrder(voice, tokens, diagnostics, infer_section_repeats).append();
+        RepeatOrder(voice, tokens, diagnostics).append();
         return tokens;
     }
     const auto sections = split_parts(voice, diagnostics);
-    RepeatOrder(sections.at('\0'), tokens, diagnostics, infer_section_repeats).append();
+    RepeatOrder(sections.at('\0'), tokens, diagnostics).append();
     std::map<char, RepeatOrder> repeats;
     std::array<size_t, 26>      visits{};
     std::array<u32, 26>         occurrences{};
@@ -380,7 +377,7 @@ PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
             continue;
         }
         auto [repeat, inserted] = repeats.try_emplace(
-            label, section->second, tokens, diagnostics, infer_section_repeats
+            label, section->second, tokens, diagnostics
         );
         repeat->second.append_part(occurrences[label - 'A']++, visits[label - 'A']);
     }

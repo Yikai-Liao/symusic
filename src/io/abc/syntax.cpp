@@ -186,9 +186,9 @@ struct symbol_shorthand : sor<ranges<'H', 'W', 'h', 'w'>, chars<'~'>> {};
 struct symbol_expansion : sor<named_decoration, quoted> {};
 using symbol_definition = seq<symbol_shorthand, pad<chars<'='>, ws>, symbol_expansion, eof>;
 
-struct legacy_text_escape : seq<chars<'\\'>, chars<'\\', '%', '"'>> {};
+struct text_plain_escape : seq<chars<'\\'>, chars<'\\', '%', '"'>> {};
 struct text_amp_escape : string<'\\', '&'> {};
-using text_escape = sor<legacy_text_escape, text_amp_escape>;
+using text_escape = sor<text_plain_escape, text_amp_escape>;
 struct text_voice_break : string<'\\', 'n'> {};
 struct text_unicode16 : seq<string<'\\', 'u'>, rep<4, xdigit>> {};
 struct text_unicode32 : seq<string<'\\', 'U'>, rep<8, xdigit>> {};
@@ -209,15 +209,13 @@ using text_encoded = sor<
     text_entity>;
 using text_string        = star<sor<text_encoded, text_run>>;
 using styled_text_string = star<sor<text_styling, text_encoded, text_run>>;
-using legacy_text_string = star<sor<text_voice_break, legacy_text_escape, text_run>>;
 
 struct text_lyric_dash : string<'\\', '-'> {};
 struct text_lyric_space : chars<'~'> {};
-struct legacy_lyric_escape : seq<chars<'\\'>, chars<'-', '\\', '%', '&'>> {};
+struct lyric_escape : seq<chars<'\\'>, chars<'-', '\\', '%', '&'>> {};
 struct lyric_text_run : sor<plus<not_one<'\\', '&', '~', '$'>>, any> {};
 using lyric_text
     = star<sor<text_styling, text_encoded, text_lyric_dash, text_lyric_space, lyric_text_run>>;
-using legacy_lyric_text = star<sor<legacy_lyric_escape, text_lyric_space, lyric_text_run>>;
 
 // ABC 2.1 sections 2.2.5 and 8.2: quotes do not protect a bare percent.
 struct line_quote : chars<'"'> {};
@@ -257,7 +255,7 @@ struct alignment_bar : chars<'|'> {};
 struct blank_slot : chars<'*'> {};
 struct lyric_skip : chars<'_', '-'> {};
 struct lyric_hold : chars<'_'> {};
-using lyric_character = sor<legacy_lyric_escape, not_one<' ', '\t', '-', '|', '*', '_'>>;
+using lyric_character = sor<lyric_escape, not_one<' ', '\t', '-', '|', '*', '_'>>;
 struct lyric_syllable : plus<lyric_character> {};
 using styled_lyric_character = sor<text_dollar, seq<not_at<text_font_switch>, lyric_character>>;
 template<class Item>
@@ -466,23 +464,23 @@ constexpr TextCharacter kTextCharacters[]{
 };
 
 template<>
-struct TextAction<grammar::legacy_text_escape> {
+struct TextAction<grammar::text_plain_escape> {
     static void apply(const auto& input, TextValue& out) {
         out.text.push_back(input.string_view().back());
     }
 };
 
 template<>
-struct TextAction<grammar::text_amp_escape> : TextAction<grammar::legacy_text_escape> {};
+struct TextAction<grammar::text_amp_escape> : TextAction<grammar::text_plain_escape> {};
 
 template<>
-struct TextAction<grammar::text_dollar> : TextAction<grammar::legacy_text_escape> {};
+struct TextAction<grammar::text_dollar> : TextAction<grammar::text_plain_escape> {};
 
 template<>
-struct TextAction<grammar::text_lyric_dash> : TextAction<grammar::legacy_text_escape> {};
+struct TextAction<grammar::text_lyric_dash> : TextAction<grammar::text_plain_escape> {};
 
 template<>
-struct TextAction<grammar::legacy_lyric_escape> : TextAction<grammar::legacy_text_escape> {};
+struct TextAction<grammar::lyric_escape> : TextAction<grammar::text_plain_escape> {};
 
 template<>
 struct TextAction<grammar::text_lyric_space> {
@@ -635,7 +633,6 @@ template<>
 struct LyricAction<grammar::lyric_hold> : AlignmentAction<grammar::blank_slot> {};
 
 struct LyricScan {
-    LyricEncoding       encoding;
     vec<LyricPlacement> placements;
     bool                placed_syllable = false;
 };
@@ -648,10 +645,7 @@ struct LyricAction<grammar::lyric_syllable> {
         if (!slot) return;
         // Decoded punctuation is text, not an alignment command.
         const auto raw  = input.string_view();
-        auto       text = scan.encoding == LyricEncoding::AbcText ?
-                              decode_text_as<grammar::lyric_text>(raw) :
-                              decode_text_as<grammar::legacy_lyric_text>(raw);
-        scan.placements.push_back({*slot, std::move(text)});
+        scan.placements.push_back({*slot, decode_text_as<grammar::lyric_text>(raw)});
     }
 };
 
@@ -1356,7 +1350,7 @@ private:
     }
     void emit(const Node& node, grammar::decoration);
     void emit(const Node& node, grammar::music_spacing) {
-        if (dialect.strict) push(node, Spacer{});
+        push(node, Spacer{});
     }
     void emit(const Node& node, grammar::bang_break) {
         if (dialect.bang == BangRole::Decoration) invalid(node);
@@ -1564,17 +1558,7 @@ Atom MusicLine::chord_atom(const Node& node) const {
     for (const auto& mark : std::span(atom.decorations).subspan(attached))
         diagnostics.warn(mark.at, "orphan-decoration", "chord decoration has no following note");
     atom.decorations.resize(attached);
-    auto suffix = length(child<grammar::length>(node));
-    if (!dialect.strict) {
-        // abc2midi treats 1/1 as the default. Other suffixes replace all lengths.
-        suffix.numerator = std::max(i64{1}, suffix.numerator);
-        if (suffix.numerator != 1 || suffix.denominator != 1) {
-            atom.length = suffix;
-            atom.member_lengths.clear();
-            atom.chord_gate_override = true;
-        }
-        return atom;
-    }
+    const auto suffix = length(child<grammar::length>(node));
     // ABC 2.1 section 4.17 multiplies each written length by the suffix.
     const auto apply_suffix = [suffix](Length& duration) {
         duration.numerator *= suffix.numerator;
@@ -1688,17 +1672,12 @@ void MusicLine::emit(const Node& node, grammar::overlay) {
         push(node, Overlay::Start);
     else if (node.data == "&)")
         push(node, Overlay::End);
-    else if (dialect.strict && node.data.size() > 1) {
-        if (node.data == "&&")
-            push(node, Overlay::PreviousTwo);
-        else
-            diagnostics.warn(
-                location(node), "unsupported-overlay", "ignored a run longer than '&&'"
-            );
-    } else {
-        for (auto mark = node.data; !mark.empty(); mark.remove_prefix(1))
-            output.push_back({source.where(mark), Overlay::Split, source.music_line});
-    }
+    else if (node.data == "&&")
+        push(node, Overlay::PreviousTwo);
+    else if (node.data.size() > 1)
+        diagnostics.warn(location(node), "unsupported-overlay", "ignored a run longer than '&&'");
+    else
+        push(node, Overlay::Split);
 }
 
 void MusicLine::emit(const Node& node, grammar::decoration) {
@@ -2480,24 +2459,18 @@ vec<LyricPlacement> align_lyrics(
     std::string_view        text,
     size_t                  notes,
     std::span<const size_t> bars,
-    LyricEncoding           encoding,
     Location                at,
     Diagnostics&            diagnostics
 ) {
     diagnostics.spend(PlaybackWork::text(text), at);
     Input         input(text);
     NoteAlignment alignment{notes, bars};
-    LyricScan     scan{encoding, {}};
-    if (encoding == LyricEncoding::AbcText)
-        peg::parse<
+    LyricScan     scan;
+    peg::parse<
             peg::seq<
                 peg::opt<grammar::lyric_stanza>,
                 grammar::lyric_verse<grammar::styled_lyric_word, grammar::text_font_run>>,
-            LyricAction>(input, alignment, scan);
-    else
-        peg::parse<grammar::lyric_verse<grammar::lyric_word<grammar::lyric_syllable>>, LyricAction>(
-            input, alignment, scan
-        );
+        LyricAction>(input, alignment, scan);
     if (alignment.excess)
         diagnostics.warn(at, "extra-lyrics", "more lyric syllables than available notes");
     return std::move(scan.placements);
@@ -2547,15 +2520,9 @@ std::string encode_text(std::string_view text, TextContext context) {
     return result;
 }
 
-std::string decode_text(
-    std::string_view text, TextContext context, std::optional<AbcVersion> version
-) {
-    // Unversioned exports escaped quotes but left entities and mnemonic-like text literal.
+std::string decode_text(std::string_view text, TextContext context) {
     if (context == TextContext::ChordSymbol) return decode_text_as<grammar::text_string>(text);
-    const bool line_breaks = context == TextContext::VoiceName;
-    if (version >= AbcVersion{2, 1})
-        return decode_text_as<grammar::styled_text_string>(text, line_breaks);
-    return decode_text_as<grammar::legacy_text_string>(text, line_breaks);
+    return decode_text_as<grammar::styled_text_string>(text, context == TextContext::VoiceName);
 }
 
 std::optional<vec<SymbolPlacement>> align_symbols(

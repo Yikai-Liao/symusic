@@ -69,9 +69,8 @@ void finish_header(Header& header, const Token* unit, const Tune& tune, Diagnost
 Header read_header(const Tune& tune, Diagnostics& diagnostics) {
     Header header{
         .settings
-        = {.tuning = PitchTuning(tune, diagnostics), .programs = ProgramNumbers(tune.version)}
+        = {.tuning = PitchTuning(tune, diagnostics), .programs = ProgramNumbers()}
     };
-    if (tune.version >= AbcVersion{2, 1}) header.settings.expression = ExpressionDialect::abc_2_1;
     const Token*     unit = nullptr;
     std::string_view title;
     for (const auto& token : tune.header) {
@@ -86,7 +85,7 @@ Header read_header(const Tune& tune, Diagnostics& diagnostics) {
         }
     }
     // A tune-local I:abc-version can occur after its T: field.
-    header.settings.title = decode_text(title, TextContext::Title, tune.version);
+    header.settings.title = decode_text(title, TextContext::Title);
     finish_header(header, unit, tune, diagnostics);
     return header;
 }
@@ -144,7 +143,6 @@ WrittenLyrics collect_written_lyrics(
                      text,
                      slots.notes.size(),
                      slots.bars,
-                     LyricEncoding::AbcText,
                      line->at,
                      diagnostics
                  )) {
@@ -354,7 +352,7 @@ struct Voice {
     std::string_view name;
     vec<Token>       music;
     Location         declaration;
-    VoiceLyrics      lyrics;
+    WrittenLyrics    lyrics;
     Location         last_part{};
     vec<UnderlayRun> verse_runs;
     vec<UnderlayRun> symbol_runs;
@@ -409,7 +407,6 @@ private:
     WrittenRhythm                 rhythm;
     ChordNames                    chord_names;
     const Location                reference;
-    const bool                    align_written_lyrics;
     vec<Voice>                    voices;
     DrumMap                       file_drum_map;
     std::map<VoiceId, vec<Token>> pending_instruments;
@@ -417,18 +414,15 @@ private:
     size_t                        opening_midi_voice = 0;
     bool                          uses_conductor     = false;
     std::optional<Token>          current_part;
-    size_t                        lyric_source      = 0;
     char                          previous_underlay = '\0';
 
     size_t find_voice(VoiceId id, Location at);
     bool   select(const Token& token);
     void   header(const Token& token);
     void   apply_opening_pitch(PitchChange pitch, Location at);
-    void   body(const Token& token, bool ordered);
+    void   body(const Token& token);
     bool   written_setting(const Token& token);
     bool   set_instrument(const Token& token);
-    bool   lyric(const Field& field, Location at);
-    void   music_line(const Token& token);
     void   record_part(Voice& voice);
     void   append(const Token& token);
 };
@@ -498,38 +492,10 @@ void Voices::header(const Token& token) {
     }
 }
 
-void Voices::music_line(const Token& token) {
-    if (!token.music_line) return;
-    if (token.anchors_lyrics())
-        lyric_source = token.music_line;
-    else if (lyric_source != token.music_line)
-        lyric_source = 0;
-}
-
-bool Voices::lyric(const Field& field, Location at) {
-    if (field.kind != 'w') return false;
-    auto&      lyrics   = std::get<LegacyLyrics>(voices[selected].lyrics);
-    const auto existing = lyrics.find(lyric_source);
-
-    const bool extension = field.value.starts_with('+');
-    if (!lyric_source || (extension && existing == lyrics.end())) {
-        diagnostics.warn(
-            at, "orphan-lyrics", "ignored lyrics without a matching music line or verse"
-        );
-    } else if (extension) {
-        auto& verse = existing->second.back().text;
-        verse.push_back(' ');
-        verse.append(trim(field.value.substr(1)));
-    } else {
-        lyrics[lyric_source].push_back({at, std::string(field.value)});
-    }
-    return true;
-}
-
-void Voices::body(const Token& token, bool ordered) {
+void Voices::body(const Token& token) {
     const auto* field = std::get_if<Field>(&token.value);
     if (field && field->kind == 'w') uses_conductor = true;
-    if (field && (field->kind == 's' || (align_written_lyrics && field->kind == 'w'))) {
+    if (field && (field->kind == 's' || field->kind == 'w')) {
         auto& voice = voices[selected];
         auto& runs  = field->kind == 's' ? voice.symbol_runs : voice.verse_runs;
         if (std::exchange(previous_underlay, field->kind) != field->kind)
@@ -541,19 +507,16 @@ void Voices::body(const Token& token, bool ordered) {
     if (select(token)) {
         opening_midi_voice = 0;
         uses_conductor     = true;
-        lyric_source       = 0;
         return;
     }
     if (field && field->kind == 'P') {
         opening_midi_voice = 0;
         current_part       = token;
-        if (ordered) lyric_source = 0;
         return;
     }
     if (std::holds_alternative<Atom>(token.value) || std::holds_alternative<Grace>(token.value)
         || std::holds_alternative<Bar>(token.value) || std::holds_alternative<Overlay>(token.value))
         opening_midi_voice = 0;
-    if (!align_written_lyrics) music_line(token);
     if (rhythm.consume(token, diagnostics) || written_setting(token)) return;
     if (const auto change = midi_track_command(token, diagnostics)) {
         if (opening_midi_voice)
@@ -562,7 +525,7 @@ void Voices::body(const Token& token, bool ordered) {
             append({token.at, *change, token.music_line});
         return;
     }
-    if (align_written_lyrics || !field || !lyric(*field, token.at)) append(token);
+    append(token);
 }
 
 bool Voices::written_setting(const Token& token) {
@@ -605,17 +568,6 @@ bool Voices::set_instrument(const Token& token) {
 
 void Voices::apply_opening_pitch(PitchChange pitch, Location at) {
     const bool named = !voices[selected].id.empty();
-    if (settings.expression == ExpressionDialect::legacy) {
-        settings.key.apply(
-            {.written_octave = std::exchange(pitch.written_octave, {}),
-             .clef_shift     = std::exchange(pitch.clef_shift, {})}
-        );
-        // Legacy inputs used a tune-wide MIDI shift for an anonymous opening voice.
-        if (!named && pitch.transpose) {
-            append({at, MidiTrackCommand{MidiTransposition{*pitch.transpose, false}}});
-            return;
-        }
-    }
     // The opening signature is shared, but pitch options after V: change only
     // that voice and can override its earlier declarations, including with zero.
     if (!named)
@@ -625,8 +577,7 @@ void Voices::apply_opening_pitch(PitchChange pitch, Location at) {
 }
 
 Voices::Voices(const Tune& tune, Header& metadata, Diagnostics& diagnostics) :
-    diagnostics(diagnostics), settings(metadata.settings), reference(tune.reference),
-    align_written_lyrics(tune.version >= AbcVersion{2, 1}) {
+    diagnostics(diagnostics), settings(metadata.settings), reference(tune.reference) {
     voices.push_back({});
     for (const auto& token : tune.header)
         if (!rhythm.consume(token, diagnostics) && !written_setting(token)) header(token);
@@ -636,15 +587,14 @@ Voices::Voices(const Tune& tune, Header& metadata, Diagnostics& diagnostics) :
     // appears in the opening body before a voice is selected or music starts.
     opening_midi_voice = selected;
     selected           = 0;
-    for (const auto& token : tune.body) body(token, !metadata.order.empty());
+    for (const auto& token : tune.body) body(token);
     for (const auto& [id, commands] : pending_instruments)
         for (const auto& token : commands)
             diagnostics.warn(
                 token.at, "unknown-midi-voice", fmt::format("no voice with ID '{}'", id.spelling)
             );
     for (auto& voice : voices) {
-        if (align_written_lyrics)
-            voice.lyrics = collect_written_lyrics(voice.music, voice.verse_runs, diagnostics);
+        voice.lyrics = collect_written_lyrics(voice.music, voice.verse_runs, diagnostics);
         attach_symbols(voice.music, voice.symbol_runs, tune.decoration_delimiter, diagnostics);
         for (auto& token : voice.music)
             if (auto* chord = std::get_if<Harmony>(&token.value))
@@ -712,7 +662,7 @@ Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnosti
     auto& settings  = header.settings;
     settings.stress = TuneStress(tune, files, diagnostics);
     const Voices        voices(tune, header, diagnostics);
-    const PartItinerary itinerary(header.order, header.order_at, tune.version, diagnostics);
+    const PartItinerary itinerary(header.order, header.order_at, diagnostics);
     Performance         music;
     auto                drum_map = voices.initial_percussion_routes();
     vec<VoicePlan>      plans;
@@ -732,7 +682,7 @@ Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnosti
         const auto& voice       = voices.all()[i];
         auto        name        = voice.name.empty() ?
                                       (has_output ? std::string{} : settings.title) :
-                                      decode_text(voice.name, TextContext::VoiceName, tune.version);
+                                      decode_text(voice.name, TextContext::VoiceName);
         auto        performance = perform(
             settings, plans[i], voice.lyrics, std::move(name), chord_attacks, diagnostics
         );

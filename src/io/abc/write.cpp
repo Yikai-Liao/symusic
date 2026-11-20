@@ -871,7 +871,7 @@ void check_duration(long double duration, std::string_view where, std::string_vi
         ExportIssues::invalid(where, fmt::format("{} duration cannot be negative", event));
 }
 
-bool legacy_sustain_fits(i32 duration) {
+bool abc2midi_sustain_fits(i32 duration) {
     // abc2midi joins tied atoms before conversion. Its MIDI release queue
     // multiplies the reduced quarter-note numerator by its tick division.
     const auto numerator = duration / std::gcd(duration, tpq);
@@ -880,7 +880,7 @@ bool legacy_sustain_fits(i32 duration) {
 
 template<TType T>
 void ScoreWriter<T>::release_limits(i32 start, i32 duration, bool drums, std::string_view where) {
-    if (!legacy_sustain_fits(duration))
+    if (!abc2midi_sustain_fits(duration))
         issues.warn(
             where, "midi-sustain-range", "abc2midi may shorten an unusually long held note"
         );

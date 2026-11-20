@@ -161,7 +161,6 @@ struct Atom {
     size_t lyric_slot = 0;   // One-based; zero means no written syllables.
     // Only lengths that differ from the first member's, in pitch order.
     vec<ChordMemberLength> member_lengths{};
-    bool                   chord_gate_override = false;
 };
 
 struct GraceAttack {
@@ -211,14 +210,11 @@ struct LyricPlacement {
     std::string text;
 };
 
-enum class LyricEncoding { Legacy, AbcText };
-
 // Decode one verse against its available note slots and bar boundaries.
 [[nodiscard]] vec<LyricPlacement> align_lyrics(
     std::string_view        text,
     size_t                  notes,
     std::span<const size_t> bars,
-    LyricEncoding           encoding,
     Location                at,
     Diagnostics&            diagnostics
 );
@@ -398,9 +394,7 @@ enum class TextContext { Title, VoiceName, Lyric, ChordSymbol };
 // Encode ABC text for its field. A lyric is encoded as one written syllable.
 [[nodiscard]] std::string encode_text(std::string_view text, TextContext context);
 // Decode ABC text without its surrounding delimiters.
-[[nodiscard]] std::string decode_text(
-    std::string_view text, TextContext context, std::optional<AbcVersion> version
-);
+[[nodiscard]] std::string decode_text(std::string_view text, TextContext context);
 
 // Header token order includes file-level settings before X: and ends at K:.
 // The body contains only the first tune. Token views reference the input or

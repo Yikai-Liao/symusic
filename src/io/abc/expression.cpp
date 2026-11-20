@@ -122,9 +122,7 @@ bool starts_hornpipe_pair(const Meter& opening_meter, long double offset, long d
            && aligned(offset + short_note - bar_unit, 2 * bar_unit);
 }
 
-Expression::Expression(ExpressionDialect dialect) {
-    if (dialect == ExpressionDialect::abc_2_1) apply(mezzo_forte);
-}
+Expression::Expression() { apply(mezzo_forte); }
 
 int ChordAttackSequence::next_gap(ChordSpread spread) {
     if (!spread.random) return spread.ticks;
@@ -135,7 +133,7 @@ int ChordAttackSequence::next_gap(ChordSpread spread) {
 }
 
 ChordSpread Expression::take_chord_spread(ChordAttackSettings attack, bool marked) {
-    const auto factor = (std::exchange(legacy_arpeggio, false) || marked) ? 3 : 1;
+    const auto factor = marked ? 3 : 1;
     return attack.random_limit > 0 ? ChordSpread{factor * attack.random_limit, true} :
                                      ChordSpread{factor * attack.gap, false};
 }
@@ -221,13 +219,10 @@ long double Expression::gate(
     return duration + expand_ticks;
 }
 
-long double Expression::tied_gate(
-    long double duration, GateArticulation style, ExpressionDialect dialect
-) const {
-    // abc2midi's TNOTE path ignores expand. In 2.1, export uses it to
-    // compensate for the one-tick release trim on a native round trip.
-    if (dialect == ExpressionDialect::legacy || style == GateArticulation::unshaped)
-        return duration;
+long double Expression::tied_gate(long double duration, GateArticulation style) const {
+    // Export uses expand to compensate for the one-tick release trim on a
+    // native round trip.
+    if (style == GateArticulation::unshaped) return duration;
     return duration + (trim_ticks.value_or(0) == 0 ? expand_ticks : 0);
 }
 

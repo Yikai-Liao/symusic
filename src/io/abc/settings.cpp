@@ -401,7 +401,7 @@ int ProgramNumbers::read(std::string_view& args, Diagnostics& diagnostics, Locat
 int ProgramNumbers::read_chord(
     std::string_view& args, Diagnostics& diagnostics, Location at
 ) const {
-    if (base || !one_based_chords) return read(args, diagnostics, at);
+    if (base) return read(args, diagnostics, at);
     return midi_integer(args, 1, midi_max + 1, diagnostics, at) - 1;
 }
 

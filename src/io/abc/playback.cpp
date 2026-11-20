@@ -41,7 +41,7 @@ DecorationMark read_mark(std::string_view spelling) {
     return {spelling, spelling.size() == 1};
 }
 
-bool Ornament::* ornament_flag(DecorationMark mark, ExpressionDialect dialect);
+bool Ornament::* ornament_flag(DecorationMark mark);
 
 long double first_broken_factor(Broken mark, const AttackRhythm& rhythm) {
     return mark.first_factor(2.L * rhythm.shorter / (rhythm.longer + rhythm.shorter));
@@ -273,15 +273,9 @@ struct GraceGroup {
 };
 
 struct GraceBorrow {
-    enum class Mode { Subtract, UniformChord, ScaleChord };
-
     long double ticks = 0;
-    long double scale = 1;
-    Mode        mode  = Mode::Subtract;
 
-    [[nodiscard]] long double shorten(long double gate) const {
-        return mode == Mode::ScaleChord ? gate * scale : gate - ticks;
-    }
+    [[nodiscard]] long double shorten(long double gate) const { return gate - ticks; }
 };
 
 struct GraceTiming {
@@ -346,7 +340,6 @@ struct TiedOrnament {
     Expression                 expression;
     VoiceOutput::RetainedRoute route;
     AttackGate                 first;
-    vec<LyricAnchor>           attacks;
     int                        lane;
     int                        gap;
 };
@@ -643,50 +636,27 @@ void OverlayLanes::break_ties() {
         report_ties(lanes[index].ties, diagnostics);
 }
 
-// Legacy verses follow performed attacks on a music line. ABC 2.1 verses
-// already address individual written notes, including tied continuations.
+// Verses address individual written notes, including tied continuations.
 class LyricLine {
 public:
-    LyricLine(const VoiceLyrics& lyrics, Diagnostics& diagnostics) :
-        legacy(std::get_if<LegacyLyrics>(&lyrics)), written(std::get_if<WrittenLyrics>(&lyrics)),
-        diagnostics(diagnostics), slot_visits(written ? written->size() : 0) {}
+    explicit LyricLine(const WrittenLyrics& lyrics) : written(lyrics), slot_visits(lyrics.size()) {}
     void               enter_part(size_t occurrence);
     void               jump(bool continues_lyrics);
     const std::string* take_syllable(size_t source_line, const Atom& atom);
-    void               attack(LyricAnchor anchor) {
-        if (verse) attacks.push_back(anchor);
-    }
-    void ornament(const vec<LyricAnchor>& notes) {
-        if (verse) attacks.push_back(&notes);
-    }
-    void bar(size_t line);
-    void finish();
-    void complete();
+    void               bar(size_t line) { start(line); }
 
 private:
     void start(size_t next);
+    void finish();
 
-    using Anchor = std::variant<LyricAnchor, const vec<LyricAnchor>*>;
-    struct Row {
-        const LyricVerse* verse;
-        vec<Anchor>       attacks;
-        vec<size_t>       boundaries;
-    };
-
-    const LegacyLyrics*  legacy;
-    const WrittenLyrics* written;
-    Diagnostics&         diagnostics;
+    const WrittenLyrics& written;
     size_t               line           = 0;
     size_t               occurrence     = 0;
     bool                 carry_verse    = false;
     bool                 replaying_line = false;
     size_t               part_visit     = 1;
     // Most recent part visit that played each written lyric slot. Zero means unread.
-    vec<size_t>       slot_visits;
-    const LyricVerse* verse = nullptr;
-    vec<Anchor>       attacks;
-    vec<size_t>       boundaries;
-    vec<Row>          rows;
+    vec<size_t> slot_visits;
 };
 
 bool declares_legacy_drum(const Token& token) {
@@ -905,7 +875,7 @@ void PartRhythmPairs::consume(const Token& token, const WrittenState& written, L
     } else if (const auto* decoration = std::get_if<Decoration>(&token.value)) {
         if (!decoration->last_on_line)
             if (const auto flag
-                = ornament_flag(read_mark(decoration->spelling), settings.expression))
+                = ornament_flag(read_mark(decoration->spelling)))
                 ornament.*flag = true;
     } else if (
         std::holds_alternative<Bar>(token.value) || std::holds_alternative<Overlay>(token.value)
@@ -1032,33 +1002,22 @@ WrittenNavigation written_navigation(
 
 void LyricLine::start(size_t next) {
     if (!next) return;
-    if (written) {
-        // abc2midi resumes the current lyric line when the jump bypasses its
-        // opening. On this replay, keep only syllables on newly visited notes.
-        if (std::exchange(carry_verse, false))
-            replaying_line = true;
-        else if (line != next)
-            replaying_line = false;
-        line = next;
-        return;
-    }
-    if (std::exchange(carry_verse, false)) line = next;
-    if (line == next) return;
-    finish();
+    // abc2midi resumes the current lyric line when the jump bypasses its
+    // opening. On this replay, keep only syllables on newly visited notes.
+    if (std::exchange(carry_verse, false))
+        replaying_line = true;
+    else if (line != next)
+        replaying_line = false;
     line = next;
-    if (const auto found = legacy->find(line); found != legacy->end()) {
-        const auto& verses = found->second;
-        verse              = &verses[occurrence % verses.size()];
-    }
 }
 
 const std::string* LyricLine::take_syllable(size_t source_line, const Atom& atom) {
     start(source_line);
-    if (!written || !atom.lyric_slot) return nullptr;
+    if (!atom.lyric_slot) return nullptr;
     const auto slot     = atom.lyric_slot - 1;
     const bool repeated = std::exchange(slot_visits[slot], part_visit) == part_visit;
     if (replaying_line && repeated) return nullptr;
-    const auto& lyrics   = (*written)[slot];
+    const auto& lyrics   = written[slot];
     const auto  verse    = occurrence % lyrics.verse_count;
     const auto  syllable = std::ranges::lower_bound(
         lyrics.by_verse, verse, {}, &std::pair<size_t, std::string>::first
@@ -1081,52 +1040,9 @@ void LyricLine::enter_part(size_t next) {
 }
 
 void LyricLine::finish() {
-    if (verse) rows.push_back({verse, std::move(attacks), std::move(boundaries)});
     line           = 0;
     carry_verse    = false;
     replaying_line = false;
-    verse          = nullptr;
-    attacks.clear();
-    boundaries.clear();
-}
-
-void LyricLine::complete() {
-    finish();
-    for (const auto& row : rows) {
-        vec<LyricAnchor> aligned;
-        vec<size_t>      bars;
-        auto             bar = row.boundaries.begin();
-        for (auto attack = row.attacks.begin(); attack != row.attacks.end(); ++attack) {
-            if (bar != row.boundaries.end()
-                && *bar == static_cast<size_t>(attack - row.attacks.begin())) {
-                bars.push_back(aligned.size());
-                ++bar;
-            }
-            if (const auto* single = std::get_if<LyricAnchor>(&*attack))
-                aligned.push_back(*single);
-            else {
-                const auto& expanded = *std::get<const vec<LyricAnchor>*>(*attack);
-                aligned.insert(aligned.end(), expanded.begin(), expanded.end());
-            }
-        }
-        if (bar != row.boundaries.end()) bars.push_back(aligned.size());
-        for (auto& [slot, text] : align_lyrics(
-                 row.verse->text,
-                 aligned.size(),
-                 bars,
-                 LyricEncoding::Legacy,
-                 row.verse->at,
-                 diagnostics
-             ))
-            aligned[slot].append(std::move(text));
-    }
-}
-
-void LyricLine::bar(size_t source_line) {
-    start(source_line);
-    if (attacks.empty()) return;
-    if (boundaries.empty() || attacks.size() != boundaries.back())
-        boundaries.push_back(attacks.size());
 }
 
 // Interpret one voice's navigation schedule. Pitch policy and symbol slots
@@ -1138,7 +1054,7 @@ public:
         const TuneSettings&  settings,
         const VoicePlan&     plan,
         std::string          name,
-        const VoiceLyrics&   lyrics,
+        const WrittenLyrics& lyrics,
         ChordAttackSequence& chord_attacks,
         Diagnostics&         diagnostics
     ) :
@@ -1149,11 +1065,11 @@ public:
         written{settings.meter, settings.key, settings.unit},
         notation(written_navigation(plan, written, settings, diagnostics)),
         accompaniment(settings.programs, diagnostics),
-        lanes(Expression{settings.expression}, diagnostics, &accompaniment),
-        planned_lanes(plan.lanes), expression_dialect(settings.expression),
+        lanes(Expression{}, diagnostics, &accompaniment),
+        planned_lanes(plan.lanes),
         opening_meter(settings.meter), opening_unit(settings.unit), initial_tempo(settings.tempo),
         separate_conductor(settings.separate_conductor),
-        chord_attacks(chord_attacks), lyric_line(lyrics, diagnostics) {
+        chord_attacks(chord_attacks), lyric_line(lyrics) {
         lane().played_meter = settings.meter;
         accompaniment.open_lane(0, settings.meter, 0, plan.lanes.front().backing_opening);
         if (plan.expands_releases) expanded_releases.emplace(diagnostics);
@@ -1184,7 +1100,6 @@ private:
     OverlayLanes                               lanes;
     const vec<LanePlan>&                       planned_lanes;
     PlaybackLane&                              lane() { return lanes.active(); }
-    const ExpressionDialect                    expression_dialect;
     const Meter&                               opening_meter;
     const long double                          opening_unit;
     const i32                                  initial_tempo;
@@ -1250,8 +1165,6 @@ private:
     GraceTiming lead_in(const Prepared& atom);
     long double unwarped_duration(const Prepared& atom);
     long double grace_room(const Prepared& atom);
-    long double proportional_chord_weight(const GraceAttack& attack) const;
-    long double grace_weight(std::span<const GraceAttack> attacks, bool proportional) const;
     GraceTiming play_grace(const Prepared& atom);
     void        play_grace_attack(const AttackSet& notes, long double start);
     void        play_notes(
@@ -1291,9 +1204,6 @@ private:
     Sound            ornament_neighbor(Pitch pitch, Location at, int direction = 1);
     Sound            resolve_sound(Pitch pitch, Alteration alteration, Location at, bool tie);
     Sound            sound(Pitch pitch, Location at, bool tie);
-    GateArticulation attack_articulation(
-        GateArticulation style, VoiceOutput::Selection route
-    ) const;
     void ornament_attack(
         Sound           sound,
         long double     start,
@@ -1481,15 +1391,6 @@ Sound VoicePlayer::ornament_neighbor(Pitch pitch, Location at, int direction) {
     return resolve_sound(pitch, written.tone.alterations[letter_index(pitch.letter)], at, false);
 }
 
-GateArticulation VoicePlayer::attack_articulation(
-    GateArticulation style, VoiceOutput::Selection route
-) const {
-    // abc2midi's channel 10 keeps the performed length, including dotted rhythm and stress timing.
-    if (route.is_drum() && expression_dialect == ExpressionDialect::legacy)
-        return GateArticulation::unshaped;
-    return style;
-}
-
 void VoicePlayer::ornament_attack(
     Sound           sound,
     long double     start,
@@ -1514,7 +1415,6 @@ void VoicePlayer::ornament_attack(
         expanded_releases->begin(lane, start, step, atom.at);
         expanded_releases->add(hit.gate, 0, midi_track_settings[lane].attack.gap);
     }
-    lyric_line.attack(hit.lyric);
 }
 
 std::optional<TieNote> VoicePlayer::take_tie(const Sound& sound) {
@@ -1567,8 +1467,6 @@ vec<ChordMember> VoicePlayer::resolve_chord(
     size_t     ordinary_attacks = 0;
     auto       active_route     = output.current_route(lanes.id());
     const auto transpose        = sounding_shift();
-    const bool legacy           = expression_dialect == ExpressionDialect::legacy;
-    bool       first_staccato   = false;
     // Extend every continuation before an attack can change the shared wheel.
     for (const auto& pitch : notes.atom.pitches) {
         const auto after = std::ranges::find_if(
@@ -1578,39 +1476,28 @@ vec<ChordMember> VoicePlayer::resolve_chord(
         remaining        = std::span(after, remaining.end());
         auto member_gate = gate;
         for (const auto& mark : decorations) {
-            const auto flag = ornament_flag(read_mark(mark.spelling), expression_dialect);
+            const auto flag = ornament_flag(read_mark(mark.spelling));
             if (flag == &Ornament::staccato) member_gate = GateArticulation::staccato;
             if (flag == &Ornament::tenuto && member_gate == GateArticulation::normal)
                 member_gate = GateArticulation::unshaped;
         }
         auto played       = sound(pitch, notes.at, notes.tied);
         auto continuation = take_tie(played);
-        if (legacy && !notes.atom.chord && played.tie
-            && member_gate == GateArticulation::staccato) {
-            diagnostics.warn(notes.at, "unmatched-tie", "staccato leaves a rest before the tie");
-            played.tie = false;
-        }
-        const bool starts_tie = played.tie;
         // As in abc2midi, only ordinary attacks select a chord channel. A new
         // tied attack uses the last selection; a continuation emits no attack.
         const bool ordinary       = !continuation && !played.tie;
         const bool introduces_gap = ordinary && ordinary_attacks != 0;
         if (ordinary) active_route = output.chord_route(lanes.id(), ordinary_attacks++);
 
-        const bool uniform_grace   = notes.lengths.grace.mode == GraceBorrow::Mode::UniformChord;
-        const bool member_staccato = member_gate == GateArticulation::staccato
-                                     && !notes.atom.chord_gate_override && !uniform_grace;
-        if (members.empty()) first_staccato = member_staccato;
-        // abc2midi joins ties before flattening the lengths of melodic attacks.
-        const bool individual   = !legacy || active_route.is_drum() || continuation || starts_tie;
-        const bool short_gate   = individual ? member_staccato : first_staccato;
+        const bool member_staccato = member_gate == GateArticulation::staccato;
+        const bool short_gate   = member_staccato;
         auto       timing       = short_gate ? notes.timing.staccato.value() : notes.timing.full;
         const auto step         = notes.timing.written_length;
         auto       written_gate = short_gate ? notes.timing.written_staccato : step;
         if (next_length != notes.atom.member_lengths.end()
             && next_length->member == members.size()) {
             const auto& member_length = next_length->length;
-            if (individual && !uniform_grace) {
+            {
                 auto length = member_length.fraction() * notes.lengths.unit;
                 if (const auto& hold = notes.lengths.hold)
                     length = fermata_length(length, hold->unit, hold->mode);
@@ -1624,17 +1511,10 @@ vec<ChordMember> VoicePlayer::resolve_chord(
             ++next_length;
         }
 
-        // A legacy chord tie cannot cross a gap before the next written slot.
-        if (legacy && notes.atom.chord && written_gate + epsilon < step) played.tie = false;
         const bool overlaps = played.tie && written_gate > step + epsilon;
         const auto release
             = continuation || overlaps ?
-                  tick(
-                      start
-                          + expression.tied_gate(timing.duration, member_gate, expression_dialect),
-                      diagnostics,
-                      notes.at
-                  ) :
+                  tick(start + expression.tied_gate(timing.duration, member_gate), diagnostics, notes.at) :
                   0;
         const auto overlap_release = overlaps ? release : 0;
         if (continuation) {
@@ -1644,15 +1524,12 @@ vec<ChordMember> VoicePlayer::resolve_chord(
                 step
             );
         }
-        const auto articulation = legacy && starts_tie ?
-                                      GateArticulation::unshaped :
-                                      attack_articulation(member_gate, active_route);
         members.push_back(
             {played,
              active_route.transpose(played.pitch, transpose),
              active_route,
              continuation,
-             expression.gate(timing.duration, slur, articulation, timing.gate_ratio),
+             expression.gate(timing.duration, slur, member_gate, timing.gate_ratio),
              written_gate,
              overlap_release,
              timing.velocity,
@@ -1684,10 +1561,8 @@ void VoicePlayer::play_notes(
     const AttackSet notes{*atom.atom, atom.at, atom.tied, atom.ornament.accent, timing, lengths};
     auto            members = resolve_chord(notes, start, atom.slur == SlurPosition::inside, gate);
     std::optional<LyricAnchor> anchor;
-    if (!play_expanded_ornament(atom, members, start, timing)) {
+    if (!play_expanded_ornament(atom, members, start, timing))
         anchor = emit_chord(notes, members, start, spread);
-        if (anchor) lyric_line.attack(*anchor);
-    }
     if (syllable) {
         diagnostics.spend(PlaybackWork::text(*syllable), atom.at);
         if (!anchor) anchor = output.lyric_anchor(lanes.id(), start, atom.at);
@@ -1762,9 +1637,7 @@ std::optional<LyricAnchor> VoicePlayer::emit_chord(
         bool        accented = notes.accented;
         for (const auto& mark : member.decorations) {
             const auto resolved = read_mark(mark.spelling);
-            accented = accented
-                       || (expression_dialect == ExpressionDialect::abc_2_1
-                           && ornament_flag(resolved, expression_dialect) == &Ornament::accent);
+            accented = accented || ornament_flag(resolved) == &Ornament::accent;
             apply_decoration(
                 resolved, false, mark.at, ChordDecorationTarget{start, !member.continuation}
             );
@@ -1838,55 +1711,7 @@ long double VoicePlayer::grace_room(const Prepared& atom) {
         return std::holds_alternative<UnitChange>(effect);
     });
     const auto duration   = hold_known ? unwarped_duration(atom) : atom.played_duration();
-    if (expression_dialect == ExpressionDialect::legacy && atom.atom->chord) return duration;
     return atom.staccato() ? staccato_length(duration) : duration;
-}
-
-long double VoicePlayer::proportional_chord_weight(const GraceAttack& attack) const {
-    const auto& chord = attack.atom;
-    const auto  first = chord.length.fraction();
-    auto        total = chord.pitches.size() * first;
-    for (const auto& member : chord.member_lengths) total += member.length.fraction() - first;
-
-    // abc2midi counts the first member's staccato rest as well as its note.
-    // Later staccato members contribute only their shortened notes.
-    size_t last_staccato = chord.pitches.size();
-    for (const auto& mark : chord.decorations) {
-        if (mark.member == last_staccato
-            || ornament_flag(read_mark(mark.spelling), expression_dialect) != &Ornament::staccato)
-            continue;
-        last_staccato = mark.member;
-        if (chord.chord_gate_override) {
-            if (mark.member == 0) total += first;
-            continue;
-        }
-        const auto member = std::ranges::lower_bound(
-            chord.member_lengths, mark.member, {}, &ChordMemberLength::member
-        );
-        const auto length = member != chord.member_lengths.end() && member->member == mark.member ?
-                                member->length.fraction() :
-                                first;
-        total += mark.member == 0 ? length / 2 : -length / 2;
-    }
-    return total * attack.rhythm_scale;
-}
-
-long double VoicePlayer::grace_weight(
-    std::span<const GraceAttack> attacks, bool proportional
-) const {
-    const bool  legacy       = expression_dialect == ExpressionDialect::legacy;
-    long double total        = 0;
-    bool        count_single = true;
-    for (const auto& attack : attacks) {
-        if (legacy && proportional && attack.atom.chord)
-            total += proportional_chord_weight(attack);
-        else if (count_single || attack.atom.chord)
-            total += attack.weight();
-        // The fixed abc2midi counter stays inside a chord closed by a length override.
-        if (legacy && !proportional && attack.atom.chord)
-            count_single = !attack.atom.chord_gate_override;
-    }
-    return total;
 }
 
 void VoicePlayer::play_grace_attack(const AttackSet& notes, long double start) {
@@ -1895,7 +1720,7 @@ void VoicePlayer::play_grace_attack(const AttackSet& notes, long double start) {
         = notes.atom.chord ?
               lane().expression.take_chord_spread(midi_track_settings[lanes.id()].attack) :
               ChordSpread{};
-    if (const auto anchor = emit_chord(notes, members, start, spread)) lyric_line.attack(*anchor);
+    emit_chord(notes, members, start, spread);
 }
 
 GraceTiming VoicePlayer::play_grace(const Prepared& atom) {
@@ -1903,7 +1728,8 @@ GraceTiming VoicePlayer::play_grace(const Prepared& atom) {
     const auto& attacks      = atom.grace.notes->attacks;
     const auto& settings     = atom.grace.lengths;
     const bool  proportional = settings.proportional();
-    const auto  weights      = grace_weight(attacks, proportional);
+    long double weights      = 0;
+    for (const auto& attack : attacks) weights += attack.weight();
     if (weights == 0) return {};
     const auto room   = grace_room(atom);
     const auto length = settings.step(room, atom.grace.fixed_unit, weights);
@@ -1921,11 +1747,6 @@ GraceTiming VoicePlayer::play_grace(const Prepared& atom) {
     if (length == 0) return {};
     GraceTiming time;
     time.host.ticks = borrow;
-    if (expression_dialect == ExpressionDialect::legacy && atom.atom->chord) {
-        time.host.mode
-            = proportional ? GraceBorrow::Mode::ScaleChord : GraceBorrow::Mode::UniformChord;
-        time.host.scale = 1 - borrow / room;
-    }
     for (const auto& attack : attacks) {
         const auto&  note     = attack.atom;
         const auto   duration = attack.weight() * length;
@@ -1995,9 +1816,7 @@ void VoicePlayer::play_ornament_pattern(
         written.meter,
         atom.at,
         atom.slur,
-        attack_articulation(
-            atom.ornament.tenuto ? GateArticulation::unshaped : GateArticulation::normal, route
-        )
+        atom.ornament.tenuto ? GateArticulation::unshaped : GateArticulation::normal
     };
     auto& expression = lane().expression;
     if (!head.tie || timing.full.duration == 0) {
@@ -2038,13 +1857,11 @@ void VoicePlayer::play_ornament_pattern(
             opening,
             output.retain_route(lane_id),
             first.gate,
-            {first.lyric},
             lane_id,
             midi_track_settings[lane_id].attack.gap
         }
     );
     lane().ties.push_back({head.pitch.note, head.letter, head.octave, &tied, atom.at, {}});
-    lyric_line.ornament(tied.attacks);
 }
 
 void VoicePlayer::finish_ornaments() {
@@ -2073,7 +1890,6 @@ void VoicePlayer::finish_ornaments() {
                     const auto hit = output.attack(
                         tied.route, tied.pattern[pulse % tied.pattern_size], start, gate, volume, at
                     );
-                    tied.attacks.push_back(hit.lyric);
                     release = hit.gate;
                 }
                 if (expanded_releases) {
@@ -2099,9 +1915,8 @@ void VoicePlayer::play_harp_lead(const Prepared& atom, StressNote first, StressN
 void VoicePlayer::play_cut(const Prepared& atom, StressNote timing, int neighbor) {
     // The lead occupies a grace slot. It bypasses trim but may overlap the host.
     const auto pitch = ornament_neighbor(atom.atom->pitches.front(), atom.at, neighbor);
-    const auto style
-        = attack_articulation(GateArticulation::normal, output.chord_route(lanes.id(), 0));
-    const auto gate = lane().expression.gate(timing.duration, true, style, std::nullopt);
+    const auto gate
+        = lane().expression.gate(timing.duration, true, GateArticulation::normal, std::nullopt);
     ornament_attack(pitch, lane().time, timing.duration, gate, atom, timing.velocity);
     lane().time += timing.duration;
     lane().ties.clear();
@@ -2254,12 +2069,10 @@ void VoicePlayer::visit(Tie, Location at) {
         diagnostics.warn(at, "unexpected-tie", "ignored tie without a preceding note");
 }
 
-bool Ornament::* ornament_flag(DecorationMark mark, ExpressionDialect dialect) {
-    if (dialect == ExpressionDialect::abc_2_1) {
-        if (mark.name == "tenuto") return &Ornament::tenuto;
-        if (mark.name == "invertedfermata") return &Ornament::fermata;
-        if (mark.name == "arpeggio") return &Ornament::arpeggio;
-    }
+bool Ornament::* ornament_flag(DecorationMark mark) {
+    if (mark.name == "tenuto") return &Ornament::tenuto;
+    if (mark.name == "invertedfermata") return &Ornament::fermata;
+    if (mark.name == "arpeggio") return &Ornament::arpeggio;
     if (!mark.shorthand && mark.name == ">") return &Ornament::accent;
     if (!mark.shorthand && mark.name.size() == 1) return nullptr;
     struct Feature {
@@ -2320,10 +2133,9 @@ void VoicePlayer::apply_decoration(
         );
         return;
     }
-    if (const auto flag = ornament_flag(resolved, expression_dialect)) {
+    if (const auto flag = ornament_flag(resolved)) {
         // Member gates were set before extending ties. Chord members do not expand ornaments.
         if (target) return;
-        if (flag == &Ornament::accent && expression_dialect != ExpressionDialect::abc_2_1) return;
         if (last_on_line) {
             diagnostics.warn(
                 at, "orphan-decoration", "ornament at end of line has no note or rest"
@@ -2348,12 +2160,6 @@ void VoicePlayer::apply_decoration(
         if (!target || target->attacks) arm_envelope(EnvelopeCue{*envelope, at});
         return;
     }
-    if (mark == "arpeggio") {
-        if (target) return;
-        flush();
-        lane().expression.arpeggiate_next_chord();
-        return;
-    }
     if (mark.size() == 1 && mark.front() >= '0' && mark.front() <= '5') return;
     constexpr std::array accepted_marks{
         "coda"sv, "segno"sv, "tenuto"sv, "wedge"sv, "downbow"sv, "upbow"sv
@@ -2361,37 +2167,35 @@ void VoicePlayer::apply_decoration(
     if (std::ranges::find(accepted_marks, mark) != accepted_marks.end()) return;
     // ABC 2.1 section 4.14 defines these shorthands. abc2midi leaves them unperformed.
     if (resolved.shorthand && "MOPSuv"sv.find(mark) != std::string_view::npos) return;
-    if (expression_dialect == ExpressionDialect::abc_2_1) {
-        // Section 4.14 defines these spellings. abc2midi gives them no
-        // MIDI effect, including when navigation marks appear together.
-        constexpr std::array unperformed_marks{
-            "trill("sv,
-            "trill)"sv,
-            "lowermordent"sv,
-            "uppermordent"sv,
-            "mordent"sv,
-            "pralltriller"sv,
-            "turn"sv,
-            "turnx"sv,
-            "invertedturn"sv,
-            "invertedturnx"sv,
-            "+"sv,
-            "plus"sv,
-            "snap"sv,
-            "slide"sv,
-            "open"sv,
-            "thumb"sv,
-            "D.S."sv,
-            "D.C."sv,
-            "dacoda"sv,
-            "dacapo"sv,
-            "fine"sv,
-            "shortphrase"sv,
-            "mediumphrase"sv,
-            "longphrase"sv
-        };
-        if (std::ranges::find(unperformed_marks, mark) != unperformed_marks.end()) return;
-    }
+    // Section 4.14 defines these spellings. abc2midi gives them no
+    // MIDI effect, including when navigation marks appear together.
+    constexpr std::array unperformed_marks{
+        "trill("sv,
+        "trill)"sv,
+        "lowermordent"sv,
+        "uppermordent"sv,
+        "mordent"sv,
+        "pralltriller"sv,
+        "turn"sv,
+        "turnx"sv,
+        "invertedturn"sv,
+        "invertedturnx"sv,
+        "+"sv,
+        "plus"sv,
+        "snap"sv,
+        "slide"sv,
+        "open"sv,
+        "thumb"sv,
+        "D.S."sv,
+        "D.C."sv,
+        "dacoda"sv,
+        "dacapo"sv,
+        "fine"sv,
+        "shortphrase"sv,
+        "mediumphrase"sv,
+        "longphrase"sv
+    };
+    if (std::ranges::find(unperformed_marks, mark) != unperformed_marks.end()) return;
     diagnostics.warn(
         at, "ignored-decoration", fmt::format("ignored unsupported decoration '{}'", mark)
     );
@@ -2638,7 +2442,7 @@ void VoicePlayer::jump_repeat(Location at) {
 
 bool VoicePlayer::can_defer(const Token& token) const {
     if (const auto* decoration = std::get_if<Decoration>(&token.value))
-        return !ornament_flag(read_mark(decoration->spelling), expression_dialect);
+        return !ornament_flag(read_mark(decoration->spelling));
     if (std::holds_alternative<Harmony>(token.value)
         || std::holds_alternative<Directive>(token.value)
         || std::holds_alternative<TempoNotation>(token.value)
@@ -2819,7 +2623,6 @@ Performance VoicePlayer::render(const VoicePlan& plan) {
     lanes.break_ties();
     finish_ornaments();
     if (expanded_releases) expanded_releases->apply();
-    lyric_line.complete();
     output.finish(result.passes);
     vec<long double> lane_ends;
     for (const auto& clock : lanes.clocks()) {
@@ -2937,7 +2740,7 @@ void prime_drum_map(const PlayOrder& first_voice, DrumMap& drum_map, Diagnostics
 Performance perform(
     const TuneSettings&  settings,
     const VoicePlan&     plan,
-    const VoiceLyrics&   lyrics,
+    const WrittenLyrics& lyrics,
     std::string          name,
     ChordAttackSequence& chord_attacks,
     Diagnostics&         diagnostics

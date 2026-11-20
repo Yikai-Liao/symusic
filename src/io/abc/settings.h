@@ -81,9 +81,6 @@ private:
 // General MIDI instrument numbers for chordprog in the absence of an override.
 class ProgramNumbers {
 public:
-    explicit ProgramNumbers(std::optional<AbcVersion> version) :
-        one_based_chords(version >= AbcVersion{2, 1}) {}
-
     bool              consume(const Token& token, Location reference, Diagnostics& diagnostics);
     [[nodiscard]] int read(std::string_view& args, Diagnostics& diagnostics, Location at) const;
     [[nodiscard]] int read_chord(
@@ -92,7 +89,6 @@ public:
     [[nodiscard]] int midi(int written) const { return std::max(0, written - base.value_or(0)); }
 
 private:
-    bool               one_based_chords;
     std::optional<int> base;
 };
 

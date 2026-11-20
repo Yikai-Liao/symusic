@@ -32,18 +32,12 @@ using PlayOrder = vec<PlayStep>;
 // the navigation limit raises rather than returning a partial schedule.
 class PartItinerary {
 public:
-    PartItinerary(
-        std::string_view          order,
-        Location                  at,
-        std::optional<AbcVersion> version,
-        Diagnostics&              diagnostics
-    );
+    PartItinerary(std::string_view order, Location at, Diagnostics& diagnostics);
     [[nodiscard]] PlayOrder arrange(const vec<Token>& voice) const;
 
 private:
     Location                   at;
     Diagnostics&               diagnostics;
-    bool                       infer_section_repeats;
     std::optional<std::string> labels;
 };
 

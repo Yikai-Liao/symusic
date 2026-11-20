@@ -87,7 +87,7 @@ struct ChordSpelling {
 std::optional<ChordSpelling> chord_spelling(std::string_view symbol, std::string& decoded) {
     if (!symbol.empty() && std::string_view("^_<>@").find(symbol.front()) != symbol.npos) return {};
     if (symbol.find_first_of("\\&") != symbol.npos) {
-        decoded = decode_text(symbol, TextContext::ChordSymbol, std::nullopt);
+        decoded = decode_text(symbol, TextContext::ChordSymbol);
         symbol  = decoded;
     }
     if (symbol.starts_with('(')) symbol.remove_prefix(1);
