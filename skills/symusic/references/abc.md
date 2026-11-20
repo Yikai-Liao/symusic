@@ -10,7 +10,7 @@ On entering a reordered part or skipping an ending, notes use the unit length an
 
 Broken rhythm and tuplet ratios apply to written notes across part labels. Each note keeps its adjusted length when a part jump or repeat plays only part of the group. Timed fields and dynamics between the two notes of a broken pair take effect at the adjusted note boundary. A grace group can borrow from a host in the next written part when playback continues across the label. Skipping the grace group leaves that duration with the host.
 
-`%%MIDI snt key pitch` retunes one MIDI key. The pitch is absolute in semitones, so `%%MIDI snt 60 61.5` assigns a pitch halfway between C-sharp and D to MIDI key 60. As in abc2midi, the change uses the preceding emitted event's tick. After a leading rest, that tick can still be zero. The changes appear in `Score.note_tunings`. Use MIDI export when the score needs a tuning change at an exact tick during a rest or a held note. A compatible MIDI device is needed to hear the retuning. Symusic's SoundFont renderer does not apply it.
+`%%MIDI snt key pitch` is checked, and an invalid key or pitch produces a warning, but the retuning is not imported. abc2midi writes it as MIDI Tuning Standard SysEx, which symusic's MIDI reader also drops.
 
 When reading a file, `I:abc-include defaults.abh` or `%%abc-include defaults.abh` imports that header at the point of the instruction. Includes can be nested, and every name is relative to the score's directory. Unavailable files and cycles warn and are skipped. `Score.from_abc(text)` does not open referenced files.
 
@@ -148,17 +148,17 @@ ABC 2.1 fields outside their allowed positions warn and are ignored. For example
 
 Export begins with `%abc-2.1` and identifies the Symusic version in `I:abc-creator`. `I:linebreak <none>` leaves staff breaks to the engraver, independently of source wrapping. Titles and voice names escape literal quotes, ampersands, percent signs, backslashes, and control characters. Voice names use `\n` for line breaks. Titles use a fixed-width Unicode escape. In ABC 2.1 input, titles and voice names accept the standard mnemonics, named entities, and fixed-width Unicode escapes. Unversioned legacy names keep entity spellings literal.
 
-ABC 2.1 free meter is stored as `TimeSignature(time, 0, 0)`. It has a quarter-note pulse and no downbeats. ABC export writes `M:none` for this event and when no opening time signature is supplied. MIDI export uses `4/4` for free meter because the MIDI meter event requires a numeric signature. Older and unversioned ABC input also exposes the numeric pulse.
+`M:none` (free meter) reads as `4/4`, the signature abc2midi writes for it. ABC export writes `M:none` when the score has no opening time signature.
 
-Additive meters such as `M:(2+3+2)/8` accent the start of each group. The score preserves the written order in `TimeSignature.beat_groups` and includes one beat per group in its beat grid. ABC export writes the groups. MIDI export writes their total as the numerator.
+Additive meters such as `M:(2+3+2)/8` accent the start of each group. The score keeps only their total, here `7/8`, which is also what MIDI export writes.
 
-Trailing rests that extend past the final event set `Score.explicit_end` in the score's time unit. It can extend `Score.end()`, and ABC export represents that silence as a rest in the first voice. The MIDI adapter ends tracks after their last MIDI event.
+Rests after the final event are not kept, so `Score.end()` is the end of the last event, as in the MIDI file abc2midi writes.
 
 The writer emits playable ABC rather than reconstructing the original notation. It preserves note pitches, velocities, timing on its 480-tick grid, programs, tempos, keys, meters, supported control changes, and explicit MIDI pitch bends. It uses ties, tuplets, and additional voices when needed. If an audible note starts at tick zero, all note onsets and aligned lyrics shift one tick to accommodate the ABC playback offset. Export validates original event times in all three time units before rounding to the ABC grid. Short audible notes that collapse during rounding are extended to one tick; pedal intervals that collapse are omitted.
 
 The writer preserves the integer number of microseconds per quarter throughout the 24-bit MIDI tempo range. It uses a quarter-note beat in `Q:` when an integer BPM can reproduce the tempo, and shorter beats when necessary.
 
-`Score.copyright_notices` holds the text of conventional `Z:abc-copyright` fields and the deprecated `%%abc-copyright` directive. Each written notice is collected once, including notices inside repeated music. ABC export writes `Z:abc-copyright` in the tune header. MIDI export writes copyright metadata at tick zero. abc2midi recognizes the older directive and can timestamp or repeat its notices during playback.
+Copyright text from `Z:abc-copyright` fields and the deprecated `%%abc-copyright` directive is not imported.
 
 Timed `M:`, `K:`, and `Q:` changes are written in each voice that continues beyond the change. The first voice also carries changes after its own music so they survive export. A change can split a held note into tied segments. Symusic preserves the release; abc2midi can release it one tick early and can place repeated key or meter changes on different earlier MIDI events.
 
