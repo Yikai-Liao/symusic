@@ -72,7 +72,13 @@ Playback keeps a clock and measure-accidental cache per overlay lane. Before ren
 
 The writer maps timed lyrics onto its planned voice lanes before rendering. It can insert a tied continuation inside a held note to preserve a lyric at that time. As the writer emits each music line, it counts the actual note and chord slots and emits the matching `w:` field.
 
-ABC 2.1 defines the meaning of written notation. `abc2midi` is a test oracle for conventions the standard leaves open and for MIDI extensions. The shared compatibility fixtures cover behavior on which the two agree; native tests assert the standard directly where it differs, for example on chord lengths and implicit tuplet ratios. The upstream revision lives in `tests/testcases/abc_oracle.json`, which CI also reads when building the reference executable.
+### ABC scope
+
+ABC 2.1 defines the meaning of written notation for every input, including files without a version line or with an older version; the reader has no second, abc2midi-compatible dialect. `%%MIDI` directives are abc2midi extensions, so abc2midi defines their behavior, and it also settles playback conventions the standard leaves open.
+
+ABC import adds nothing to the data model. Its result is what symusic's MIDI reader would build from the file abc2midi writes for the tune: notes, programs, controls, pitch bends, tempos, time and key signatures, lyrics, markers and track names. What that path drops, the native reader drops too, such as single-note tuning (MIDI Tuning Standard SysEx), copyright text, silence after the last event and the grouping of an additive meter. A new ABC feature that needs a field or event type the MIDI path lacks is out of scope.
+
+`abc2midi` is the test oracle for the conventions and extensions above. The shared compatibility fixtures cover behavior on which the two agree; native tests assert the standard directly where it differs, for example on chord lengths and implicit tuplet ratios. The upstream revision lives in `tests/testcases/abc_oracle.json`, which CI also reads when building the reference executable.
 
 ### ABC input diagnostics
 
