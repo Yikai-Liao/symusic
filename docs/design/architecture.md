@@ -74,7 +74,7 @@ The writer maps timed lyrics onto its planned voice lanes before rendering. It c
 
 ### ABC scope
 
-ABC 2.1 defines the meaning of written notation for every input, including files without a version line or with an older version; the reader has no second, abc2midi-compatible dialect. `%%MIDI` directives are abc2midi extensions, so abc2midi defines their behavior, and it also settles playback conventions the standard leaves open.
+ABC 2.1 defines how written notation sounds for every input, including files without a version line or with an older version; the reader has no second, abc2midi-compatible reading of the music. The version only sets how strictly the syntax is parsed. Input that declares 2.1 or later is parsed strictly, while other input also accepts notation that 2.1 deprecates, such as `+name+` decorations and `!` as a line break. Accepting a deprecated spelling never changes what the construct plays. `%%MIDI` directives are abc2midi extensions, so abc2midi defines their behavior, and it also settles playback conventions the standard leaves open.
 
 ABC import adds nothing to the data model. Its result is what symusic's MIDI reader would build from the file abc2midi writes for the tune: notes, programs, controls, pitch bends, tempos, time and key signatures, lyrics, markers and track names. What that path drops, the native reader drops too, such as single-note tuning (MIDI Tuning Standard SysEx), copyright text, silence after the last event and the grouping of an additive meter. A new ABC feature that needs a field or event type the MIDI path lacks is out of scope.
 
