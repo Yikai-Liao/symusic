@@ -7,8 +7,8 @@ namespace symusic::abc::detail {
 // MIDI note number and signed bend offset (zero is the centered wheel).
 // The selected output route validates the final note before narrowing it.
 struct MidiPitch {
-    int note;
-    int wheel;
+    i32 note;
+    i32 wheel;
 };
 
 // Tuning follows written source order across voices, not the performed order
@@ -23,50 +23,39 @@ public:
     // supplies the effective octave and accidental; channel transposition and
     // drum mapping are subsequent playback decisions.
     [[nodiscard]] MidiPitch pitch(
-        char letter, int octave, Alteration alteration, Location at
+        char letter, i32 octave, Alteration alteration, Location at
     ) const;
 
 private:
-    enum class Midi { MiddleC, Normal, Linear, Equal, TuningSystem };
-    using Detune = std::array<int, 12>;
+    using Detune = std::array<i32, 12>;
     struct Scale {
-        float octave;
-        float fifth;
-        float sharp;
-        float microstep;
+        f32 octave;
+        f32 fifth;
+        f32 sharp;
+        f32 microstep;
 
         [[nodiscard]] MidiPitch pitch(
-            char letter, int octave, int middle_c, Alteration alteration
+            char letter, i32 octave, i32 middle_c, Alteration alteration
         ) const;
     };
     struct State {
-        int                         middle_c = 60;
+        i32                         middle_c = 60;
         std::variant<Detune, Scale> temper{Detune{}};
         bool                        comma53 = false;
 
+        [[nodiscard]] std::optional<State> change(
+            const Token& token, Location tune_start, Diagnostics& diagnostics
+        ) const;
         [[nodiscard]] MidiPitch tempered_pitch(
-            char letter, int octave, Alteration alteration
+            char letter, i32 octave, Alteration alteration
         ) const;
     };
-    struct Change {
-        Location at;
-        State    state;
-    };
-    vec<Change> changes;
+    WrittenSetting<State> changes;
 
-    [[nodiscard]] static std::optional<Midi>   midi(std::string_view name);
     [[nodiscard]] static std::optional<Detune> detune(std::string_view args);
-    [[nodiscard]] static std::optional<Scale>  scale(
-        float octave, float fifth, float sharp, float step
-    );
-    [[nodiscard]] static std::optional<Scale> linear(std::string_view args);
-    [[nodiscard]] static std::optional<Scale> equal(std::string_view args);
-    void read(const Token& token, Location tune_start, Diagnostics& diagnostics);
-    void read_midi(
-        std::string_view args, Location at, Location tune_start, Diagnostics& diagnostics
-    );
-    void read_detune(std::string_view args, Location at, Diagnostics& diagnostics);
-    [[nodiscard]] const State& current() const;
+    [[nodiscard]] static std::optional<Scale>  scale(f32 octave, f32 fifth, f32 sharp, f32 step);
+    [[nodiscard]] static std::optional<Scale>  linear(std::string_view args);
+    [[nodiscard]] static std::optional<Scale>  equal(std::string_view args);
 };
 
 }   // namespace symusic::abc::detail

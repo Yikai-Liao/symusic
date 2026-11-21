@@ -21,15 +21,19 @@ add_library(symusic
     src/conversion.cpp
     src/event.cpp
     src/io/abc/accompaniment.cpp
+    src/io/abc/attacks.cpp
     src/io/abc/expression.cpp
+    src/io/abc/lanes.cpp
     src/io/abc/midi_output.cpp
     src/io/abc/navigation.cpp
+    src/io/abc/notation.cpp
     src/io/abc/pitch_tuning.cpp
     src/io/abc/playback.cpp
     src/io/abc/read.cpp
     src/io/abc/settings.cpp
     src/io/abc/stress.cpp
     src/io/abc/syntax.cpp
+    src/io/abc/track_plan.cpp
     src/io/abc/write.cpp
     src/io/common.cpp
     src/io/midi.cpp

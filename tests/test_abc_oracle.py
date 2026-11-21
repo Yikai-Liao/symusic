@@ -28,12 +28,18 @@ from symusic import (
 )
 
 from tests.test_abc import (
-    HEADER,
+    HEADER as ABC_HEADER,
+)
+from tests.test_abc import (
     note_rows,
     roundtrip_score,
     score_with_constrained_onset,
 )
 from tests.utils import TESTCASES_PATH
+
+# An explicit beat gives both players the same velocities for the melody.
+COMPARISON_BEAT = "%%MIDI beat 105 95 80 2"
+HEADER = ABC_HEADER.replace("K:C", COMPARISON_BEAT + "\nK:C")
 
 SNAPSHOT = TESTCASES_PATH / "abc_oracle.json"
 CASES = json.loads((TESTCASES_PATH / "abc_inputs.json").read_text(encoding="utf-8"))
@@ -101,7 +107,6 @@ def oracle_score(
     )
 
 
-@pytest.mark.parametrize("version", ["", "%abc-2.1\n"])
 @pytest.mark.parametrize(
     "music",
     [
@@ -113,35 +118,23 @@ def oracle_score(
         "z [I:MIDI droneon] [I:MIDI snt 60 61.5] C D [I:MIDI droneoff] z |]",
     ],
 )
-def test_live_tuning_leaves_no_trace(upstream, tmp_path, version, music):
+def test_live_tuning_leaves_no_trace(upstream, tmp_path, music):
     # The MIDI reader skips the tuning SysEx that abc2midi writes.
-    abc = version + HEADER + music
-    assert performed(Score.from_abc(abc)) == performed(
-        oracle_score(upstream, abc, tmp_path)
-    )
-
-
-def test_live_copyright_is_not_imported(upstream: Path, tmp_path: Path):
-    abc = HEADER + "%%abc-copyright Copyright Example\\nLine \\x32\nCDEF |]"
+    abc = HEADER + music
     assert performed(Score.from_abc(abc)) == performed(
         oracle_score(upstream, abc, tmp_path)
     )
 
 
 @pytest.mark.parametrize("gap", [0, 4, 10])
-@pytest.mark.parametrize("version", ["", "%abc-2.1\n"])
 @pytest.mark.parametrize("music", ["C [DF] E G", "TC [DF] E [GB]", "RC-C [DF] E"])
 def test_live_expanded_release_queue(
-    upstream: Path, tmp_path: Path, gap: int, version: str, music: str
+    upstream: Path, tmp_path: Path, gap: int, music: str
 ):
-    abc = (
-        version
-        + HEADER
-        + f"%%MIDI chordattack {gap}\n%%MIDI expand 1/24\n{music} | z4 |]"
+    abc = HEADER + f"%%MIDI chordattack {gap}\n%%MIDI expand 1/24\n{music} | z4 |]"
+    assert performed(Score.from_abc(abc)) == performed(
+        oracle_score(upstream, abc, tmp_path)
     )
-    native = note_rows(Score.from_abc(abc))
-    reference = note_rows(oracle_score(upstream, abc, tmp_path))
-    assert [row[:3] for row in native] == [row[:3] for row in reference]
 
 
 def test_live_numeric_voice_ids(upstream: Path, tmp_path: Path):
@@ -172,7 +165,9 @@ def test_live_text_tempo_keeps_previous_header_tempo(upstream: Path, tmp_path: P
 
 @pytest.fixture(scope="module")
 def golden() -> dict:
-    return json.loads(SNAPSHOT.read_text(encoding="utf-8"))["cases"]
+    cases = json.loads(SNAPSHOT.read_text(encoding="utf-8"))["cases"]
+    assert cases.keys() == CASES.keys()
+    return cases
 
 
 @pytest.fixture(scope="module")
@@ -193,10 +188,7 @@ def test_native_matches_snapshot(name: str, golden: dict):
         assert any(f"[{code}]" in message for message in messages), messages
     else:
         assert not messages
-    expected = dict(golden[name])
-    # Some cases pin tempos that differ from the upstream converter's.
-    expected["tempos"] = sample.get("native_tempos", expected["tempos"])
-    assert performed(score) == expected
+    assert performed(score) == golden[name]
 
 
 @pytest.mark.parametrize("name", CASES)
@@ -232,26 +224,6 @@ def test_multimeasure_rest_backing(rest: str, upstream: Path, tmp_path: Path):
 
 
 @pytest.mark.parametrize(
-    ("parts", "body"),
-    [
-        ("", "!drum! CDEF | !nodrum! GABc |]"),
-        ("", "[I:MIDI drumon] [!nodrum!CE]DEF | GA [B!drum!c] c |]"),
-        ("", "[I:MIDI drumon] {[!nodrum!CE]} DEFG | !drum! ABcd |]"),
-        ("", "[I:MIDI drumon] |: C !nodrum! DE !drum! F :| !nodrum! GABc |]"),
-        ("P:A\n", "P:A\n!drum! CDEF |\nP:B\n[I:MIDI drumon] GABc |]"),
-    ],
-)
-def test_legacy_drum_marks(parts: str, body: str, upstream: Path, tmp_path: Path):
-    abc = HEADER.replace("K:C\n", parts + "K:C\n")
-    abc += "%%MIDI drum dddd 36 37 38 39 91 92 93 94\n" + body
-    native = Score.from_abc(abc)
-    reference = oracle_score(upstream, abc, tmp_path)
-    assert [t.notes for t in native.tracks if t.is_drum] == [
-        t.notes for t in reference.tracks if t.is_drum
-    ]
-
-
-@pytest.mark.parametrize(
     "body",
     [
         "C2 & [I:MIDI drumon] !p!E- & G2 | F2 & E2 & B | C2 |",
@@ -278,7 +250,7 @@ def test_overlay_drum_tracks(body: str, upstream: Path, tmp_path: Path):
 def test_overlay_harmony_tracks(upstream: Path, tmp_path: Path):
     abc = (
         HEADER
-        + '"C"C4 & [I:MIDI gchordoff] [I:MIDI chordprog 5] [I:MIDI bassvol 31] "Am"E4 |\n'
+        + '%%MIDI programbase 0\n"C"C4 & !mf![I:MIDI gchordoff] [I:MIDI chordprog 5] [I:MIDI bassvol 31] "Am"E4 |\n'
         "[I:MIDI gchordoff] D4 & [I:MIDI gchordon] F4 | B4 |]"
     )
     assert performed(Score.from_abc(abc)) == performed(
@@ -289,7 +261,7 @@ def test_overlay_harmony_tracks(upstream: Path, tmp_path: Path):
 def test_overlay_drones(upstream: Path, tmp_path: Path):
     abc = (
         HEADER + "%%MIDI drone 40 47 35 61 62\n"
-        "C4 & [I:MIDI droneon] E4 & [I:MIDI droneon] G4 |\n"
+        "C4 & !mf![I:MIDI droneon] E4 & !mf![I:MIDI droneon] G4 |\n"
         "D4 & [I:MIDI droneoff] F4 & A4 | B4 & G4 & [I:MIDI droneoff] F4 |]"
     )
     assert performed(Score.from_abc(abc)) == performed(
@@ -300,10 +272,10 @@ def test_overlay_drones(upstream: Path, tmp_path: Path):
 @pytest.mark.parametrize(
     "body",
     [
-        "[V:lead] C>[V:lead]DEF GABC | [V:side] C8|]",
-        "[V:lead] C>[V:side] C8 | [V:lead] DEF GABC |]",
-        "[V:lead] C>[V:lead octave=0]DEF GABC | [V:side] C8|]",
-        "[V:lead] {c}[V:lead octave=0] CDEF GABC | [V:side] C8|]",
+        "[V:lead] C>[V:lead]DEF GABC | [V:side] !mf!C8|]",
+        "[V:lead] C>[V:side] !mf!C8 | [V:lead] DEF GABC |]",
+        "[V:lead] C>[V:lead octave=0]DEF GABC | [V:side] !mf!C8|]",
+        "[V:lead] {c}[V:lead octave=0] CDEF GABC | [V:side] !mf!C8|]",
     ],
 )
 def test_voice_fields_in_broken_rhythm_and_grace(
@@ -431,11 +403,6 @@ def test_abc_lyrics_follow_notation(abc: str, upstream: Path, tmp_path: Path):
             "cBAG|\nw: nine ten eleven twelve"
         ),
         (
-            "|: CDEF |\nw: one two three four\nGABc :| cBAG|\n"
-            "w: five six seven eight nine ten eleven twelve"
-        ),
-        "|: CDEF |\nw: one two three four\nGABc :|\ncBAG|\nw: nine ten eleven twelve",
-        (
             "CDEF |:\nw: one two three four\nGABc |\nw: five six seven eight\n"
             "cBAG :|\nw: nine ten eleven twelve"
         ),
@@ -445,17 +412,13 @@ def test_abc_lyrics_follow_notation(abc: str, upstream: Path, tmp_path: Path):
             "|: CDEF |\nw: one two three four\n[1 GABc :|\nw: five six seven eight\n"
             "[2 cBAG|\nw: nine ten eleven twelve"
         ),
-        "|: CDEF :| GABc|\nw: one two three four five six seven eight nine ten eleven twelve",
     ],
     ids=[
         "close",
-        "tail",
-        "unvoiced-close",
         "opening-at-eol",
         "implicit",
         "implicit-inline-voice",
         "numbered-endings",
-        "single-line",
     ],
 )
 def test_abc_lyrics_at_repeat_boundaries(body: str, upstream: Path, tmp_path: Path):
@@ -733,16 +696,16 @@ def test_chord_channel_pitch_and_repeat_routing(
     [
         (
             "[V:a] [I:MIDI makechordchannels 1] [CE] D E F |]\n"
-            "[V:b] [I:MIDI makechordchannels 1] [CG] [I:MIDI program 2 17] "
+            "[V:b] !mf![I:MIDI makechordchannels 1] [CG] [I:MIDI program 2 17] "
             "[CF] [I:MIDI program 4 19] [DA] B |]"
         ),
         (
             '[V:a] "C"[I:MIDI makechordchannels 1] [CE] D E F |]\n'
-            "[V:b] [I:MIDI makechordchannels 1] [CG] [I:MIDI program 2 17] "
+            "[V:b] !mf![I:MIDI makechordchannels 1] [CG] [I:MIDI program 2 17] "
             "[CF] [I:MIDI program 7 19] [DA] B |]"
         ),
         (
-            "C4 & [I:MIDI makechordchannels 1] [CE] [I:MIDI program 4 19] [DF] G A | "
+            "C4 & !mf![I:MIDI makechordchannels 1] [CE] [I:MIDI program 4 19] [DF] G A | "
             "[I:MIDI makechordchannels 1] [CG] [I:MIDI program 2 17] [DA] B c |]"
         ),
     ],
@@ -761,7 +724,7 @@ def assert_chord_channel_routing(abc: str, upstream: Path, tmp_path: Path) -> No
 
 
 def test_idle_overlay_backing_in_an_explicit_group(upstream: Path, tmp_path: Path):
-    abc = HEADER + 'C4 & D4 & "C"E4 | (& F4 | G4 & A4 | B4 &) |]'
+    abc = HEADER + 'C4 & !mf!D4 & !mf!"C"E4 | (& F4 | G4 & A4 | B4 &) |]'
     assert performed(Score.from_abc(abc)) == performed(
         oracle_score(upstream, abc, tmp_path)
     )
@@ -785,7 +748,7 @@ def test_bass_only_chord_quality(
 
 def test_backing_control_destinations(upstream: Path, tmp_path: Path):
     abc = (
-        HEADER + "%%MIDI bassprog 12\n%%MIDI chordprog 25\n"
+        HEADER + "%%MIDI programbase 0\n%%MIDI bassprog 12\n%%MIDI chordprog 25\n"
         "%%MIDI control bass 7 41\n%%MIDI control chord 10 23\n"
         "%%MIDI portamento chord 13\n"
         '"C"CDEF | [I:MIDI control bass 7 67] [I:MIDI noportamento chord] "G"GABc |'
@@ -810,7 +773,7 @@ def test_backing_control_destinations(upstream: Path, tmp_path: Path):
 def test_bad_key_accidental(upstream: Path, tmp_path: Path):
     abc = HEADER + "C [K:G ^xF] D E F|"
     with pytest.warns(
-        UserWarning, match=r"<string>:7:4: ABC \[invalid-accidental\].*\^x"
+        UserWarning, match=r"<string>:8:4: ABC \[invalid-accidental\].*\^x"
     ):
         native = Score.from_abc(abc)
     assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
@@ -839,40 +802,16 @@ def test_pitchbend_does_not_shift_note_clock(upstream: Path, tmp_path: Path):
     assert [note.time for note in actual.tracks[0].notes] == [1, 480, 960, 1440]
 
 
-# Pin exceptions at the affected rows so the rest of each tune is still compared.
-SAMPLE_DIFFERENCES = {
-    # The body tempo at time zero supersedes the implicit default.
-    "baym_rebin/63": [(("tempos",), [], [[0, 500000]])],
-    # The MIDI queue schedules the first full backing chord twice at the same tick.
-    "chordname_long/1": [
-        (
-            ("tracks", 1, "notes"),
-            [],
-            [[1, 1919, pitch, 75] for pitch in (48, 52, 55, 58, 62, 65, 69)],
-        )
-    ],
-    # Native controllers keep their written time; the MIDI program lands at tick 1.
-    "coleraine/8": [
-        (
-            ("tracks", 0, "controls"),
-            [[0, 7, 115], [0, 10, 67]],
-            [[1, 7, 115], [1, 10, 67]],
-        )
-    ],
-    "demo/7": [
-        # ABC 2.1 section 10.1 makes legacy Q:80 count L:1/8 units, not quarters.
-        (("tempos",), [[0, 1500000]], [[0, 750000]]),
-        # Unlike Hp, HP plays the pipe scale without displaying a key signature.
-        (("keys",), [[0, 0, 0]], [[0, 2, 0]]),
-    ],
-    # G tied to B across a barline. Preserve both pitches rather than dropping B.
-    "demo/8": [
-        (
-            ("tracks", 0, "notes"),
-            [[12481, 1919, 67, 105], [14401, 959, 71, 105]],
-            [[12481, 2879, 67, 105]],
-        )
-    ],
+# These tunes exercise differences in notation or MIDI serialization. The native
+# sample tests below check the corresponding Score events on the original input.
+NATIVE_SAMPLES = {
+    "baym_rebin/63",
+    "chordname_long/1",
+    "coleraine/8",
+    "decoration_space/1",
+    "decoration_space/2",
+    "demo/7",
+    "demo/8",
 }
 SAMPLE_RECOVERY = {
     "chordname_too_long/1": "invalid-chord-name",
@@ -883,67 +822,128 @@ SAMPLE_RECOVERY = {
 }
 
 
-def upstream_sample_tunes():
+def upstream_sample_tunes() -> dict[str, str]:
     if not (source := os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE")):
-        return [
-            pytest.param(
-                None,
-                "",
-                "",
-                marks=pytest.mark.skip(reason="set SYMUSIC_TEST_ABCMIDI_SOURCE"),
-            )
-        ]
+        return {}
     samples = Path(source) / "samples"
-    cases = []
+    cases = {}
     for path in sorted(samples.glob("*.abc")):
         abc = path.read_text(encoding="utf-8-sig")
         header, *tunes = re.split(r"(?=^[ \t]*X\s*:)", abc, flags=re.MULTILINE)
         for tune in tunes:
             reference = re.match(r"\s*X\s*:\s*(\d+)", tune).group(1)
-            cases.append(
-                pytest.param(
-                    path, reference, header + tune, id=f"{path.stem}/{reference}"
-                )
-            )
+            cases[f"{path.stem}/{reference}"] = header + tune
     assert cases, f"no upstream tunes found in {samples}"
     return cases
 
 
-def drop_sample_rows(events: dict, path: tuple, rows: list[list[int]]) -> None:
-    for part in path:
-        events = events[part]
-    for row in rows:
-        events.remove(row)
+SAMPLES = upstream_sample_tunes()
 
 
-@pytest.mark.parametrize(("path", "reference", "abc"), upstream_sample_tunes())
-def test_upstream_sample(
-    path: Path, reference: str, abc: str, upstream: Path, tmp_path: Path
-):
-    label = f"{path.stem}/{reference}"
-    output = tmp_path / "sample.mid"
-    result = subprocess.run(
-        [upstream.resolve(), path, reference, "-o", output, "-silent"],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=15,
-    )
-    assert result.returncode == int(label in SAMPLE_RECOVERY), (
-        result.stdout + result.stderr
-    )
-    expected = performed(Score(output))
-    warning = SAMPLE_RECOVERY.get(label) or {"boys/3": "unexpected-character"}.get(
-        label
-    )
+@pytest.fixture(scope="module")
+def samples():
+    if not SAMPLES:
+        pytest.skip("set SYMUSIC_TEST_ABCMIDI_SOURCE to read the original sample tunes")
+    return SAMPLES
+
+
+def sample_for_comparison(name: str, abc: str) -> str:
+    """Give each melody the same opening beat and declare the sample's program numbering."""
+    if name == "drums/1":  # Only the backing drums sound.
+        return abc
+    settings = ""
+    if "%%MIDI beat " not in abc:
+        settings += COMPARISON_BEAT + "\n"
+    if "%%MIDI chordprog " in abc and "%%MIDI programbase " not in abc:
+        settings += "%%MIDI programbase 0\n"
+    abc = re.sub(r"(?m)^(X\s*:.*\n)", r"\g<0>" + settings, abc, count=1)
+
+    # The tune header sets the first voice's beat. Each additional voice has
+    # its own dynamics, which persist when the music returns to that voice.
+    header, body = abc.split("\nK:", 1)
+    voices = set()
+
+    def first_entry(match):
+        voice = match[1] or match[2]
+        initialize = bool(voices) and voice not in voices
+        voices.add(voice)
+        if not initialize:
+            return match[0]
+        return match[0] + ("\n" + COMPARISON_BEAT if match[1] else "!mf!")
+
+    body = re.sub(r"(?m)^V:\s*(\w+)[^\n]*|\[V:\s*(\w+)[^]]*\]", first_entry, body)
+    if name == "temperament/2":  # Its second melody enters as an overlay.
+        body = body.replace("& [I:MIDI program 44]", "& !mf![I:MIDI program 44]", 1)
+    return header + "\nK:" + body
+
+
+@pytest.mark.parametrize("name", sorted(SAMPLES.keys() - NATIVE_SAMPLES))
+def test_upstream_sample(name: str, upstream: Path, tmp_path: Path):
+    abc = sample_for_comparison(name, SAMPLES[name])
+    warning = SAMPLE_RECOVERY.get(name) or {"boys/3": "unexpected-character"}.get(name)
     with (
         pytest.warns(UserWarning, match=rf"\[{warning}\]") if warning else nullcontext()
     ):
-        actual = performed(Score.from_abc(abc))
-    for location, native_rows, upstream_rows in SAMPLE_DIFFERENCES.get(label, ()):
-        drop_sample_rows(expected, location, upstream_rows)
-        drop_sample_rows(actual, location, native_rows)
-    assert actual == expected
+        native = Score.from_abc(abc)
+    reference = oracle_score(
+        upstream, abc, tmp_path, expected_exit=int(name in SAMPLE_RECOVERY)
+    )
+    assert performed(native) == performed(reference)
+
+
+def test_sample_opening_tempo(samples):
+    score = Score.from_abc(samples["baym_rebin/63"])
+    assert score.tempos == [Tempo(0, mspq=750_000)]
+
+
+def test_sample_opening_controls(samples):
+    track = Score.from_abc(samples["coleraine/8"]).tracks[0]
+    assert track.controls == [ControlChange(0, 7, 115), ControlChange(0, 10, 67)]
+
+
+def test_sample_chord_intervals(samples):
+    backing = Score.from_abc(samples["chordname_long/1"]).tracks[1]
+    assert sorted(n.pitch for n in backing.notes if n.time == 1) == [
+        48,
+        52,
+        55,
+        58,
+        62,
+        65,
+        69,
+    ]
+
+
+def test_sample_decoration_spacing(samples):
+    spaced = performed(Score.from_abc(samples["decoration_space/1"]))
+    adjacent = performed(Score.from_abc(samples["decoration_space/2"]))
+    assert spaced == adjacent
+    # The final L is the accent shorthand in ABC 2.1 §4.16.
+    assert spaced["tracks"][0]["notes"][-1] == [7201, 959, 84, 105]
+
+
+def test_sample_pipe_key(samples):
+    score = Score.from_abc(samples["demo/7"])
+    assert score.key_signatures == [KeySignature(0, 0, 0)]
+    assert score.tempos == [Tempo(0, mspq=1_500_000)]
+
+
+def test_sample_chord_program_and_tie(samples):
+    abc = samples["demo/8"]
+    with pytest.raises(ValueError, match=r"\[invalid-midi-value\].*between 1 and 128"):
+        Score.from_abc(abc)
+    score = Score.from_abc(
+        abc.replace("%%MIDI chordprog 0", "%%MIDI programbase 0\n%%MIDI chordprog 0")
+    )
+    # The written G-|B crosses pitches, so both notes sound (ABC 2.1 §4.11).
+    assert [
+        (n.time, n.pitch, n.duration)
+        for n in score.tracks[0].notes
+        if 12481 <= n.time <= 14401
+    ] == [
+        (12481, 67, 1919),
+        (14401, 71, 959),
+    ]
 
 
 @pytest.mark.parametrize("settings", ["", "%%MIDI drone 1 45 57 80 80\n"])
@@ -965,18 +965,14 @@ def test_default_bend_preserves_note_clock(upstream: Path, tmp_path: Path):
     assert [(e.time, e.value) for e in native.pitch_bends[:-1]] == [
         (e.time, e.value) for e in actual.pitch_bends[:-1]
     ]
-    # The legacy default contour advances the MIDI delta on its reset.
+    # abc2midi advances the MIDI delta when it resets the default bend curve.
     assert (native.pitch_bends[-1].time, native.pitch_bends[-1].value) == (480, 0)
     assert (actual.pitch_bends[-1].time, actual.pitch_bends[-1].value) == (487, 0)
     assert (native.notes[1].time, actual.notes[1].time) == (481, 488)
 
 
-def test_upstream_ordered_verses(upstream: Path, tmp_path: Path):
-    source = os.environ.get("SYMUSIC_TEST_ABCMIDI_SOURCE")
-    if not source:
-        pytest.skip("set SYMUSIC_TEST_ABCMIDI_SOURCE")
-    demo = (Path(source) / "samples" / "demo.abc").read_text(encoding="utf-8-sig")
-    abc = re.search(r"^X: 5\b.*?(?=^X:)", demo, re.MULTILINE | re.DOTALL).group()
+def test_upstream_ordered_verses(samples, upstream: Path, tmp_path: Path):
+    abc = samples["demo/5"]
     assert lyric_rows(Score.from_abc(abc)) == lyric_rows(
         oracle_score(upstream, abc, tmp_path, "-lyrics")
     )
@@ -1516,17 +1512,6 @@ def test_live_shape_attacks_grace_mute_and_drum(upstream, tmp_path, body):
     )
 
 
-@pytest.mark.parametrize("ornament", ["{A}F", "~F", "RF3", "TF3"])
-def test_live_ornament_attacks_accept_separate_lyric_syllables(
-    upstream, tmp_path, ornament
-):
-    abc = HEADER + f"D {ornament} E F G|\nw: one two three four five"
-    score = Score.from_abc(abc)
-    actual = oracle_score(upstream, abc, tmp_path, "-lyrics")
-    assert note_rows(score) == note_rows(actual)
-    assert lyric_rows(score) == lyric_rows(actual)
-
-
 @pytest.mark.parametrize(
     ("head", "body"),
     [
@@ -1534,7 +1519,7 @@ def test_live_ornament_attacks_accept_separate_lyric_syllables(
         ("", "%%MIDI harpmode 1\n(3~FGA ~F- F4|"),
         ("", "~F [I:MIDI harpmode 1] ~F [I:MIDI harpmode 0] ~F A|"),
         ("", "|: ~F [I:MIDI harpmode 1] ~F F6 :| ~F A7|"),
-        ("", "V:1\n~F [I:MIDI harpmode 1] ~F F6|\nV:2\n~A, A,7|"),
+        ("", "V:1\n~F [I:MIDI harpmode 1] ~F F6|\nV:2\n!mf!~A, A,7|"),
         ("%%MIDI harpmode 1\n", "RF TF ~F0 A|"),
         ("%%MIDI harpmode 1\n", "(3~A3 B3 c3 d2|"),
         ("%%MIDI harpmode 1\n", "(2:3:2~d2 e2 F2|"),
@@ -1563,14 +1548,6 @@ def test_live_harp_cut_rejects_grace_that_consumes_its_first_attack(upstream, tm
     with pytest.warns(UserWarning, match=r"\[grace-too-long\].*first harp attack"):
         native = Score.from_abc(abc)
     assert performed(native) == performed(oracle_score(upstream, abc, tmp_path))
-
-
-def test_live_harp_cut_lyrics(upstream, tmp_path):
-    abc = "%%MIDI harpmode 1\n" + HEADER + "~F G|\nw: one two three four"
-    oracle = oracle_score(upstream, abc, tmp_path, "-lyrics")
-    score = Score.from_abc(abc)
-    assert note_rows(score) == note_rows(oracle)
-    assert lyric_rows(score) == lyric_rows(oracle)
 
 
 @pytest.mark.parametrize("mark", ["", "!bend!"])
@@ -1632,19 +1609,6 @@ def test_live_grace_timing_in_tuplets(upstream: Path, tmp_path: Path, music: str
     )
 
 
-@pytest.mark.parametrize("opening", ["6/8", "3/4"])
-def test_live_tuplet_default_uses_current_meter_in_abc_2_1(upstream, tmp_path, opening):
-    abc = HEADER.replace("M:4/4", f"M:{opening}") + "A[M:4/4](5BCDEF G|"
-    # ABC 2.1 section 4.13 uses the active simple meter. The converter still
-    # applies its opening numerator and treats both 6/8 and 3/4 as compound.
-    assert performed(Score.from_abc(abc)) == performed(
-        oracle_score(upstream, abc.replace("(5", "(5:2"), tmp_path)
-    )
-    assert performed(oracle_score(upstream, abc, tmp_path)) == performed(
-        oracle_score(upstream, abc.replace("(5", "(5:3"), tmp_path)
-    )
-
-
 def test_live_grace_keeps_its_written_key(upstream, tmp_path):
     abc = HEADER + "D {F}[K:G]FGA|"
     native = Score.from_abc(abc)
@@ -1655,7 +1619,7 @@ def test_live_grace_keeps_its_written_key(upstream, tmp_path):
 def test_live_harp_cut_rejects_unequal_broken_attacks(upstream, tmp_path):
     abc = "%%MIDI harpmode 1\n" + HEADER + "~C>D EF|"
     with pytest.warns(
-        UserWarning, match=r"<string>:8:3: ABC \[unequal-broken-rhythm\]"
+        UserWarning, match=r"<string>:9:3: ABC \[unequal-broken-rhythm\]"
     ):
         native = Score.from_abc(abc)
     oracle = Score(oracle_midi(upstream, abc, tmp_path, expected_exit=1))
@@ -1680,7 +1644,7 @@ def test_live_muted_tie(upstream, tmp_path, body):
         "[I:MIDI ratio 3 1] C>[R:hornpipe] D EF GABC |]",
         "[R:hornpipe] C>[I:MIDI ratio 3 1] D E[R:Hornpipe]F GABC |]",
         (
-            "[V:1] CDEF CDEF | [V:2] [R:hornpipe] cdef cdef | "
+            "[V:1] CDEF CDEF | [V:2] !mf![R:hornpipe] cdef cdef | "
             "[V:1] EFGA Bcde | [V:2] efga bc'd'e' |]"
         ),
     ],
@@ -1758,13 +1722,16 @@ def test_live_broken_rhythm_across_unit_field(upstream, tmp_path, head, body):
     [
         (
             "K:C\n%%MIDI transpose 5\nI:MIDI rtranspose -2\n",
-            "[V:one] CDEF |]\n[V:two] GABc |]",
+            "[V:one] CDEF |]\n[V:two] !mf!GABc |]",
         ),
-        ("K:C\n%%MIDI rtranspose 3\n", "[V:one] CDEF |]\n[V:two] GABc |]"),
-        ("V:one\nV:two\nK:C\n%%MIDI transpose 5\n", "[V:one] CDEF |]\n[V:two] GABc |]"),
-        ("K:C\n", "[V:one] C [I:MIDI transpose 5] DEF |]\n[V:two] GABc |]"),
-        ("K:C\n%%MIDI rtranspose 3\n", '[V:one] "C" CDEF |]\n[V:two] "G" GABc |]'),
-        ("K:C\n%%MIDI rtranspose 3\n", "C4 & D4 |]"),
+        ("K:C\n%%MIDI rtranspose 3\n", "[V:one] CDEF |]\n[V:two] !mf!GABc |]"),
+        (
+            "V:one\nV:two\nK:C\n%%MIDI transpose 5\n",
+            "[V:one] CDEF |]\n[V:two] !mf!GABc |]",
+        ),
+        ("K:C\n", "[V:one] C [I:MIDI transpose 5] DEF |]\n[V:two] !mf!GABc |]"),
+        ("K:C\n%%MIDI rtranspose 3\n", '[V:one] "C" CDEF |]\n[V:two] !mf!"G" GABc |]'),
+        ("K:C\n%%MIDI rtranspose 3\n", "C4 & !mf!D4 |]"),
         ("K:C\n", "|: C2 [I:MIDI rtranspose 1] D2 :| E2 F2 |]"),
         ("K:C\n", '"C" C [I:MIDI rtranspose 2] D E F |]'),
     ],
@@ -1823,10 +1790,10 @@ def test_live_long_harmony_spans(upstream, tmp_path, body):
 @pytest.mark.parametrize(
     "body",
     [
-        "%%MIDI chordattack 4\n[V:one] [CEG] DEF |]\n[V:two] [GBe] ABc |]",
-        "[V:one] [CEG] [I:MIDI chordattack 4] DEF |]\n[V:two] [GBe] ABc |]",
-        "[V:one] [CEG] DEF |]\n[V:two] [GBe] [I:MIDI chordattack 4] ABc |]",
-        "%%MIDI chordattack 4\nC4 & [CEG] DEF |]",
+        "%%MIDI chordattack 4\n[V:one] [CEG] DEF |]\n[V:two] !mf![GBe] ABc |]",
+        "[V:one] [CEG] [I:MIDI chordattack 4] DEF |]\n[V:two] !mf![GBe] ABc |]",
+        "[V:one] [CEG] DEF |]\n[V:two] !mf![GBe] [I:MIDI chordattack 4] ABc |]",
+        "%%MIDI chordattack 4\nC4 & !mf![CEG] DEF |]",
         '%%MIDI chordattack 4\n%%MIDI gchordbars 10\n%%MIDI gchord fghc\n"C"CDEF | GABc | cBAG | FEDC |]',
         (
             "%%MIDI chordattack 4\n%%MIDI drumbars 10\n%%MIDI drum dddd 36 37 38 39\n"

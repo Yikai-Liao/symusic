@@ -12,21 +12,32 @@ namespace symusic::abc::detail {
 class Diagnostics;
 struct Location;
 
-// One parsed MIDI instruction with its original target and ordered writes.
-// Controller numbers and values are MIDI data bytes; wheel values are signed
-// offsets from center. Output owners choose the track and apply the writes.
+// Sustain follows the MIDI channel across program changes. Release publishes
+// the interval on the Score track that received the pedal-down message.
+class SustainPedal {
+public:
+    void control(TrackNative<Tick>& track, i32 time, i32 value);
+
+private:
+    TrackNative<Tick>* start_track = nullptr;
+    i32                start       = 0;
+};
+
+// One instruction expands to at most three ordered writes. A controller takes
+// a MIDI data byte. A wheel takes a signed offset from center.
 struct ChannelEffect {
-    enum class Destination { voice, bass, chord };
-    enum class Kind { control, control_default, wheel };
+    enum class Destination { Voice, Bass, Chord };
     struct Write {
-        Kind kind;
-        int  value;
-        u8   controller = 0;
+        std::optional<u8> controller;
+        i32               value;
+
+        void emit(TrackNative<Tick>& track, i32 time, SustainPedal& pedal) const;
     };
 
     Destination          destination;
     std::array<Write, 3> events;
     size_t               count;
+    bool                 sets_default;
 
     [[nodiscard]] std::span<const Write> writes() const { return {events.data(), count}; }
 };
@@ -36,15 +47,5 @@ struct ChannelEffect {
 [[nodiscard]] std::optional<ChannelEffect> channel_effect(
     std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
 );
-
-// A pedal belongs to the channel, even if a program change splits its output tracks.
-class SustainPedal {
-public:
-    void control(TrackNative<Tick>& track, i32 time, int value);
-
-private:
-    TrackNative<Tick>* start_track = nullptr;
-    i32                start       = 0;
-};
 
 }   // namespace symusic::abc::detail

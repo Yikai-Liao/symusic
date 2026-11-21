@@ -14,12 +14,12 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
 #include <fmt/format.h>
 #include <tao/pegtl.hpp>
-#include <tao/pegtl/extra/parse_tree.hpp>
 #include <utf8.h>
 
 namespace symusic::abc::detail {
@@ -40,12 +40,33 @@ std::strong_ordering Location::operator<=>(const Location& rhs) const {
 Location Diagnostics::register_include(std::string_view source, Location at) {
     vec<Location::Point> path(at.include_path.begin(), at.include_path.end());
     path.push_back(at.point());
-    sources.push_back({std::string(source), {}, std::move(path)});
+    sources.emplace_back(source, std::move(path));
     return {1, 1, sources.size() - 1, sources.back().include_path};
 }
 
-void Diagnostics::record_line(size_t source, std::string_view raw) {
-    sources[source].lines.push_back(raw);
+std::string_view Diagnostics::record_line(size_t source, std::string_view raw) {
+    auto& entry = sources[source];
+    if (entry.blocks.empty()
+        || raw.size() > entry.blocks.back().capacity() - entry.blocks.back().size()) {
+        auto& block = entry.blocks.emplace_back();
+        try {
+            block.reserve(std::max<size_t>(4096, raw.size()));
+        } catch (...) {
+            entry.blocks.pop_back();
+            throw;
+        }
+    }
+    auto&      block = entry.blocks.back();
+    const auto start = block.size();
+    entry.lines.emplace_back(entry.blocks.size() - 1, start + raw.size());
+    try {
+        block.insert(block.end(), raw.begin(), raw.end());
+    } catch (...) {
+        entry.lines.pop_back();
+        throw;
+    }
+    // Appends stay within capacity, so earlier line and token views remain valid.
+    return {block.data() + start, raw.size()};
 }
 
 std::string Diagnostics::format(
@@ -56,7 +77,12 @@ std::string Diagnostics::format(
         = fmt::format("{}:{}:{}: ABC [{}]: {}", source.name, at.line, at.column, code, message);
     if (at.line == 0 || at.line > source.lines.size()) return result;
 
-    const auto       line   = source.lines[at.line - 1];
+    const auto [block_index, line_end] = source.lines[at.line - 1];
+    const auto       start  = at.line > 1 && source.lines[at.line - 2].first == block_index ?
+                                  source.lines[at.line - 2].second :
+                                  0;
+    const auto&      block  = source.blocks[block_index];
+    const auto       line   = std::string_view(block.data() + start, line_end - start);
     constexpr size_t kWidth = 96;
     const auto       pos    = std::min(at.column - 1, line.size());
     size_t           begin  = std::min(
@@ -65,8 +91,8 @@ std::string Diagnostics::format(
     size_t end = begin + std::min(kWidth, line.size() - begin);
     // Include a complete UTF-8 character when a window edge falls inside it.
     const auto trail = [&](size_t i) { return (static_cast<u8>(line[i]) & 0xc0U) == 0x80U; };
-    for (int n = 0; n < 3 && begin && trail(begin); ++n) --begin;
-    for (int n = 0; n < 3 && end < line.size() && trail(end); ++n) ++end;
+    for (i32 n = 0; n < 3 && begin && trail(begin); ++n) --begin;
+    for (i32 n = 0; n < 3 && end < line.size() && trail(end); ++n) ++end;
     return result
            + fmt::format(
                "\n{}{:?}{}",
@@ -114,12 +140,12 @@ RepeatEndings::RepeatEndings(vec<EndingRange> written) : ranges(std::move(writte
 bool RepeatEndings::contains(size_t pass) const {
     if (pass > last_pass()) return false;
     const auto range
-        = std::ranges::lower_bound(ranges, static_cast<int>(pass), {}, &EndingRange::last);
-    return range != ranges.end() && range->first <= static_cast<int>(pass);
+        = std::ranges::lower_bound(ranges, static_cast<i32>(pass), {}, &EndingRange::last);
+    return range != ranges.end() && range->first <= static_cast<i32>(pass);
 }
 
-long double Broken::first_factor(long double single_short) const {
-    const auto short_factor = count == 1 ? single_short : std::ldexp(1.L, -count);
+f64 Broken::first_factor(f64 single_short) const {
+    const auto short_factor = count == 1 ? single_short : std::ldexp(1.0, -count);
     return direction > 0 ? 2 - short_factor : short_factor;
 }
 
@@ -131,138 +157,102 @@ namespace grammar {
 using namespace peg;
 
 template<char... Cs>
-using chars = one<Cs...>;
-template<char C>
-using repeated = plus<chars<C>>;
-using ws       = chars<' ', '\t', '\r', '\f', '\v'>;
-using escaped  = seq<chars<'\\'>, any>;
-
-struct number : plus<peg::digit> {};
-struct slashes : repeated<'/'> {};
-struct fraction : seq<slashes, opt<number>> {};
-using duration = sor<seq<number, opt<fraction>>, fraction>;
-struct length : duration {};
-struct octave : plus<chars<',', '\''>> {};
+using chars      = one<Cs...>;
+using ws         = chars<' ', '\t', '\r', '\f', '\v'>;
+using escaped    = seq<chars<'\\'>, any>;
+using number     = plus<peg::digit>;
+using fraction   = seq<plus<chars<'/'>>, opt<number>>;
+using duration   = sor<seq<number, opt<fraction>>, fraction>;
+using octave     = plus<chars<',', '\''>>;
 using shift_sign = chars<'^', '_'>;
 using accidental_sign
     = sor<string<'^', '^'>, string<'_', '_'>, seq<chars<'='>, opt<shift_sign>>, shift_sign>;
-struct accidental : seq<accidental_sign, opt<length>> {};
-struct letter : ranges<'a', 'g', 'A', 'G'> {};
-struct tie : seq<opt<chars<'.'>>, chars<'-'>> {};
-using pitch_spelling = seq<opt<accidental>, letter, opt<octave>>;
-struct pitch : seq<pitch_spelling, opt<length>, opt<tie>> {};
+using accidental     = seq<accidental_sign, opt<duration>>;
+using letter         = ranges<'a', 'g', 'A', 'G'>;
+using bare_pitch     = seq<letter, opt<octave>>;
+using pitch_spelling = seq<opt<accidental>, bare_pitch>;
 
-struct rest_letter : chars<'x', 'z', 'X', 'Z'> {};
-struct rest : seq<rest_letter, opt<length>> {};
-struct spacing : seq<chars<'y'>, opt<duration>> {};
+// Only the alternatives of the choice being scanned emit a span. Matching a
+// chord or grace group can backtrack without emitting any of its members.
+enum class Item {
+    Pitch,
+    Chord,
+    Rest,
+    Spacer,
+    Grace,
+    Broken,
+    Field,
+    BadField,
+    Bar,
+    Ending,
+    Tuplet,
+    Harmony,
+    Slur,
+    Tie,
+    Overlay,
+    Decoration,
+    Bang,
+    Layout,
+    Invalid
+};
+template<Item Kind, class Rule>
+struct item : Rule {
+    static void apply(const auto& in, const auto& visit) { visit(Kind, in.string_view()); }
+};
+using tie         = item<Item::Tie, seq<opt<chars<'.'>>, chars<'-'>>>;
+using pitch       = item<Item::Pitch, seq<pitch_spelling, opt<duration>, opt<tie>>>;
+using rest_letter = chars<'x', 'z', 'X', 'Z'>;
+using rest        = item<Item::Rest, seq<rest_letter, opt<duration>>>;
+using spacer      = item<Item::Spacer, seq<chars<'y'>, opt<duration>>>;
+using space       = item<Item::Layout, plus<ws>>;
 // ABC 2.1 section 4.14: a decoration cannot consume a bar, chord boundary or field separator.
 template<char Delimiter>
 using delimited_decoration = seq<
     chars<Delimiter>,
     plus<not_one<Delimiter, ' ', '\t', '\r', '\n', '\f', '\v', '[', ']', '|', ':'>>,
     chars<Delimiter>>;
-struct bang_decoration : delimited_decoration<'!'> {};
-struct named_decoration : sor<bang_decoration, delimited_decoration<'+'>> {};
-struct decoration : sor<named_decoration, chars<'.', '~', '\''>, alpha> {};
-struct bang_break : chars<'!'> {};
+using plus_decoration  = delimited_decoration<'+'>;
+using named_decoration = sor<delimited_decoration<'!'>, plus_decoration>;
+using decoration     = item<Item::Decoration, sor<named_decoration, chars<'.', '~', '\''>, alpha>>;
+using bang_break     = item<Item::Bang, chars<'!'>>;
 using linebreak_mark = sor<bang_break, chars<'$'>, string<'<', 'E', 'O', 'L', '>'>>;
-using linebreak_setting
-    = seq<sor<string<'<', 'n', 'o', 'n', 'e', '>'>, list<linebreak_mark, plus<ws>>>, eof>;
-using reserved_music = chars<'#', '*', ';', '?', '@'>;
-struct chord_spacing : spacing {};
-struct chord : seq<chars<'['>,
-                   star<sor<pitch, rest, chord_spacing, ws, decoration>>,
-                   chars<']'>,
-                   opt<length>,
-                   opt<tie>> {};
-struct broken : sor<repeated<'>'>, repeated<'<'>> {};
-struct grace
-    : seq<chars<'{'>, opt<chars<'/'>>, star<sor<chord, pitch, broken, spacing, ws>>, chars<'}'>> {};
+using linebreak_setting = sor<string<'<', 'n', 'o', 'n', 'e', '>'>, list<linebreak_mark, plus<ws>>>;
+using reserved_music    = chars<'#', '*', ';', '?', '@'>;
+using chord_member      = sor<pitch, rest, spacer, space, decoration>;
+using chord
+    = item<Item::Chord, seq<chars<'['>, star<chord_member>, chars<']'>, opt<duration>, opt<tie>>>;
+using broken       = item<Item::Broken, sor<plus<chars<'>'>>, plus<chars<'<'>>>>;
+using grace_member = sor<chord, pitch, broken, spacer, space>;
+using grace = item<Item::Grace, seq<chars<'{'>, opt<chars<'/'>>, star<grace_member>, chars<'}'>>>;
 
-using field_key  = seq<sor<alpha, chars<'+'>>, chars<':'>>;
-using quote_body = star<sor<escaped, not_one<'"', '\\'>>>;
-using quoted     = seq<chars<'"'>, quote_body, chars<'"'>>;
-struct symbol_shorthand : sor<ranges<'H', 'W', 'h', 'w'>, chars<'~'>> {};
-struct symbol_expansion : sor<named_decoration, quoted> {};
-using symbol_definition = seq<symbol_shorthand, pad<chars<'='>, ws>, symbol_expansion, eof>;
+using field_key        = seq<sor<alpha, chars<'+'>>, chars<':'>>;
+using quote_body       = star<sor<escaped, not_one<'"', '\\'>>>;
+using quoted           = seq<chars<'"'>, quote_body, chars<'"'>>;
+using symbol_shorthand = sor<ranges<'H', 'W', 'h', 'w'>, chars<'~'>>;
+using symbol_expansion = sor<named_decoration, quoted>;
+using equal            = pad<chars<'='>, ws>;
 
-struct text_plain_escape : seq<chars<'\\'>, chars<'\\', '%', '"'>> {};
-struct text_amp_escape : string<'\\', '&'> {};
-using text_escape = sor<text_plain_escape, text_amp_escape>;
-struct text_voice_break : string<'\\', 'n'> {};
-struct text_unicode16 : seq<string<'\\', 'u'>, rep<4, xdigit>> {};
-struct text_unicode32 : seq<string<'\\', 'U'>, rep<8, xdigit>> {};
-struct text_mnemonic : seq<chars<'\\'>, sor<chars<'`', '\'', '^', '~', '"', '/'>, alpha>, alpha> {};
-struct text_entity : seq<chars<'&'>, plus<alpha>, chars<';'>> {};
-// ABC 2.1 sections 8.2 and 11.4.2: font changes do not contribute text.
+using text_escape   = seq<chars<'\\'>, chars<'\\', '%', '"', '&'>>;
+using text_mnemonic = seq<chars<'\\'>, sor<chars<'`', '\'', '^', '~', '"', '/'>, alpha>, alpha>;
+using text_unicode
+    = sor<seq<string<'\\', 'u'>, rep<4, xdigit>>, seq<string<'\\', 'U'>, rep<8, xdigit>>>;
+using text_entity      = seq<chars<'&'>, plus<alpha>, chars<';'>>;
 using text_font_switch = seq<chars<'$'>, ranges<'0', '4'>>;
-using text_font_run    = plus<text_font_switch>;
-struct text_dollar : string<'$', '$'> {};
-using text_styling = sor<text_font_switch, text_dollar>;
-struct text_run : sor<plus<not_one<'\\', '&', '$'>>, any> {};
-using text_encoded = sor<
-    text_voice_break,
-    text_unicode16,
-    text_unicode32,
-    text_mnemonic,
-    text_escape,
-    text_entity>;
-using text_string        = star<sor<text_encoded, text_run>>;
-using styled_text_string = star<sor<text_styling, text_encoded, text_run>>;
+using text_dollar      = string<'$', '$'>;
+using text_lyric_dash  = string<'\\', '-'>;
+using lyric_escape     = seq<chars<'\\'>, chars<'-', '\\', '%', '&'>>;
 
-struct text_lyric_dash : string<'\\', '-'> {};
-struct text_lyric_space : chars<'~'> {};
-struct lyric_escape : seq<chars<'\\'>, chars<'-', '\\', '%', '&'>> {};
-struct lyric_text_run : sor<plus<not_one<'\\', '&', '~', '$'>>, any> {};
-using lyric_text
-    = star<sor<text_styling, text_encoded, text_lyric_dash, text_lyric_space, lyric_text_run>>;
+using beat         = seq<number, opt<chars<'/'>, number>>;
+using tempo_beats  = sor<seq<letter, opt<star<ws>, beat>>, seq<beat, rep_opt<3, plus<ws>, beat>>>;
+using tempo_prefix = seq<tempo_beats, equal>;
+using bpm          = seq<opt<chars<'+'>>, number>;
+using part_item    = seq<sor<alpha, chars<')'>>, opt<number>>;
 
-// ABC 2.1 sections 2.2.5 and 8.2: quotes do not protect a bare percent.
-struct line_quote : chars<'"'> {};
-using comment_prefix = star<sor<escaped, line_quote, plus<not_one<'\\', '"', '%'>>, chars<'\\'>>>;
-
-struct tempo_label : quoted {};
-struct tempo_integer : number {};
-struct tempo_beat : seq<tempo_integer, opt<chars<'/'>, tempo_integer>> {};
-struct tempo_whole_notes : seq<tempo_beat, rep_opt<3, plus<ws>, tempo_beat>> {};
-struct tempo_unit_notes : seq<letter, opt<star<ws>, tempo_beat>> {};
-struct tempo_bpm : seq<opt<chars<'+'>>, number> {};
-using tempo_rate  = seq<sor<tempo_unit_notes, tempo_whole_notes>, pad<chars<'='>, ws>, tempo_bpm>;
-using tempo_value = sor<tempo_rate, tempo_bpm>;
-using tempo_field = seq<
-    sor<seq<tempo_label, opt<star<ws>, tempo_value>>, seq<tempo_value, opt<star<ws>, tempo_label>>>,
-    eof>;
-
-// ABC 2.1 section 3.1.6 allows either (2+3+2)/8 or 2+3+2/8.
-struct meter_group : number {};
-struct meter_denominator : seq<opt<chars<'+', '-'>>, number> {};
-using meter_groups = seq<
-    meter_group,
-    rep_opt<std::numeric_limits<u8>::max() - 1, pad<chars<'+'>, ws>, meter_group>>;
-using meter_field = seq<
-    sor<seq<chars<'('>, pad<meter_groups, ws>, chars<')'>>, meter_groups>,
-    pad<chars<'/'>, ws>,
-    meter_denominator,
-    eof>;
-
-struct part_count : number {};
-struct part_label : seq<alpha, opt<part_count>> {};
-struct part_open : chars<'('> {};
-struct part_close : seq<chars<')'>, opt<part_count>> {};
-using part_field = seq<star<sor<part_label, part_open, part_close, ws>>, eof>;
-
-struct alignment_bar : chars<'|'> {};
-struct blank_slot : chars<'*'> {};
-struct lyric_skip : chars<'_', '-'> {};
-struct lyric_hold : chars<'_'> {};
-using lyric_character = sor<lyric_escape, not_one<' ', '\t', '-', '|', '*', '_'>>;
-struct lyric_syllable : plus<lyric_character> {};
+using lyric_character        = sor<lyric_escape, not_one<' ', '\t', '-', '|', '*', '_'>>;
 using styled_lyric_character = sor<text_dollar, seq<not_at<text_font_switch>, lyric_character>>;
 template<class Item>
-using styled_lyric_item = seq<Item, star<text_font_switch>>;
-// A font change alone takes no slot and is transparent to a following hyphen.
-struct styled_lyric_syllable
-    : seq<star<text_font_switch>, plus<styled_lyric_item<styled_lyric_character>>> {};
+using styled         = seq<Item, star<text_font_switch>>;
+using lyric_syllable = seq<star<text_font_switch>, plus<styled<styled_lyric_character>>>;
 // Section 5.3: the numeric prefix can include punctuation such as the escaped
 // hyphen in 1\-~Si. Keep alignment marks and encoded letters for the verse.
 using lyric_stanza_mark = sor<
@@ -275,34 +265,19 @@ using lyric_stanza = seq<
     star<sor<ws, text_font_switch>>,
     number,
     star<sor<peg::digit, lyric_stanza_mark>>,
-    star<sor<ws, text_font_switch, text_lyric_space>>>;
-// One hyphen ends a syllable. A second hyphen or one after whitespace
-// is a separate blank syllable (ABC 2.1 section 5.1).
-template<class Syllable, class Hyphen = chars<'-'>, class... Suffix>
-using lyric_word = seq<Syllable, opt<Hyphen>, Suffix...>;
-// The held syllable takes trailing punctuation in the section 13.4 example.
-struct lyric_hold_punctuation : seq<plus<styled_lyric_item<chars<'.', ',', '!', '?', ':', ';'>>>,
-                                    at<sor<ws, chars<'-', '*', '|'>, eof>>> {};
-using styled_lyric_word = lyric_word<
-    styled_lyric_syllable,
-    styled_lyric_item<chars<'-'>>,
-    opt<seq<plus<styled_lyric_item<lyric_hold>>, opt<lyric_hold_punctuation>>>>;
-template<class Word, class... Standalone>
-using lyric_verse = star<sor<ws, alignment_bar, blank_slot, lyric_skip, Word, Standalone...>>;
+    star<sor<ws, text_font_switch, chars<'~'>>>>;
+// A held syllable takes trailing punctuation in the section 13.4 example.
+using hold_punctuation = seq<
+    plus<styled<chars<'.', ',', '!', '?', ':', ';'>>>,
+    at<sor<ws, chars<'-', '*', '|'>, eof>>>;
 
-struct field : seq<field_key, star<sor<quoted, not_one<']', '"'>>>> {};
 using inline_field_start = seq<chars<'['>, field_key>;
-using inline_field_ahead = at<inline_field_start>;
-struct bad_field : seq<inline_field_start, star<any>> {};
-using inline_field = seq<chars<'['>, field, chars<']'>>;
+using inline_field
+    = item<Item::Field, seq<inline_field_start, star<sor<quoted, not_one<']', '"'>>>, chars<']'>>>;
+using bad_field = item<Item::BadField, seq<inline_field_start, star<any>>>;
 // Sections 2.2.5 and 8.1: elide these even inside a note, but not within text or fields.
-enum class Elision { Remarks, Playback };
-using inline_remark = seq<string<'[', 'r', ':'>, star<not_one<']'>>, chars<']'>>;
-template<Elision Phase>
-struct elided_music : std::conditional_t<
-                          Phase == Elision::Remarks,
-                          inline_remark,
-                          sor<inline_remark, reserved_music>> {};
+using inline_remark      = seq<string<'[', 'r', ':'>, star<not_one<']'>>, chars<']'>>;
+using playback_elision   = sor<inline_remark, reserved_music>;
 using music_text         = sor<inline_field, bad_field, quoted, seq<chars<'"'>, star<any>>>;
 using macro_spaced_equal = seq<ws, chars<'='>, at<ws>>;
 template<class Separator>
@@ -310,46 +285,37 @@ using macro_to_separator = peg::until<at<Separator>, sor<music_text, named_decor
 // Section 9 limits the written text in characters. An annotation in a macro
 // can contain UTF-8, and header charset validation may still be pending.
 template<size_t Max>
-using macro_text      = seq<peg::utf8::any, rep_opt<Max - 1, peg::utf8::any>, eof>;
-using music_run       = plus<seq<not_at<sor<chars<'[', '"', '!', '+'>, reserved_music>>, any>>;
-using plus_decoration = delimited_decoration<'+'>;
-template<Elision Phase, class Decoration>
-using music_elisions
-    = seq<star<sor<elided_music<Phase>, music_text, Decoration, music_run, any>>, eof>;
-struct ending_number : number {};
-struct ending_range : seq<ending_number, opt<chars<'-'>, ending_number>> {};
-struct endings
-    : seq<list<ending_range, chars<','>>, not_at<sor<chars<','>, seq<chars<'-'>, number>>>> {};
+using macro_text = seq<peg::utf8::any, rep_opt<Max - 1, peg::utf8::any>>;
+
+using ending_range = seq<number, opt<chars<'-'>, number>>;
+using endings
+    = seq<list<ending_range, chars<','>>, not_at<sor<chars<','>, seq<chars<'-'>, number>>>>;
 // Section 4.8 permits continuous thick/thin patterns such as |[|.
 // A bracket needs its own pipe so a following chord or ending stays separate.
 using bar_piece = sor<string<'[', '|', ']'>, string<'[', '|'>, string<'|', ']'>, chars<'|'>>;
-struct barline : plus<bar_piece> {};
-struct opening_colons : repeated<':'> {};
-struct closing_colons : repeated<':'> {};
+using barline   = plus<bar_piece>;
+using colons    = plus<chars<':'>>;
 // Consume colon runs once, including malformed bare runs without a divider.
 using repeat_close = seq<
     at<seq<chars<':'>, sor<chars<':', ']'>, bar_piece>>>,
-    closing_colons,
-    opt<seq<sor<barline, chars<']'>>, opt<opening_colons>>>>;
-struct repeat_bar : sor<repeat_close, seq<barline, opening_colons>> {};
-// An explicit [1 stays separate so a continued field can precede it.
-struct bar : seq<opt<chars<'.'>>, sor<repeat_bar, barline>, opt<endings>> {};
-struct ending : seq<chars<'['>, sor<endings, quoted>, opt<chars<']'>>> {};
-
-struct tuplet_count : number {};
-struct tuplet_time : opt<number> {};
-struct tuplet_notes : opt<number> {};
-struct tuplet
-    : seq<chars<'('>, tuplet_count, opt<chars<':'>, tuplet_time, opt<chars<':'>, tuplet_notes>>> {};
+    colons,
+    opt<sor<barline, chars<']'>>, opt<colons>>>;
+using repeat_bar     = sor<repeat_close, seq<barline, colons>>;
+using bar_sign       = sor<repeat_bar, barline>;
+using bar            = item<Item::Bar, seq<opt<chars<'.'>>, bar_sign, opt<endings>>>;
+using ending         = item<Item::Ending, seq<chars<'['>, sor<endings, quoted>, opt<chars<']'>>>>;
+using tuplet_arg     = seq<chars<':'>, opt<number>>;
+using tuplet         = item<Item::Tuplet, seq<chars<'('>, number, rep_opt<2, tuplet_arg>>>;
 using overlay_splits = plus<seq<chars<'&'>, not_at<chars<')'>>>>;
-struct overlay : sor<string<'(', '&'>, string<'&', ')'>, overlay_splits> {};
-struct harmony : quoted {};
-using symbol_line = star<sor<ws, alignment_bar, blank_slot, harmony, named_decoration>>;
-struct slur : seq<opt<chars<'.'>>, chars<'(', ')'>> {};
-struct invalid : any {};
-struct music_spacing : spacing {};
-using layout = sor<chars<'$', '`'>, seq<chars<'\\'>, eof>, ws>;
-using token  = sor<
+using overlay        = item<Item::Overlay, sor<string<'(', '&'>, string<'&', ')'>, overlay_splits>>;
+using harmony        = item<Item::Harmony, quoted>;
+using slur           = item<Item::Slur, seq<opt<chars<'.'>>, chars<'(', ')'>>>;
+using layout         = item<Item::Layout, sor<chars<'$', '`'>, seq<chars<'\\'>, eof>, plus<ws>>>;
+using invalid        = item<Item::Invalid, any>;
+// A dialect may give a bare bang precedence over named decorations at top level.
+template<class... Prefix>
+using music_token = sor<
+    Prefix...,
     inline_field,
     bad_field,
     ending,
@@ -362,69 +328,40 @@ using token  = sor<
     broken,
     overlay,
     harmony,
-    music_spacing,
+    spacer,
     slur,
     tie,
     decoration,
     bang_break,
     layout,
     invalid>;
-using music = seq<star<token>, eof>;
-// In this dialect a top-level '!' is layout, even when another '!' follows it.
-using bang_layout_music = seq<star<sor<bang_break, token>>, eof>;
-
 }   // namespace grammar
 
-// Select only rules that carry values; PEGTL owns matching, disambiguation and
-// discarding partial matches. The playback engine never sees the parse tree.
-template<class Rule>
-using Select = peg::parse_tree::selector<
-    Rule,
-    peg::parse_tree::store_content::on<
-        grammar::pitch,
-        grammar::rest,
-        grammar::chord,
-        grammar::chord_spacing,
-        grammar::music_spacing,
-        grammar::grace,
-        grammar::accidental,
-        grammar::letter,
-        grammar::octave,
-        grammar::tie,
-        grammar::length,
-        grammar::field,
-        grammar::bad_field,
-        grammar::bar,
-        grammar::repeat_bar,
-        grammar::opening_colons,
-        grammar::closing_colons,
-        grammar::barline,
-        grammar::ending_number,
-        grammar::ending_range,
-        grammar::endings,
-        grammar::ending,
-        grammar::tuplet,
-        grammar::tuplet_count,
-        grammar::tuplet_time,
-        grammar::tuplet_notes,
-        grammar::broken,
-        grammar::overlay,
-        grammar::harmony,
-        grammar::decoration,
-        grammar::bang_break,
-        grammar::slur,
-        grammar::invalid>>;
-
 using Input = peg::view_input<>;
-using Node  = peg::parse_tree::node_t<Input>;
+
+// Visit successive complete alternatives and return the unconsumed suffix.
+template<class... Items>
+std::string_view scan(std::string_view text, peg::sor<Items...>, const auto& visit) {
+    Input input(text);
+    using Choice = peg::sor<peg::if_apply<Items, Items>...>;
+    peg::parse<peg::star<Choice>>(input, visit);
+    return text.substr(text.size() - input.size());
+}
 
 template<class Rule>
-struct TextAction : peg::nothing<Rule> {};
+bool matches(std::string_view text) {
+    return peg::parse<peg::seq<Rule, peg::eof>>(Input(text));
+}
 
-struct TextValue {
-    bool        line_breaks;
-    std::string text;
-};
+// Consume one nonempty lexical production. Failure leaves the caller's view intact.
+template<class Rule>
+std::string_view take(std::string_view& text) {
+    Input input(text);
+    if (!peg::parse<Rule>(input)) return {};
+    const auto match = text.substr(0, text.size() - input.size());
+    text.remove_prefix(match.size());
+    return match;
+}
 
 // ABC 2.1 sections 8.2 and 14.1: mnemonic and entity spellings of the same character.
 struct TextCharacter {
@@ -463,127 +400,85 @@ constexpr TextCharacter kTextCharacters[]{
     {"", "copy", 0x00A9},
 };
 
-template<>
-struct TextAction<grammar::text_plain_escape> {
-    static void apply(const auto& input, TextValue& out) {
-        out.text.push_back(input.string_view().back());
-    }
-};
-
-template<>
-struct TextAction<grammar::text_amp_escape> : TextAction<grammar::text_plain_escape> {};
-
-template<>
-struct TextAction<grammar::text_dollar> : TextAction<grammar::text_plain_escape> {};
-
-template<>
-struct TextAction<grammar::text_lyric_dash> : TextAction<grammar::text_plain_escape> {};
-
-template<>
-struct TextAction<grammar::lyric_escape> : TextAction<grammar::text_plain_escape> {};
-
-template<>
-struct TextAction<grammar::text_lyric_space> {
-    static void apply0(TextValue& out) { out.text.push_back(' '); }
-};
-
-template<>
-struct TextAction<grammar::text_voice_break> {
-    static void apply(const auto& input, TextValue& out) {
-        if (out.line_breaks)
-            out.text.push_back('\n');
+// Unknown names and invalid Unicode scalars retain the entire written escape.
+bool decode_character(std::string_view& text, TextContext context, std::string& out) {
+    using namespace grammar;
+    if (text.starts_with("\\n")) {
+        out.append(context == TextContext::VoiceName ? "\n" : "\\n");
+        text.remove_prefix(2);
+    } else if (auto raw = take<text_unicode>(text); !raw.empty()) {
+        u32 value = 0;
+        std::from_chars(raw.data() + 2, raw.data() + raw.size(), value, 16);
+        if (value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff))
+            out.append(raw);
         else
-            out.text.append(input.string_view());
-    }
-};
-
-struct UnicodeTextAction {
-    static void apply(const auto& input, TextValue& out) {
-        const auto spelling = input.string_view();
-        u32        value    = 0;
-        std::from_chars(spelling.data() + 2, spelling.data() + spelling.size(), value, 16);
-        if (value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF))
-            out.text.append(spelling);
+            ::utf8::append(value, out);
+    } else if (auto raw = take<sor<text_mnemonic, text_entity>>(text); !raw.empty()) {
+        const bool entity = raw.front() == '&';
+        const auto name   = entity ? raw.substr(1, raw.size() - 2) : raw.substr(1);
+        const auto found  = std::ranges::find(
+            kTextCharacters, name, entity ? &TextCharacter::entity : &TextCharacter::mnemonic
+        );
+        if (found == std::end(kTextCharacters))
+            out.append(raw);
         else
-            utf8::append(value, out.text);
+            ::utf8::append(found->code, out);
+    } else if (auto raw = take<text_escape>(text); !raw.empty()) {
+        out.push_back(raw.back());
+    } else {
+        return false;
     }
-};
-
-template<>
-struct TextAction<grammar::text_unicode16> : UnicodeTextAction {};
-template<>
-struct TextAction<grammar::text_unicode32> : UnicodeTextAction {};
-
-template<>
-struct TextAction<grammar::text_entity> {
-    static void apply(const auto& input, TextValue& out) {
-        const auto spelling = input.string_view();
-        const auto name     = spelling.substr(1, spelling.size() - 2);
-        const auto match    = std::ranges::find(kTextCharacters, name, &TextCharacter::entity);
-        if (match != std::end(kTextCharacters))
-            utf8::append(match->code, out.text);
-        else
-            out.text.append(spelling);
-    }
-};
-
-template<>
-struct TextAction<grammar::text_mnemonic> {
-    static void apply(const auto& input, TextValue& out) {
-        const auto spelling = input.string_view();
-        const auto match
-            = std::ranges::find(kTextCharacters, spelling.substr(1), &TextCharacter::mnemonic);
-        if (match != std::end(kTextCharacters))
-            utf8::append(match->code, out.text);
-        else
-            out.text.append(spelling);
-    }
-};
-
-template<>
-struct TextAction<grammar::text_run> {
-    static void apply(const auto& input, TextValue& out) { out.text.append(input.string_view()); }
-};
-
-template<>
-struct TextAction<grammar::lyric_text_run> : TextAction<grammar::text_run> {};
-
-template<class Grammar>
-std::string decode_text_as(std::string_view text, bool line_breaks = false) {
-    TextValue out{line_breaks, {}};
-    out.text.reserve(text.size());
-    Input input(text);
-    peg::parse<Grammar, TextAction>(input, out);
-    return std::move(out.text);
+    return true;
 }
 
-template<class Rule>
-using TempoSelect = peg::parse_tree::selector<
-    Rule,
-    peg::parse_tree::store_content::on<
-        grammar::tempo_label,
-        grammar::tempo_integer,
-        grammar::tempo_beat,
-        grammar::tempo_whole_notes,
-        grammar::tempo_unit_notes,
-        grammar::tempo_bpm>>;
-
-template<class Rule>
-using PartSelect = peg::parse_tree::selector<
-    Rule,
-    peg::parse_tree::store_content::
-        on<grammar::part_label, grammar::part_count, grammar::part_open, grammar::part_close>>;
-
-template<class Rule>
-using MeterSelect = peg::parse_tree::selector<
-    Rule,
-    peg::parse_tree::store_content::on<grammar::meter_group, grammar::meter_denominator>>;
+std::string decoded_text(std::string_view text, TextContext context) {
+    using namespace grammar;
+    std::string out;
+    out.reserve(text.size());
+    while (!text.empty()) {
+        if (decode_character(text, context, out)) continue;
+        if (context != TextContext::ChordSymbol && !take<text_dollar>(text).empty()) {
+            out.push_back('$');
+        } else if (context != TextContext::ChordSymbol && !take<text_font_switch>(text).empty()) {
+            continue;
+        } else if (context == TextContext::Lyric && !take<text_lyric_dash>(text).empty()) {
+            out.push_back('-');
+        } else if (context == TextContext::Lyric && text.front() == '~') {
+            out.push_back(' ');
+            text.remove_prefix(1);
+        } else {
+            const auto end
+                = text.find_first_of(context == TextContext::Lyric ? "\\&$~" : "\\&$", 1);
+            out.append(text.substr(0, end));
+            text.remove_prefix(std::min(end, text.size()));
+        }
+    }
+    return out;
+}
 
 struct NoteAlignment {
     size_t                  notes;
     std::span<const size_t> bars;
     size_t                  next   = 0;
     bool                    excess = false;
+
+    // Whitespace, a blank slot and a bar jump have the same meaning on w: and s: rows.
+    bool skip_layout(std::string_view& text) {
+        if (text.front() == '|') {
+            const auto bar = std::ranges::lower_bound(bars, next);
+            next           = bar == bars.end() ? notes : *bar;
+            if (bar != bars.end())
+                bars = bars.subspan(static_cast<size_t>(bar - bars.begin()) + 1);
+            else
+                bars = {};
+        } else if (text.front() == '*') {
+            take_note();
+        } else if (kWhitespace.find(text.front()) == kWhitespace.npos) {
+            return false;
+        }
+        text.remove_prefix(1);
+        return true;
+    }
 
     std::optional<size_t> take_note() {
         if (next < notes) return next++;
@@ -599,69 +494,42 @@ Location locate_fragment(std::span<const SourceFragment> fragments, size_t offse
     }
     const auto  after    = std::ranges::upper_bound(fragments, offset, {}, &SourceFragment::offset);
     const auto& fragment = *std::prev(after);
-    if (fragment.generated) return fragment.at;
-    auto at = fragment.at;
-    at.column += offset - fragment.offset;
+    auto        at       = fragment.at;
+    if (fragment.generated)
+        at.expansion_offset += offset - fragment.offset;
+    else
+        at.column += offset - fragment.offset;
     return at;
 }
 
-template<class Rule>
-struct AlignmentAction : peg::nothing<Rule> {};
+bool written_before(Location left, Location right) {
+    if (const auto order = left <=> right; order != 0) return order < 0;
+    return left.expansion_offset < right.expansion_offset;
+}
 
-template<>
-struct AlignmentAction<grammar::alignment_bar> {
-    static void apply0(NoteAlignment& state, auto&) {
-        const auto bar      = std::ranges::lower_bound(state.bars, state.next);
-        state.next          = bar == state.bars.end() ? state.notes : *bar;
-        const auto consumed = bar == state.bars.end() ? bar : std::next(bar);
-        state.bars = state.bars.subspan(static_cast<size_t>(consumed - state.bars.begin()));
+void assign_written(std::span<Token> tokens, size_t& next) {
+    // A completed batch contains interrupted fields and every member of its groups.
+    // Their emission order can differ from written order, including at a group host.
+    struct Occurrence {
+        Location* destination;
+        Location  order;
+    };
+    vec<Occurrence> occurrences;
+    const auto      collect_atom = [&](Atom& atom) {
+        for (auto& note : atom.notes)
+            for (auto& mark : note.decorations) occurrences.push_back({&mark.at, mark.at});
+    };
+    for (auto& token : tokens) {
+        occurrences.push_back({&token.at, token.written_end.value_or(token.at)});
+        if (auto* atom = std::get_if<Atom>(&token.value)) collect_atom(*atom);
+        if (auto* grace = std::get_if<Grace>(&token.value))
+            for (auto& attack : grace->attacks) collect_atom(attack.atom);
     }
-};
-
-template<>
-struct AlignmentAction<grammar::blank_slot> {
-    static void apply0(NoteAlignment& state, auto&) { state.take_note(); }
-};
-
-template<class Rule>
-struct LyricAction : AlignmentAction<Rule> {};
-
-template<>
-struct LyricAction<grammar::lyric_skip> : AlignmentAction<grammar::blank_slot> {};
-
-template<>
-struct LyricAction<grammar::lyric_hold> : AlignmentAction<grammar::blank_slot> {};
-
-struct LyricScan {
-    vec<LyricPlacement> placements;
-    bool                placed_syllable = false;
-};
-
-template<>
-struct LyricAction<grammar::lyric_syllable> {
-    static void apply(const auto& input, NoteAlignment& state, LyricScan& scan) {
-        const auto slot      = state.take_note();
-        scan.placed_syllable = slot.has_value();
-        if (!slot) return;
-        // Decoded punctuation is text, not an alignment command.
-        const auto raw  = input.string_view();
-        scan.placements.push_back({*slot, decode_text_as<grammar::lyric_text>(raw)});
-    }
-};
-
-template<>
-struct LyricAction<grammar::styled_lyric_syllable> : LyricAction<grammar::lyric_syllable> {};
-
-template<>
-struct LyricAction<grammar::lyric_hold_punctuation> {
-    static void apply(const auto& input, NoteAlignment&, LyricScan& scan) {
-        if (scan.placed_syllable)
-            scan.placements.back().text += decode_text_as<grammar::lyric_text>(input.string_view());
-    }
-};
-
-template<class Rule>
-struct SymbolAction : AlignmentAction<Rule> {};
+    std::ranges::stable_sort(occurrences, [](const Occurrence& left, const Occurrence& right) {
+        return written_before(left.order, right.order);
+    });
+    for (auto& occurrence : occurrences) occurrence.destination->written = WrittenPosition{++next};
+}
 
 void check_decoration(
     std::string_view text, DecorationDelimiter delimiter, Location at, Diagnostics& diagnostics
@@ -673,41 +541,6 @@ void check_decoration(
             at, "decoration-delimiter", fmt::format("expected '{}' decoration delimiters", expected)
         );
 }
-
-struct SymbolScan {
-    const Field&         field;
-    Location             start;
-    DecorationDelimiter  delimiter;
-    Diagnostics&         diagnostics;
-    vec<SymbolPlacement> placements;
-
-    Location where(const char* position) const {
-        const auto offset = static_cast<size_t>(position - field.value.data());
-        return locate_fragment(field.fragments, offset, start);
-    }
-};
-
-template<>
-struct SymbolAction<grammar::harmony> {
-    static void apply(const auto& input, NoteAlignment& state, SymbolScan& scan) {
-        if (const auto slot = state.take_note()) {
-            const auto quoted = input.string_view();
-            scan.placements.push_back(
-                {*slot, scan.where(input.begin()), Harmony{quoted.substr(1, quoted.size() - 2)}}
-            );
-        }
-    }
-};
-
-template<>
-struct SymbolAction<grammar::named_decoration> {
-    static void apply(const auto& input, NoteAlignment& state, SymbolScan& scan) {
-        const auto at = scan.where(input.begin());
-        check_decoration(input.string_view(), scan.delimiter, at, scan.diagnostics);
-        if (const auto slot = state.take_note())
-            scan.placements.push_back({*slot, at, Decoration{input.string_view()}});
-    }
-};
 
 enum class BangRole { Decoration, Layout, Legacy };
 
@@ -726,19 +559,42 @@ std::optional<AbcVersion> abc_version(std::string_view text) {
     return AbcVersion{*major, *minor};
 }
 
-template<class Rule>
-using DefinitionSelect = peg::parse_tree::selector<
-    Rule,
-    peg::parse_tree::store_content::on<grammar::symbol_shorthand, grammar::symbol_expansion>>;
 
-void parse_symbol_definition(
-    Token& token, DecorationDelimiter delimiter, Diagnostics& diagnostics
-) {
+// Apply U: definitions at the written site as each music token is assembled.
+// Fields inside a continued chord are emitted before the chord. Its earlier
+// members still see the definition in effect at their own physical position.
+struct Shorthands {
+    DecorationDelimiter delimiter;
+    Diagnostics&        diagnostics;
+
+    void                           define(Token& token);
+    [[nodiscard]] std::string_view decoration(std::string_view raw, Location at) const {
+        check_decoration(raw, delimiter, at, diagnostics);
+        if (raw.size() != 1) return raw;
+        const auto& history = definitions[static_cast<u8>(raw.front())];
+        const auto  after   = std::upper_bound(
+            history.begin(), history.end(), at, [](Location key, const Binding& binding) {
+                return written_before(key, binding.at);
+            }
+        );
+        return after == history.begin() ? raw : std::prev(after)->spelling;
+    }
+
+    struct Binding {
+        Location         at;
+        std::string_view spelling;
+    };
+    // Single-character decorations are ASCII by grammar::decoration.
+    std::array<vec<Binding>, 128> definitions{};
+};
+
+void Shorthands::define(Token& token) {
     const auto* field = std::get_if<Field>(&token.value);
     if (!field || field->kind != 'U') return;
-    Input      input(field->value);
-    const auto root = peg::parse_tree::parse<grammar::symbol_definition, DefinitionSelect>(input);
-    if (!root) {
+    auto       spelling  = field->value;
+    const auto shorthand = take<grammar::symbol_shorthand>(spelling);
+    if (shorthand.empty() || take<grammar::equal>(spelling).empty()
+        || !matches<grammar::symbol_expansion>(spelling)) {
         diagnostics.warn(
             token.at,
             "invalid-symbol",
@@ -746,25 +602,18 @@ void parse_symbol_definition(
         );
         return;
     }
-    const char shorthand = root->children.front()->data.front();
-    const auto spelling  = root->children.back()->data;
     if (!spelling.starts_with('"')) check_decoration(spelling, delimiter, token.at, diagnostics);
-    token.value = SymbolDefinition{shorthand, spelling};
+    definitions[static_cast<u8>(shorthand.front())].push_back({token.at, spelling});
+    token.value = SymbolDefinition{shorthand.front(), spelling};
 }
 
-template<class Rule>
-struct LinebreakAction : peg::nothing<Rule> {};
-template<>
-struct LinebreakAction<grammar::bang_break> {
-    static void apply0(bool& contains_bang) { contains_bang = true; }
-};
-
-MusicDialect read_music_dialect(const Tune& tune, Diagnostics& diagnostics) {
+struct DialectSettings {
     std::optional<std::pair<Location, bool>>                linebreak;
     std::optional<std::pair<Location, DecorationDelimiter>> decoration;
-    for (const auto& token : tune.header) {
+
+    void read(const Token& token, Diagnostics& diagnostics) {
         auto args = token.information();
-        if (!args) continue;
+        if (!args) return;
         const auto name  = word(*args);
         const auto value = trim(*args);
         if (name == "decoration") {
@@ -777,10 +626,8 @@ MusicDialect read_music_dialect(const Tune& tune, Diagnostics& diagnostics) {
                     token.at, "invalid-decoration-dialect", "expected '!' or '+' after decoration"
                 );
         } else if (name == "linebreak") {
-            Input input(value);
-            bool  bang = false;
-            if (peg::parse<grammar::linebreak_setting, LinebreakAction>(input, bang))
-                linebreak = std::pair{token.at, bang};
+            if (matches<grammar::linebreak_setting>(value))
+                linebreak = std::pair{token.at, value.find('!') != value.npos};
             else
                 diagnostics.warn(
                     token.at,
@@ -794,7 +641,13 @@ MusicDialect read_music_dialect(const Tune& tune, Diagnostics& diagnostics) {
             linebreak = std::pair{token.at, value == "true"};
         }
     }
-    const bool strict            = tune.version >= AbcVersion{2, 1};
+};
+
+MusicDialect read_music_dialect(const Tune& tune, Diagnostics& diagnostics) {
+    DialectSettings settings;
+    for (const auto& token : tune.header) settings.read(token, diagnostics);
+    const auto& [linebreak, decoration] = settings;
+    const bool strict                   = tune.version >= AbcVersion{2, 1};
     const auto default_delimiter = strict ? DecorationDelimiter::Bang : DecorationDelimiter::Either;
     // A current bang line break implies '+'; replacing that setting removes its implication.
     if (linebreak && linebreak->second) {
@@ -834,31 +687,30 @@ bool header_only_instruction(std::string_view value, Location at, Diagnostics& d
     return true;
 }
 
-enum class FieldSite { file_header, tune_header, body, inline_music };
+enum class FieldSite { FileHeader, TuneHeader, Body, InlineMusic };
 
 bool field_allowed(char kind, FieldSite site) {
     // ABC 2.1 section 3. Accept deprecated E: in headers to give its own warning.
-    constexpr std::string_view file_fields   = "ABCDEFGHILMmNORrSUZ";
-    constexpr std::string_view tune_fields   = "KPQTVWX";
-    constexpr std::string_view inline_fields = "IKLMmNPQRrUV";
+    constexpr std::string_view kFileFields   = "ABCDEFGHILMmNORrSUZ";
+    constexpr std::string_view kTuneFields   = "KPQTVWX";
+    constexpr std::string_view kInlineFields = "IKLMmNPQRrUV";
     const auto has = [kind](std::string_view fields) { return fields.find(kind) != fields.npos; };
     switch (site) {
-    case FieldSite::file_header: return has(file_fields);
-    case FieldSite::tune_header: return has(file_fields) || has(tune_fields);
-    case FieldSite::body: return has(inline_fields) || has("sTWw");
-    case FieldSite::inline_music: return has(inline_fields);
+    case FieldSite::FileHeader: return has(kFileFields);
+    case FieldSite::TuneHeader: return has(kFileFields) || has(kTuneFields);
+    case FieldSite::Body: return has(kInlineFields) || has("sTWw");
+    case FieldSite::InlineMusic: return has(kInlineFields);
     }
     return false;
 }
 
 // Both physical and inline fields use grammar::field_key. Keep the original
 // value whitespace until any physical field continuations have been assembled.
-Field field(std::string_view text) { return {text.front(), text.substr(2)}; }
+Field split_field(std::string_view text) { return {text.front(), text.substr(2)}; }
 
 std::optional<Field> line_field(std::string_view text) {
-    Input input(text);
-    if (!peg::parse<grammar::field_key>(input)) return {};
-    return field(text);
+    if (!peg::parse<grammar::field_key>(Input(text))) return {};
+    return split_field(text);
 }
 
 bool starts_with_repeat(std::string_view text) {
@@ -869,18 +721,16 @@ bool starts_with_repeat(std::string_view text) {
         grammar::repeat_bar>>(input);
 }
 
-template<class Rule>
-struct CommentAction : peg::nothing<Rule> {};
-
-template<>
-struct CommentAction<grammar::line_quote> {
-    static void apply0(bool& quoted) { quoted = !quoted; }
-};
-
+// A backslash quotes the next byte. A bare percent starts a comment even inside quotes.
 std::string_view without_comment(std::string_view line, bool& quoted) {
-    Input input(line);
-    peg::parse<grammar::comment_prefix, CommentAction>(input, quoted);
-    return line.substr(0, line.size() - input.size());
+    for (size_t i = 0; (i = line.find_first_of("\\\"%", i)) != line.npos; ++i) {
+        if (line[i] == '%') return line.substr(0, i);
+        if (line[i] == '"')
+            quoted = !quoted;
+        else if (i + 1 < line.size())
+            ++i;
+    }
+    return line;
 }
 
 std::string_view without_comment(std::string_view line) {
@@ -888,13 +738,10 @@ std::string_view without_comment(std::string_view line) {
     return without_comment(line, quoted);
 }
 
-// A continued music line keeps one lyric identity and a map to physical byte columns.
-// A logical music line may span physical lines and generated macro fragments.
-// Convert views into bytes back to source positions before emitting tokens.
+// Joined and rewritten music keeps its opening lyric line and the physical origin of each span.
 struct LogicalLine {
     std::string_view                bytes;
     size_t                          first_line;
-    size_t                          music_line;
     std::span<const SourceFragment> fragments{};
 
     [[nodiscard]] Location where(std::string_view part) const {
@@ -922,40 +769,37 @@ struct RewrittenMusic {
     }
 };
 
-template<class Rule>
-struct MusicElision : peg::nothing<Rule> {};
-template<grammar::Elision Phase>
-struct MusicElision<grammar::elided_music<Phase>> {
-    static void apply(const auto& input, LogicalLine line, RewrittenMusic& result, size_t& copied) {
-        const auto offset = static_cast<size_t>(input.begin() - line.bytes.data());
-        result.append(line, copied, offset);
-        copied = offset + input.size();
-    }
-};
-
-template<grammar::Elision Phase>
+// Match the bytes to remove only outside quoted text, fields and decorations.
+// A physical continuation can start inside a quote opened on the preceding line.
+template<class Removed>
 std::optional<RewrittenMusic> elide_music(
     LogicalLine line, BangRole bang, bool quoted_prefix = false
 ) {
-    if (line.bytes.find("[r:") == line.bytes.npos
-        && (Phase == grammar::Elision::Remarks
-            || line.bytes.find_first_of("#*;?@") == line.bytes.npos))
+    using namespace grammar;
+    auto rest = line.bytes;
+    if (rest.find("[r:") == rest.npos
+        && (std::is_same_v<Removed, inline_remark> || rest.find_first_of("#*;?@") == rest.npos))
         return {};
-
+    if (quoted_prefix && take<seq<quote_body, chars<'"'>>>(rest).empty()) return {};
     RewrittenMusic result;
     size_t         copied = 0;
-    Input          input(line.bytes);
-    if (quoted_prefix && !peg::parse<peg::seq<grammar::quote_body, grammar::chars<'"'>>>(input))
-        return {};
-    if (bang == BangRole::Layout)
-        peg::parse<grammar::music_elisions<Phase, grammar::plus_decoration>, MusicElision>(
-            input, line, result, copied
-        );
-    else
-        peg::parse<grammar::music_elisions<Phase, grammar::named_decoration>, MusicElision>(
-            input, line, result, copied
-        );
-    if (copied == 0) return {};
+    while (!rest.empty()) {
+        const auto next = rest.find_first_of("[\"!+#*;?@");
+        if (next == rest.npos) break;
+        rest.remove_prefix(next);
+        if (const auto removed = take<Removed>(rest); !removed.empty()) {
+            const auto end = line.bytes.size() - rest.size();
+            result.append(line, copied, end - removed.size());
+            copied = end;
+            continue;
+        }
+        if (!take<music_text>(rest).empty()) continue;
+        if ((bang != BangRole::Layout || rest.front() == '+')
+            && !take<named_decoration>(rest).empty())
+            continue;
+        rest.remove_prefix(1);
+    }
+    if (!copied) return {};
     result.append(line, copied, line.bytes.size());
     return result;
 }
@@ -978,10 +822,13 @@ public:
     );
 
 private:
+    struct Match;
     struct Rule {
         std::string_view target;
         std::string_view replacement;
         size_t           note;
+
+        Match match(std::string_view text, Location at, Diagnostics& diagnostics) const;
     };
     struct Match {
         const Rule* rule   = nullptr;
@@ -1025,12 +872,8 @@ void MusicMacros::define(std::string_view value, Location at) {
     const auto replacement
         = equal == value.npos ? std::string_view{} : trim(value.substr(equal + 1));
     const auto note = target.find('n');
-    Input      target_text(target);
-    Input      replacement_text(replacement);
-    Input note_length(note == target.npos ? target.substr(target.size()) : target.substr(note + 1));
-    if (!peg::parse<grammar::macro_text<31>>(target_text)
-        || !peg::parse<grammar::macro_text<200>>(replacement_text)
-        || (note != target.npos && !peg::parse<peg::seq<grammar::number, peg::eof>>(note_length))) {
+    if (!matches<grammar::macro_text<31>>(target) || !matches<grammar::macro_text<200>>(replacement)
+        || (note != target.npos && !matches<grammar::number>(target.substr(note + 1)))) {
         diagnostics.warn(at, "invalid-macro", "ignored malformed m: definition");
         return;
     }
@@ -1059,39 +902,46 @@ size_t macro_opaque_prefix(std::string_view text, MusicDialect dialect) {
     return text.size() - input.size();
 }
 
+constexpr std::string_view kDiatonicLetters = "CDEFGABcdefgab";
+
+i64 octave_shift(std::string_view marks) {
+    i64 shift = 0;
+    for (char mark : marks) shift += mark == '\'' ? 1 : -1;
+    return shift;
+}
+
+MusicMacros::Match MusicMacros::Rule::match(
+    std::string_view text, Location at, Diagnostics& diagnostics
+) const {
+    diagnostics.spend(1, at);
+    const auto prefix = target.substr(0, note);
+    if (!text.starts_with(prefix)) return {};
+    auto tail = text.substr(prefix.size());
+    i64  step = 0;
+    if (note != target.npos) {
+        const auto spelling = take<grammar::bare_pitch>(tail);
+        if (spelling.empty()) return {};
+        diagnostics.spend(PlaybackWork::text(spelling), at);
+        const auto suffix = target.substr(note + 1);
+        if (!tail.starts_with(suffix)) return {};
+        tail.remove_prefix(suffix.size());
+        step = static_cast<i64>(kDiatonicLetters.find(spelling.front()))
+               + 7 * octave_shift(spelling.substr(1));
+    }
+    // A target such as ~G3 must not match the written lengths 30 or 3/2.
+    if (digit(target.back()) && !tail.empty() && (digit(tail.front()) || tail.front() == '/'))
+        return {};
+    return {this, text.size() - tail.size(), step};
+}
+
 MusicMacros::Match MusicMacros::find(std::string_view text, Location at) {
     Match      best;
     const auto consider = [&](char key) {
         const auto bucket = rules.find(key);
         if (bucket == rules.end()) return;
         for (const auto& rule : bucket->second) {
-            diagnostics.spend(1, at);
-            size_t length = rule.target.size();
-            i64    step   = 0;
-            if (rule.note == rule.target.npos) {
-                if (!text.starts_with(rule.target)) continue;
-            } else {
-                if (!text.starts_with(rule.target.substr(0, rule.note))) continue;
-                auto pitch = text.substr(rule.note);
-                if (pitch.empty() || !note_letter(pitch.front())) continue;
-                step = (upper(pitch.front()) - 'A' + 5) % 7 + (lower(pitch.front()) ? 7 : 0);
-                pitch.remove_prefix(1);
-                while (!pitch.empty() && (pitch.front() == '\'' || pitch.front() == ',')) {
-                    step += pitch.front() == '\'' ? 7 : -7;
-                    pitch.remove_prefix(1);
-                }
-                const auto spelling
-                    = text.substr(rule.note, text.size() - pitch.size() - rule.note);
-                diagnostics.spend(PlaybackWork::text(spelling), at);
-                const auto suffix = rule.target.substr(rule.note + 1);
-                if (!pitch.starts_with(suffix)) continue;
-                length = text.size() - pitch.size() + suffix.size();
-            }
-            // A target such as ~G3 must not match the written lengths 30 or 3/2.
-            if (digit(rule.target.back()) && length < text.size()
-                && (digit(text[length]) || text[length] == '/'))
-                continue;
-            if (length >= best.length) best = {&rule, length, step};
+            const auto candidate = rule.match(text, at, diagnostics);
+            if (candidate.length >= best.length) best = candidate;
         }
     };
     if (note_letter(text.front())) consider('n');
@@ -1108,7 +958,6 @@ void MusicMacros::replace(
         text.append(value);
         return;
     }
-    constexpr std::string_view kLetters = "CDEFGABcdefgab";
     while (!value.empty()) {
         if (const auto opaque = macro_opaque_prefix(value, dialect); opaque != 0) {
             text.append(value.substr(0, opaque));
@@ -1124,7 +973,7 @@ void MusicMacros::replace(
         const auto step   = match.step + (ch - 'n');
         const auto degree = (step % 7 + 7) % 7;
         const auto octave = (step - degree) / 7;
-        text.push_back(kLetters[static_cast<size_t>(degree + (octave > 0 ? 7 : 0))]);
+        text.push_back(kDiatonicLetters[static_cast<size_t>(degree + (octave > 0 ? 7 : 0))]);
         const auto marks
             = static_cast<size_t>(octave < 0 ? -octave : (octave > 0 ? octave - 1 : 0));
         diagnostics.spend(marks, at);
@@ -1155,14 +1004,13 @@ std::optional<RewrittenMusic> MusicMacros::expand(
         const auto at   = line.where(text);
         apply_definitions([at](const Token& entry) { return entry.at < at; });
         if (text.starts_with('[')) {
-            Input input(text);
-            if (peg::parse<grammar::inline_field_ahead>(input)) {
-                if (!peg::parse<grammar::inline_field>(input)) break;
-                const auto length = text.size() - input.size();
-                if (text.starts_with("[m:")) define(text.substr(3, length - 4), at);
-                offset += length;
+            auto tail = text;
+            if (const auto field = take<grammar::inline_field>(tail); !field.empty()) {
+                if (field.starts_with("[m:")) define(field.substr(3, field.size() - 4), at);
+                offset += field.size();
                 continue;
             }
+            if (peg::parse<grammar::inline_field_start>(Input(text))) break;
         }
         const auto match = find(text, at);
         if (match.rule) {
@@ -1183,38 +1031,43 @@ std::optional<RewrittenMusic> MusicMacros::expand(
 
 // Resolve aliases at token emission, in written order. Callers see ordinary
 // MIDI directives at the use site, or no token if nothing expands.
-class MidiAliases {
-public:
-    MidiAliases(
-        std::deque<std::string>&       text,
-        const std::optional<Location>& reference,
-        Diagnostics&                   diagnostics
-    ) : text(text), reference(reference), diagnostics(diagnostics) {}
-
-    void append(Token token, vec<Token>& output);
-
-private:
+struct MidiAliases {
     std::deque<std::string>&                     text;
     const std::optional<Location>&               reference;
     Diagnostics&                                 diagnostics;
-    std::map<std::string_view, std::string_view> definitions;
+    std::map<std::string_view, std::string_view> definitions{};
 
-    void define(std::string_view args, Location at);
-    void use(std::string_view args, const Token& token, vec<Token>& output);
+    void append(Token token, vec<Token>& output);
 };
 
-void MidiAliases::define(std::string_view args, Location at) {
-    const auto name = word(args);
-    args            = trim(args);
-    if (name.empty() || args.empty()) {
-        diagnostics.warn(at, "invalid-midi-alias", "ignored MIDIdef without a name and command");
+void MidiAliases::append(Token token, vec<Token>& output) {
+    const auto instruction = trim(token.information().value_or(""));
+    const auto end         = std::ranges::find_if_not(instruction, letter);
+    const auto name        = instruction.substr(0, static_cast<size_t>(end - instruction.begin()));
+    if (name != "MIDIdef" && name != "MIDIx") {
+        output.push_back(std::move(token));
         return;
     }
-    if (!definitions.contains(name))
-        definitions.emplace(name, text.emplace_back(fmt::format("MIDI {}", args)));
-}
-
-void MidiAliases::use(std::string_view args, const Token& token, vec<Token>& output) {
+    if (!reference && (name == "MIDIx" || std::holds_alternative<Field>(token.value))) {
+        diagnostics.warn(
+            token.at,
+            "midi-alias-placement",
+            "ignored MIDI alias before X:; only %%MIDIdef can go in the file header"
+        );
+        return;
+    }
+    auto args = instruction.substr(name.size());
+    if (name == "MIDIdef") {
+        const auto alias = word(args);
+        args             = trim(args);
+        if (alias.empty() || args.empty())
+            diagnostics.warn(
+                token.at, "invalid-midi-alias", "ignored MIDIdef without a name and command"
+            );
+        else if (!definitions.contains(alias))
+            definitions.emplace(alias, text.emplace_back(fmt::format("MIDI {}", args)));
+        return;
+    }
     if (trim(args).empty()) {
         diagnostics.warn(token.at, "invalid-midi-alias", "expected one or more names after MIDIx");
         return;
@@ -1241,136 +1094,9 @@ void MidiAliases::use(std::string_view args, const Token& token, vec<Token>& out
     }
 }
 
-void MidiAliases::append(Token token, vec<Token>& output) {
-    const auto text = trim(token.information().value_or(""));
-    const auto end  = std::ranges::find_if_not(text, letter);
-    const auto name = text.substr(0, static_cast<size_t>(end - text.begin()));
-    if (name != "MIDIdef" && name != "MIDIx") {
-        output.push_back(std::move(token));
-        return;
-    }
-    if (!reference && (name == "MIDIx" || std::holds_alternative<Field>(token.value))) {
-        diagnostics.warn(
-            token.at,
-            "midi-alias-placement",
-            "ignored MIDI alias before X:; only %%MIDIdef can go in the file header"
-        );
-        return;
-    }
-    const auto args = text.substr(name.size());
-    if (name == "MIDIdef")
-        define(args, token.at);
-    else
-        use(args, token, output);
-}
-
-template<class Rule>
-const Node* child(const Node& node) {
-    const auto found = std::ranges::find_if(node.children, [](const auto& candidate) {
-        return candidate->template is_type<Rule>();
-    });
-    return found == node.children.end() ? nullptr : found->get();
-}
-
-// Lowers PEG nodes to rhythmic tokens, with no playback state. Physical
-// fields interleaved in a continued line reenter at their source positions.
-class MusicLine {
-public:
-    MusicLine(
-        LogicalLine      source,
-        std::string_view text,
-        MusicDialect     dialect,
-        Diagnostics&     diagnostics,
-        MidiAliases&     aliases,
-        vec<Token>&      output
-    ) :
-        source(source), text(text), dialect(dialect), diagnostics(diagnostics), aliases(aliases),
-        output(output) {}
-
-    void read(std::span<Token> entries, const auto& emit_entry);
-
-private:
-    LogicalLine      source;
-    std::string_view text;
-    MusicDialect     dialect;
-    Diagnostics&     diagnostics;
-    MidiAliases&     aliases;
-    vec<Token>&      output;
-
-    Location location(const Node& node) const { return source.where(node.data); }
-
-    int           number(std::string_view value, Location at, int fallback = 0) const;
-    Length        length(const Node* node) const;
-    Pitch         pitch(const Node& node) const;
-    Atom          note_atom(const Node& node) const;
-    Atom          chord_atom(const Node& node) const;
-    RepeatEndings ending_passes(const Node& node) const;
-    Bar           bar(const Node& node) const;
-    Tuplet        tuplet(const Node& node) const;
-    Broken        broken_mark(const Node& node) const;
-    void          invalid(const Node& node);
-
-    template<class T>
-    void push(const Node& node, T value) {
-        output.push_back({location(node), std::move(value), source.music_line});
-    }
-
-    void emit(const Node& node, grammar::pitch);
-    void emit(const Node& node, grammar::rest);
-    void emit(const Node& node, grammar::chord);
-    void emit(const Node& node, grammar::grace);
-    void emit(const Node& node, grammar::field) {
-        auto value = field(node.data);
-        // MusicMacros has already applied inline definitions in written order.
-        if (value.kind == 'm' || value.kind == 'r') return;
-        // ABC 2.1 section 3: only body fields with an inline form may be used here.
-        if (!field_allowed(value.kind, FieldSite::inline_music)) {
-            diagnostics.warn(location(node), "invalid-inline-field", "ignored a non-inline field");
-            return;
-        }
-        value.value = trim(value.value);
-        if (value.kind == 'I' && header_only_instruction(value.value, location(node), diagnostics))
-            return;
-        Token token{location(node), value, source.music_line};
-        parse_symbol_definition(token, dialect.delimiter, diagnostics);
-        aliases.append(std::move(token), output);
-    }
-    void emit(const Node& node, grammar::bad_field) {
-        diagnostics.error(
-            location(node), "unclosed-inline-field", "expected ']' after the inline field"
-        );
-    }
-    void emit(const Node& node, grammar::bar) { push(node, bar(node)); }
-    void emit(const Node& node, grammar::ending) { push(node, bar(node)); }
-    void emit(const Node& node, grammar::tuplet) { push(node, tuplet(node)); }
-    void emit(const Node& node, grammar::broken);
-    void emit(const Node& node, grammar::overlay);
-    void emit(const Node& node, grammar::harmony) {
-        push(node, Harmony{node.data.substr(1, node.data.size() - 2)});
-    }
-    void emit(const Node& node, grammar::decoration);
-    void emit(const Node& node, grammar::music_spacing) {
-        push(node, Spacer{});
-    }
-    void emit(const Node& node, grammar::bang_break) {
-        if (dialect.bang == BangRole::Decoration) invalid(node);
-    }
-    void emit(const Node& node, grammar::slur) { push(node, Slur{node.data.back() == '('}); }
-    void emit(const Node& node, grammar::tie) {
-        // A tie attached to a note or chord is already part of its atom (§4.11).
-        if (dialect.strict)
-            diagnostics.warn(
-                location(node), "detached-tie", "a tie must immediately follow its note or chord"
-            );
-        else
-            push(node, Tie{});
-    }
-    void emit(const Node& node, grammar::invalid) { invalid(node); }
-};
-
-int MusicLine::number(std::string_view value, Location at, int fallback) const {
-    if (value.empty()) return fallback;
-    if (const auto parsed = integer(value)) return *parsed;
+i32 written_number(std::string_view text, i32 fallback, Location at, Diagnostics& diagnostics) {
+    if (text.empty()) return fallback;
+    if (const auto parsed = integer(text)) return *parsed;
     diagnostics.error(at, "number-range", "expected an integer in range");
 }
 
@@ -1378,6 +1104,11 @@ struct FractionFields {
     std::string_view numerator;
     std::string_view denominator;
     size_t           slashes;
+
+    // The first slash introduces the divisor. Each of up to 30 more doubles it.
+    [[nodiscard]] i64 scaled_divisor(i32 base) const {
+        return static_cast<i64>(base) * (u32{1} << (slashes - 1));
+    }
 };
 
 FractionFields fraction_fields(std::string_view text) {
@@ -1387,116 +1118,115 @@ FractionFields fraction_fields(std::string_view text) {
     return {text.substr(0, first), text.substr(end), end - first};
 }
 
-Length MusicLine::length(const Node* node) const {
-    if (!node) return {};
-    const auto at        = location(*node);
-    const auto parts     = fraction_fields(node->data);
-    const auto numerator = number(parts.numerator, at, 1);
-    if (parts.slashes == 0) return {numerator, 1};
-    const auto denominator = number(parts.denominator, at, 2);
-    if (denominator == 0) diagnostics.error(at, "zero-length-divisor", "duration divides by zero");
-    const auto extra_slashes = parts.slashes - 1;
-    if (extra_slashes > 30) {
-        diagnostics.error(at, "length-range", "duration denominator is too large");
-    }
-    const auto divisor = static_cast<i64>(denominator) << extra_slashes;
-    if (divisor > std::numeric_limits<int>::max()) {
-        diagnostics.error(at, "length-range", "duration denominator is too large");
-    }
-    // ABC 2.1 section 4.3 permits ratios such as 3/2 and 1/3. Quantize only at playback output.
-    return {numerator, divisor};
+i32 accidental_quantity(
+    std::string_view text, i32 fallback, Location at, Diagnostics& diagnostics
+) {
+    if (text.empty()) return fallback;
+    const auto number = integer(text);
+    if (!number || *number < 0)
+        diagnostics.error(at, "invalid-microtone", "expected an accidental such as ^/ or _3/4");
+    return *number;
 }
 
-int written_octave(const Node& node, const auto& locate, Diagnostics& diagnostics) {
-    const auto value = child<grammar::octave>(node);
-    if (!value) return 0;
-    if (value->data.size() > 32)
-        diagnostics.error(locate(*value), "pitch-range", "too many octave marks");
-    return static_cast<int>(
-        2 * std::ranges::count(value->data, '\'') - static_cast<ptrdiff_t>(value->data.size())
+Alteration microtone(std::string_view text, i32 direction, Location at, Diagnostics& diagnostics) {
+    const auto parts     = fraction_fields(text);
+    const auto numerator = accidental_quantity(parts.numerator, 1, at, diagnostics);
+    if (parts.slashes > 31)
+        diagnostics.error(at, "microtone-range", "microtone denominator is too large");
+    const auto denominator
+        = parts.slashes == 0 ?
+              1 :
+              parts.scaled_divisor(accidental_quantity(parts.denominator, 2, at, diagnostics));
+    if (denominator == 0) diagnostics.error(at, "invalid-microtone", "microtone divides by zero");
+    if (denominator > std::numeric_limits<i32>::max() || numerator / denominator > 127)
+        diagnostics.error(at, "microtone-range", "microtone quantity is too large");
+    return {direction * numerator, static_cast<i32>(denominator)};
+}
+
+std::optional<Alteration> written_accidental(
+    std::string_view text, Location at, Diagnostics& diagnostics
+) {
+    using namespace std::literals;
+    constexpr std::array kNormal{"__"sv, "_"sv, "="sv, "^"sv, "^^"sv};
+    if (const auto found = std::ranges::find(kNormal, text); found != kNormal.end())
+        return Alteration{static_cast<i32>(found - kNormal.begin()) - 2};
+    if (text.find_first_not_of("^_=") == 1 && text.front() != '=')
+        return microtone(text.substr(1), text.front() == '_' ? -1 : 1, at, diagnostics);
+    diagnostics.warn(
+        at, "invalid-accidental", "ignored ambiguous accidental; use a single sign for microtones"
     );
+    return {};
 }
 
-Pitch read_spelling(const Node& node, const auto& locate, Diagnostics& diagnostics) {
-    const auto                name = child<grammar::letter>(node)->data.front();
-    std::optional<Alteration> alteration;
-    if (const auto prefix = child<grammar::accidental>(node))
-        alteration = accidental(prefix->data, locate(*prefix), diagnostics);
-    return {
-        upper(name), written_octave(node, locate, diagnostics) + lower(name), alteration, false
-    };
+// Consume the spelling from a matched pitch, leaving its written length and tie.
+Pitch read_spelling(std::string_view& text, const auto& locate, Diagnostics& diagnostics) {
+    const auto prefix = take<grammar::accidental>(text);
+    const auto name   = text.front();
+    text.remove_prefix(1);
+    Pitch pitch{upper(name), lower(name), {}, text.ends_with('-')};
+    if (!prefix.empty()) pitch.accidental = written_accidental(prefix, locate(prefix), diagnostics);
+    const auto octave = take<grammar::octave>(text);
+    if (octave.size() > 32)
+        diagnostics.error(locate(octave), "pitch-range", "too many octave marks");
+    pitch.octave += static_cast<i32>(octave_shift(octave));
+    return pitch;
 }
 
-Pitch MusicLine::pitch(const Node& node) const {
-    auto result = read_spelling(node, [this](const Node& n) { return location(n); }, diagnostics);
-    result.tie  = child<grammar::tie>(node) != nullptr;
-    return result;
-}
-
-RepeatEndings MusicLine::ending_passes(const Node& node) const {
-    const auto parse_pass = [&](const Node& endpoint) {
-        const auto pass = integer(endpoint.data);
+RepeatEndings ending_passes(std::string_view text, LogicalLine line, Diagnostics& diagnostics) {
+    const auto endpoint = [&] {
+        const auto raw  = take<grammar::number>(text);
+        const auto pass = integer(raw);
         if (!pass || *pass < 1)
-            diagnostics.error(
-                location(endpoint), "ending-range", "expected a positive ending number"
-            );
+            diagnostics.error(line.where(raw), "ending-range", "expected a positive ending number");
         return *pass;
     };
     vec<EndingRange> ranges;
-    ranges.reserve(node.children.size());
-    for (const auto& range : node.children) {
-        const auto first = parse_pass(*range->children.front());
-        const auto last  = parse_pass(*range->children.back());
+    while (!text.empty() && digit(text.front())) {
+        const auto start = text;
+        const auto first = endpoint();
+        const auto last  = take<grammar::chars<'-'>>(text).empty() ? first : endpoint();
         if (first > last)
             diagnostics.error(
-                location(*range), "invalid-ending", "repeat ending range is reversed"
+                line.where(start), "invalid-ending", "repeat ending range is reversed"
             );
         ranges.push_back({first, last});
+        if (take<grammar::chars<','>>(text).empty()) break;
     }
     return RepeatEndings(std::move(ranges));
 }
 
-Bar MusicLine::bar(const Node& node) const {
-    const auto* ending = child<grammar::endings>(node);
-    const auto* line   = child<grammar::barline>(node);
-    Bar         result{
-        .resets_measure = !node.is_type<grammar::ending>(),
-        // The invisible bar closes a measure like a single visible pipe.
-        .section = line && line->data != "|" && line->data != "[|]",
-        .endings = ending ? ending_passes(*ending) : RepeatEndings{}
-    };
-    if (const auto* repeat = child<grammar::repeat_bar>(node)) {
-        const auto* start = child<grammar::opening_colons>(*repeat);
-        const auto* end   = child<grammar::closing_colons>(*repeat);
-        // ABC 2.1 section 4.8: each colon adds a pass. Bare :: is :| followed by |:.
-        if (end && end->data.size() == repeat->data.size()) {
-            if (end->data.size() != 2)
-                diagnostics.warn(
-                    location(*repeat), "ambiguous-repeat", "treated bare colon run as ::"
-                );
-            result.repeat_start = result.repeat_end = 2;
-        } else {
-            if (start) result.repeat_start = start->data.size() + 1;
-            if (end) result.repeat_end = end->data.size() + 1;
-        }
+Bar written_bar(std::string_view text, LogicalLine source, Diagnostics& diagnostics) {
+    take<grammar::chars<'.'>>(text);
+    auto       sign = take<grammar::bar_sign>(text);
+    Bar        bar{.endings = ending_passes(text, source, diagnostics)};
+    const auto closing = take<grammar::colons>(sign);
+    if (sign.empty()) {
+        // ABC 2.1 section 4.8 treats bare :: as :| followed by |:.
+        if (closing.size() != 2)
+            diagnostics.warn(
+                source.where(closing), "ambiguous-repeat", "treated bare colon run as ::"
+            );
+        bar.repeat_start = bar.repeat_end = 2;
+    } else {
+        const auto opening = sign.find(':');
+        if (!closing.empty()) bar.repeat_end = closing.size() + 1;
+        if (opening != sign.npos) bar.repeat_start = sign.size() - opening + 1;
+        bar.section = !bar.repeat_end && !bar.repeat_start && sign != "|" && sign != "[|]";
     }
-    return result;
+    return bar;
 }
 
-Tuplet MusicLine::tuplet(const Node& node) const {
-    const auto value = [&](const Node* argument) {
-        return argument ? number(argument->data, location(node)) : 0;
+Tuplet written_tuplet(std::string_view text, Location at, Diagnostics& diagnostics) {
+    text.remove_prefix(1);
+    const auto argument = [&] {
+        const auto number = take<grammar::number>(text);
+        take<grammar::chars<':'>>(text);
+        return written_number(number, 0, at, diagnostics);
     };
-    return {
-        value(child<grammar::tuplet_count>(node)),
-        value(child<grammar::tuplet_time>(node)),
-        value(child<grammar::tuplet_notes>(node))
-    };
+    return {argument(), argument(), argument()};
 }
 
-void MusicLine::invalid(const Node& node) {
-    const auto at = location(node);
-    const char c  = node.data.front();
+void invalid_byte(char c, Location at, Diagnostics& diagnostics) {
     using namespace std::literals;
     if ("[{\"!+"sv.find(c) != std::string_view::npos) {
         diagnostics.error(
@@ -1511,221 +1241,393 @@ void MusicLine::invalid(const Node& node) {
         diagnostics.warn(
             at,
             "unexpected-character",
-            fmt::format("ignored unexpected byte {:#04x}", static_cast<unsigned char>(c))
+            fmt::format("ignored unexpected byte {:#04x}", static_cast<u8>(c))
         );
 }
 
-Atom MusicLine::note_atom(const Node& node) const {
-    const auto note = pitch(node);
-    return {{note}, length(child<grammar::length>(node)), false, note.tie};
-}
+// Notes in music, chords and grace groups share lengths, ties and accidentals.
+struct WrittenNotes {
+    LogicalLine       source;
+    const Shorthands& shorthands;
+    Diagnostics&      diagnostics;
 
-Atom MusicLine::chord_atom(const Node& node) const {
-    Atom   atom{.tie = child<grammar::tie>(node) != nullptr, .chord = true};
-    size_t attached = 0;
-    for (const auto& member : node.children) {
-        if (member->is_type<grammar::decoration>()) {
-            check_decoration(member->data, dialect.delimiter, location(*member), diagnostics);
-            atom.decorations.emplace_back(atom.pitches.size(), location(*member), member->data);
-            continue;
-        }
-        if (member->is_type<grammar::rest>()) {
-            // Silent members still have to carry a valid written length.
-            (void)length(child<grammar::length>(*member));
-            atom.decorations.resize(attached);
-            continue;
-        }
-        if (member->is_type<grammar::chord_spacing>()) atom.decorations.resize(attached);
-        if (!member->is_type<grammar::pitch>()) continue;
-        if (atom.pitches.size() >= 128)
-            diagnostics.error(
-                location(*member),
-                "group-limit",
-                "chords and grace groups support at most 128 notes"
-            );
-        atom.pitches.push_back(pitch(*member));
-        attached           = atom.decorations.size();
-        const auto written = length(child<grammar::length>(*member));
-        const auto index   = atom.pitches.size() - 1;
-        if (index == 0)
-            atom.length = written;
-        else if (
-            written.numerator * atom.length.denominator
-            != atom.length.numerator * written.denominator
-        )
-            atom.member_lengths.push_back({index, written});
+    [[nodiscard]] Length length(std::string_view raw) const {
+        if (raw.empty()) return {};
+        const auto at        = source.where(raw);
+        const auto parts     = fraction_fields(raw);
+        const auto numerator = written_number(parts.numerator, 1, at, diagnostics);
+        if (parts.slashes == 0) return {numerator, 1};
+        const auto denominator = written_number(parts.denominator, 2, at, diagnostics);
+        if (denominator == 0)
+            diagnostics.error(at, "zero-length-divisor", "duration divides by zero");
+        if (parts.slashes > 31
+            || parts.scaled_divisor(denominator) > std::numeric_limits<i32>::max())
+            diagnostics.error(at, "length-range", "duration denominator is too large");
+        // ABC 2.1 section 4.3 permits ratios such as 3/2 and 1/3. Quantize only at playback output.
+        return {numerator, parts.scaled_divisor(denominator)};
     }
-    for (const auto& mark : std::span(atom.decorations).subspan(attached))
-        diagnostics.warn(mark.at, "orphan-decoration", "chord decoration has no following note");
-    atom.decorations.resize(attached);
-    const auto suffix = length(child<grammar::length>(node));
-    // ABC 2.1 section 4.17 multiplies each written length by the suffix.
-    const auto apply_suffix = [suffix](Length& duration) {
-        duration.numerator *= suffix.numerator;
-        duration.denominator *= suffix.denominator;
-    };
-    apply_suffix(atom.length);
-    for (auto& member : atom.member_lengths) apply_suffix(member.length);
-    return atom;
-}
 
-void MusicLine::emit(const Node& node, grammar::pitch) { push(node, note_atom(node)); }
+    [[nodiscard]] std::pair<Pitch, Length> pitched_member(std::string_view text) const {
+        const auto pitch
+            = read_spelling(text, [this](auto raw) { return source.where(raw); }, diagnostics);
+        return {pitch, length(take<grammar::duration>(text))};
+    }
 
-void MusicLine::emit(const Node& node, grammar::rest) {
-    const auto* suffix = child<grammar::length>(node);
-    if (lower(node.data.front())) {
-        push(node, Atom{{}, length(suffix)});
+    [[nodiscard]] Atom note(std::string_view text) const {
+        const auto [pitch, duration] = pitched_member(text);
+        return {{{pitch}}, duration, false, pitch.tie};
+    }
+
+    void rests(std::string_view raw, const auto& emit) const;
+
+    [[nodiscard]] Atom chord(std::string_view text) const {
+        using enum grammar::Item;
+        Atom                 atom{.tie = text.ends_with('-'), .chord = true};
+        vec<ChordDecoration> pending;
+        const auto tail = scan(text.substr(1), grammar::chord_member{}, [&](auto kind, auto raw) {
+            if (kind == Decoration) {
+                const auto at = source.where(raw);
+                pending.emplace_back(at, shorthands.decoration(raw, at));
+            } else if (kind == Rest || kind == Spacer) {
+                // Silent members still have to carry a valid written rest length.
+                if (kind == Rest) (void)length(raw.substr(1));
+                pending.clear();
+            } else if (kind == Pitch) {
+                if (atom.notes.size() >= 128)
+                    diagnostics.error(
+                        source.where(raw),
+                        "group-limit",
+                        "chords and grace groups support at most 128 notes"
+                    );
+                const auto [pitch, written] = pitched_member(raw);
+                if (atom.notes.empty()) atom.length = written;
+                auto& note
+                    = atom.notes.emplace_back(pitch, std::nullopt, std::exchange(pending, {}));
+                if (written.numerator * atom.length.denominator
+                    != atom.length.numerator * written.denominator)
+                    note.own_length = written;
+            }
+        });
+        for (const auto& mark : pending)
+            diagnostics.warn(
+                mark.at, "orphan-decoration", "chord decoration has no following note"
+            );
+        auto       suffix_text = tail.substr(1);   // After the closing bracket.
+        const auto suffix      = length(take<grammar::duration>(suffix_text));
+        // ABC 2.1 section 4.17 multiplies each written length by the suffix.
+        const auto apply_suffix = [suffix](Length& duration) {
+            duration.numerator *= suffix.numerator;
+            duration.denominator *= suffix.denominator;
+        };
+        apply_suffix(atom.length);
+        for (auto& note : atom.notes)
+            if (note.own_length) apply_suffix(*note.own_length);
+        return atom;
+    }
+
+    [[nodiscard]] Broken broken_mark(std::string_view raw) const {
+        if (raw.size() > 30)
+            diagnostics.error(source.where(raw), "rhythm-range", "too many broken rhythm marks");
+        return {raw.front() == '>' ? 1 : -1, static_cast<i32>(raw.size())};
+    }
+
+    [[nodiscard]] Grace grace(std::string_view text) const {
+        Grace                                      group;
+        size_t                                     count = 0;
+        std::optional<std::pair<Broken, Location>> pending;
+        text.remove_prefix(text.starts_with("{/") ? 2 : 1);
+        scan(text, grammar::grace_member{}, [&](auto kind, auto raw) {
+            if (kind == grammar::Item::Layout || kind == grammar::Item::Spacer) return;
+            const auto at = source.where(raw);
+            if (kind == grammar::Item::Broken) {
+                const auto mark = broken_mark(raw);
+                if (!group.attacks.empty() && !pending)
+                    pending = {mark, at};
+                else
+                    diagnostics.warn(
+                        at,
+                        "unexpected-broken-rhythm",
+                        "ignored a broken rhythm mark without a preceding grace attack"
+                    );
+                return;
+            }
+            auto attack = kind == grammar::Item::Chord ? chord(raw) : note(raw);
+            if (attack.notes.empty()) {
+                diagnostics.warn(at, "empty-chord", "ignored empty grace chord");
+                return;
+            }
+            count += attack.notes.size();
+            if (count > 128)
+                diagnostics.error(at, "group-limit", "grace groups support at most 128 notes");
+            f64 scale = 1;
+            if (pending) {
+                const auto [mark, at] = *pending;
+                auto& previous        = group.attacks.back();
+                if (previous.weight() == attack.length.fraction()) {
+                    const auto first = mark.first_factor();
+                    previous.rhythm_scale *= first;
+                    scale = 2 - first;
+                } else {
+                    diagnostics.warn(
+                        at,
+                        "unequal-broken-rhythm",
+                        "ignored broken rhythm between grace attacks of unequal length"
+                    );
+                }
+                pending.reset();
+            }
+            group.attacks.push_back({std::move(attack), scale});
+        });
+        if (pending)
+            diagnostics.warn(
+                pending->second,
+                "unfinished-broken-rhythm",
+                "broken rhythm did not reach a following grace attack"
+            );
+        return group;
+    }
+};
+
+void WrittenNotes::rests(std::string_view raw, const auto& emit) const {
+    const auto suffix = raw.substr(1);
+    if (lower(raw.front())) {
+        emit(Atom{{}, length(suffix)});
         return;
     }
-
-    const auto count = suffix ? integer(suffix->data) : std::optional{1};
+    const auto count = suffix.empty() ? std::optional{1} : integer(suffix);
     if (!count || *count < 1) {
         diagnostics.error(
-            location(*suffix), "invalid-measure-rest", "expected a positive integer measure count"
+            source.where(suffix),
+            "invalid-measure-rest",
+            "expected a positive integer measure count"
         );
     }
 
     // ABC 2.1 section 4.5: the internal bars have the same semantics as written bars.
-    const auto at = location(node);
-    diagnostics.spend(2 * static_cast<size_t>(*count - 1) * PlaybackWork::token, at);
-    for (int measure = 1; measure < *count; ++measure) {
-        output.push_back({at, Atom{.measure_rest = true}, source.music_line});
-        output.push_back({at, Bar{}, source.music_line});
+    const auto at = source.where(raw);
+    diagnostics.spend(2 * static_cast<size_t>(*count - 1) * PlaybackWork::kToken, at);
+    for (i32 measure = 1; measure < *count; ++measure) {
+        emit(Atom{.measure_rest = true});
+        emit(Bar{});
     }
-    output.push_back({at, Atom{.measure_rest = true}, source.music_line});
+    emit(Atom{.measure_rest = true});
 }
 
-void MusicLine::emit(const Node& node, grammar::chord) {
-    auto atom = chord_atom(node);
-    if (atom.pitches.empty())
-        diagnostics.warn(location(node), "empty-chord", "empty chord treated as a rest");
-    push(node, std::move(atom));
-}
-
-void MusicLine::emit(const Node& node, grammar::grace) {
-    Grace                                      group;
-    size_t                                     count = 0;
-    std::optional<std::pair<Broken, Location>> pending;
-    for (const auto& member : node.children) {
-        if (member->is_type<grammar::broken>()) {
-            const auto mark = broken_mark(*member);
-            const auto at   = location(*member);
-            if (!group.attacks.empty() && !pending)
-                pending = {mark, at};
-            else
-                diagnostics.warn(
-                    at,
-                    "unexpected-broken-rhythm",
-                    "ignored a broken rhythm mark without a preceding grace attack"
-                );
-            continue;
-        }
-        auto atom = member->is_type<grammar::chord>() ? chord_atom(*member) : note_atom(*member);
-        if (atom.pitches.empty()) {
-            diagnostics.warn(location(*member), "empty-chord", "ignored empty grace chord");
-            continue;
-        }
-        count += atom.pitches.size();
-        if (count > 128)
-            diagnostics.error(
-                location(*member), "group-limit", "grace groups support at most 128 notes"
-            );
-        long double scale = 1;
-        if (pending) {
-            const auto [mark, at] = *pending;
-            auto& previous        = group.attacks.back();
-            if (previous.weight() == atom.length.fraction()) {
-                const auto first = mark.first_factor();
-                previous.rhythm_scale *= first;
-                scale = 2 - first;
-            } else {
-                diagnostics.warn(
-                    at,
-                    "unequal-broken-rhythm",
-                    "ignored broken rhythm between grace attacks of unequal length"
-                );
-            }
-            pending.reset();
-        }
-        group.attacks.push_back({std::move(atom), scale});
+bool continuation(std::string_view part) {
+    size_t count = 0;
+    while (part.ends_with('\\')) {
+        part.remove_suffix(1);
+        ++count;
     }
-    if (pending)
-        diagnostics.warn(
-            pending->second,
-            "unfinished-broken-rhythm",
-            "broken rhythm did not reach a following grace attack"
-        );
-    push(node, std::move(group));
+    return count % 2 != 0;
 }
 
-Broken MusicLine::broken_mark(const Node& node) const {
-    if (node.data.size() > 30) {
-        diagnostics.error(location(node), "rhythm-range", "too many broken rhythm marks");
+// A continued music line owns its physical fragments and the fields that interrupt it.
+// Macros consume definitions in written order before those fields reach token emission.
+struct MusicBody {
+    Tune&                   tune;
+    Diagnostics&            diagnostics;
+    MusicMacros&            macros;
+    MidiAliases&            aliases;
+    size_t&                 written_count;
+    MusicDialect            dialect;
+    Shorthands              shorthands{dialect.delimiter, diagnostics};
+    RewrittenMusic          joined;
+    vec<Token>              entries;
+    std::optional<Location> continuation_at;
+    bool                    quoted    = false;
+    bool                    saw_music = false;
+
+    void emit_field(Token token) {
+        if (auto info = token.information();
+            info && header_only_instruction(*info, token.at, diagnostics))
+            return;
+        shorthands.define(token);
+        aliases.append(std::move(token), tune.body);
     }
-    return {node.data.front() == '>' ? 1 : -1, static_cast<int>(node.data.size())};
-}
 
-void MusicLine::emit(const Node& node, grammar::broken) { push(node, broken_mark(node)); }
-
-void MusicLine::emit(const Node& node, grammar::overlay) {
-    if (node.data == "(&")
-        push(node, Overlay::Start);
-    else if (node.data == "&)")
-        push(node, Overlay::End);
-    else if (node.data == "&&")
-        push(node, Overlay::PreviousTwo);
-    else if (node.data.size() > 1)
-        diagnostics.warn(location(node), "unsupported-overlay", "ignored a run longer than '&&'");
-    else
-        push(node, Overlay::Split);
-}
-
-void MusicLine::emit(const Node& node, grammar::decoration) {
-    const auto value = node.data;
-    check_decoration(value, dialect.delimiter, location(node), diagnostics);
-    push(node, Decoration{value, value.data() + value.size() == text.data() + text.size()});
-}
-
-void MusicLine::read(std::span<Token> entries, const auto& emit_entry) {
-    Input      input(text);
-    const auto root = dialect.bang == BangRole::Layout ?
-                          peg::parse_tree::parse<grammar::bang_layout_music, Select>(input) :
-                          peg::parse_tree::parse<grammar::music, Select>(input);
-    if (!root)
-        diagnostics.error(source.where(text), "invalid-music", "could not read the music line");
-    auto entry = entries.begin();
-    for (const auto& node : root->children) {
-        // A field encountered inside a continued atom takes effect before that atom sounds.
-        if (entry != entries.end()) {
-            const auto end = source.where(node->data.substr(node->data.size() - 1));
-            while (entry != entries.end() && entry->at < end) emit_entry(std::move(*entry++));
+    void field(Token token) {
+        if (!joined.fragments.empty()) {
+            entries.push_back(std::move(token));
+            return;
         }
-        const auto dispatch = [&]<class... Rule>(std::tuple<Rule...>) {
-            return ((node->is_type<Rule>() && (emit(*node, Rule{}), true)) || ...);
+        if (const auto* definition = macro_definition(token))
+            macros.define(definition->value, token.at);
+        const auto first = tune.body.size();
+        emit_field(std::move(token));
+        assign_written(std::span(tune.body).subspan(first), written_count);
+    }
+
+    void emit_token(
+        grammar::Item kind, std::string_view raw, const WrittenNotes& notes, bool last_on_line
+    );
+    void read_tokens(LogicalLine line);
+
+    void emit_music(LogicalLine line) {
+        vec<SourceFragment> positions;
+        const auto          rewrite = [&](std::optional<RewrittenMusic> replacement) {
+            if (!replacement) return;
+            line.bytes     = tune.owned_text.emplace_back(std::move(replacement->text));
+            positions      = std::move(replacement->fragments);
+            line.fragments = positions;
         };
-        dispatch(
-            std::tuple<
-                grammar::pitch,
-                grammar::rest,
-                grammar::chord,
-                grammar::grace,
-                grammar::field,
-                grammar::bad_field,
-                grammar::bar,
-                grammar::ending,
-                grammar::tuplet,
-                grammar::broken,
-                grammar::overlay,
-                grammar::harmony,
-                grammar::decoration,
-                grammar::music_spacing,
-                grammar::bang_break,
-                grammar::slur,
-                grammar::tie,
-                grammar::invalid>{}
-        );
+        // Macros see literal reserved characters, but remarks have already disappeared.
+        rewrite(elide_music<grammar::inline_remark>(line, dialect.bang));
+        rewrite(macros.expand(line, dialect, entries));
+        rewrite(elide_music<grammar::playback_elision>(line, dialect.bang));
+        read_tokens(line);
     }
-    while (entry != entries.end()) emit_entry(std::move(*entry++));
+
+    void flush() {
+        if (joined.fragments.empty()) return;
+        const auto& bytes = tune.owned_text.emplace_back(std::move(joined.text));
+        emit_music({bytes, joined.fragments.front().at.line, joined.fragments});
+        joined = {};
+    }
+
+    bool blank_line() {
+        flush();
+        if (continuation_at)
+            diagnostics.warn(
+                *continuation_at, "stray-continuation", "cannot continue across a blank line"
+            );
+        continuation_at.reset();
+        quoted = false;
+        return saw_music || dialect.strict;
+    }
+
+    void music(std::string_view bytes, size_t line, bool has_newline, bool ends_quoted) {
+        continuation_at.reset();
+        if (has_newline && bytes.find('\\') != bytes.npos) {
+            // Section 2.2.5 removes remarks before testing for a continuation.
+            LogicalLine physical{bytes, line};
+            const auto  clean = elide_music<grammar::inline_remark>(physical, dialect.bang, quoted);
+            if (clean) physical = {clean->text, line, clean->fragments};
+            if (continuation(trim(physical.bytes))) {
+                const auto last = physical.bytes.find_last_not_of(kWhitespace);
+                continuation_at = physical.where(physical.bytes.substr(last, 1));
+                if (clean)
+                    without_comment(physical.bytes.substr(0, last), quoted);
+                else
+                    quoted = ends_quoted;
+            }
+        }
+        if (!continuation_at && joined.fragments.empty()) {
+            emit_music({bytes, line});
+            return;
+        }
+        joined.fragments.push_back({joined.text.size(), {line, 1}});
+        joined.text.append(continuation_at ? bytes.substr(0, continuation_at->column - 1) : bytes);
+        if (!continuation_at) {
+            flush();
+            quoted = false;
+        }
+    }
+};
+
+std::optional<Overlay> written_overlay(
+    std::string_view raw, Location at, Diagnostics& diagnostics
+) {
+    if (raw == "(&") return Overlay::Start;
+    if (raw == "&)") return Overlay::End;
+    if (raw == "&&") return Overlay::PreviousTwo;
+    if (raw == "&") return Overlay::Split;
+    diagnostics.warn(at, "unsupported-overlay", "ignored a run longer than '&&'");
+    return {};
+}
+
+void MusicBody::emit_token(
+    grammar::Item kind, std::string_view raw, const WrittenNotes& notes, bool last_on_line
+) {
+    using Item       = grammar::Item;
+    const auto& line = notes.source;
+    const auto  at   = line.where(raw);
+    const auto  emit
+        = [&](auto value) { tune.body.push_back({at, std::move(value), line.first_line}); };
+    switch (kind) {
+    case Item::Pitch: emit(notes.note(raw)); break;
+    case Item::Chord: {
+        auto atom = notes.chord(raw);
+        if (atom.notes.empty())
+            diagnostics.warn(at, "empty-chord", "empty chord treated as a rest");
+        emit(std::move(atom));
+        tune.body.back().written_end = line.where(raw.substr(raw.size() - 1));
+        break;
+    }
+    case Item::Rest: notes.rests(raw, emit); break;
+    case Item::Grace:
+        emit(notes.grace(raw));
+        tune.body.back().written_end = line.where(raw.substr(raw.size() - 1));
+        break;
+    case Item::Bar: emit(written_bar(raw, line, diagnostics)); break;
+    case Item::Ending:
+        emit(
+            Bar{.resets_measure = false, .endings = ending_passes(raw.substr(1), line, diagnostics)}
+        );
+        break;
+    case Item::Field: {
+        auto value = split_field(raw);
+        if (value.kind == 'm' || value.kind == 'r') break;
+        if (!field_allowed(value.kind, FieldSite::InlineMusic)) {
+            diagnostics.warn(at, "invalid-inline-field", "ignored a non-inline field");
+        } else {
+            value.value = trim(value.value);
+            emit_field({at, value, line.first_line});
+        }
+        break;
+    }
+    case Item::BadField:
+        diagnostics.error(at, "unclosed-inline-field", "expected ']' after the inline field");
+    case Item::Tuplet: emit(written_tuplet(raw, at, diagnostics)); break;
+    case Item::Broken: emit(notes.broken_mark(raw)); break;
+    case Item::Harmony: emit(Harmony{raw.substr(1, raw.size() - 2)}); break;
+    case Item::Spacer: emit(Spacer{}); break;
+    case Item::Slur: emit(Slur{raw.back() == '('}); break;
+    case Item::Decoration: emit(Decoration{shorthands.decoration(raw, at), last_on_line}); break;
+    case Item::Tie:
+        if (!dialect.strict)
+            emit(Tie{});
+        else
+            diagnostics.warn(at, "detached-tie", "a tie must immediately follow its note or chord");
+        break;
+    case Item::Overlay:
+        if (const auto overlay = written_overlay(raw, at, diagnostics)) emit(*overlay);
+        break;
+    case Item::Bang:
+        if (dialect.bang != BangRole::Decoration) break;
+        [[fallthrough]];
+    case Item::Invalid: invalid_byte(raw.front(), at, diagnostics); break;
+    case Item::Layout: break;
+    }
+}
+
+void MusicBody::read_tokens(LogicalLine line) {
+    using Item         = grammar::Item;
+    const auto   text  = trim(line.bytes);
+    const auto   first = tune.body.size();
+    auto         entry = entries.begin();
+    WrittenNotes notes{line, shorthands, diagnostics};
+    const auto   read = [&](Item kind, std::string_view raw) {
+        if (kind == Item::Layout) return;
+        if (kind == Item::Field) raw = raw.substr(1, raw.size() - 2);
+        // Fields inside a continued token take effect before it sounds. For
+        // inline fields the matched contents exclude both brackets.
+        if (entry != entries.end()) {
+            const auto end = line.where(raw.substr(raw.size() - 1));
+            while (entry != entries.end() && entry->at < end) emit_field(std::move(*entry++));
+        }
+        emit_token(kind, raw, notes, raw.data() + raw.size() == text.data() + text.size());
+    };
+    if (dialect.bang == BangRole::Layout)
+        scan(text, grammar::music_token<grammar::bang_break>{}, read);
+    else
+        scan(text, grammar::music_token<>{}, read);
+    while (entry != entries.end()) emit_field(std::move(*entry++));
+    entries.clear();
+    if (!text.empty() && first == tune.body.size())
+        tune.body.push_back({line.where(text), EmptyMusicLine{}, line.first_line});
+    assign_written(std::span(tune.body).subspan(first), written_count);
+    if (!text.empty()) saw_music = true;
 }
 
 // ABC 2.1 section 3.1.17 gives each physical file one charset. Keep both
@@ -1808,37 +1710,34 @@ public:
     }
 };
 
-// Owns the file/tune header and body state while scanning physical lines.
-// It assembles continuations and rewrites before passing music to MusicLine;
-// the source fragments preserve locations for both tokens and diagnostics.
+// Classifies physical lines and assembles fields across the file header, tune header and body.
 class TuneLines {
 public:
-    TuneLines(
-        std::optional<AbcVersion> version, const TextLoader& headers, Diagnostics& diagnostics
-    ) :
-        diagnostics(diagnostics), headers(headers), file_version(version),
-        aliases(tune.owned_text, reference, diagnostics), macros(diagnostics) {
-        tune.version = version;
-    }
-    bool line(std::string_view raw, Location at, bool has_newline);
-    Tune finish(Location end);
+    TuneLines(const TextLoader& headers, Diagnostics& diagnostics) :
+        diagnostics(diagnostics), headers(headers),
+        aliases{tune.owned_text, reference, diagnostics}, macros(diagnostics) {}
+    Tune read(std::string_view text) { return finish(read_source(text, {})); }
 
 private:
+    Location read_source(std::string_view text, Location at);
+    bool     line(std::string_view raw, Location at, bool has_newline);
+    Tune     finish(Location end);
+    void     compile_fields();
+
     Diagnostics&      diagnostics;
     const TextLoader& headers;
     // Canonical names owned by the include calls currently being parsed.
     vec<std::string_view>     active_headers;
     Tune                      tune;
+    size_t                    written_count = 0;
     std::optional<AbcVersion> file_version;
     SourceCharset             charset;
     std::optional<Location>   reference;
     std::optional<Location>   key_without_reference;
     MidiAliases               aliases;
     MusicMacros               macros;
-    MusicDialect              dialect{};
-    bool                      in_body   = false;
-    bool                      saw_music = false;
-    bool                      ended     = false;
+    std::optional<MusicBody>  body;
+    bool                      ended = false;
     struct LayoutBlock {
         std::string_view end;
         Location         opened_at;
@@ -1856,36 +1755,25 @@ private:
         Location                   at;
         std::optional<std::string> extended;
         vec<Token>                 directives;
-        vec<SourceFragment>        fragments;
         bool                       accepts_bare_history = false;
     };
     std::optional<PendingField> pending_field;
     vec<Location>               legacy_history_fields;
 
-    size_t                  music_line = 0;
-    std::string             joined_music;
-    vec<SourceFragment>     fragments;
-    vec<Token>              continued_entries;
-    std::optional<Location> continuation_at;
-    bool                    music_quoted = false;
-
-    vec<Token>& output() { return in_body ? tune.body : tune.header; }
-    void        append(Token token);
-    void        append_entry(Token token);
-    void        include_header(std::string_view name, Location at);
-    void        directive(std::string_view value, Location at);
-    void        close_layout();
-    void        observe_header_entry(char kind, Location at);
-    bool        start_field(Field value, Location at);
-    void        extend_field(std::string_view value, Location at);
-    void        flush_field();
-    void        music(std::string_view bytes, size_t line, bool has_newline, bool ends_quoted);
-    void        emit_music(LogicalLine line);
-    void        flush_music();
+    void append_entry(Token token);
+    void include_header(std::string_view name, Location at);
+    void directive(std::string_view value, Location at);
+    bool consume_layout(std::string_view text, Location at);
+    void close_layout();
+    void music_line(std::string_view raw, Location at, bool has_newline);
+    void observe_header_entry(char kind, Location at);
+    bool start_field(Field value, Location at);
+    void extend_field(std::string_view value, Location at);
+    void flush_field();
 };
 
 void TuneLines::observe_header_entry(char kind, Location at) {
-    if (in_body || at.source || first_tune_entry) return;
+    if (body || at.source || first_tune_entry) return;
     // Directives may arrive while X: is still open to a continuation.
     if (reference || (pending_field && pending_field->field.kind == 'X'))
         first_tune_entry = HeaderEntry{kind, at};
@@ -1894,8 +1782,8 @@ void TuneLines::observe_header_entry(char kind, Location at) {
 bool TuneLines::start_field(Field value, Location at) {
     if (value.kind == 'X') {
         charset.finish_header(diagnostics);
-        flush_music();
-        if (in_body) {
+        if (body) {
+            body->flush();
             diagnostics.warn(at, "extra-tunes", "only the first tune was read");
             return false;
         }
@@ -1905,17 +1793,15 @@ bool TuneLines::start_field(Field value, Location at) {
         observe_header_entry(value.kind, at);
     }
     constexpr std::string_view kForbiddenInBody = "ABCDEFGXYZabcdefgxyz";
-    if (in_body
-        && (dialect.strict ? !field_allowed(value.kind, FieldSite::body) :
-                             kForbiddenInBody.find(value.kind) != kForbiddenInBody.npos)) {
+    if (body
+        && (body->dialect.strict ? !field_allowed(value.kind, FieldSite::Body) :
+                                   kForbiddenInBody.find(value.kind) != kForbiddenInBody.npos)) {
         diagnostics.warn(at, "invalid-body-field", "ignored a field not allowed in the tune body");
         return true;
     }
     value.value = without_comment(value.value);
     pending_field.emplace(
-        PendingField{
-            .field = value, .at = at, .accepts_bare_history = !in_body && value.kind == 'H'
-        }
+        PendingField{.field = value, .at = at, .accepts_bare_history = !body && value.kind == 'H'}
     );
     return true;
 }
@@ -1925,41 +1811,34 @@ void TuneLines::extend_field(std::string_view value, Location at) {
         diagnostics.warn(at, "orphan-field-continuation", "ignored +: without a preceding field");
         return;
     }
-    auto&      pending = *pending_field;
-    const auto field   = pending.field;
-    value              = without_comment(value);
+    auto&       pending = *pending_field;
+    const auto& field   = pending.field;
     // Only string fields insert an implicit space (ABC 2.1 section 3.3).
     const bool string_field = std::string_view("ABCDFGHNORSTWwZ").find(field.kind) != value.npos;
-    if (!pending.extended) {
-        pending.extended.emplace(string_field ? trim(field.value) : field.value);
+    const auto append       = [&](std::string_view part, Location start) {
         if (field.kind == 's') {
-            auto start = pending.at;
             start.column += 2;
-            pending.fragments.push_back({0, start});
+            pending.field.fragments.push_back({pending.extended->size(), start});
         }
+        pending.extended->append(string_field ? trim(part) : part);
+    };
+    if (!pending.extended) {
+        pending.extended.emplace();
+        append(field.value, pending.at);
     }
     if (string_field) pending.extended->push_back(' ');
-    if (field.kind == 's') {
-        at.column += 2;
-        pending.fragments.push_back({pending.extended->size(), at});
-    }
-    pending.extended->append(string_field ? trim(value) : value);
+    append(without_comment(value), at);
 }
 
 void TuneLines::flush_field() {
     if (!pending_field) return;
-    auto [field, at, extended, directives, positions, accepts_bare_history]
-        = std::move(*pending_field);
+    auto [field, at, extended, directives, accepts_bare_history] = std::move(*pending_field);
     pending_field.reset();   // An include can parse more fields while emitting this one.
     if (extended) field.value = tune.owned_text.emplace_back(std::move(*extended));
-    if (field.kind == 's') {
-        field.fragments = std::move(positions);
-    } else {
-        field.value = trim(field.value);
-    }
-    if (field.kind == 'X') { reference = at; }
+    if (field.kind != 's') field.value = trim(field.value);
+    if (field.kind == 'X') reference = at;
     const bool outside_tune = field.kind == 'K' && !reference;
-    const bool opens_body   = field.kind == 'K' && reference && !in_body;
+    const bool opens_body   = field.kind == 'K' && reference && !body;
     if (outside_tune) {
         if (!key_without_reference) key_without_reference = at;
         diagnostics.warn(at, "invalid-file-header-field", "ignored K: before the first tune");
@@ -1967,11 +1846,11 @@ void TuneLines::flush_field() {
         append_entry({at, std::move(field)});
     }
     if (opens_body) {
-        dialect                   = read_music_dialect(tune, diagnostics);
+        const auto dialect        = read_music_dialect(tune, diagnostics);
         tune.decoration_delimiter = dialect.delimiter;
-        for (auto& token : tune.header)
-            parse_symbol_definition(token, dialect.delimiter, diagnostics);
-        in_body  = true;
+        assign_written(tune.header, written_count);
+        body.emplace(tune, diagnostics, macros, aliases, written_count, dialect);
+        for (auto& token : tune.header) body->shorthands.define(token);
         tune.key = at;
     }
     // A continued field is emitted at its opening, before any intervening directives.
@@ -2014,21 +1893,15 @@ void TuneLines::directive(std::string_view value, Location at) {
 }
 
 void TuneLines::append_entry(Token token) {
-    if (fragments.empty())
-        append(std::move(token));
-    else
-        continued_entries.push_back(std::move(token));
-}
-
-void TuneLines::append(Token token) {
+    if (body) {
+        body->field(std::move(token));
+        return;
+    }
     if (const auto* field = macro_definition(token)) {
         macros.define(field->value, token.at);
-        // A body definition separates adjacent lyrics or symbol rows.
-        if (in_body) tune.body.push_back(std::move(token));
         return;
     }
     if (auto args = token.information()) {
-        if (in_body && header_only_instruction(*args, token.at, diagnostics)) return;
         const auto name = word(*args);
         if (name == "abc-charset") {
             if (reference && token.at.source == 0)
@@ -2037,7 +1910,7 @@ void TuneLines::append(Token token) {
                 charset.declare(trim(*args), token.at, diagnostics);
             return;
         }
-        if (!in_body && name == "abc-version") {
+        if (name == "abc-version") {
             if (const auto version = abc_version(trim(*args))) {
                 tune.version = version;
                 // A tune-local override cannot change how the file header is read.
@@ -2052,49 +1925,31 @@ void TuneLines::append(Token token) {
             return;
         }
     }
-    if (in_body) { parse_symbol_definition(token, dialect.delimiter, diagnostics); }
-    aliases.append(std::move(token), output());
+    aliases.append(std::move(token), tune.header);
 }
 
-bool continuation(std::string_view part) {
-    size_t count = 0;
-    while (part.ends_with('\\')) {
-        part.remove_suffix(1);
-        ++count;
+bool TuneLines::consume_layout(std::string_view text, Location at) {
+    // I: owns its field continuations, except for standalone layout delimiters.
+    if (!ended && !(body && body->quoted) && (text.starts_with("%%") || text.starts_with("I:"))) {
+        const auto instruction = trim(without_comment(text.substr(2)));
+        if (text.starts_with('%') || std::ranges::any_of(kLayoutBlocks, [&](const auto& block) {
+                return instruction == block.first || instruction == block.second;
+            })) {
+            directive(instruction, at);
+            return true;
+        }
     }
-    return count % 2 != 0;
-}
-
-bool layout_delimiter(std::string_view name) {
-    return std::ranges::any_of(kLayoutBlocks, [&](const auto& block) {
-        return name == block.first || name == block.second;
-    });
+    return layout || text.starts_with('%');
 }
 
 bool TuneLines::line(std::string_view raw, Location at, bool has_newline) {
-    diagnostics.record_line(at.source, raw);
     charset.check_line(raw, at, diagnostics);
-    const auto first = raw.find_first_not_of(whitespace);
+    const auto first = raw.find_first_not_of(kWhitespace);
     const auto text  = raw.substr(std::min(first, raw.size()));
     at.column        = first == raw.npos ? 1 : first + 1;
-    if (!ended && !music_quoted) {
-        // Section 2.2.6 lets I: instructions own their field continuations.
-        // Standalone layout delimiters must be recognized at the physical line.
-        if (text.starts_with("%%")) {
-            directive(trim(without_comment(text.substr(2))), at);
-            return true;
-        }
-        if (text.starts_with("I:")) {
-            const auto instruction = trim(without_comment(text.substr(2)));
-            if (layout_delimiter(instruction)) {
-                directive(instruction, at);
-                return true;
-            }
-        }
-    }
-    if (layout || text.starts_with('%')) return true;
+    if (consume_layout(text, at)) return true;
 
-    const auto value = music_quoted ? std::nullopt : line_field(text);
+    auto value = body && body->quoted ? std::nullopt : line_field(text);
     if (ended) return !value || value->kind != 'X' || start_field(*value, at);
     if (value && value->kind == 'r') return true;
     if (value && value->kind == '+') {
@@ -2111,84 +1966,35 @@ bool TuneLines::line(std::string_view raw, Location at, bool has_newline) {
     }
 
     flush_field();
-    const bool field_line = value && !(in_body && starts_with_repeat(text));
+    // A note or rest followed immediately by a repeat bar is music, not a field.
+    if (value && body && starts_with_repeat(text)) value.reset();
     if (at.source && !text.empty()
-        && (!field_line || value->kind == 'X' || (value->kind == 'K' && !reference))) {
+        && (!value || value->kind == 'X' || (value->kind == 'K' && !reference))) {
         diagnostics.warn(
             at, "invalid-include-content", "ignored non-header ABC in an included file"
         );
         return true;
     }
-    // A note or rest followed immediately by a repeat bar is music, not a field.
-    if (field_line) return start_field(*value, at);
-
-    // A quoted music token can itself span consecutive continued lines.
-    auto       quoted  = music_quoted;
-    const auto content = without_comment(text, quoted);
-    if (content.empty()) {
-        flush_music();
-        if (continuation_at)
-            diagnostics.warn(
-                *continuation_at, "stray-continuation", "cannot continue across a blank line"
-            );
-        continuation_at.reset();
-        music_line   = 0;
-        music_quoted = false;
-        if (!at.source && reference) {
-            // A blank line ends a strict tune, even before any music is written.
-            // An included header's blank lines do not end the enclosing tune.
-            const bool strict = tune.version >= AbcVersion{2, 1};
-            if (strict && !in_body)
-                diagnostics.error(at, "missing-key", "expected K: before the blank line");
-            if (in_body && (saw_music || strict)) ended = true;
-        }
-        return true;
-    }
-
-    // Free text in a tunebook is not music until the first tune has started.
-    if (!reference && !in_body) return true;
-    if (!in_body) diagnostics.error(at, "missing-key", "expected K: before the music");
-    music(raw.substr(0, first + content.size()), at.line, has_newline, quoted);
+    if (value) return start_field(*value, at);
+    music_line(raw, at, has_newline);
     return true;
 }
 
-void TuneLines::emit_music(LogicalLine line) {
-    const auto use_rewrite = [&](RewrittenMusic& music) {
-        line.bytes     = tune.owned_text.emplace_back(std::move(music.text));
-        line.fragments = music.fragments;
-    };
-    // Remarks are absent from the input text. Section 9.1 macros still match literal
-    // targets before the playback grammar ignores reserved music characters.
-    auto unremarked = elide_music<grammar::Elision::Remarks>(line, dialect.bang);
-    if (unremarked) use_rewrite(*unremarked);
-    auto expansion = macros.expand(line, dialect, continued_entries);
-    if (expansion) use_rewrite(*expansion);
-    auto normalized = elide_music<grammar::Elision::Playback>(line, dialect.bang);
-    if (normalized) use_rewrite(*normalized);
-    const auto content    = trim(line.bytes);
-    const auto first      = tune.body.size();
-    const auto emit_entry = [this](Token token) {
-        // Macro expansion has already applied continued definitions in written order.
-        if (macro_definition(token))
-            tune.body.push_back(std::move(token));
-        else
-            append(std::move(token));
-    };
-    MusicLine(line, content, dialect, diagnostics, aliases, tune.body)
-        .read(continued_entries, emit_entry);
-    continued_entries.clear();
-    if (content.empty()) return;
-    if (first == tune.body.size())
-        tune.body.push_back({line.where(content), EmptyMusicLine{}, line.music_line});
-    saw_music = true;
-}
-
-void TuneLines::flush_music() {
-    if (fragments.empty()) return;
-    const auto& bytes = tune.owned_text.emplace_back(std::move(joined_music));
-    emit_music({bytes, fragments.front().at.line, music_line, fragments});
-    joined_music.clear();
-    fragments.clear();
+void TuneLines::music_line(std::string_view raw, Location at, bool has_newline) {
+    if (trim(raw).empty()) {
+        if (body) {
+            if (body->blank_line() && !at.source) ended = true;
+        } else if (!at.source && reference && tune.version >= AbcVersion{2, 1}) {
+            diagnostics.error(at, "missing-key", "expected K: before the blank line");
+        }
+        return;
+    }
+    if (!reference) return;   // Free text before the first tune.
+    if (!body) diagnostics.error(at, "missing-key", "expected K: before the music");
+    // Quoted music can span continued physical lines. Keep leading bytes for diagnostics.
+    bool       quoted  = body->quoted;
+    const auto content = without_comment(raw, quoted);
+    body->music(content, at.line, has_newline, quoted);
 }
 
 void TuneLines::close_layout() {
@@ -2202,149 +2008,109 @@ void TuneLines::close_layout() {
 }
 
 TempoNotation tempo_notation(std::string_view text, Location at, Diagnostics& diagnostics) {
-    Input      input(trim(text));
-    const auto root = peg::parse_tree::parse<grammar::tempo_field, TempoSelect>(input);
-    if (!root)
+    text                  = trim(text);
+    auto label            = take<grammar::quoted>(text);
+    text                  = trim(text);
+    const bool label_only = !label.empty() && text.empty();
+    auto       beats      = take<grammar::tempo_prefix>(text);
+    const auto bpm        = take<grammar::bpm>(text);
+    text                  = trim(text);
+    if (label.empty()) label = take<grammar::quoted>(text);
+    if (!text.empty() || (bpm.empty() && !label_only))
         diagnostics.error(
             at, "invalid-tempo", "expected a tempo label or up to four beats and a metronome value"
         );
 
-    const auto ratio = [&](const Node& beat) {
-        const auto numerator = integer(beat.children.front()->data);
-        const auto denominator
-            = beat.children.size() == 1 ? std::optional(1) : integer(beat.children.back()->data);
-        if (!numerator || *numerator == 0 || !denominator || *denominator == 0)
-            diagnostics.error(at, "invalid-fraction", "tempo beats need a positive fraction");
-        return static_cast<long double>(*numerator) / *denominator;
-    };
-
     TempoNotation result;
-    if (const auto* label = child<grammar::tempo_label>(*root))
-        result.label = label->data.substr(1, label->data.size() - 2);
-    if (const auto* bpm = child<grammar::tempo_bpm>(*root)) {
-        result.bpm = integer(bpm->data);
-        if (!result.bpm || *result.bpm <= 0)
-            diagnostics.error(at, "invalid-tempo", "tempo needs a positive metronome value");
-    }
-    if (const auto* beats = child<grammar::tempo_whole_notes>(*root)) {
-        result.unit_relative = false;
-        result.beat          = 0;
-        for (const auto& beat : beats->children) result.beat += ratio(*beat);
-    } else if (const auto* relative = child<grammar::tempo_unit_notes>(*root)) {
-        if (const auto* beat = child<grammar::tempo_beat>(*relative)) result.beat = ratio(*beat);
+    if (!label.empty()) result.label = label.substr(1, label.size() - 2);
+    if (label_only) return result;
+    result.bpm = integer(bpm);
+    if (!result.bpm || *result.bpm <= 0)
+        diagnostics.error(at, "invalid-tempo", "tempo needs a positive metronome value");
+    if (beats.empty()) return result;
+    // The prefix includes the '=', and a relative beat can omit its factor.
+    beats                = trim(beats.substr(0, beats.find('=')));
+    result.unit_relative = note_letter(beats.front());
+    if (result.unit_relative) beats = trim(beats.substr(1));
+    if (beats.empty()) return result;
+    result.beat = 0;
+    while (!beats.empty()) {
+        auto       beat        = word(beats);
+        const auto numerator   = integer(take<grammar::number>(beat));
+        const auto denominator = beat.empty() ? std::optional{1} : integer(beat.substr(1));
+        if (!numerator || !*numerator || !denominator || !*denominator)
+            diagnostics.error(at, "invalid-fraction", "tempo beats need a positive fraction");
+        result.beat += static_cast<f64>(*numerator) / *denominator;
     }
     return result;
 }
 
-void compile_fields(vec<Token>& tokens, const auto& strict_at, Diagnostics& diagnostics) {
-    for (auto& token : tokens) {
-        const bool strict = strict_at(token.at);
-        if (const auto* field = std::get_if<Field>(&token.value)) {
-            switch (field->kind) {
-            case 'X': {
-                const auto value = field->value;
-                if (value.empty()) break;
-                // The number identifies a tune, not an arithmetic operand.
-                const bool valid = strict ? std::ranges::all_of(value, digit)
-                                                && value.find_first_not_of('0') != value.npos :
-                                            integer(value).has_value();
-                if (!valid)
-                    diagnostics.warn(
-                        token.at,
-                        "bad-reference",
-                        strict ? "expected a positive integer or an empty X: field" :
-                                 "expected an integer after X:"
-                    );
-                break;
-            }
-            case 'Q': {
-                const auto tempo = tempo_notation(field->value, token.at, diagnostics);
-                if (strict && tempo.bpm && tempo.unit_relative)
-                    diagnostics.warn(
-                        token.at,
-                        "deprecated-tempo",
-                        "unit-relative Q: is deprecated; write an explicit beat, such as 1/4=120"
-                    );
-                token.value = tempo;
-                break;
-            }
-            case 'A':
-                if (strict) diagnostics.warn(token.at, "deprecated-field", "use O: instead of A:");
-                break;
-            case 'E':
-                if (strict)
-                    diagnostics.warn(token.at, "deprecated-field", "E: spacing is deprecated");
-                break;
-            }
-        } else if (strict) {
-            const auto* directive = std::get_if<Directive>(&token.value);
-            if (!directive) continue;
-            auto       args = directive->value;
-            const auto name = word(args);
-            if (name == "continueall" && trim(args) == "true")
-                diagnostics.warn(
-                    token.at,
-                    "deprecated-directive",
-                    "use I:linebreak ! instead of %%continueall true"
-                );
-            else if (name == "abc-copyright" || name == "abc-edited-by")
-                diagnostics.warn(
-                    token.at, "deprecated-directive", fmt::format("use Z: instead of %%{}", name)
-                );
-        }
-    }
+void check_deprecated_directive(std::string_view value, Location at, Diagnostics& diagnostics) {
+    const auto name = word(value);
+    if (name == "continueall" && trim(value) == "true")
+        diagnostics.warn(
+            at, "deprecated-directive", "use I:linebreak ! instead of %%continueall true"
+        );
+    else if (name == "abc-copyright" || name == "abc-edited-by")
+        diagnostics.warn(at, "deprecated-directive", fmt::format("use Z: instead of %%{}", name));
 }
 
-// ABC 2.1 sections 3.2, 4.16 and 9: substitute after macro expansion and
-// before voices and navigation can change the order of the written tokens.
-void expand_shorthand(Tune& tune) {
-    struct Binding {
-        Location         at;
-        std::string_view expansion;
-    };
-    std::array<vec<Binding>, 128> definitions;
-    const auto expansion = [&](std::string_view spelling, Location at) -> std::string_view {
-        if (spelling.size() != 1) return {};
-        const auto index = static_cast<unsigned char>(spelling.front());
-        if (index >= definitions.size()) return {};
-        const auto& history = definitions[index];
-        // Field tokens between continued fragments precede the composite
-        // atom. Earlier chord members still use the definition at their own site.
-        const auto after = std::ranges::upper_bound(history, at, {}, &Binding::at);
-        return after == history.begin() ? std::string_view{} : std::prev(after)->expansion;
-    };
-    const auto expand_members = [&](Atom& atom) {
-        for (auto& mark : atom.decorations)
-            if (const auto text = expansion(mark.spelling, mark.at); !text.empty())
-                mark.spelling = text;
-    };
-    for (auto* tokens : {&tune.header, &tune.body}) {
-        for (auto& token : *tokens) {
-            if (const auto* definition = std::get_if<SymbolDefinition>(&token.value))
-                definitions[static_cast<unsigned char>(definition->shorthand)].push_back(
-                    {token.at, definition->spelling}
-                );
-            else if (auto* decoration = std::get_if<Decoration>(&token.value)) {
-                if (const auto text = expansion(decoration->spelling, token.at); !text.empty())
-                    decoration->spelling = text;
-            } else if (auto* atom = std::get_if<Atom>(&token.value))
-                expand_members(*atom);
-            else if (auto* grace = std::get_if<Grace>(&token.value))
-                for (auto& attack : grace->attacks) expand_members(attack.atom);
-        }
+void compile_entry(Token& token, bool strict, Diagnostics& diagnostics) {
+    const auto* field = std::get_if<Field>(&token.value);
+    if (!field) {
+        if (const auto* directive = std::get_if<Directive>(&token.value); strict && directive)
+            check_deprecated_directive(directive->value, token.at, diagnostics);
+        return;
+    }
+    const auto value = field->value;
+    switch (field->kind) {
+    case 'X': {
+        if (value.empty()) break;
+        // The reference identifies a tune and can have arbitrarily many digits in ABC 2.1.
+        const bool valid = strict ? std::ranges::all_of(value, digit)
+                                        && value.find_first_not_of('0') != value.npos :
+                                    integer(value).has_value();
+        if (!valid)
+            diagnostics.warn(
+                token.at,
+                "bad-reference",
+                strict ? "expected a positive integer or an empty X: field" :
+                         "expected an integer after X:"
+            );
+        break;
+    }
+    case 'Q': {
+        const auto tempo = tempo_notation(value, token.at, diagnostics);
+        if (strict && tempo.bpm && tempo.unit_relative)
+            diagnostics.warn(
+                token.at,
+                "deprecated-tempo",
+                "unit-relative Q: is deprecated; write an explicit beat, such as 1/4=120"
+            );
+        token.value = tempo;
+        break;
+    }
+    case 'A':
+        if (strict) diagnostics.warn(token.at, "deprecated-field", "use O: instead of A:");
+        break;
+    case 'E':
+        if (strict) diagnostics.warn(token.at, "deprecated-field", "E: spacing is deprecated");
+        break;
+    default: break;
     }
 }
 
 Tune TuneLines::finish(Location end) {
     flush_field();
     charset.finish_header(diagnostics);
-    flush_music();
+    if (body) body->flush();
     close_layout();
     if (!reference && key_without_reference)
         diagnostics.error(
             *key_without_reference, "missing-reference", "expected an X: field before K:"
         );
-    if (!in_body) diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
+    if (!reference || !body)
+        diagnostics.error(end, "missing-key", "expected a K: field in the tune header");
     tune.reference    = *reference;
     const bool strict = tune.version >= AbcVersion{2, 1};
     if (strict && (!first_tune_entry || first_tune_entry->kind != 'T')) {
@@ -2354,7 +2120,13 @@ Tune TuneLines::finish(Location end) {
             "expected a T: field immediately after X:"
         );
     }
-    const auto file_header = [&](Location at) { return at < *reference; };
+    compile_fields();
+    return std::move(tune);
+}
+
+void TuneLines::compile_fields() {
+    const bool strict      = tune.version >= AbcVersion{2, 1};
+    const auto file_header = [&](Location at) { return at < tune.reference; };
     const auto strict_header
         = [&](Location at) { return file_header(at) ? file_version >= AbcVersion{2, 1} : strict; };
     for (const auto at : legacy_history_fields) {
@@ -2364,10 +2136,9 @@ Tune TuneLines::finish(Location end) {
     // A late abc-version instruction applies to the entire header that contains it.
     std::erase_if(tune.header, [&](const Token& token) {
         const auto* field = std::get_if<Field>(&token.value);
-        if (!field) return false;
-        if (!strict_header(token.at)) return false;
+        if (!field || !strict_header(token.at)) return false;
         const bool file = file_header(token.at);
-        if (field_allowed(field->kind, file ? FieldSite::file_header : FieldSite::tune_header))
+        if (field_allowed(field->kind, file ? FieldSite::FileHeader : FieldSite::TuneHeader))
             return false;
         diagnostics.warn(
             token.at,
@@ -2376,24 +2147,44 @@ Tune TuneLines::finish(Location end) {
         );
         return true;
     });
-    compile_fields(tune.header, strict_header, diagnostics);
-    compile_fields(tune.body, [strict](Location) { return strict; }, diagnostics);
-    expand_shorthand(tune);
-    return std::move(tune);
+    for (auto& token : tune.header) compile_entry(token, strict_header(token.at), diagnostics);
+    for (auto& token : tune.body) compile_entry(token, strict, diagnostics);
+}
+
+size_t part_count(
+    std::string_view digits, size_t max_parts, Location at, Diagnostics& diagnostics
+) {
+    if (digits.empty()) return 1;
+    const auto count = integer(digits);
+    if (!count || *count < 1 || static_cast<size_t>(*count) > max_parts)
+        diagnostics.error(
+            at,
+            "part-count-range",
+            fmt::format("part repeat count must be between 1 and {}", max_parts)
+        );
+    return static_cast<size_t>(*count);
 }
 
 }   // namespace
 
 std::optional<MeterNumbers> meter_numbers(std::string_view text) {
-    Input      input(trim(text));
-    const auto root = peg::parse_tree::parse<grammar::meter_field, MeterSelect>(input);
-    if (!root) return std::nullopt;
+    using namespace grammar;
+    text                 = trim(text);
+    const bool   grouped = !take<chars<'('>>(text).empty();
     MeterNumbers result;
-    result.denominator     = root->children.back()->data;
-    const auto group_count = root->children.size() - 1;
-    result.groups.reserve(group_count);
-    for (const auto& group : root->children | std::views::take(group_count))
-        result.groups.push_back(group->data);
+    do {
+        text             = trim(text);
+        const auto group = take<number>(text);
+        if (group.empty() || result.groups.size() == std::numeric_limits<u8>::max()) return {};
+        // Zero is invalid for a meter component, including an out-of-range integer.
+        result.groups.push_back(integer(group).value_or(0));
+        text = trim(text);
+    } while (!take<chars<'+'>>(text).empty());
+    if (grouped && take<chars<')'>>(text).empty()) return {};
+    if (take<pad<chars<'/'>, ws>>(text).empty()
+        || !matches<seq<opt<chars<'+', '-'>>, number>>(text))
+        return {};
+    result.denominator = integer(text).value_or(0);
     return result;
 }
 
@@ -2403,9 +2194,10 @@ std::string part_order(
     // ABC 2.1 section 3.1.9 ignores dots anywhere, including inside a repeat count.
     std::string undotted(text);
     std::erase(undotted, '.');
-    Input      input(undotted);
-    const auto root = peg::parse_tree::parse<grammar::part_field, PartSelect>(input);
-    if (!root)
+    using namespace grammar;
+    text = undotted;
+    // Diagnose malformed notation before interpreting any repeat counts.
+    if (!matches<star<sor<part_item, chars<'('>, ws>>>(text))
         diagnostics.error(
             at, "invalid-parts", "expected part letters, groups or repeat counts in P:"
         );
@@ -2414,13 +2206,15 @@ std::string part_order(
     // evaluation is needed, and the limit applies to playback, not nesting.
     std::string labels;
     vec<size_t> groups;
-    for (const auto& item : root->children) {
-        if (item->is_type<grammar::part_open>()) {
+    while (!text.empty()) {
+        if (!take<plus<ws>>(text).empty()) continue;
+        if (!take<chars<'('>>(text).empty()) {
             groups.push_back(labels.size());
             continue;
         }
-        size_t start = labels.size();
-        if (item->is_type<grammar::part_close>()) {
+        size_t     start = labels.size();
+        const auto item  = take<part_item>(text);
+        if (item.starts_with(')')) {
             if (groups.empty()) diagnostics.error(at, "invalid-parts", "unmatched ')' in P: order");
             start = groups.back();
             groups.pop_back();
@@ -2429,20 +2223,10 @@ std::string part_order(
                 diagnostics.error(
                     at, "expansion-limit", "part order exceeds the playback expansion limit"
                 );
-            labels.push_back(upper(item->data.front()));
+            labels.push_back(upper(item.front()));
         }
 
-        size_t count = 1;
-        if (const auto* repeats = child<grammar::part_count>(*item)) {
-            const auto written = integer(repeats->data);
-            if (!written || *written < 1 || static_cast<size_t>(*written) > max_parts)
-                diagnostics.error(
-                    at,
-                    "part-count-range",
-                    fmt::format("part repeat count must be between 1 and {}", max_parts)
-                );
-            count = static_cast<size_t>(*written);
-        }
+        const auto   count = part_count(item.substr(1), max_parts, at, diagnostics);
         const size_t width = labels.size() - start;
         if (width == 0) continue;
         if (count - 1 > (max_parts - labels.size()) / width)
@@ -2463,17 +2247,36 @@ vec<LyricPlacement> align_lyrics(
     Diagnostics&            diagnostics
 ) {
     diagnostics.spend(PlaybackWork::text(text), at);
-    Input         input(text);
-    NoteAlignment alignment{notes, bars};
-    LyricScan     scan;
-    peg::parse<
-            peg::seq<
-                peg::opt<grammar::lyric_stanza>,
-                grammar::lyric_verse<grammar::styled_lyric_word, grammar::text_font_run>>,
-        LyricAction>(input, alignment, scan);
+    using namespace grammar;
+    NoteAlignment       alignment{notes, bars};
+    vec<LyricPlacement> placements;
+    take<lyric_stanza>(text);
+    while (!text.empty()) {
+        if (alignment.skip_layout(text)) continue;
+        if (!take<chars<'_', '-'>>(text).empty()) {
+            alignment.take_note();
+            continue;
+        }
+        const auto syllable = take<lyric_syllable>(text);
+        if (syllable.empty()) {
+            if (take<plus<text_font_switch>>(text).empty()) break;
+            continue;
+        }
+        const auto slot = alignment.take_note();
+        if (slot) placements.push_back({*slot, decoded_text(syllable, TextContext::Lyric)});
+        // One hyphen ends the syllable. Each following hold consumes another slot.
+        take<styled<chars<'-'>>>(text);
+        const auto holds = take<plus<styled<chars<'_'>>>>(text);
+        if (!holds.empty()) {
+            for (const char mark : holds)
+                if (mark == '_') alignment.take_note();
+            const auto punctuation = take<hold_punctuation>(text);
+            if (slot) placements.back().text += decoded_text(punctuation, TextContext::Lyric);
+        }
+    }
     if (alignment.excess)
         diagnostics.warn(at, "extra-lyrics", "more lyric syllables than available notes");
-    return std::move(scan.placements);
+    return placements;
 }
 
 std::string encode_text(std::string_view text, TextContext context) {
@@ -2483,7 +2286,7 @@ std::string encode_text(std::string_view text, TextContext context) {
             result += "\\n";
             continue;
         }
-        const auto byte = static_cast<unsigned char>(c);
+        const auto byte = static_cast<u8>(c);
         if (byte < 0x20 || byte == 0x7f) {
             fmt::format_to(std::back_inserter(result), "\\u{:04x}", byte);
             continue;
@@ -2521,8 +2324,8 @@ std::string encode_text(std::string_view text, TextContext context) {
 }
 
 std::string decode_text(std::string_view text, TextContext context) {
-    if (context == TextContext::ChordSymbol) return decode_text_as<grammar::text_string>(text);
-    return decode_text_as<grammar::styled_text_string>(text, context == TextContext::VoiceName);
+    // Only underlay alignment interprets lyric slot escapes.
+    return decoded_text(text, context == TextContext::Lyric ? TextContext::Title : context);
 }
 
 std::optional<vec<SymbolPlacement>> align_symbols(
@@ -2534,40 +2337,54 @@ std::optional<vec<SymbolPlacement>> align_symbols(
     Diagnostics&            diagnostics
 ) {
     diagnostics.spend(PlaybackWork::text(field.value), at);
-    Input         input(field.value);
-    NoteAlignment alignment{notes, bars};
-    auto          start = at;
+    NoteAlignment        alignment{notes, bars};
+    vec<SymbolPlacement> placements;
+    auto                 start = at;
     start.column += 2;
-    SymbolScan scan{field, start, delimiter, diagnostics, {}};
-    peg::parse<grammar::symbol_line, SymbolAction>(input, alignment, scan);
-    if (!input.empty()) {
-        diagnostics.warn(
-            scan.where(input.current()),
-            "invalid-symbol-line",
-            "expected a decoration, quoted text, '*' or '|'"
-        );
-        return {};
+    auto text = field.value;
+    while (!text.empty()) {
+        if (alignment.skip_layout(text)) continue;
+        const auto offset = static_cast<size_t>(text.data() - field.value.data());
+        const auto where  = locate_fragment(field.fragments, offset, start);
+        if (const auto quoted = take<grammar::quoted>(text); !quoted.empty()) {
+            if (const auto slot = alignment.take_note())
+                placements.push_back({*slot, where, Harmony{quoted.substr(1, quoted.size() - 2)}});
+        } else if (const auto mark = take<grammar::named_decoration>(text); !mark.empty()) {
+            check_decoration(mark, delimiter, where, diagnostics);
+            if (const auto slot = alignment.take_note())
+                placements.push_back({*slot, where, Decoration{mark}});
+        } else {
+            diagnostics.warn(
+                where, "invalid-symbol-line", "expected a decoration, quoted text, '*' or '|'"
+            );
+            return {};
+        }
     }
     if (alignment.excess)
         diagnostics.warn(at, "extra-symbols", "more symbol slots than available notes");
-    return std::move(scan.placements);
+    return placements;
 }
 
 namespace {
 
-struct PhysicalLine {
-    std::string_view text;
-    bool             has_newline;
-};
-
-PhysicalLine take_line(std::string_view& text) {
-    const auto end  = text.find_first_of("\r\n");
-    const auto line = text.substr(0, end);
-    if (end == text.npos)
-        text = {};
-    else
+Location TuneLines::read_source(std::string_view text, Location at) {
+    if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
+    bool invalid_version = false;
+    while (!text.empty()) {
+        const auto end = text.find_first_of("\r\n");
+        const auto raw = diagnostics.record_line(at.source, text.substr(0, end));
+        if (!at.source && at.line == 1 && raw.starts_with("%abc-")) {
+            file_version = tune.version = abc_version(trim(without_comment(raw.substr(5))));
+            invalid_version             = !tune.version;
+        }
+        const bool more = line(raw, at, end != text.npos);
+        ++at.line;
+        if (!more || end == text.npos) break;
         text.remove_prefix(end + (text.substr(end).starts_with("\r\n") ? 2 : 1));
-    return {line, end != text.npos};
+    }
+    if (invalid_version)
+        diagnostics.warn({1, 6}, "invalid-version", "expected an ABC version such as 2.1");
+    return at;
 }
 
 void TuneLines::include_header(std::string_view name, Location at) {
@@ -2584,7 +2401,7 @@ void TuneLines::include_header(std::string_view name, Location at) {
     auto  loaded = headers(name, active_headers);
     auto* header = std::get_if<ExternalText>(&loaded);
     if (!header) {
-        if (std::get<TextReadError>(loaded) == TextReadError::cycle) {
+        if (std::get<TextReadError>(loaded) == TextReadError::Cycle) {
             diagnostics.warn(
                 at, "cyclic-include", fmt::format("ignored recursive include '{}'", name)
             );
@@ -2596,16 +2413,10 @@ void TuneLines::include_header(std::string_view name, Location at) {
         return;
     }
     active_headers.push_back(header->name);
-    auto             position       = diagnostics.register_include(header->name, at);
-    const auto       parent_layout  = std::exchange(layout, std::nullopt);
-    auto             parent_charset = std::exchange(charset, SourceCharset{});
-    std::string_view text           = tune.owned_text.emplace_back(std::move(header->text));
-    if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
-    while (!text.empty()) {
-        const auto physical = take_line(text);
-        line(physical.text, position, physical.has_newline);
-        ++position.line;
-    }
+    auto       position       = diagnostics.register_include(header->name, at);
+    const auto parent_layout  = std::exchange(layout, std::nullopt);
+    auto       parent_charset = std::exchange(charset, SourceCharset{});
+    read_source(header->text, position);
     flush_field();
     charset.finish_header(diagnostics);
     charset = std::move(parent_charset);
@@ -2614,123 +2425,31 @@ void TuneLines::include_header(std::string_view name, Location at) {
     active_headers.pop_back();
 }
 
-void TuneLines::music(std::string_view bytes, size_t line, bool has_newline, bool ends_quoted) {
-    if (music_line == 0) music_line = line;
-    if (has_newline && bytes.find('\\') != bytes.npos) {
-        // Section 2.2.5 elides remarks before testing for a continuation.
-        // Keep the original slices for joining and for physical diagnostics.
-        LogicalLine physical{bytes, line, music_line};
-        const auto  unremarked
-            = elide_music<grammar::Elision::Remarks>(physical, dialect.bang, music_quoted);
-        if (unremarked) {
-            physical.bytes     = unremarked->text;
-            physical.fragments = unremarked->fragments;
-        }
-        if (continuation(trim(physical.bytes))) {
-            const auto last = physical.bytes.find_last_not_of(whitespace);
-            continuation_at = physical.where(physical.bytes.substr(last, 1));
-            if (unremarked)
-                without_comment(physical.bytes.substr(0, last), music_quoted);
-            else
-                music_quoted = ends_quoted;
-            fragments.push_back({joined_music.size(), {line, 1}});
-            joined_music.append(bytes.substr(0, continuation_at->column - 1));
-            return;
-        }
-    }
-    if (fragments.empty()) {
-        emit_music({bytes, line, music_line});
-    } else {
-        fragments.push_back({joined_music.size(), {line, 1}});
-        joined_music.append(bytes);
-        flush_music();
-    }
-    continuation_at.reset();
-    music_line   = 0;
-    music_quoted = false;
-}
-
-}   // namespace
-
-namespace {
-
-int accidental_quantity(
-    std::string_view text, int fallback, Location at, Diagnostics& diagnostics
-) {
-    if (text.empty()) return fallback;
-    const auto number = integer(text);
-    if (!number || *number < 0)
-        diagnostics.error(at, "invalid-microtone", "expected an accidental such as ^/ or _3/4");
-    return *number;
-}
-
-Alteration microtone(std::string_view text, int direction, Location at, Diagnostics& diagnostics) {
-    const auto parts     = fraction_fields(text);
-    const auto numerator = accidental_quantity(parts.numerator, 1, at, diagnostics);
-    if (parts.slashes > 31)
-        diagnostics.error(at, "microtone-range", "microtone denominator is too large");
-    const auto denominator
-        = parts.slashes == 0 ?
-              1 :
-              static_cast<i64>(accidental_quantity(parts.denominator, 2, at, diagnostics))
-                  << (parts.slashes - 1);
-    if (denominator == 0) diagnostics.error(at, "invalid-microtone", "microtone divides by zero");
-    if (denominator > std::numeric_limits<int>::max() || numerator / denominator > 127)
-        diagnostics.error(at, "microtone-range", "microtone quantity is too large");
-    return {direction * numerator, static_cast<int>(denominator)};
-}
-
 }   // namespace
 
 std::optional<Alteration> accidental(std::string_view text, Location at, Diagnostics& diagnostics) {
-    using namespace std::literals;
-    constexpr std::array normal{"__"sv, "_"sv, "="sv, "^"sv, "^^"sv};
-    if (const auto found = std::ranges::find(normal, text); found != normal.end())
-        return Alteration{static_cast<int>(found - normal.begin()) - 2};
-    Input input(text);
-    if (!peg::parse<peg::seq<grammar::accidental, peg::eof>>(input)) {
+    if (!matches<grammar::accidental>(text)) {
         diagnostics.warn(
             at, "invalid-accidental", fmt::format("ignored malformed accidental '{}'", text)
         );
         return {};
     }
-    if (text.find_first_not_of("^_=") == 1 && text.front() != '=')
-        return microtone(text.substr(1), text.front() == '_' ? -1 : 1, at, diagnostics);
-    diagnostics.warn(
-        at, "invalid-accidental", "ignored ambiguous accidental; use a single sign for microtones"
-    );
-    return {};
+    return written_accidental(text, at, diagnostics);
 }
 
 std::optional<Pitch> drum_spelling(std::string_view text, Location at, Diagnostics& diagnostics) {
-    Input      input(text);
-    const auto root
-        = peg::parse_tree::parse<peg::seq<grammar::pitch_spelling, peg::eof>, Select>(input);
-    if (!root)
+    if (!matches<grammar::pitch_spelling>(text))
         diagnostics.error(
             at, "invalid-drummap", "drummap needs a pitch without a duration, such as ^F,"
         );
-    const auto pitch = read_spelling(*root, [at](const Node&) { return at; }, diagnostics);
-    if (child<grammar::accidental>(*root) && !pitch.accidental) return {};
+    const bool marked = !note_letter(text.front());
+    const auto pitch  = read_spelling(text, [at](auto) { return at; }, diagnostics);
+    if (marked && !pitch.accidental) return {};
     return pitch;
 }
 
 Tune tokenize(std::string_view text, const TextLoader& headers, Diagnostics& diagnostics) {
-    if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
-    const auto first_line       = text.substr(0, text.find_first_of("\r\n"));
-    const bool declares_version = first_line.starts_with("%abc-");
-    const auto version          = declares_version ?
-                                      abc_version(trim(without_comment(first_line.substr(5)))) :
-                                      std::nullopt;
-    TuneLines  tune(version, headers, diagnostics);
-    size_t     line = 1;
-    while (!text.empty()) {
-        const auto physical = take_line(text);
-        if (!tune.line(physical.text, {line++, 1}, physical.has_newline)) break;
-    }
-    if (declares_version && !version)
-        diagnostics.warn({1, 6}, "invalid-version", "expected an ABC version such as 2.1");
-    return tune.finish({line, 1});
+    return TuneLines(headers, diagnostics).read(text);
 }
 
 

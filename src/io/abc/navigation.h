@@ -1,35 +1,44 @@
 #pragma once
 
+#include <array>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+
 #include "syntax.h"
 
 namespace symusic::abc::detail {
 
-// Navigation is a schedule, not a clock. A token can appear several times
-// with the same source location. A flow marker tells playback when to apply
-// a boundary or restore repeat-entry state without rewinding emitted time.
 enum class Flow : u8 {
-    token,
-    enter_part,
-    enter_repeat,
-    enter_implicit_repeat,
-    jump_repeat,
-    soft_bar,
-    hard_bar,
-    inline_ending
+    Token,
+    EnterPart,
+    EnterRepeat,
+    EnterImplicitRepeat,
+    JumpRepeat,
+    SoftBar,
+    HardBar,
+    InlineEnding
 };
-struct PlayStep {
-    const Token* token;
-    Flow         flow = Flow::token;
-    // The jump bypasses the written music-line entry, so the singer keeps the verse.
-    bool continues_lyrics = false;   // only at jump_repeat
-    u32  part_occurrence  = 0;       // only at enter_part
-};
-using PlayOrder = vec<PlayStep>;
+// Half-open positions in the finalized written voice. A token range plays all its
+// tokens. Each other flow is a singleton action anchored at the indicated token.
+// Apply the written snapshot at first before dispatch when restore_written is set.
+struct PlayRange {
+    size_t first, last;
+    Flow   flow             = Flow::Token;
+    bool   restore_written  = false;
+    bool   continues_lyrics = false;   // A repeat jump bypasses the lyric line entry.
+    u32    part_occurrence  = 0;       // Zero-based verse selection on part entry.
 
-// Compile the tune-level P: order once, then expand it and each voice's repeats
-// independently. The returned schedule borrows tokens from voice, which must
-// outlive it and not be modified during use. Missing sections warn; exceeding
-// the navigation limit raises rather than returning a partial schedule.
+    template<class T>
+    [[nodiscard]] std::span<T> tokens(std::span<T> voice) const {
+        return voice.subspan(first, last - first);
+    }
+};
+using PlayOrder = vec<PlayRange>;
+
+// Expand the tune's P: order and each voice's repeats within the playback token
+// limit. Missing sections warn. Exceeding the limit raises before playback.
 class PartItinerary {
 public:
     PartItinerary(std::string_view order, Location at, Diagnostics& diagnostics);
@@ -39,6 +48,7 @@ private:
     Location                   at;
     Diagnostics&               diagnostics;
     std::optional<std::string> labels;
+    std::array<size_t, 26>     visits{};
 };
 
 }   // namespace symusic::abc::detail

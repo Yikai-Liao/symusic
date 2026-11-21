@@ -1,12 +1,16 @@
 #pragma once
 
 #include <random>
+#include <string>
 
 #include "settings.h"
 
 namespace symusic::abc::detail {
 
-using Dynamic = std::variant<std::array<int, 3>, int>;   // Absolute beat levels or a signed step.
+using BeatLevels = std::array<i32, 3>;              // Downbeat, other accented beats, weak beats.
+using Dynamic    = std::variant<BeatLevels, i32>;   // Absolute levels or a signed step.
+inline constexpr BeatLevels kMezzoForte{90, 80, 65};
+inline constexpr i32        kDynamicStep = 15;
 
 // A hairpin's step is fixed where the mark is written, even when a different
 // voice sets the step or navigation plays the mark more than once.
@@ -16,7 +20,7 @@ public:
     [[nodiscard]] std::optional<Dynamic> mark(std::string_view name, Location at) const;
 
 private:
-    vec<std::pair<Location, int>> steps;
+    WrittenSetting<i32> steps{kDynamicStep};
 };
 
 // Resolve rhythm instructions in source order, before splitting the tune into
@@ -32,37 +36,37 @@ private:
     Location     hornpipe_at;
 };
 
-bool starts_hornpipe_pair(const Meter& opening_meter, long double offset, long double duration);
+bool starts_hornpipe_pair(const Meter& opening_meter, f64 offset, f64 duration);
 
-enum class GateArticulation { normal, staccato, unshaped };
-enum class FermataMode { proportional, fixed };
+enum class GateArticulation { Normal, Staccato, Unshaped };
+enum class FermataMode { Proportional, Fixed };
 
 struct GraceSettings {
-    int         divider = 4;
-    long double ratio   = 0;
+    i32 divider = 4;
+    f64 ratio   = 0;
 
-    [[nodiscard]] bool        proportional() const { return ratio > 0; }
-    [[nodiscard]] long double step(long double host, long double unit, long double weights) const;
+    [[nodiscard]] bool proportional() const { return ratio > 0; }
+    [[nodiscard]] f64  step(f64 host, f64 unit, f64 weights) const;
 };
 
 struct NoteLengthSettings {
     GraceSettings grace;
-    FermataMode   fermata = FermataMode::proportional;
+    FermataMode   fermata = FermataMode::Proportional;
 };
 
 // These commands shape written notes before navigation, across voices.
 class WrittenNoteLengths {
 public:
     void                             consume(const Token& token, Diagnostics& diagnostics);
-    [[nodiscard]] NoteLengthSettings at(Location written) const;
+    [[nodiscard]] NoteLengthSettings at(Location at) const { return lengths.at(at.written); }
     [[nodiscard]] static bool        handles(std::string_view name);
 
 private:
-    vec<std::pair<Location, NoteLengthSettings>> changes;
+    WrittenSetting<NoteLengthSettings> lengths{};
 };
 
-long double fermata_length(long double duration, long double unit, FermataMode mode);
-Length      fermata_length(Length length, FermataMode mode);
+f64    fermata_length(f64 duration, f64 unit, FermataMode mode);
+Length fermata_length(Length length, FermataMode mode);
 
 // Snapshot the ordinary beat velocity at the same attack, after one-shot dynamics.
 struct AttackVelocity {
@@ -72,16 +76,17 @@ struct AttackVelocity {
 
 // A resolved policy for one chord: a fixed gap, or a draw in [0, ticks).
 struct ChordSpread {
-    int  ticks  = 0;
+    i32  ticks  = 0;
     bool random = false;
 };
 
 // One sequence per tune. Fixed gaps do not consume the random sequence.
 class ChordAttackSequence {
 public:
-    int next_gap(ChordSpread spread);
+    i32 next_gap(ChordSpread spread);
 
 private:
+    // Each rendering of the tune must reproduce the same chord gaps.
     std::minstd_rand random;
 };
 
@@ -93,8 +98,8 @@ struct CutNotation {
 };
 
 struct HarpAttacks {
-    long double first;
-    long double last;
+    f64 first;
+    f64 last;
 };
 
 HarpAttacks harp_attacks(Length length);
@@ -102,65 +107,49 @@ HarpAttacks harp_attacks(Length length);
 // The active lane's dynamics, beat accents and articulation. Positions,
 // durations and unit lengths are fractional ticks; stress gate ratios are
 // dimensionless. An articulation gate is independent of cursor advance.
-struct Expression {
-    Expression();
-
-    std::array<int, 3> beat{105, 95, 80};
-    std::string_view   beat_string;
-    bool               accents = true;
-
+class Expression {
+public:
     bool directive(
         std::string_view name,
         std::string_view args,
-        long double      unit,
+        f64              unit,
         Meter            meter,
         Location         at,
         Diagnostics&     diagnostics
     );
-    void        apply(Dynamic mark);
-    void        reset_beat_spacing() { beat_step = 0; }
-    ChordSpread take_chord_spread(ChordAttackSettings attack, bool marked = false);
-    void        enable_stress() { stress_enabled = true; }
+    void               apply(Dynamic mark);
+    void               reset_beat_spacing() { beat_step = 0; }
+    static ChordSpread take_chord_spread(ChordAttackSettings attack, bool marked = false);
+    void               enable_stress() { stress_enabled = true; }
     // Resolve velocity at a position relative to the accent origin, consuming
     // one-shot volume settings. A stress velocity of zero keeps the beat profile.
-    AttackVelocity attack_velocity(long double position, Meter meter, bool accented, int stress);
-    long double    gate(
-        long double duration, bool slur, GateArticulation style, std::optional<long double> stress
+    AttackVelocity    attack_velocity(f64 position, Meter meter, bool accented, i32 stress);
+    [[nodiscard]] f64 gate(
+        f64 duration, bool slur, GateArticulation style, std::optional<f64> stress
     ) const;
-    long double tied_gate(long double duration, GateArticulation style) const;
+    [[nodiscard]] f64 tied_gate(f64 duration, GateArticulation style) const;
 
 private:
-    static constexpr int dynamic_beat_step = -1;
-    int                  beat_step         = 0;
-    bool                 note_volume(
-        std::string_view name, std::string_view args, Location at, Diagnostics& diagnostics
-    );
-    std::optional<int>         next_volume;
-    int                        next_volume_delta = 0;
-    std::optional<long double> trim_ticks;   // An explicit zero disables stress trim too.
-    long double                expand_ticks    = 0;
-    bool                       stress_enabled  = true;
-    void                       shift(int amount);
-    void set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
-    int  beat_velocity(long double position, Meter meter) const;
-    int  string_velocity(long double position, long double pulse) const;
-    bool timing(
-        std::string_view name,
-        std::string_view args,
-        long double      unit,
-        Location         at,
-        Diagnostics&     diagnostics
-    );
+    BeatLevels  beat = kMezzoForte;
+    std::string beat_string;
+    // An absolute dynamic uses every beat unless the meter has explicit groups.
+    // Zero restores the meter's ordinary accents after a meter change.
+    std::optional<i32> beat_step;
+    bool               accents = true;
+    std::optional<i8>  next_volume;
+    i32                next_volume_delta = 0;
+    std::optional<f64> trim_ticks;   // An explicit zero disables stress trim too.
+    f64                expand_ticks   = 0;
+    bool               stress_enabled = true;
+    void              set_beat_string(std::string_view text, Location at, Diagnostics& diagnostics);
+    [[nodiscard]] i32 beat_velocity(f64 position, Meter meter) const;
+    [[nodiscard]] i32 string_velocity(f64 position, f64 measure) const;
 };
 
 // Subdivide the notated duration until each alternating attack fits the
 // upstream 100 ms trill pulse, bounded by the tune's expansion limit.
-int trill_attacks(
-    long double  duration,
-    long double  unit,
-    i32          usec_per_quarter,
-    Location     at,
-    Diagnostics& diagnostics
+i32 trill_attacks(
+    f64 duration, f64 unit, i32 usec_per_quarter, Location at, Diagnostics& diagnostics
 );
 
 struct Ornament {
@@ -184,8 +173,7 @@ public:
     ) const;
 
 private:
-    vec<std::pair<Location, bool>> changes;
+    WrittenSetting<bool> harp{false};
 };
-
 
 }   // namespace symusic::abc::detail

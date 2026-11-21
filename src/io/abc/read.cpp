@@ -27,186 +27,142 @@ namespace detail {
 namespace {
 
 struct Header {
-    TuneSettings     settings;
-    PitchChange      opening_pitch;
-    std::string_view order;
-    Location         order_at;
+    TuneSettings settings;
+    PitchChange  opening_pitch;
+    std::string  order;
+    Location     order_at;
 };
 
-void header_field(
-    Header& header, const Field& field, const Token& token, Diagnostics& diagnostics
-) {
-    const auto value = field.value;
-    switch (field.kind) {
-    case 'M': header.settings.meter = meter(value, diagnostics, token.at); break;
-    case 'K': {
-        const auto closing   = key(value, header.settings.key, diagnostics, token.at, true).value();
-        header.settings.key  = closing.state;
-        header.opening_pitch = closing.pitch;
-        break;
-    }
-    case 'P':
-        header.order    = value;
-        header.order_at = token.at;
-        break;
-    default: break;
-    }
-}
-
-void finish_header(Header& header, const Token* unit, const Tune& tune, Diagnostics& diagnostics) {
-    // The opening M: determines the default L:; later meter changes do not reset the unit.
-    header.settings.unit
-        = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
-                 (header.settings.meter.measure() < 3 * tpq ? whole / 16 : whole / 8);
-    for (const auto& token : tune.header) {
-        if (const auto* speed = std::get_if<TempoNotation>(&token.value)) {
-            const auto usec = tempo(*speed, header.settings.unit, diagnostics, token.at);
-            if (usec) header.settings.tempo = usec;
-        }
-    }
-}
-
 Header read_header(const Tune& tune, Diagnostics& diagnostics) {
-    Header header{
-        .settings
-        = {.tuning = PitchTuning(tune, diagnostics), .programs = ProgramNumbers()}
-    };
-    const Token*     unit = nullptr;
+    Header           header{.settings = {.tuning = PitchTuning(tune, diagnostics)}};
+    auto&            settings = header.settings;
+    const Token*     unit     = nullptr;
     std::string_view title;
     for (const auto& token : tune.header) {
-        if (const auto* field = std::get_if<Field>(&token.value)) {
-            switch (field->kind) {
-            case 'L': unit = &token; break;
-            case 'T':
-                if (title.empty()) title = field->value;
-                break;
-            default: header_field(header, *field, token, diagnostics); break;
-            }
+        const auto* field = std::get_if<Field>(&token.value);
+        if (!field) continue;
+        switch (field->kind) {
+        case 'T':
+            if (title.empty()) title = field->value;
+            break;
+        case 'M': settings.meter = meter(field->value, diagnostics, token.at); break;
+        case 'L': unit = &token; break;
+        case 'K': {
+            const auto opening = key(field->value, settings.key, diagnostics, token.at);
+            if (!opening)
+                diagnostics.error(
+                    token.at, "invalid-key", "expected a key signature such as C, F#m or none"
+                );
+            settings.key         = opening->state;
+            header.opening_pitch = opening->pitch;
+            break;
+        }
+        case 'P':
+            header.order    = field->value;
+            header.order_at = token.at;
+            break;
+        default: break;
         }
     }
-    // A tune-local I:abc-version can occur after its T: field.
-    header.settings.title = decode_text(title, TextContext::Title);
-    finish_header(header, unit, tune, diagnostics);
+    settings.title = decode_text(title, TextContext::Title);
+    // The opening meter supplies the default L:. A unit-relative tempo needs the final L:.
+    settings.unit = unit ? unit_length(std::get<Field>(unit->value).value, diagnostics, unit->at) :
+                           (settings.meter.measure() < 3 * kTpq ? kWhole / 16 : kWhole / 8);
+    for (const auto& token : tune.header) {
+        if (const auto* speed = std::get_if<TempoNotation>(&token.value)) {
+            if (const auto usec = tempo(*speed, settings.unit, diagnostics, token.at))
+                settings.tempo = usec;
+        }
+    }
     return header;
 }
 
-struct UnderlayRun {
-    size_t            music_end;
-    vec<const Token*> lines;
+using MusicPosition = vec<Token>::iterator;
+
+struct Insertion {
+    MusicPosition before;
+    Token         token;
 };
 
-// ABC 2.1 sections 4.15, 5.1 and 7.4: both kinds of underlay address
-// written note groups, regardless of grace notes, rests or overlay clocks.
-struct NoteSlots {
-    vec<Token*> notes;
-    vec<size_t> bars;
+// Positions are in the original voice. Equal positions retain their input order.
+void insert_in_order(vec<Token>& music, vec<Insertion>& insertions) {
+    if (insertions.empty()) return;
+    vec<Token> result;
+    result.reserve(music.size() + insertions.size());
+    auto       first      = music.begin();
+    const auto move_until = [&](MusicPosition end) {
+        std::move(first, end, std::back_inserter(result));
+        first = end;
+    };
+    for (auto& [before, token] : insertions) {
+        move_until(before);
+        result.push_back(std::move(token));
+    }
+    move_until(music.end());
+    music = std::move(result);
+}
 
-    void append(std::span<Token> passage) {
-        for (auto& token : passage) {
-            if (const auto* bar = std::get_if<Bar>(&token.value); bar && bar->resets_measure) {
-                // An opening repeat without intervening music starts a measure rather than
-                // ending one. A real rest-only measure still supplies a skip boundary.
-                if (!bar->repeat_start || bar->repeat_end || has_music)
-                    bars.push_back(notes.size());
-                has_music = false;
-            }
-            if (const auto* atom = std::get_if<Atom>(&token.value)) {
+// Underlay counts pitched note groups. A bar skip crosses a measure containing
+// music, including a rest-only measure. An opening barline starts the first one.
+struct NoteSlots {
+    vec<MusicPosition> notes;
+    vec<size_t>        bars;
+    bool               has_music = false;
+
+    void extend(MusicPosition first, MusicPosition end) {
+        for (auto token = first; token != end; ++token) {
+            if (const auto* atom = std::get_if<Atom>(&token->value)) {
                 has_music = true;
-                if (!atom->pitches.empty()) notes.push_back(&token);
+                if (!atom->notes.empty()) notes.push_back(token);
+            } else if (
+                const auto* bar = std::get_if<Bar>(&token->value); bar && bar->resets_measure
+            ) {
+                if (has_music) bars.push_back(notes.size());
+                has_music = false;
             }
         }
     }
+};
 
-    void clear() {
-        notes.clear();
-        bars.clear();
-        has_music = false;
+// Adjacent rows of one kind address the same passage. Source row numbers keep
+// fields consumed during assembly as boundaries between passages.
+class Underlay {
+public:
+    void add(Token token, size_t row, size_t music_end) {
+        rows.push_back({std::move(token), row, music_end});
+    }
+
+    // A valid row claims the accumulated slots. A run of malformed symbol
+    // rows leaves them available to the next run.
+    void align(vec<Token>& music, auto place) {
+        NoteSlots slots;
+        auto      first = music.begin();
+        for (size_t row_begin = 0; row_begin < rows.size();) {
+            auto row_end = row_begin + 1;
+            while (row_end < rows.size() && rows[row_end].source == rows[row_end - 1].source + 1)
+                ++row_end;
+            const auto end = music.begin()
+                             + static_cast<vec<Token>::difference_type>(rows[row_begin].music_end);
+            slots.extend(first, end);
+            first = end;
+            if (place(std::span(rows).subspan(row_begin, row_end - row_begin), slots)) {
+                slots.notes.clear();
+                slots.bars.clear();
+                slots.has_music = false;
+            }
+            row_begin = row_end;
+        }
+        rows.clear();
     }
 
 private:
-    bool has_music = false;
+    struct Row {
+        Token  token;
+        size_t source;
+        size_t music_end;
+    };
+    vec<Row> rows;
 };
-
-// ABC 2.1 sections 5.1-5.2: adjacent fields are verses of the same written
-// passage. Each run claims all eligible notes since the preceding run.
-WrittenLyrics collect_written_lyrics(
-    std::span<Token> music, const vec<UnderlayRun>& runs, Diagnostics& diagnostics
-) {
-    WrittenLyrics result;
-    NoteSlots     slots;
-    size_t        start = 0;
-    for (const auto& [end, verses] : runs) {
-        slots.append(music.subspan(start, end - start));
-        for (size_t verse = 0; const auto* line : verses) {
-            const auto text = std::get<Field>(line->value).value;
-            for (auto& [slot, syllable] : align_lyrics(
-                     text,
-                     slots.notes.size(),
-                     slots.bars,
-                     line->at,
-                     diagnostics
-                 )) {
-                auto& atom = std::get<Atom>(slots.notes[slot]->value);
-                if (!atom.lyric_slot) {
-                    result.emplace_back(WrittenSyllables{verses.size()});
-                    atom.lyric_slot = result.size();
-                }
-                auto& entry = result[atom.lyric_slot - 1];
-                entry.by_verse.emplace_back(verse, std::move(syllable));
-            }
-            ++verse;
-        }
-        slots.clear();
-        start = end;
-    }
-    return result;
-}
-
-void attach_symbols(
-    vec<Token>&             music,
-    const vec<UnderlayRun>& runs,
-    DecorationDelimiter     delimiter,
-    Diagnostics&            diagnostics
-) {
-    std::multimap<const Token*, Token> prefixes;
-    NoteSlots                          slots;
-    size_t                             scanned = 0;
-    for (const auto& [end, lines] : runs) {
-        slots.append(std::span(music).subspan(scanned, end - scanned));
-        scanned      = end;
-        bool has_row = false;
-        for (const auto* line : lines) {
-            const auto& field = std::get<Field>(line->value);
-            const auto  row   = align_symbols(
-                field, slots.notes.size(), slots.bars, delimiter, line->at, diagnostics
-            );
-            if (!row) continue;
-            has_row = true;
-            for (const auto& [slot, at, symbol] : *row) {
-                const auto* host = slots.notes[slot];
-                std::visit(
-                    [&](auto mark) { prefixes.emplace(host, Token{at, mark, host->music_line}); },
-                    symbol
-                );
-            }
-        }
-        if (has_row) slots.clear();
-    }
-    if (prefixes.empty()) return;
-
-    // Insert in stack order so playback sees the same tokens as inline notation.
-    vec<Token> annotated;
-    annotated.reserve(music.size() + prefixes.size());
-    auto prefix = prefixes.begin();
-    for (auto& token : music) {
-        while (prefix != prefixes.end() && prefix->first == &token) {
-            annotated.push_back(std::move(prefix->second));
-            ++prefix;
-        }
-        annotated.push_back(std::move(token));
-    }
-    music = std::move(annotated);
-}
 
 bool part_marker(const Token& token) {
     const auto* field = std::get_if<Field>(&token.value);
@@ -218,11 +174,9 @@ bool delimits_overlay(const Bar& bar) {
     return bar.section || bar.repeat_start || bar.repeat_end || !bar.endings.empty();
 }
 
-using MusicPosition = vec<Token>::iterator;
-
 MusicPosition two_bar_end(MusicPosition first, MusicPosition end) {
     bool has_music = false;
-    int  measures  = 0;
+    i32  measures  = 0;
     for (auto token = first; token != end; ++token) {
         if (part_marker(*token) || std::holds_alternative<Overlay>(token->value)) break;
         if (const auto* bar = std::get_if<Bar>(&token->value)) {
@@ -247,12 +201,12 @@ void resolve_two_bar_overlays(vec<Token>& music, Diagnostics& diagnostics) {
     const auto end    = music.end();
     if (marker == end) return;
 
-    vec<std::pair<MusicPosition, Token>> insertions;
-    std::array                           starts{end, end};
-    auto                                 measure   = music.begin();
-    bool                                 has_music = false;
-    std::optional<Overlay>               open;
-    const auto                           reset = [&](MusicPosition next) {
+    vec<Insertion>         insertions;
+    std::array             starts{end, end};
+    auto                   measure   = music.begin();
+    bool                   has_music = false;
+    std::optional<Overlay> open;
+    const auto             reset = [&](MusicPosition next) {
         starts    = {end, end};
         measure   = next;
         has_music = false;
@@ -313,25 +267,13 @@ void resolve_two_bar_overlays(vec<Token>& music, Diagnostics& diagnostics) {
         }
     }
 
-    if (insertions.empty()) return;
-    vec<Token> lowered;
-    lowered.reserve(music.size() + insertions.size());
-    auto copied = music.begin();
-    for (auto& [position, token] : insertions) {
-        lowered.insert(
-            lowered.end(), std::make_move_iterator(copied), std::make_move_iterator(position)
-        );
-        lowered.push_back(std::move(token));
-        copied = position;
-    }
-    lowered.insert(lowered.end(), std::make_move_iterator(copied), std::make_move_iterator(end));
-    music = std::move(lowered);
+    insert_in_order(music, insertions);
 }
 
 // ABC 2.1 section 7 allows numeric IDs and distinguishes 20 characters of string IDs.
 struct VoiceId {
-    std::string_view spelling;
-    bool             numeric = false;
+    std::string spelling;
+    bool        numeric = false;
 
     auto               operator<=>(const VoiceId&) const = default;
     [[nodiscard]] bool empty() const { return spelling.empty(); }
@@ -340,23 +282,75 @@ struct VoiceId {
 VoiceId voice_id(std::string_view id) {
     if (!id.empty() && std::ranges::all_of(id, digit)) {
         const auto significant = id.find_first_not_of('0');
-        return {id.substr(significant == id.npos ? id.size() - 1 : significant), true};
+        return {std::string(id.substr(significant == id.npos ? id.size() - 1 : significant)), true};
     }
     auto end = id.begin();
-    for (int i = 0; i < 20 && end != id.end(); ++i) utf8::unchecked::next(end);
-    return {id.substr(0, static_cast<size_t>(end - id.begin()))};
+    for (i32 i = 0; i < 20 && end != id.end(); ++i) utf8::unchecked::next(end);
+    return {std::string(id.substr(0, static_cast<size_t>(end - id.begin())))};
 }
 
 struct Voice {
-    VoiceId          id;
-    std::string_view name;
-    vec<Token>       music;
-    Location         declaration;
-    WrittenLyrics    lyrics;
-    Location         last_part{};
-    vec<UnderlayRun> verse_runs;
-    vec<UnderlayRun> symbol_runs;
+    VoiceId         id;
+    std::string     name;
+    vec<Token>      music;
+    Location        declaration;
+    WrittenLyrics   lyrics;
+    WrittenPosition last_part;
+    Underlay        verses;
+    Underlay        symbols;
+
+    void attach_underlay(DecorationDelimiter delimiter, Diagnostics& diagnostics);
 };
+
+void Voice::attach_underlay(DecorationDelimiter delimiter, Diagnostics& diagnostics) {
+    verses.align(music, [&](auto rows, const NoteSlots& slots) {
+        for (size_t verse = 0; verse < rows.size(); ++verse) {
+            const auto& line = rows[verse].token;
+            const auto  text = std::get<Field>(line.value).value;
+            for (auto& [slot, syllable] :
+                 align_lyrics(text, slots.notes.size(), slots.bars, line.at, diagnostics)) {
+                auto& atom = std::get<Atom>(slots.notes[slot]->value);
+                if (!atom.lyric_slot) {
+                    lyrics.push_back({.verse_count = rows.size()});
+                    atom.lyric_slot = lyrics.size();
+                }
+                lyrics[atom.lyric_slot - 1].by_verse.emplace_back(verse, std::move(syllable));
+            }
+        }
+        return true;
+    });
+
+    vec<Insertion> prefixes;
+    symbols.align(music, [&](auto rows, const NoteSlots& slots) {
+        bool claimed = false;
+        for (const auto& row : rows) {
+            const auto& line  = row.token;
+            auto        marks = align_symbols(
+                std::get<Field>(line.value),
+                slots.notes.size(),
+                slots.bars,
+                delimiter,
+                line.at,
+                diagnostics
+            );
+            if (!marks) continue;
+            claimed = true;
+            for (auto& [slot, at, symbol] : *marks) {
+                const auto host = slots.notes[slot];
+                at.written      = host->at.written;
+                std::visit(
+                    [&](auto& mark) {
+                        prefixes.push_back({host, Token{at, std::move(mark), host->music_line}});
+                    },
+                    symbol
+                );
+            }
+        }
+        return claimed;
+    });
+    std::ranges::stable_sort(prefixes, {}, &Insertion::before);
+    insert_in_order(music, prefixes);
+}
 
 struct InstrumentCommand {
     VoiceId         id;
@@ -372,12 +366,12 @@ std::optional<InstrumentCommand> instrument_command(std::string_view args) {
     }
     if (option.starts_with("instrument=")) {
         const auto instrument = integer(option.substr(11));
-        if (!instrument || *instrument < 1 || *instrument > midi_max + 1) return {};
+        if (!instrument || *instrument < 1 || *instrument > kMidiMax + 1) return {};
         result.settings.patch = VoiceInstrument::Patch{*instrument - 1, 0};
         option                = word(args);
         if (option.starts_with("bank=")) {
             const auto bank = integer(option.substr(5));
-            if (!bank || *bank < 1 || *bank > midi_max_bank + 1) return {};
+            if (!bank || *bank < 1 || *bank > kMidiMaxBank + 1) return {};
             result.settings.patch->bank = *bank - 1;
             option                      = word(args);
         }
@@ -393,13 +387,13 @@ std::optional<InstrumentCommand> instrument_command(std::string_view args) {
 // Distribute the first tune's tokens into per-voice streams. Resolve
 // written-order policy and underlay here, while one token
 // still represents one written occurrence rather than a performed replay.
-// The input Tune must outlive this object and the schedules built from it.
+// The input Tune must outlive this object and the plans built from it.
 class Voices {
 public:
-    Voices(const Tune& tune, Header& header, Diagnostics& diagnostics);
-    [[nodiscard]] const auto& all() const { return voices; }
-    [[nodiscard]] bool        conductor_from_fields() const { return uses_conductor; }
-    [[nodiscard]] DrumMap     initial_percussion_routes() const { return file_drum_map; }
+    Voices(Tune& tune, Header& header, Diagnostics& diagnostics);
+    vec<VoicePlan>               plan(const PartItinerary& itinerary);
+    [[nodiscard]] const auto&    all() const { return voices; }
+    [[nodiscard]] const DrumMap& initial_percussion_routes() const { return file_drum_map; }
 
 private:
     Diagnostics&                  diagnostics;
@@ -407,27 +401,25 @@ private:
     WrittenRhythm                 rhythm;
     ChordNames                    chord_names;
     const Location                reference;
-    vec<Voice>                    voices;
+    vec<Voice>                    voices{1};
     DrumMap                       file_drum_map;
     std::map<VoiceId, vec<Token>> pending_instruments;
     size_t                        selected           = 0;
     size_t                        opening_midi_voice = 0;
-    bool                          uses_conductor     = false;
     std::optional<Token>          current_part;
-    char                          previous_underlay = '\0';
 
-    size_t find_voice(VoiceId id, Location at);
-    bool   select(const Token& token);
-    void   header(const Token& token);
-    void   apply_opening_pitch(PitchChange pitch, Location at);
-    void   body(const Token& token);
+    size_t find_voice(const VoiceId& id, Location at);
+    void   select(std::string_view value, const Token& token);
+    void   header(Token token);
+    void   body(Token& token, size_t row);
     bool   written_setting(const Token& token);
     bool   set_instrument(const Token& token);
-    void   record_part(Voice& voice);
-    void   append(const Token& token);
+    Voice& current();
+    bool   route_midi_command(const Token& token);
+    void   append(Token token);
 };
 
-size_t Voices::find_voice(VoiceId id, Location at) {
+size_t Voices::find_voice(const VoiceId& id, Location at) {
     if (voices.front().id.empty()) {
         auto& first = voices.front();
         if (std::ranges::any_of(first.music, [](const Token& token) {
@@ -442,93 +434,115 @@ size_t Voices::find_voice(VoiceId id, Location at) {
     }
     const auto match = std::ranges::find(voices, id, &Voice::id);
     if (match != voices.end()) return static_cast<size_t>(match - voices.begin());
-    if (voices.size() >= max_voice_lanes) diagnostics.error(at, "voice-limit", "too many voices");
+    if (voices.size() >= kMaxVoiceLanes) diagnostics.error(at, "voice-limit", "too many voices");
     voices.push_back({.id = id, .declaration = at});
     return voices.size() - 1;
 }
 
-bool Voices::select(const Token& token) {
-    const auto* field = std::get_if<Field>(&token.value);
-    if (!field || field->kind != 'V') return false;
-    const auto spec = voice_spec(field->value, diagnostics, token.at);
+void Voices::select(std::string_view value, const Token& token) {
+    auto       spec = voice_spec(value, diagnostics, token.at);
     const auto id   = voice_id(spec.id);
     selected        = find_voice(id, token.at);
     if (auto pending = pending_instruments.extract(id); !pending.empty()) {
         auto& music = voices[selected].music;
         music.insert(music.end(), pending.mapped().begin(), pending.mapped().end());
     }
+    // Selection places the part label even if only another voice subsequently
+    // writes MIDI commands at this voice's cursor.
+    auto& voice = current();
+    if (!spec.name.empty()) voice.name = std::move(spec.name);
+    if (!spec.pitch.empty()) voice.music.push_back({token.at, spec.pitch, token.music_line});
+}
+
+Voice& Voices::current() {
     auto& voice = voices[selected];
-    if (!spec.name.empty()) voice.name = spec.name;
-    // Selection locates the destination of later commands from other voices,
-    // even when it emits no pitch change or other playback event.
-    record_part(voice);
-    // Selecting a voice without changing its pitch properties makes no playback event.
-    if (!spec.pitch.empty()) append({token.at, spec.pitch, token.music_line});
+    if (current_part && voice.last_part != current_part->at.written) {
+        voice.music.push_back(*current_part);
+        voice.last_part = current_part->at.written;
+    }
+    return voice;
+}
+
+void Voices::append(Token token) {
+    if (auto* atom = std::get_if<Atom>(&token.value)) atom->rhythm = rhythm.at_attack();
+    current().music.push_back(std::move(token));
+}
+
+bool Voices::route_midi_command(const Token& token) {
+    const auto change = midi_track_command(token, diagnostics);
+    if (!change) return false;
+    // Opening body MIDI shifts still address the last header V:.
+    auto& target = opening_midi_voice ? voices[opening_midi_voice] : current();
+    target.music.push_back({token.at, *change, token.music_line});
     return true;
 }
 
-void Voices::record_part(Voice& voice) {
-    if (current_part && voice.last_part != current_part->at) {
-        voice.music.push_back(*current_part);
-        voice.last_part = current_part->at;
+// Planning and rendering consume the same operand. Keep the field's text cost
+// so playback can charge it at each performed occurrence.
+void resolve_track_field(Token& token, Diagnostics& diagnostics) {
+    const auto text = token.information();
+    if (!text) return;
+    Instruction command(token);
+    const auto  work = PlaybackWork::text(*text);
+    if (command.midi == "drummap") {
+        token.value = DrumMapChange{DrumMap::read(command.args, token.at, diagnostics), work};
+    } else if (command.midi == "makechordchannels") {
+        constexpr i32 kMaxChordChannels = 9;
+        const auto    count
+            = std::clamp(integer(word(command.args)).value_or(0), 0, kMaxChordChannels);
+        token.value = ChordChannelRequest{count, work};
     }
 }
 
-void Voices::append(const Token& token) {
-    auto& voice = voices[selected];
-    record_part(voice);
-    voice.music.push_back(token);
-    if (auto* atom = std::get_if<Atom>(&voice.music.back().value))
-        atom->rhythm = rhythm.at_attack();
-}
-
-void Voices::header(const Token& token) {
-    if (token.at < reference && file_drum_map.consume(token, diagnostics)) return;
-    if (select(token)) return;
-    if (const auto change = midi_track_command(token, diagnostics)) {
-        append({token.at, *change, token.music_line});
-    } else if (auto command = token.information().value_or(""); word(command) == "MIDI") {
-        append(token);
+void Voices::header(Token token) {
+    if (written_setting(token)) return;
+    if (const auto* field = std::get_if<Field>(&token.value); field && field->kind == 'V') {
+        select(field->value, token);
+        return;
     }
+    if (route_midi_command(token)) return;
+    auto command = token.information().value_or("");
+    if (word(command) != "MIDI" && !std::holds_alternative<StressCommand>(token.value)) return;
+    if (token.at < reference) {
+        resolve_track_field(token, diagnostics);
+        if (const auto* change = std::get_if<DrumMapChange>(&token.value)) {
+            if (change->route) file_drum_map.apply(*change->route);
+            return;
+        }
+    }
+    append(std::move(token));
 }
 
-void Voices::body(const Token& token) {
-    const auto* field = std::get_if<Field>(&token.value);
-    if (field && field->kind == 'w') uses_conductor = true;
-    if (field && (field->kind == 's' || field->kind == 'w')) {
+void Voices::body(Token& token, size_t row) {
+    if (const auto* field = std::get_if<Field>(&token.value)) {
         auto& voice = voices[selected];
-        auto& runs  = field->kind == 's' ? voice.symbol_runs : voice.verse_runs;
-        if (std::exchange(previous_underlay, field->kind) != field->kind)
-            runs.push_back({voice.music.size(), {}});
-        runs.back().lines.push_back(&token);
-        return;
-    }
-    previous_underlay = '\0';
-    if (select(token)) {
-        opening_midi_voice = 0;
-        uses_conductor     = true;
-        return;
-    }
-    if (field && field->kind == 'P') {
-        opening_midi_voice = 0;
-        current_part       = token;
-        return;
+        switch (field->kind) {
+        case 'w':
+            settings.separate_conductor = true;
+            voice.verses.add(std::move(token), row, voice.music.size());
+            return;
+        case 's': voice.symbols.add(std::move(token), row, voice.music.size()); return;
+        case 'V':
+            select(field->value, token);
+            opening_midi_voice          = 0;
+            settings.separate_conductor = true;
+            return;
+        case 'P':
+            current_part       = std::move(token);
+            opening_midi_voice = 0;
+            return;
+        default: break;
+        }
     }
     if (std::holds_alternative<Atom>(token.value) || std::holds_alternative<Grace>(token.value)
         || std::holds_alternative<Bar>(token.value) || std::holds_alternative<Overlay>(token.value))
         opening_midi_voice = 0;
-    if (rhythm.consume(token, diagnostics) || written_setting(token)) return;
-    if (const auto change = midi_track_command(token, diagnostics)) {
-        if (opening_midi_voice)
-            voices[opening_midi_voice].music.push_back({token.at, *change, token.music_line});
-        else
-            append({token.at, *change, token.music_line});
-        return;
-    }
-    append(token);
+    if (written_setting(token) || route_midi_command(token)) return;
+    append(std::move(token));
 }
 
 bool Voices::written_setting(const Token& token) {
+    if (rhythm.consume(token, diagnostics)) return true;
     // Keep the command token as a boundary between a grace and its host.
     settings.note_lengths.consume(token, diagnostics);
     const auto* field = std::get_if<Field>(&token.value);
@@ -566,43 +580,52 @@ bool Voices::set_instrument(const Token& token) {
     return true;
 }
 
-void Voices::apply_opening_pitch(PitchChange pitch, Location at) {
-    const bool named = !voices[selected].id.empty();
-    // The opening signature is shared, but pitch options after V: change only
-    // that voice and can override its earlier declarations, including with zero.
-    if (!named)
-        settings.key.apply(pitch);
-    else if (!pitch.empty())
-        append({at, pitch});
-}
-
-Voices::Voices(const Tune& tune, Header& metadata, Diagnostics& diagnostics) :
+Voices::Voices(Tune& tune, Header& metadata, Diagnostics& diagnostics) :
     diagnostics(diagnostics), settings(metadata.settings), reference(tune.reference) {
-    voices.push_back({});
-    for (const auto& token : tune.header)
-        if (!rhythm.consume(token, diagnostics) && !written_setting(token)) header(token);
+    for (const auto& token : tune.header) header(token);
     rhythm.finish_header(settings.meter, diagnostics);
-    apply_opening_pitch(metadata.opening_pitch, tune.key);
-    // The converter still addresses the last header V: when a MIDI shift
-    // appears in the opening body before a voice is selected or music starts.
+    // Opening K: pitch options belong to the selected header voice, or to
+    // the shared key if the header has no named voice.
+    if (voices[selected].id.empty())
+        settings.key.apply(metadata.opening_pitch);
+    else if (!metadata.opening_pitch.empty())
+        append({tune.key, metadata.opening_pitch});
     opening_midi_voice = selected;
     selected           = 0;
-    for (const auto& token : tune.body) body(token);
+    for (size_t row = 0; row < tune.body.size(); ++row) body(tune.body[row], row);
+    // Voices own their tokens; remaining views borrow the tune's source text.
+    vec<Token>{}.swap(tune.body);
     for (const auto& [id, commands] : pending_instruments)
         for (const auto& token : commands)
             diagnostics.warn(
                 token.at, "unknown-midi-voice", fmt::format("no voice with ID '{}'", id.spelling)
             );
     for (auto& voice : voices) {
-        voice.lyrics = collect_written_lyrics(voice.music, voice.verse_runs, diagnostics);
-        attach_symbols(voice.music, voice.symbol_runs, tune.decoration_delimiter, diagnostics);
+        voice.attach_underlay(tune.decoration_delimiter, diagnostics);
         for (auto& token : voice.music)
             if (auto* chord = std::get_if<Harmony>(&token.value))
                 chord_names.resolve(*chord, token.at, diagnostics);
         resolve_two_bar_overlays(voice.music, diagnostics);
-        voice.verse_runs.clear();
-        voice.symbol_runs.clear();
     }
+}
+
+vec<VoicePlan> Voices::plan(const PartItinerary& itinerary) {
+    vec<VoicePlan> plans;
+    plans.reserve(voices.size());
+    for (auto& voice : voices) {
+        auto order = itinerary.arrange(voice.music);
+        // A skipped ending or part must not diagnose its MIDI fields. Replace
+        // each played field in place so repeats share its operand and address.
+        for (const auto& range : order) {
+            if (range.flow != Flow::Token) continue;
+            for (auto& token : range.tokens(std::span(voice.music)))
+                resolve_track_field(token, diagnostics);
+        }
+        plans.push_back(
+            plan_voice(std::move(voice.music), std::move(order), voice.declaration, diagnostics)
+        );
+    }
+    return plans;
 }
 
 // Reconcile global fields after each voice has reduced its own changes to
@@ -613,34 +636,22 @@ vec<Event> global_events(
     Event initial, vec<Located<Event>>& input, Diagnostics& diagnostics, std::string_view label
 ) {
     std::ranges::stable_sort(input, {}, [](const auto& item) { return item.first.time; });
+    if (!input.empty() && input.front().first.time == initial.time) initial = input.front().first;
     vec<Event> result{initial};
-    bool       have_change = false;
     for (auto& [event, at] : input) {
         if (result.back().time != event.time)
             result.push_back(std::move(event));
-        else if (result.back() != event) {
-            if (have_change)
-                diagnostics.warn(
-                    at,
-                    "conflicting-metadata",
-                    fmt::format(
-                        "conflicting {} at tick {}; kept the first value", label, event.time
-                    )
-                );
-            else
-                result.back() = std::move(event);
-        }
-        have_change = true;
+        else if (result.back() != event)
+            diagnostics.warn(
+                at,
+                "conflicting-metadata",
+                fmt::format("conflicting {} at tick {}; kept the first value", label, event.time)
+            );
     }
     return result;
 }
 
 void merge(Performance& all, Performance voice) {
-    const auto append = [](auto& into, auto& from) {
-        into.insert(
-            into.end(), std::make_move_iterator(from.begin()), std::make_move_iterator(from.end())
-        );
-    };
     const auto append_fields = [](auto& into, auto& from) {
         std::ranges::stable_sort(from, {}, [](const auto& item) { return item.first.time; });
         // A voice can supersede its own field at the same tick (e.g. on repeat entry).
@@ -650,48 +661,38 @@ void merge(Performance& all, Performance voice) {
                 into.push_back(std::move(from[i]));
         }
     };
-    append(all.passes, voice.passes);
+    std::ranges::move(voice.passes, std::back_inserter(all.passes));
     append_fields(all.tempos, voice.tempos);
     append_fields(all.meters, voice.meters);
     append_fields(all.keys, voice.keys);
-    append(all.markers, voice.markers);
 }
 
-Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnostics& diagnostics) {
+Score<Tick> score_from_tune(Tune& tune, const TextLoader& files, Diagnostics& diagnostics) {
     auto  header    = read_header(tune, diagnostics);
     auto& settings  = header.settings;
     settings.stress = TuneStress(tune, files, diagnostics);
-    const Voices        voices(tune, header, diagnostics);
+    Voices              voices(tune, header, diagnostics);
     const PartItinerary itinerary(header.order, header.order_at, diagnostics);
     Performance         music;
-    auto                drum_map = voices.initial_percussion_routes();
-    vec<VoicePlan>      plans;
-    plans.reserve(voices.all().size());
-    for (const auto& voice : voices.all())
-        plans.push_back(
-            plan_voice(voice.music, itinerary.arrange(voice.music), voice.declaration, diagnostics)
-        );
-    settings.separate_conductor
-        = voices.conductor_from_fields() || std::ranges::any_of(plans, &VoicePlan::uses_conductor);
-    assign_midi_tracks(plans, settings.separate_conductor);
-    if (settings.separate_conductor) prime_drum_map(plans.front().order, drum_map, diagnostics);
+    auto                plans = voices.plan(itinerary);
+    settings.separate_conductor |= std::ranges::any_of(plans, &VoicePlan::uses_conductor);
+    assign_midi_tracks(plans, settings.separate_conductor, voices.initial_percussion_routes());
     // Share the sequence across voices, but restart it when reading a tune again.
     ChordAttackSequence chord_attacks;
     bool                has_output = false;
     for (size_t i = 0; i < plans.size(); ++i) {
-        const auto& voice       = voices.all()[i];
-        auto        name        = voice.name.empty() ?
-                                      (has_output ? std::string{} : settings.title) :
-                                      decode_text(voice.name, TextContext::VoiceName);
+        const auto& voice = voices.all()[i];
+        auto        name  = voice.name.empty() ? (has_output ? std::string{} : settings.title) :
+                                                 decode_text(voice.name, TextContext::VoiceName);
         auto        performance = perform(
-            settings, plans[i], voice.lyrics, std::move(name), chord_attacks, diagnostics
+            settings, std::move(plans[i]), voice.lyrics, std::move(name), chord_attacks, diagnostics
         );
         has_output = has_output || std::ranges::any_of(performance.passes, [](const auto& pass) {
                          return !pass.tracks.empty();
                      });
         merge(music, std::move(performance));
     }
-    ScoreNative<Tick> score(tpq);
+    ScoreNative<Tick> score(kTpq);
     const auto        initial_meter = score_meter(settings.meter, 0);
     const auto        initial_key   = KeySignature<Tick>(
         0, static_cast<i8>(settings.key.fifths), static_cast<i8>(settings.key.minor)
@@ -699,15 +700,17 @@ Score<Tick> score_from_tune(const Tune& tune, const TextLoader& files, Diagnosti
     score.time_signatures
         = global_events(initial_meter, music.meters, diagnostics, "meter changes");
     score.key_signatures   = global_events(initial_key, music.keys, diagnostics, "key changes");
-    const int tempo_offset = PlaybackGrid::tempo_offset(settings.separate_conductor);
+    const i32 tempo_offset = PlaybackGrid::tempo_offset(settings.separate_conductor);
     for (auto& [tempo, at] : music.tempos)
-        tempo.time = tick(static_cast<long double>(tempo.time) + tempo_offset, diagnostics, at);
+        tempo.time = tick(static_cast<f64>(tempo.time) + tempo_offset, diagnostics, at);
     score.tempos
         = global_events(Tempo<Tick>(0, settings.tempo), music.tempos, diagnostics, "tempo changes");
     // A split voice can be declared after another named voice already exists.
-    std::ranges::stable_sort(music.passes, {}, &PlaybackPass::declaration);
-    for (auto& pass : music.passes) pass.publish(score.tracks, drum_map);
-    score.markers = std::move(music.markers);
+    std::ranges::stable_sort(music.passes, {}, [](const PlaybackPass& pass) {
+        return pass.declaration.written;
+    });
+    for (auto& pass : music.passes)
+        std::ranges::move(pass.tracks, std::back_inserter(score.tracks));
     return to_shared(std::move(score));
 }
 
@@ -715,7 +718,7 @@ Result<Score<Tick>> read_text(
     std::string_view text, std::string_view source, const TextLoader& files = {}
 ) {
     Diagnostics diagnostics(source);
-    const auto  tune = tokenize(text, files, diagnostics);
+    auto        tune = tokenize(text, files, diagnostics);
     return {score_from_tune(tune, files, diagnostics), diagnostics.take()};
 }
 
@@ -743,7 +746,7 @@ private:
     std::filesystem::path directory;
     std::filesystem::path score;
     size_t                remaining_reads = 128;
-    size_t                remaining_bytes = 4 * 1024 * 1024;
+    size_t                remaining_bytes = size_t{4} * 1024 * 1024;
 };
 
 TextRead ScoreFiles::read(std::string_view name, std::span<const std::string_view> active) {
@@ -762,7 +765,7 @@ TextRead ScoreFiles::read(std::string_view name, std::span<const std::string_vie
     if (path == score || std::ranges::find(active, canonical) != active.end()) {
         // The back edge never opens a file and must leave the read budget intact.
         ++remaining_reads;
-        return TextReadError::cycle;
+        return TextReadError::Cycle;
     }
     std::ifstream        input(path, std::ios::binary | std::ios::ate);
     const std::streamoff size = input.tellg();

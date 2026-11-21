@@ -31,7 +31,7 @@ struct TuneSettings {
     TuneStress         stress;
     ProgramNumbers     programs;
     i32                tempo              = 500000;
-    long double        unit               = whole / 8;
+    f64                unit               = kWhole / 8.0;
     bool               separate_conductor = false;
     std::string        title;
 };
@@ -55,48 +55,60 @@ struct Performance {
     vec<Located<Tempo<Tick>>>         tempos;
     vec<Located<TimeSignature<Tick>>> meters;
     vec<Located<KeySignature<Tick>>>  keys;
-    vec<TextMeta<Tick>>               markers;
+};
+
+// The effect of a lane's performed MIDI commands on any incoming track settings.
+class TrackSettingsChange {
+public:
+    void                            record(const MidiTrackCommand& command);
+    [[nodiscard]] MidiTrackSettings closing(MidiTrackSettings opening) const;
+
+private:
+    i32                shift   = 0;
+    i32                lowest  = -kMidiMax;
+    i32                highest = kMidiMax;
+    std::optional<i32> gap;
+    std::optional<i32> random_limit;
 };
 
 struct LanePlan {
-    Location              declaration;
-    std::optional<int>    declared_channel;
-    BackingTracks         backing;
-    int                   chord_channels = 0;
-    MidiTrackChannels     channels;
-    vec<MidiTrackCommand> midi_commands;
-    MidiTrackSettings     note_settings;
-    BackingOpening        backing_opening;
+    Location            declaration;
+    std::optional<i32>  declared_channel;
+    BackingTracks       backing;
+    i32                 chord_channels = 0;
+    TrackSettingsChange settings_change;
+    DrumMap             drum_changes;
+
+    MidiTrackChannels channels;
+    MidiTrackSettings note_settings;
+    DrumMap           opening_drums;
+    BackingOpening    backing_opening;
 };
 
-// The plan borrows the written voice. It keeps written track declarations even
+// The plan owns the written voice. It keeps written track declarations even
 // when navigation skips them, but counts only performed MIDI requests.
 struct VoicePlan {
-    std::span<const Token> source;
-    PlayOrder              order;
-    vec<LanePlan>          lanes;
-    bool                   uses_conductor   = false;
-    bool                   expands_releases = false;
+    vec<Token>    source;
+    PlayOrder     order;
+    vec<LanePlan> lanes;
+    bool          uses_conductor   = false;
+    bool          expands_releases = false;
 };
 
-VoicePlan plan_voice(
-    const vec<Token>& written_voice, PlayOrder order, Location declaration, Diagnostics& diagnostics
+[[nodiscard]] VoicePlan plan_voice(
+    vec<Token>&& written_voice, PlayOrder&& order, Location declaration, Diagnostics& diagnostics
 );
 
-// Assign numbered channels and inherited MIDI settings in track-declaration order.
-// The renderer reports exhausted channel requests at the executing command.
-void assign_midi_tracks(std::span<VoicePlan> voices, bool separate_tracks);
+// Assign channels and opening settings in MIDI track order, starting with the
+// file's percussion map. Channel exhaustion is diagnosed at the performed request.
+void assign_midi_tracks(std::span<VoicePlan> voices, bool separate_tracks, DrumMap file_drums);
 
-// Replay only the drum routing of the primary voice, in its performed order.
-// The conductor emits no attacks but leaves its percussion map for voice one.
-void prime_drum_map(const PlayOrder& first_voice, DrumMap& drum_map, Diagnostics& diagnostics);
-
-// Render a voice using its planned navigation steps.
+// Consume a voice plan while rendering its navigation steps.
 // Share chord_attacks across voices in one tune to keep random chord spread in
 // track order. Diagnostics throws on fatal failures. Times use the 480-tick grid.
 Performance perform(
     const TuneSettings&  settings,
-    const VoicePlan&     plan,
+    VoicePlan&&          plan,
     const WrittenLyrics& lyrics,
     std::string          name,
     ChordAttackSequence& chord_attacks,

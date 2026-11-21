@@ -1,7 +1,5 @@
 #pragma once
 
-#include <map>
-
 #include "settings.h"
 
 namespace symusic::abc::detail {
@@ -9,9 +7,9 @@ namespace symusic::abc::detail {
 // A slice of the performed stress grid. duration is in ticks; a zero velocity
 // leaves the normal accent profile in charge. gate_ratio is dimensionless.
 struct StressNote {
-    long double                duration;
-    int                        velocity = 0;
-    std::optional<long double> gate_ratio;
+    f64                duration;
+    i32                velocity = 0;
+    std::optional<f64> gate_ratio;
 };
 
 // The first Phil Taylor profile supplies the tune default. Later changes apply
@@ -20,51 +18,43 @@ struct StressNote {
 class TuneStress {
 public:
     TuneStress() = default;
-    TuneStress(const Tune& tune, const TextLoader& files, Diagnostics& diagnostics);
+    // Replace stress instructions with their performed commands while resolving written settings.
+    TuneStress(Tune& tune, const TextLoader& files, Diagnostics& diagnostics);
 
-    [[nodiscard]] static bool handles(std::string_view midi_command);
-    [[nodiscard]] bool        configured() const { return !profiles.empty(); }
-    [[nodiscard]] bool        loads(Location at, std::string_view command) const;
+    [[nodiscard]] bool configured() const { return !profiles.empty(); }
     // Only model 1 samples the attacks of an expanded ornament individually.
     [[nodiscard]] bool articulates(Location at, Meter meter) const;
     // Map an interval in unwarped ticks from the current stress origin.
     // Model 1 considers the endpoint when deciding whether to set a gate.
     // With no applicable profile, duration is unchanged and there is no gate
     // override. Location selects the profile in written, not repeat order.
-    [[nodiscard]] StressNote note(
-        Location at, long double start, long double length, Meter meter
-    ) const;
+    [[nodiscard]] StressNote note(Location at, f64 start, f64 length, Meter meter) const;
 
 private:
-    enum class Model { articulation, timing };
+    enum class Model { Articulation, Timing };
     struct Segment {
-        int         velocity;
-        long double stretch;
-        long double warped_start = 0;
+        i32 velocity;
+        f64 stretch;
+        f64 warped_start = 0;
     };
 
     struct Profile {
         vec<Segment> segments;
-        long double  widest = 0;
+        f64          widest = 0;
 
-        [[nodiscard]] long double warped_tick(long double position, Meter meter) const;
-        [[nodiscard]] long double gate_ratio(
-            long double start, long double end, long double length
-        ) const;
+        [[nodiscard]] f64 warped_tick(f64 position, f64 measure) const;
+        [[nodiscard]] f64 gate_ratio(f64 start, f64 end, f64 length) const;
     };
     struct Settings {
         size_t profile = 0;
-        Model  model   = Model::timing;
+        Model  model   = Model::Timing;
     };
 
-    Settings                                                opening;
-    vec<Profile>                                            profiles;
-    vec<std::pair<Location, Settings>>                      changes;
-    std::map<std::pair<Location, std::string_view>, size_t> loaded_profiles;
+    WrittenSetting<Settings> settings;
+    vec<Profile>             profiles;
 
-    [[nodiscard]] const Settings& settings_at(Location at) const;
-    bool                          configure(
-        const Token& token, Settings& state, const TextLoader& files, Diagnostics& diagnostics
+    static std::optional<Profile> read_profile(
+        std::string_view args, Location at, const TextLoader& files, Diagnostics& diagnostics
     );
     [[nodiscard]] static std::optional<Profile> parse(std::string_view text);
 };

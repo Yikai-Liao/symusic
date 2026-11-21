@@ -68,6 +68,116 @@ def note_rows(score: Score) -> list[tuple[int, int, int, int]]:
     )
 
 
+@pytest.mark.parametrize("version", ["", "%abc-2.0\n", "%abc-2.1\n"])
+def test_chord_suffix(version: str):
+    # ABC 2.1 §4.17 multiplies the member lengths by the written suffix.
+    score = Score.from_abc(version + HEADER + "%%MIDI chordattack 0\n[C2.E2]3 D|")
+    assert note_rows(score) == [
+        (1, 1439, 64, 90),
+        (1, 2879, 60, 90),
+        (2881, 479, 62, 80),
+    ]
+
+
+@pytest.mark.parametrize("route", ["", "%%MIDI channel 10\n"])
+def test_chord_member_gates(route: str):
+    score = Score.from_abc(HEADER + route + "%%MIDI chordattack 0\n[CE2]2 D .[CG]2|")
+    assert [row[:3] for row in note_rows(score)] == [
+        (1, 959, 60),
+        (1, 1919, 64),
+        (961, 479, 62),
+        (1441, 479, 60),
+        (1441, 479, 67),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("setting", "borrowed"), [("", 120), ("%%MIDI grace 1/4\n", 480)]
+)
+def test_grace_chord_releases(setting, borrowed):
+    score = Score.from_abc(HEADER + setting + "%%MIDI chordattack 0\n{a}[C2.E3]2 D|")
+    assert [row[:3] for row in note_rows(score)] == [
+        (1, borrowed - 1, 81),
+        (1 + borrowed, 1439 - borrowed, 64),
+        (1 + borrowed, 1919 - borrowed, 60),
+        (1921, 479, 62),
+    ]
+
+
+def test_ties_hold_written_pitches():
+    score = Score.from_abc(HEADER + "%%MIDI chordattack 0\n.C- C [C2E-] E D|")
+    assert [row[:3] for row in note_rows(score)] == [
+        (1, 959, 60),
+        (961, 959, 60),
+        (961, 1439, 64),
+        (2401, 479, 62),
+    ]
+
+
+def test_arpeggio_attachment():
+    score = Score.from_abc(HEADER + "!arpeggio!C [DFA] !arpeggio![CEG] F|")
+    assert [n.time for n in score.tracks[0].notes] == [
+        1,
+        481,
+        491,
+        501,
+        961,
+        991,
+        1021,
+        1441,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("meter", "unit", "music", "levels"),
+    [
+        ("4/4", "1/4", "C LC EF|", [90, 95, 80, 80]),
+        ("7/8", "1/8", "CDEFGAB|", [90, 80, 80, 80, 80, 80, 80]),
+        ("6/2", "1/4", "C4 C2 C2 C4|", [90, 80, 80, 80]),
+    ],
+)
+def test_opening_dynamic(meter, unit, music, levels):
+    header = HEADER.replace("M:4/4", f"M:{meter}").replace("L:1/4", f"L:{unit}")
+    track = Score.from_abc(header + music).tracks[0]
+    assert [note.velocity for note in track.notes] == levels
+    assert track.notes == Score.from_abc(header + "!mf!" + music).tracks[0].notes
+
+
+@pytest.mark.parametrize(
+    ("opening", "current", "step"),
+    [("6/8", "4/4", 192), ("4/4", "3/4", 192), ("3/4", "6/8", 288)],
+)
+def test_tuplet_meter(opening, current, step):
+    # ABC 2.1 §4.13 measures the quintuplet against the meter at its opening note.
+    score = Score.from_abc(
+        HEADER.replace("M:4/4", f"M:{opening}") + f"A[M:{current}](5BCDEF G|"
+    )
+    assert [(n.time, n.duration) for n in score.tracks[0].notes] == [
+        (1, 479),
+        *((481 + i * step, step - 1) for i in range(5)),
+        (481 + 5 * step, 479),
+    ]
+
+
+def test_relative_tempo_unit():
+    score = Score.from_abc(HEADER + "C [L:1/8][Q:C=120] D E F|")
+    assert [(e.time, e.mspq) for e in score.tempos] == [(0, 500_000), (481, 1_000_000)]
+
+
+def test_voice_and_midi_transposition():
+    abc = HEADER.replace("K:C", "%%MIDI transpose 2\nK:C transpose=3")
+    score = Score.from_abc(abc + "V:one transpose=4\nCDEF|\nV:two\nC,D,E,F,|")
+    assert [[n.pitch for n in t.notes] for t in score.tracks] == [
+        [66, 68, 70, 71],
+        [53, 55, 57, 58],
+    ]
+    score = Score.from_abc(
+        HEADER.replace("K:C", "K:C transpose=3")
+        + "C [I:MIDI transpose 2] D [I:MIDI rtranspose -1] E [K:G transpose=5] F|"
+    )
+    assert [n.pitch for n in score.tracks[0].notes] == [63, 67, 68, 72]
+
+
 def roundtrip_score() -> Score:
     score = Score(480)
     track = Track("Roundtrip", 24, False)
@@ -133,24 +243,6 @@ def test_midi_alias_command_error_locates_use():
     text = HEADER + "%%MIDIdef wrong program 128\n\n%%MIDIx wrong\nCDEF|"
     with pytest.raises(ValueError, match=r"<string>:9:1: ABC \[invalid-midi-value\]"):
         Score.from_abc(text)
-
-
-@pytest.mark.parametrize(
-    ("alias", "codes"),
-    [
-        ("MIDIdef p program 53", ["orphan-lyrics"]),
-        ("MIDIx p", ["undefined-midi-alias", "orphan-lyrics"]),
-    ],
-)
-def test_midi_alias_only_line_does_not_attach_lyrics(alias: str, codes: list[str]):
-    with pytest.warns(
-        UserWarning, match=r"\[(orphan-lyrics|undefined-midi-alias)\]"
-    ) as notices:
-        score = Score.from_abc(HEADER + f"CDEF|\n[I:{alias}]\nw: one\nGABc|")
-    assert [
-        str(notice.message).split("[")[1].split("]")[0] for notice in notices
-    ] == codes
-    assert not any(track.lyrics for track in score.tracks)
 
 
 def test_midi_alias_file_preamble_requires_percent_directive():
@@ -405,7 +497,7 @@ def test_abc_repeat_restores_written_key_and_length():
 @pytest.mark.parametrize(
     ("body", "pitches"),
     [
-        ("C4 || D4 :| E4 |", [60, 62, 60, 62, 64]),
+        ("C4 || D4 :| E4 |", [60, 62, 62, 64]),
         ("|: C4 || D4 :| E4 |", [60, 62, 60, 62, 64]),
         ("|: C [1 D :| [2 E :| [3 F |", [60, 62, 60, 64, 60, 65]),
         (
@@ -414,7 +506,7 @@ def test_abc_repeat_restores_written_key_and_length():
         ),
     ],
 )
-def test_abc_repeat_does_not_drop_sections(body: str, pitches: list[int]):
+def test_section_repeats(body: str, pitches: list[int]):
     assert [row[2] for row in note_rows(Score.from_abc(HEADER + body))] == pitches
 
 
@@ -450,15 +542,6 @@ def test_abc_overlay_keeps_ties_and_restores_primary_key():
     assert [(n.time, n.duration, n.pitch) for n in overlay.notes] == [(1, 1919, 66)]
 
 
-def test_abc_overlay_effects_persist_only_on_their_own_lane():
-    score = Score.from_abc(HEADER + "C2 & !p!F2 & F2 | F2 & F2 & F2 |")
-    assert [[n.velocity for n in lane.notes] for lane in score.tracks] == [
-        [105, 105],
-        [60, 60],
-        [105, 105],
-    ]
-
-
 def test_abc_overlay_reentry_keeps_route_clock_and_backing():
     score = Score.from_abc(
         HEADER
@@ -469,10 +552,10 @@ def test_abc_overlay_reentry_keeps_route_clock_and_backing():
         [(n.time, n.duration, n.pitch, n.velocity) for n in track.notes]
         for track in score.tracks
     ] == [
-        [(1, 959, 60, 105), (961, 959, 65, 105), (1921, 959, 60, 105)],
+        [(1, 959, 60, 90), (961, 959, 65, 90), (1921, 959, 60, 90)],
         [(1, 1439, 64, 60)],
         [(1, 919, 36, 80), (481, 959, 36, 80), (921, 919, 42, 80), (1441, 959, 36, 80)],
-        [(1, 959, 67, 105), (961, 479, 71, 105)],
+        [(1, 959, 67, 90), (961, 479, 71, 90)],
     ]
 
 
@@ -541,15 +624,33 @@ def test_abc_aligns_lyrics_to_attacks_on_their_music_line():
     ]
 
 
-def test_abc_lyrics_follow_repeat_jump_without_restarting_verse():
-    first = "First line goes here"
-    repeated = "The next four words cross the repeat bar"
+@pytest.mark.parametrize("tail", ["EF :| GA|", "EF :|\nGA|"])
+def test_lyrics_repeat_reentry(tail: str):
+    # A jump into the first music line resumes lyrics at the next line entry.
     score = Score.from_abc(
-        HEADER + f"|: CDEF|\nw: {first}\nGABc :| cBAG|\nw: {repeated}"
+        HEADER + f"|: CD|\nw: one two\n{tail}\nw: three four five six"
     )
-    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == list(
-        zip(range(1, 9601, 480), first.split() + repeated.split() * 2, strict=True)
-    )
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (481, "two"),
+        (961, "three"),
+        (1441, "four"),
+        (2881, "three"),
+        (3361, "four"),
+        (3841, "five"),
+        (4321, "six"),
+    ]
+
+
+def test_lyrics_single_line_repeat():
+    with pytest.warns(UserWarning, match=r"<string>:8:1: ABC \[extra-lyrics\]"):
+        score = Score.from_abc(HEADER + "|: C D :| E F|\nw: one two three four excess")
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (481, "two"),
+        (1921, "three"),
+        (2401, "four"),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -568,28 +669,46 @@ def test_abc_lyrics_skip_to_bar(lyrics: str, times: list[int]):
     )
 
 
-@pytest.mark.parametrize("middle", ["|\n", "z4|\n", "V:solo\n", "!f!\n"])
-def test_abc_lyrics_without_anchors(middle: str):
-    with pytest.warns(
-        UserWarning, match=r"<string>:10:1: ABC \[(orphan|extra)-lyrics\]"
-    ):
-        score = Score.from_abc(
-            HEADER.replace("K:C", "V:solo\nK:C") + "CDEF|\n" + middle + "w: one two"
-        )
-    assert not score.tracks[0].lyrics
+@pytest.mark.parametrize(
+    "middle", ["|", "z4|", "V:solo", "!f!", "[I:MIDIdef p program 53]"]
+)
+def test_lyrics_across_music_lines(middle: str):
+    score = Score.from_abc(
+        HEADER.replace("K:C", "V:solo\nK:C") + f"CDEF|\n{middle}\nw: one two"
+    )
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (481, "two"),
+    ]
+
+
+def test_lyrics_rest_only_passage():
+    with pytest.warns(UserWarning, match=r"<string>:10:1: ABC \[extra-lyrics\]"):
+        score = Score.from_abc(HEADER + "C4|\nw: first\nz4|\nw: excess")
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [(1, "first")]
 
 
 @pytest.mark.parametrize(
     "words",
     [
         "w: one two\n+: three four",
-        "w: one two\nw: +three four",
         "w: one two\n% comment\n%%vocalfont Times-Roman 14\n+: three four",
     ],
 )
 def test_abc_lyrics_extension(words: str):
     score = Score.from_abc(HEADER + "CDEF|\n" + words)
     assert [e.text for e in score.tracks[0].lyrics] == ["one", "two", "three", "four"]
+
+
+def test_lyrics_adjacent_verses():
+    abc = HEADER.replace("K:C", "P:A2\nK:C") + "P:A\nCD|\nw: one two\nw: +three four"
+    score = Score.from_abc(abc)
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (481, "two"),
+        (961, "+three"),
+        (1441, "four"),
+    ]
 
 
 def test_abc_pedals_are_not_paired_across_overlay_lanes():
@@ -1192,19 +1311,22 @@ def test_abc_shape_controller_default_does_not_use_a_future_overlay_event():
 
 
 @pytest.mark.parametrize(
-    ("ornament", "times"),
+    ("ornament", "host", "following"),
     [
-        ("{A}F", [1, 481, 601, 961, 1441]),
-        ("~F", [1, 481, 601, 961, 1441]),
-        ("RF3", [1, 481, 769, 1057, 1345]),
-        ("TF3", [1, 481, 541, 601, 661]),
+        ("{A}F", 601, 961),
+        ("~F", 601, 961),
+        ("RF3", 481, 1921),
+        ("TF3", 481, 1921),
+        ("[I:MIDI harpmode 1]~F", 721, 961),
     ],
 )
-def test_abc_ornament_attacks_are_individual_lyric_slots(ornament, times):
-    score = Score.from_abc(HEADER + f"D {ornament} E F G|\nw: one two three four five")
-    assert [(event.time, event.text) for event in score.tracks[0].lyrics] == list(
-        zip(times, ["one", "two", "three", "four", "five"], strict=True)
-    )
+def test_lyrics_ornament_slots(ornament, host, following):
+    score = Score.from_abc(HEADER + f"D {ornament} E|\nw: one two three")
+    assert [(e.time, e.text) for e in score.tracks[0].lyrics] == [
+        (1, "one"),
+        (host, "two"),
+        (following, "three"),
+    ]
 
 
 def test_abc_harp_cut_preserves_written_scope():

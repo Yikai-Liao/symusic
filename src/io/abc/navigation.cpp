@@ -9,20 +9,49 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
+
+#include <fmt/format.h>
 
 namespace symusic::abc::detail {
 namespace {
 
-// Bound navigation independently of how many events each step emits.
-constexpr size_t kMaxMaterializedSteps = 1'000'000;
-using Section                          = std::span<const Token>;
+// Entries mark a gap before a token. A bar action consumes the bar it replaces.
+// Charge the full visit before publishing a range, including every repeated token.
+struct Schedule {
+    std::span<const Token> voice;
+    Diagnostics&           diagnostics;
+    PlayOrder              order;
+    size_t                 next_written = 0;
+    size_t                 remaining    = PlaybackWork::kLimit;
+
+    void require(size_t count, size_t at) const {
+        if (count > remaining)
+            diagnostics.error(
+                voice[at].at, "expansion-limit", "expanded music exceeds the playback token limit"
+            );
+    }
+
+    void append(size_t first, size_t end, Flow flow = Flow::Token, u32 occurrence = 0) {
+        if (first == end && flow == Flow::Token) return;
+        const auto count = std::max<size_t>(1, end - first);
+        require(count, first);
+        remaining -= count;
+        const bool restore
+            = first > next_written || (flow == Flow::EnterPart && first < next_written);
+        next_written = end;
+        if (flow == Flow::Token && !order.empty() && order.back().flow == Flow::Token
+            && order.back().last == first)
+            order.back().last += count;
+        else
+            order.push_back({first, first + count, flow, restore, false, occurrence});
+    }
+};
 
 struct Boundary {
-    Section::iterator token;
-    const Bar&        bar;
-    size_t            repeat_end;   // Includes an inferred close before a new repeat start.
-    bool              ending_at_previous_close;
+    size_t     token;
+    const Bar& bar;
+    size_t     repeat_end;   // Includes an inferred close before a new repeat start.
+    bool       ending_at_previous_close;
     // Distance to the next routing boundary, or to the end of the boundary list.
     std::ptrdiff_t route_stride = 1;
 };
@@ -30,28 +59,26 @@ struct Boundary {
 bool ending_prefix(const Token& token) {
     // The meter field before [2 in the section 13.1 example is part of the
     // ending. Settings between the repeat bar and its ending do not separate them.
-    return std::holds_alternative<Field>(token.value)
-           || std::holds_alternative<TempoNotation>(token.value)
-           || std::holds_alternative<PitchChange>(token.value)
-           || std::holds_alternative<Directive>(token.value)
-           || std::holds_alternative<MidiTrackCommand>(token.value)
-           || std::holds_alternative<VoiceInstrument>(token.value);
+    return std::holds_alternative<Field>(token.value) || token.is_voice_setting();
 }
 
-vec<Boundary> boundaries(Section source, Diagnostics& diagnostics) {
+vec<Boundary> boundaries(
+    std::span<const Token> voice, size_t first, size_t last, Diagnostics& diagnostics
+) {
     vec<Boundary> result;
     bool          opened      = false;
     bool          after_close = false;
-    for (auto token = source.begin(); token != source.end(); ++token) {
-        const auto* bar = std::get_if<Bar>(&token->value);
+    for (auto i = first; i < last; ++i) {
+        const auto& token = voice[i];
+        const auto* bar   = std::get_if<Bar>(&token.value);
         if (!bar) {
-            if (after_close && !ending_prefix(*token)) after_close = false;
+            if (after_close && !ending_prefix(token)) after_close = false;
             continue;
         }
         auto repeat_end = bar->repeat_end;
         if (bar->repeat_start && !repeat_end && opened) {
             diagnostics.warn(
-                token->at,
+                token.at,
                 "nested-repeat",
                 "treated a nested repeat start as an end followed by a new start"
             );
@@ -60,7 +87,7 @@ vec<Boundary> boundaries(Section source, Diagnostics& diagnostics) {
         if (repeat_end) opened = false;
         if (bar->repeat_start) opened = true;
         const bool joined = after_close && !bar->resets_measure && !bar->endings.empty();
-        result.push_back({token, *bar, repeat_end, joined});
+        result.push_back({i, *bar, repeat_end, joined});
         after_close = repeat_end != 0;
     }
     std::ptrdiff_t stride = 1;
@@ -71,140 +98,107 @@ vec<Boundary> boundaries(Section source, Diagnostics& diagnostics) {
     return result;
 }
 
-// A repeat region may have several closing bars in successive numbered endings.
-// A region is replayed once per selected pass; intermediate endings are skipped.
-class RepeatOrder {
-public:
-    RepeatOrder(Section source, PlayOrder& output, Diagnostics& diagnostics) :
-        source(source), bars(boundaries(source, diagnostics)), output(output),
-        diagnostics(diagnostics) {}
-    void append(std::optional<size_t> part_pass = {});
-    void append_part(u32 occurrence, size_t visits);
+using BarIterator = vec<Boundary>::const_iterator;
 
-private:
-    Section       source;
-    vec<Boundary> bars;
-    PlayOrder&    output;
-    Diagnostics&  diagnostics;
-
-    using BarIterator   = vec<Boundary>::const_iterator;
-    using TokenIterator = Section::iterator;
-
-    struct TrailingEnding {
-        BarIterator   marker;
-        TokenIterator end;
-        BarIterator   resume;
-    };
-
-    struct Closing {
-        BarIterator                   last;
-        size_t                        passes;
-        std::optional<TrailingEnding> trailing;
-    };
-
-    BarIterator                   next_ending_close(BarIterator from) const;
-    BarIterator                   ending_at_close(BarIterator close) const;
-    std::optional<TrailingEnding> trailing_ending(BarIterator close) const;
-    Closing                       closing(BarIterator first_close, BarIterator first_bar) const;
-    void                          reserve_steps(size_t count, TokenIterator token) const;
-    void                          step(TokenIterator token, Flow flow);
-    void                          slice(TokenIterator first, TokenIterator end);
-    void region(TokenIterator first, BarIterator first_bar, const Closing& close);
-    bool jumps_inside_music_line(BarIterator first_bar, size_t played_from) const;
-    void play_pass(TokenIterator first, BarIterator first_bar, const Closing& close, size_t pass);
+// The next written token and the first bar at or after it. A trailing ending
+// can resume on either side of a bar.
+struct Cursor {
+    size_t      token;
+    BarIterator bar;
 };
 
-bool ending_starts_at_bar(const Boundary& boundary, Section source) {
+Cursor after(BarIterator bar) { return {bar->token + 1, std::next(bar)}; }
+
+struct Repeat {
+    Cursor                first;
+    BarIterator           last_close;
+    const RepeatEndings*  trailing;
+    Cursor                resume;
+    std::optional<size_t> local_passes;   // Otherwise P: selects the pass for this region.
+};
+
+class WrittenPart {
+public:
+    WrittenPart(size_t begin, size_t end, Schedule& schedule) :
+        begin(begin), end(end), schedule(schedule) {}
+
+    // A named part emits a verse selection on entry. An anonymous section
+    // (the prelude or the entire voice) starts directly with its music.
+    void append(size_t scheduled_visits = 0);
+
+private:
+    size_t        begin, end;
+    Schedule&     schedule;
+    vec<Boundary> bars;
+    vec<Repeat>   repeats;
+    u32           visits = 0;
+
+    void                      compile(size_t scheduled_visits);
+    [[nodiscard]] BarIterator ending_at_close(BarIterator close) const;
+    [[nodiscard]] Repeat      repeat_from(Cursor first, BarIterator close) const;
+    [[nodiscard]] Cursor      after_ending(BarIterator marker) const;
+    void                      play_repeat(const Repeat& repeat);
+    [[nodiscard]] bool jumps_inside_music_line(BarIterator first_bar, size_t played_from) const;
+    [[nodiscard]] bool ending_starts_at_bar(const Boundary& boundary) const;
+    void               play_pass(const Repeat& repeat, size_t pass);
+};
+
+bool WrittenPart::ending_starts_at_bar(const Boundary& boundary) const {
     if (boundary.bar.resets_measure) return true;
-    if (boundary.token == source.begin()) return false;
-    const auto* previous = std::get_if<Bar>(&std::prev(boundary.token)->value);
+    if (boundary.token == begin) return false;
+    const auto* previous = std::get_if<Bar>(&schedule.voice[boundary.token - 1].value);
     return previous && previous->resets_measure && !previous->repeat_end;
 }
 
-RepeatOrder::BarIterator RepeatOrder::next_ending_close(BarIterator from) const {
-    const auto ending = ending_at_close(from);
-    if (ending == bars.end()) return bars.end();
-    for (auto next = std::next(ending); next != bars.end(); ++next) {
-        if (next->bar.repeat_start || next->bar.section) break;
-        if (next->repeat_end) return next;
-    }
-    return bars.end();
-}
-
-RepeatOrder::Closing RepeatOrder::closing(BarIterator first_close, BarIterator first_bar) const {
-    const auto opening = first_bar != bars.begin() ? std::prev(first_bar)->bar.repeat_start : 0;
-    // Both delimiters and numbered endings can request passes. Honor the largest request.
-    Closing result{first_close, opening, {}};
-    auto    first = first_bar;
-    for (;;) {
-        const auto end = std::next(result.last);
-        for (const auto& boundary : std::ranges::subrange(first, end))
-            result.passes = std::max(result.passes, boundary.bar.endings.last_pass());
-        result.passes = std::max(result.passes, result.last->repeat_end);
-        if (result.last->bar.repeat_start) break;
-        const auto next = next_ending_close(result.last);
-        if (next == bars.end()) break;
-        first       = end;
-        result.last = next;
-    }
-    result.trailing = trailing_ending(result.last);
-    if (result.trailing)
-        result.passes = std::max(result.passes, result.trailing->marker->bar.endings.last_pass());
-    return result;
-}
-
-RepeatOrder::BarIterator RepeatOrder::ending_at_close(BarIterator close) const {
+BarIterator WrittenPart::ending_at_close(BarIterator close) const {
     if (!close->bar.endings.empty()) return close;
     const auto next = std::next(close);
     return next != bars.end() && next->ending_at_previous_close ? next : bars.end();
 }
 
-std::optional<RepeatOrder::TrailingEnding> RepeatOrder::trailing_ending(BarIterator close) const {
-    if (close->bar.repeat_start) return {};
-    const auto marker = ending_at_close(close);
-    if (marker == bars.end()) return {};
-    for (auto end = std::next(marker); end != bars.end(); ++end) {
-        // ABC 2.1 section 4.10 closes the ending at the next double bar.
-        // Incomplete notation does not consume the next repeat or ending.
-        if (end->bar.repeat_start || end->repeat_end || !end->bar.endings.empty())
-            return TrailingEnding{marker, end->token, end};
-        if (end->bar.section) return TrailingEnding{marker, std::next(end->token), std::next(end)};
+Cursor WrittenPart::after_ending(BarIterator marker) const {
+    for (auto bar = std::next(marker); bar != bars.end(); ++bar) {
+        if (bar->bar.repeat_start || bar->repeat_end || !bar->bar.endings.empty())
+            return {bar->token, bar};
+        // ABC 2.1 section 4.10 includes the terminating double bar in the ending.
+        if (bar->bar.section) return after(bar);
     }
-    return TrailingEnding{marker, source.end(), bars.end()};
+    return {end, bars.end()};
 }
 
-void RepeatOrder::reserve_steps(size_t count, TokenIterator token) const {
-    if (count > kMaxMaterializedSteps - output.size()) {
-        diagnostics.error(
-            token->at, "expansion-limit", "expanded music exceeds the playback token limit"
-        );
+Repeat WrittenPart::repeat_from(Cursor first, BarIterator close) const {
+    // Successive numbered endings may each have their own closing repeat.
+    // A section or new repeat start separates the next region.
+    auto ending = bars.end();
+    while (!close->bar.repeat_start) {
+        ending = ending_at_close(close);
+        if (ending == bars.end()) break;
+        const auto next = std::find_if(std::next(ending), bars.end(), [](const Boundary& bar) {
+            return bar.repeat_end || bar.bar.repeat_start || bar.bar.section;
+        });
+        if (next == bars.end() || next->bar.repeat_start || next->bar.section) break;
+        close = next;
     }
+    const auto* trailing = ending == bars.end() ? nullptr : &ending->bar.endings;
+    size_t      passes   = first.bar == bars.begin() ? 0 : std::prev(first.bar)->bar.repeat_start;
+    for (const auto& bar : std::ranges::subrange(first.bar, std::next(close)))
+        passes = std::max({passes, bar.repeat_end, bar.bar.endings.last_pass()});
+    if (trailing) passes = std::max(passes, trailing->last_pass());
+    return {first, close, trailing, trailing ? after_ending(ending) : after(close), passes};
 }
 
-void RepeatOrder::step(TokenIterator token, Flow flow) {
-    reserve_steps(1, token);
-    output.push_back({&*token, flow});
-}
-
-void RepeatOrder::slice(TokenIterator first, TokenIterator end) {
-    if (first == end) return;
-    reserve_steps(static_cast<size_t>(end - first), first);
-    for (const auto& token : std::ranges::subrange(first, end)) output.push_back({&token});
-}
-
-void RepeatOrder::play_pass(
-    TokenIterator first, BarIterator first_bar, const Closing& close, size_t pass
-) {
+void WrittenPart::play_pass(const Repeat& repeat, size_t pass) {
+    auto first                 = repeat.first.token;
     bool playing               = true;
     bool skipped_ending_at_bar = false;
-    for (auto current = first_bar; current <= close.last;) {
+    for (auto current = repeat.first.bar; current <= repeat.last_close;) {
         const auto& boundary = *current;
         if (playing)
-            slice(first, boundary.token);
+            schedule.append(first, boundary.token);
         else
             // Unlike emitted steps, skipped routing decisions are not charged in playback.
-            diagnostics.spend(PlaybackWork::token, boundary.token->at);
-        first                = std::next(boundary.token);
+            schedule.diagnostics.spend(PlaybackWork::kToken, schedule.voice[boundary.token].at);
+        first                = boundary.token + 1;
         const auto& endings  = boundary.bar.endings;
         const bool  selected = endings.contains(pass);
         if (boundary.repeat_end) {
@@ -212,176 +206,179 @@ void RepeatOrder::play_pass(
             const bool enters_ending
                 = next_ending != bars.end() && next_ending->bar.endings.contains(pass);
             if (enters_ending || playing) {
-                auto flow = Flow::soft_bar;
+                auto flow = Flow::SoftBar;
                 if (enters_ending && skipped_ending_at_bar)
-                    flow = Flow::hard_bar;
+                    flow = Flow::HardBar;
                 else if (!playing)
-                    flow = Flow::inline_ending;
+                    flow = Flow::InlineEnding;
                 // On a skip, use the original ending's measure boundary and the
                 // selected ending's lyric line.
-                step(playing ? boundary.token : next_ending->token, flow);
+                const auto bar = playing ? boundary.token : next_ending->token;
+                schedule.append(bar, bar + 1, flow);
             }
-            if (playing && current != close.last) return;
-            if (enters_ending && current != close.last && next_ending != current)
-                slice(first, next_ending->token);
+            if (playing && current != repeat.last_close) return;
+            if (enters_ending && current != repeat.last_close && next_ending != current)
+                schedule.append(first, next_ending->token);
         } else {
-            if (selected || (playing && endings.empty())) slice(boundary.token, first);
+            if (selected || (playing && endings.empty())) schedule.append(boundary.token, first);
             if (playing && !selected && !endings.empty())
-                skipped_ending_at_bar = ending_starts_at_bar(boundary, source);
+                skipped_ending_at_bar = ending_starts_at_bar(boundary);
         }
         if (!endings.empty()) playing = selected;
-        current += playing ? 1 : boundary.route_stride;
+        current += boundary.route_stride;
     }
-    if (close.trailing && close.trailing->marker->bar.endings.contains(pass))
-        slice(std::next(close.last->token), close.trailing->end);
+    if (repeat.trailing && repeat.trailing->contains(pass))
+        schedule.append(repeat.last_close->token + 1, repeat.resume.token);
 }
 
-bool RepeatOrder::jumps_inside_music_line(BarIterator first_bar, size_t played_from) const {
+bool WrittenPart::jumps_inside_music_line(BarIterator first_bar, size_t played_from) const {
     // An implicit opening bar is inserted after the initial music-line entry.
     if (first_bar == bars.begin()) return true;
     const auto& opening = *std::prev(first_bar);
     if (!opening.bar.repeat_start && !opening.bar.section) return false;
-    const auto played = std::span(output).subspan(played_from);
-    const auto entry  = std::ranges::find_if(played, [](const PlayStep& step) {
-        return step.token->anchors_lyrics();
-    });
-    return entry != played.end() && entry->token->music_line == opening.token->music_line;
+    for (const auto& range : std::span(schedule.order).subspan(played_from)) {
+        const auto tokens = range.tokens(schedule.voice);
+        const auto anchor = std::ranges::find_if(tokens, &Token::anchors_lyrics);
+        if (anchor != tokens.end())
+            return anchor->music_line == schedule.voice[opening.token].music_line;
+    }
+    return false;
 }
 
-void RepeatOrder::region(TokenIterator first, BarIterator first_bar, const Closing& close) {
-    // Each pass emits at least an entry or jump, even when all its notes are skipped.
-    reserve_steps(close.passes, first);
-    step(first, first == source.begin() ? Flow::enter_implicit_repeat : Flow::enter_repeat);
-    play_pass(first, first_bar, close, 1);
-    for (size_t pass = 2; pass <= close.passes; ++pass) {
-        const auto jump = output.size();
-        step(first, Flow::jump_repeat);
-        play_pass(first, first_bar, close, pass);
-        output[jump].continues_lyrics = jumps_inside_music_line(first_bar, jump + 1);
+void WrittenPart::play_repeat(const Repeat& repeat) {
+    if (!repeat.local_passes) {
+        play_pass(repeat, visits);
+        return;
+    }
+    const auto first = repeat.first.token;
+    // Each pass emits an entry or jump, even if all its notes are skipped.
+    schedule.require(*repeat.local_passes, first);
+    schedule.append(first, first, first == begin ? Flow::EnterImplicitRepeat : Flow::EnterRepeat);
+    play_pass(repeat, 1);
+    for (size_t pass = 2; pass <= *repeat.local_passes; ++pass) {
+        const auto jump = schedule.order.size();
+        schedule.append(first, first, Flow::JumpRepeat);
+        play_pass(repeat, pass);
+        schedule.order[jump].continues_lyrics = jumps_inside_music_line(repeat.first.bar, jump + 1);
     }
 }
 
-void RepeatOrder::append_part(u32 occurrence, size_t visits) {
-    reserve_steps(1, source.begin());
-    output.push_back({&source.front(), Flow::enter_part, false, occurrence});
-    append(visits > 1 ? std::optional<size_t>{occurrence + 1} : std::nullopt);
-}
-
-void RepeatOrder::append(std::optional<size_t> part_pass) {
-    auto first          = source.begin();
-    auto first_bar      = bars.cbegin();
-    auto latest_section = bars.cend();
-    for (auto marker = first_bar; marker != bars.cend();) {
+void WrittenPart::compile(size_t scheduled_visits) {
+    bars = boundaries(schedule.voice, begin, end, schedule.diagnostics);
+    Cursor first{begin, bars.cbegin()};
+    auto   latest_section = bars.cend();
+    for (auto marker = first.bar; marker != bars.cend();) {
         if (marker->repeat_end) {
-            // ABC 2.1 section 4.10: numbered endings at the start of a
-            // repeated part, without an opening repeat bar, select by visit.
-            const bool part_endings = part_pass && first == source.begin()
-                                      && std::ranges::any_of(
-                                          std::ranges::subrange(first_bar, marker),
-                                          [](const auto& bar) { return !bar.bar.endings.empty(); }
-                                      );
+            // Leading endings in a repeated part select by part visit (§4.10).
+            const bool by_visit = scheduled_visits > 1 && first.token == begin
+                                  && std::any_of(first.bar, marker, [](const Boundary& bar) {
+                                         return !bar.bar.endings.empty();
+                                     });
             const bool explicit_start
-                = first_bar != bars.cbegin() && std::prev(first_bar)->bar.repeat_start;
-            // ABC 2.1 section 4.8: an unmatched close can repeat from the latest double bar.
-            if (!part_endings && !explicit_start && latest_section != bars.cend()) {
-                const auto after = std::next(latest_section->token);
-                slice(first, after);
-                first     = after;
-                first_bar = std::next(latest_section);
-            }
-            const auto close = closing(marker, first_bar);
-            if (part_endings)
-                play_pass(first, first_bar, close, *part_pass);
-            else
-                region(first, first_bar, close);
-            first  = close.trailing ? close.trailing->end : std::next(close.last->token);
-            marker = close.trailing ? close.trailing->resume : std::next(close.last);
+                = first.bar != bars.cbegin() && std::prev(first.bar)->bar.repeat_start;
+            // An unmatched close repeats from the latest double bar (§4.8).
+            if (!by_visit && !explicit_start && latest_section != bars.cend())
+                first = after(latest_section);
+            auto repeat = repeat_from(first, marker);
+            if (by_visit) repeat.local_passes.reset();
+            first = repeat.resume;
+            repeats.push_back(repeat);
         } else if (marker->bar.repeat_start) {
-            const auto after = std::next(marker->token);
-            slice(first, after);
-            first = after;
-            ++marker;
+            first = after(marker);
         } else {
-            if (marker->bar.section && marker->bar.endings.empty())
-                latest_section = marker;
+            if (marker->bar.section && marker->bar.endings.empty()) latest_section = marker;
             ++marker;
             continue;
         }
-        first_bar      = marker;
+        marker         = first.bar;
         latest_section = bars.cend();
     }
-    if (first_bar == bars.cbegin() || !std::prev(first_bar)->repeat_end) {
-        for (const auto& boundary : std::ranges::subrange(first_bar, bars.cend())) {
+    if (first.bar == bars.cbegin() || !std::prev(first.bar)->repeat_end) {
+        for (const auto& boundary : std::ranges::subrange(first.bar, bars.cend())) {
             if (!boundary.bar.endings.empty())
-                diagnostics.warn(
-                    boundary.token->at,
+                schedule.diagnostics.warn(
+                    schedule.voice[boundary.token].at,
                     "orphan-ending",
                     "played a numbered ending outside a closed repeat in written order"
                 );
         }
     }
-    slice(first, source.end());
 }
 
-using Parts = std::map<char, Section>;
+void WrittenPart::append(size_t scheduled_visits) {
+    // Compile only parts that play. An omitted section cannot issue repeat warnings.
+    if (visits == 0) compile(scheduled_visits);
+    auto first = begin;
+    if (scheduled_visits) schedule.append(first, first, Flow::EnterPart, visits);
+    ++visits;
+    for (const auto& repeat : repeats) {
+        schedule.append(first, repeat.first.token);
+        play_repeat(repeat);
+        first = repeat.resume.token;
+    }
+    schedule.append(first, end);
+}
 
-Parts split_parts(Section source, Diagnostics& diagnostics) {
-    Parts parts;
-    char  label = '\0';
-    auto  start = source.begin();
-    for (auto marker = start; marker != source.end(); ++marker) {
-        const auto* field = std::get_if<Field>(&marker->value);
+using Parts = std::map<char, WrittenPart>;
+
+Parts split_parts(Schedule& schedule) {
+    const auto source = schedule.voice;
+    Parts      parts;
+    char       label = '\0';
+    size_t     start = 0;
+    const auto save  = [&](size_t end) {
+        if (!parts.try_emplace(label, start, end, schedule).second) {
+            const auto& marker = source[end == source.size() ? start : end];
+            schedule.diagnostics.error(
+                marker.at, "duplicate-part", "part label is repeated in this voice"
+            );
+        }
+    };
+    for (size_t i = 0; i < source.size(); ++i) {
+        const auto& marker = source[i];
+        const auto* field  = std::get_if<Field>(&marker.value);
         if (!field || field->kind != 'P') continue;
         if (field->value.size() != 1 || !letter(field->value.front())) {
-            diagnostics.warn(
-                marker->at, "invalid-part-label", "ignored a P: label that is not a single letter"
+            schedule.diagnostics.warn(
+                marker.at, "invalid-part-label", "ignored a P: label that is not a single letter"
             );
             continue;
         }
-        if (!parts.try_emplace(label, start, marker).second) {
-            diagnostics.error(marker->at, "duplicate-part", "part label is repeated in this voice");
-        }
+        save(i);
         label = upper(field->value.front());
-        start = marker;
+        start = i;
     }
-    if (!parts.try_emplace(label, start, source.end()).second) {
-        diagnostics.error(start->at, "duplicate-part", "part label is repeated in this voice");
-    }
+    save(source.size());
     return parts;
 }
 
 }   // namespace
 
-PartItinerary::PartItinerary(
-    std::string_view order, Location at, Diagnostics& diagnostics
-) : at(at), diagnostics(diagnostics) {
-    if (!order.empty()) labels = part_order(order, kMaxMaterializedSteps, at, diagnostics);
+PartItinerary::PartItinerary(std::string_view order, Location at, Diagnostics& diagnostics) :
+    at(at), diagnostics(diagnostics) {
+    if (order.empty()) return;
+    labels = part_order(order, PlaybackWork::kLimit, at, diagnostics);
+    for (char label : *labels) ++visits[label - 'A'];
 }
 
 PlayOrder PartItinerary::arrange(const vec<Token>& voice) const {
-    PlayOrder tokens;
+    Schedule schedule{voice, diagnostics};
     if (!labels) {
-        RepeatOrder(voice, tokens, diagnostics).append();
-        return tokens;
-    }
-    const auto sections = split_parts(voice, diagnostics);
-    RepeatOrder(sections.at('\0'), tokens, diagnostics).append();
-    std::map<char, RepeatOrder> repeats;
-    std::array<size_t, 26>      visits{};
-    std::array<u32, 26>         occurrences{};
-    for (const auto label : *labels) ++visits[label - 'A'];
-    for (const auto label : *labels) {
-        const auto section = sections.find(label);
-        if (section == sections.end()) {
-            diagnostics.warn(at, "missing-part", fmt::format("no music found for part {}", label));
-            continue;
+        WrittenPart(0, voice.size(), schedule).append();
+    } else {
+        auto parts = split_parts(schedule);
+        parts.at('\0').append();
+        for (char label : *labels) {
+            const auto part = parts.find(label);
+            if (part == parts.end())
+                diagnostics.warn(
+                    at, "missing-part", fmt::format("no music found for part {}", label)
+                );
+            else
+                part->second.append(visits[label - 'A']);
         }
-        auto [repeat, inserted] = repeats.try_emplace(
-            label, section->second, tokens, diagnostics
-        );
-        repeat->second.append_part(occurrences[label - 'A']++, visits[label - 'A']);
     }
-    return tokens;
+    return std::move(schedule.order);
 }
 
 }   // namespace symusic::abc::detail
