@@ -1,5 +1,5 @@
 import pytest
-from symusic import Note, Score, Tempo, Track
+from symusic import Note, Pedal, Score, Tempo, Track
 from symusic.core import NoteQuarterList
 
 
@@ -61,6 +61,36 @@ def test_score_trim(ttype):
     assert updated == score == trimmed
     updated.ticks_per_quarter = 960
     assert score.ticks_per_quarter == 960
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("mode", ["truncate", "retain"])
+def test_score_trim_checks_window_overlap(ttype, mode):
+    score = Score(480, ttype=ttype)
+    track = Track(notes=[Note(0, 100, 60, 80, ttype)], ttype=ttype)
+    track.pedals.append(Pedal(0, 100, ttype))
+    score.tracks.append(track)
+
+    trimmed = score.trim(10, 12, 3, start_mode=mode, end_mode=mode)
+    assert trimmed.tracks[0].empty()
+
+    trimmed = score.trim(10, 12, 2, start_mode=mode, end_mode=mode)
+    expected = (10, 2) if mode == "truncate" else (0, 100)
+    assert [(note.time, note.duration) for note in trimmed.tracks[0].notes] == [
+        expected
+    ]
+    assert [(pedal.time, pedal.duration) for pedal in trimmed.tracks[0].pedals] == [
+        expected,
+    ]
+
+
+def test_score_trim_checks_contained_note_duration():
+    score = Score(480)
+    score.tracks.append(Track(notes=[Note(11, 1, 60, 80), Note(11, 2, 61, 80)]))
+
+    trimmed = score.trim(10, 20, min_overlap=2)
+
+    assert [note.pitch for note in trimmed.tracks[0].notes] == [61]
 
 
 def test_empty_score_rejects_unknown_trim_mode():

@@ -8,6 +8,7 @@
 #include "pdqsort.h"
 #include "pyvec.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace symusic::ops {
@@ -139,26 +140,18 @@ void trim_inplace(
     if constexpr (HashDuration<T>) {
         using wide = details::wide_t<T>;
         using unit = typename T::unit;
-        if (start_mode == std::string("remove") && end_mode == std::string("remove")) {
-            events.filter([start, end](const T& event) {
-                return (event.time >= start) && (details::wide_end(event) <= end);
-            });
-        } else if (start_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (event.time >= start)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        } else if (end_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                const wide event_end = details::wide_end(event);
-                return (event_end - start >= min_overlap) && (event_end <= end);
-            });
-        } else {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (details::wide_end(event) - start >= min_overlap)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        }
+        const bool remove_at_start = start_mode == "remove";
+        const bool remove_at_end = end_mode == "remove";
+        events.filter([=](const T& event) {
+            const wide event_start = event.time;
+            const wide event_end = details::wide_end(event);
+            if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
+                return false;
+            }
+            const wide overlap_start = std::max<wide>(event_start, start);
+            const wide overlap_end = std::min<wide>(event_end, end);
+            return overlap_end - overlap_start >= min_overlap;
+        });
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {

@@ -117,13 +117,13 @@ Score and track methods return a new object unless you pass `inplace=True`; with
 | `shift_pitch(offset)` | Score, Track, `Note` | Add `offset` to every pitch |
 | `shift_velocity(offset)` | Score, Track, `Note` | Add `offset` to every velocity |
 | `clip(start, end, clip_end=False)` | Score, Track | Keep the events in `[start, end)` |
-| `trim(start, end, min_overlap=0, start_mode="remove", end_mode="remove")` | Score, Track | Keep the notes and pedals inside the window |
+| `trim(start, end, min_overlap=0, start_mode="remove", end_mode="remove")` | Score, Track | Keep notes and pedals based on how they overlap the window |
 | `adjust_time(original_times, new_times)` | Score, Track, lists | Warp times piecewise linearly |
 | `sort(reverse=False)` | Score, Track | Sort every event list by its default key |
 
 - `shift_pitch` and `shift_velocity` raise `ValueError` when a result leaves −128..127; they do not clamp to 0–127.
 - `clip` keeps events by their start time. With `clip_end=True`, notes and pedals must also end at or before `end`. Times are not shifted, so the clipped score still starts near `start`; follow with `shift_time(-start)` to move it to 0. The tempo, time signature and key signature in effect at `start` are kept and moved to `start`.
-- `trim` handles notes and pedals that cross `start` or `end`: `"remove"` drops them, `"truncate"` cuts them at the boundary. `"retain"` keeps them whole. Truncated and retained notes must still overlap the window by at least `min_overlap`. Unknown modes raise `ValueError`. Control changes, pitch bends and lyrics are clipped by time.
+- `trim` keeps notes and pedals that overlap the window by at least `min_overlap`. At each boundary, `"remove"` drops crossing events, `"truncate"` cuts them at the boundary, and `"retain"` keeps them whole. Unknown modes raise `ValueError`. Control changes, pitch bends and lyrics are clipped by time.
 - `adjust_time` maps each time through straight segments between the anchor pairs `(original_times[i], new_times[i])`, with at least two anchors in each list. The lists must be the same length. Original times must increase strictly, and new times must be nondecreasing. Events that start before the first anchor or end after the last are dropped. In ticks the mapped times are truncated toward zero.
 - `Score.sort` and `Track.sort` sort the event lists of each track and the global lists; they do not reorder `tracks`.
 - `start()` and `end()` on a score or track return the earliest event time and the latest event end, or 0 when there are no events. `note_num()` counts notes. `empty()` is true for a track without events and for a score without tracks or global events.

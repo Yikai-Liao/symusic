@@ -110,10 +110,9 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 to *start*. Returns a new score unless *inplace* is true.
 )pbdoc";
 constexpr const char* kTrimDoc = R"pbdoc(
-Keep the notes and pedals inside ``[start, end)``. At each boundary, ``"remove"`` drops crossing
-events, ``"truncate"`` cuts them at the boundary, and ``"retain"`` keeps them whole. Truncated and
-retained events must overlap the window by at least *min_overlap*. Invalid modes raise
-``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
+Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
+``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
+keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
 *start* are kept there. Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kShiftTimeDoc

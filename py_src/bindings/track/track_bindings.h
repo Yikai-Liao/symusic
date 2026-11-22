@@ -50,10 +50,9 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kTrimDoc       = R"pbdoc(
-Keep the notes and pedals inside ``[start, end)``. *start_mode* and *end_mode* decide what happens to
-notes and pedals that cross a boundary: ``"remove"`` drops them, ``"truncate"`` cuts them at it if
-they still overlap the window by *min_overlap*, and ``"retain"`` keeps them whole if they overlap
-by *min_overlap*. Other events are clipped by time. Invalid modes raise ``ValueError``. Returns a
+Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
+``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
+keeps them whole. Other events are clipped by time. Invalid modes raise ``ValueError``. Returns a
 deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kSortDoc       = R"pbdoc(
