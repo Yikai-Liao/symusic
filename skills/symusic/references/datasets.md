@@ -10,12 +10,12 @@ Run one worker per core and return only what you need. Scores pickle quickly, bu
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from symusic import Score
+from symusic import Score, Second
 
 
 def features(path):
     try:
-        score = Score(path, ttype="second")
+        score = Score(path, ttype=Second)
     except (RuntimeError, ValueError) as error:
         return path.name, None, str(error)
     return path.name, {"notes": score.note_num(), "seconds": score.end()}, None
@@ -54,9 +54,9 @@ score.sort()
 Cut a score into windows of a fixed number of bars with the downbeats and `clip`, then move each window to time 0:
 
 ```python
-from symusic import Score
+from symusic import Quarter, Score
 
-score = Score("song.mid", ttype="quarter")
+score = Score("song.mid", ttype=Quarter)
 downbeats = score.get_downbeats()
 bars = 4
 segments = []

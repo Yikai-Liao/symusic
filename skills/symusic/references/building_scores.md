@@ -7,9 +7,9 @@ Model output, generated music and converted data all end the same way: create a 
 Build in the unit that suits the source; quarters are natural for generated rhythms. `dump_midi` converts to ticks when it writes.
 
 ```python
-from symusic import ControlChange, Note, Score, Tempo, TimeSignature, Track
+from symusic import ControlChange, Note, Quarter, Score, Tempo, TimeSignature, Track
 
-q = "quarter"
+q = Quarter
 score = Score(480, ttype=q)
 score.tempos.append(Tempo(0.0, qpm=100, ttype=q))
 score.time_signatures.append(TimeSignature(0.0, 3, 4, ttype=q))
@@ -43,7 +43,7 @@ For model output already in arrays, `from_numpy` builds a whole list in one call
 
 ```python
 import numpy as np
-from symusic import Note, Score, Track
+from symusic import Note, Quarter, Score, Tick, Track
 
 onsets = np.arange(16) * 0.25  # quarters
 pitches = np.array([60, 64, 67, 72] * 4)
@@ -52,14 +52,14 @@ notes = Note.from_numpy(
     duration=np.full(16, 0.25),
     pitch=pitches,
     velocity=np.full(16, 80),
-    ttype="quarter",
+    ttype=Quarter,
 )
 
-score = Score(480, ttype="quarter")
-track = Track("arpeggio", ttype="quarter")
+score = Score(480, ttype=Quarter)
+track = Track("arpeggio", ttype=Quarter)
 track.notes = notes
 score.tracks.append(track)
-score.to("tick", min_dur=1).dump_midi("arpeggio.mid")
+score.to(Tick, min_dur=1).dump_midi("arpeggio.mid")
 ```
 
 Converting to ticks with `min_dur=1` before writing keeps very short generated notes from rounding to zero length; see [time_units.md](time_units.md).

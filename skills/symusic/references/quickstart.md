@@ -18,12 +18,12 @@ Free-threaded CPython builds (`3.13t`, `3.14t`) are not supported. Elsewhere pip
 Load a MIDI or ABC file, in ticks by default or in another unit with `ttype`. [files.md](files.md) covers the formats and [time_units.md](time_units.md) the units:
 
 ```python
-from symusic import Score
+from symusic import Quarter, Score, Second
 
 score = Score("song.mid")
 tune = Score("tune.abc")
-in_quarters = Score("song.mid", ttype="quarter")
-in_seconds = score.to("second")
+in_quarters = Score("song.mid", ttype=Quarter)
+in_seconds = score.to(Second)
 ```
 
 A score holds global tempos, signatures and markers and a list of tracks; each track holds its notes, controls, pitch bends, pedals and lyrics. [data_model.md](data_model.md) describes every type:
