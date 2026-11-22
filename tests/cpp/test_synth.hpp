@@ -19,7 +19,7 @@ TEST_CASE("Synthesizer validates settings before opening the runtime", "[symusic
 }
 
 #ifdef SYMUSIC_TEST_FLUID_RUNTIME
-TEST_CASE("Concurrent renders serialize FluidSynth initialization", "[symusic][synth]") {
+TEST_CASE("Concurrent renders serialize FluidSynth sample-cache access", "[symusic][synth]") {
     using namespace symusic;
     // The fixture ignores SoundFont contents. The constructor still checks that it exists.
     const Synthesizer  first(SYMUSIC_TEST_FLUID_RUNTIME, SYMUSIC_TEST_FLUID_RUNTIME);
@@ -30,6 +30,16 @@ TEST_CASE("Concurrent renders serialize FluidSynth initialization", "[symusic][s
         ready.wait();
         return synth.render(Score<Tick>{480}).frames();
     };
+    auto       failing_render = std::async(std::launch::async, [&] {
+        Score<Tick> score{480};
+        score.tracks.emplace_back();
+        score.tracks.back().notes.push_back(detail::make_event<Note<Tick>>(0, 480, -1, 100));
+        ready.wait();
+        try {
+            (void)first.render(score);
+        } catch (const std::invalid_argument&) { return true; }
+        return false;
+    });
     std::array workers{
         std::async(std::launch::async, render, std::cref(first)),
         std::async(std::launch::async, render, std::cref(second)),
@@ -38,5 +48,6 @@ TEST_CASE("Concurrent renders serialize FluidSynth initialization", "[symusic][s
     };
     start.set_value();
     for (auto& worker : workers) { CHECK(worker.get() == 44100); }
+    CHECK(failing_render.get());
 }
 #endif
