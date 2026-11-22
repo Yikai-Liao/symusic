@@ -3,6 +3,8 @@
 #define SYMUSIC_TEST_TRACK_SCORE_HPP
 
 #include "symusic.h"
+#include "symusic/detail/score_impl.h"
+#include "symusic/detail/track_impl.h"
 #include "catch2/catch_test_macros.hpp"
 using namespace symusic;
 
@@ -383,3 +385,46 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 }
 
 #endif   // SYMUSIC_TEST_TRACK_SCORE_HPP
+
+
+namespace {
+struct CountingNoteStorage : ValueStorage {
+    inline static size_t note_copies = 0;
+
+    template<typename E>
+    static vec<E> adopt(vec<E>&& values) {
+        if constexpr (std::same_as<E, Note<Tick>>) {
+            if (!values.empty()) ++note_copies;
+        }
+        return ValueStorage::adopt(std::move(values));
+    }
+};
+}
+
+TEST_CASE("Score clip and trim copy each track once", "[symusic][score]") {
+    Score<Tick, CountingNoteStorage> score(480);
+    auto& track = score.tracks.emplace_back("Piano", 0, false);
+    track.notes.emplace_back(4, 6, 60, 90);
+    track.notes.emplace_back(12, 2, 62, 80);
+    score.tempos.emplace_back(0, 500000);
+    const auto original = score.copy();
+
+    CountingNoteStorage::note_copies = 0;
+    SECTION("Clip") {
+        auto result = score.clip(5, 15);
+        REQUIRE(CountingNoteStorage::note_copies == 1);
+        REQUIRE(result.tracks[0].notes == vec<Note<Tick>>{Note<Tick>(12, 2, 62, 80)});
+        REQUIRE(result.tempos == vec<Tempo<Tick>>{Tempo<Tick>(5, 500000)});
+        result.tracks[0].notes[0].pitch = 64;
+        result.tempos[0].time = 6;
+    }
+    SECTION("Trim") {
+        auto result = score.trim(5, 15, 1, "truncate", "truncate");
+        REQUIRE(CountingNoteStorage::note_copies == 1);
+        REQUIRE(result.tracks[0].notes == vec<Note<Tick>>{Note<Tick>(5, 5, 60, 90), Note<Tick>(12, 2, 62, 80)});
+        REQUIRE(result.tempos == vec<Tempo<Tick>>{Tempo<Tick>(5, 500000)});
+        result.tracks[0].notes[0].pitch = 64;
+        result.tempos[0].time = 6;
+    }
+    REQUIRE(score == original);
+}

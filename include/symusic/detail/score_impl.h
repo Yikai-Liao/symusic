@@ -151,6 +151,26 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
     return downbeats;
 }
 
+template<TType T, typename S, typename Transform>
+Score<T, S> copy_score_with_tracks(const Score<T, S>& source, Transform transform) {
+    const auto clone = [](const auto& field) {
+        const auto& values = S::get(field);
+        using E = typename std::remove_cvref_t<decltype(values)>::value_type;
+        return S::adopt(vec<E>(values.begin(), values.end()));
+    };
+
+    vec<typename Score<T, S>::track_handle> tracks;
+    tracks.reserve(S::get(source.tracks).size());
+    for (const auto& track : S::get(source.tracks)) {
+        tracks.push_back(S::adopt_track(transform(S::get(track))));
+    }
+    return {
+        source.ticks_per_quarter, S::adopt_tracks(std::move(tracks)),
+        clone(source.time_signatures), clone(source.key_signatures), clone(source.tempos),
+        clone(source.markers)
+    };
+}
+
 }   // namespace detail
 
 template<TType T, typename S>
@@ -231,8 +251,9 @@ void Score<T, S>::sort(const bool reverse) {
 
 template<TType T, typename S>
 Score<T, S> Score<T, S>::clip(unit start, unit end, bool clip_end) const {
-    auto result = copy();
-    for (auto& track : S::get(result.tracks)) S::get(track) = S::get(track).clip(start, end, clip_end);
+    auto result = detail::copy_score_with_tracks(*this, [&](const auto& track) {
+        return track.clip(start, end, clip_end);
+    });
     ops::clip_with_sentinel<S>(S::get(result.time_signatures), start, end);
     ops::clip_with_sentinel<S>(S::get(result.key_signatures), start, end);
     ops::clip_with_sentinel<S>(S::get(result.tempos), start, end);
@@ -248,12 +269,13 @@ Score<T, S> Score<T, S>::trim(
     const std::string& start_mode,
     const std::string& end_mode
 ) const {
-    auto result = copy();
     if (!(start <= end)) {
         throw std::invalid_argument("Trim bounds must satisfy start <= end");
     }
     detail::validate_trim_modes(start_mode, end_mode);
-    for (auto& track : S::get(result.tracks)) S::get(track) = S::get(track).trim(start, end, min_overlap, start_mode, end_mode);
+    auto result = detail::copy_score_with_tracks(*this, [&](const auto& track) {
+        return track.trim(start, end, min_overlap, start_mode, end_mode);
+    });
     ops::clip_with_sentinel<S>(S::get(result.time_signatures), start, end);
     ops::clip_with_sentinel<S>(S::get(result.key_signatures), start, end);
     ops::clip_with_sentinel<S>(S::get(result.tempos), start, end);
@@ -301,18 +323,7 @@ bool Score<T, S>::operator==(const Score& other) const {
 
 template<TType T, typename S>
 Score<T, S> Score<T, S>::copy() const {
-    const auto clone = [](const auto& field) {
-        const auto& values = S::get(field);
-        using E = typename std::remove_cvref_t<decltype(values)>::value_type;
-        return S::adopt(vec<E>(values.begin(), values.end()));
-    };
-    vec<track_handle> copied_tracks;
-    copied_tracks.reserve(S::get(tracks).size());
-    for (const auto& track : S::get(tracks)) {
-        copied_tracks.push_back(S::adopt_track(S::get(track).copy()));
-    }
-    return {ticks_per_quarter, S::adopt_tracks(std::move(copied_tracks)), clone(time_signatures),
-            clone(key_signatures), clone(tempos), clone(markers)};
+    return detail::copy_score_with_tracks(*this, [](const auto& track) { return track.copy(); });
 }
 
 template<TType T, typename S>
