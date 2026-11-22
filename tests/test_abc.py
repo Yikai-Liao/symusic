@@ -185,11 +185,19 @@ def test_abc_tune_reference_prefers_exact_match():
 
 
 @pytest.mark.usefixtures("isolated_symusic_temp_root")
-def test_abc_include_resolves_from_caller(tmp_path, monkeypatch):
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_abc_include_resolves_from_caller(tmp_path, monkeypatch, newline):
     monkeypatch.chdir(tmp_path)
-    Path("notes.abc").write_text("C D\n", encoding="utf-8")
+    Path("notes.abc").write_bytes(f"C D{newline}".encode())
     abc = make_roundtrip_abc_text().replace("C D E F|", "%%abc-include notes.abc\nE F|")
-    score = Score.from_abc(abc)
+    run = subprocess.run
+
+    def run_with_staged_input(args, *, cwd, **kwargs):
+        assert (cwd / args[1]).is_file()
+        return run(args, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(_abc.subprocess, "run", run_with_staged_input)
+    score = Score.from_abc(abc.replace("\n", newline))
     assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
 
 

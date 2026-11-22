@@ -203,12 +203,11 @@ def _read_abc(
 
         if _INCLUDE.search(data):
             # The parser seeks back to its input after consuming an include.
+            # With CRLF it saves the position between the two newline bytes.
             input_path = workdir / "input.abc"
-            input_path.write_bytes(data)
-            with input_path.open("rb") as source:
-                result = subprocess.run(
-                    args, stdin=source, cwd=workdir, capture_output=True
-                )
+            input_path.write_bytes(data.replace(b"\r\n", b"\n"))
+            args[1] = input_path.name
+            result = subprocess.run(args, cwd=workdir, capture_output=True)
         else:
             result = subprocess.run(args, input=data, cwd=workdir, capture_output=True)
 
