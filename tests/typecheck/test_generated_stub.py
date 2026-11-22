@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
 from symusic import core
 
 TIME_UNITS = ("Tick", "Quarter", "Second")
@@ -95,3 +96,33 @@ def test_generic_bases_contain_every_shared_specialization_member() -> None:
         0.0,
         0.0,
     ]
+
+
+@pytest.mark.parametrize(
+    "class_name", ["Score", *(f"Score{unit}" for unit in TIME_UNITS)]
+)
+def test_score_trim_modes_are_literals(class_name: str) -> None:
+    stub_path = Path(core.__file__).with_name("core.pyi")
+    module = ast.parse(stub_path.read_text())
+    score = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name == class_name
+    )
+    methods = [
+        node
+        for node in score.body
+        if isinstance(node, ast.FunctionDef) and node.name == "trim"
+    ]
+    assert methods
+    for method in methods:
+        annotations = {arg.arg: arg.annotation for arg in method.args.args}
+        for mode in ("start_mode", "end_mode"):
+            annotation = annotations[mode]
+            assert isinstance(annotation, ast.Subscript)
+            assert ast.unparse(annotation.value) in {"Literal", "typing.Literal"}
+            assert ast.literal_eval(annotation.slice) == (
+                "remove",
+                "truncate",
+                "retain",
+            )

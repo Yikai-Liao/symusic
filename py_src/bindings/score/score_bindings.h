@@ -462,7 +462,13 @@ auto bind_score(nb::module_& m, const std::string& name_) {
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
         .def("trim", [](const self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode) {
             return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
-        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc)
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc,
+            nb::sig(fmt::format(
+                "def trim(self, start: {0}, end: {0}, min_overlap: {0} = {1}, "
+                "start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', "
+                "end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove') -> {2}",
+                flavor.scalar_label, std::is_same_v<T, Tick> ? "0" : "0.0", name
+            ).c_str()))
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);
