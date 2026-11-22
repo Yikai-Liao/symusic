@@ -65,6 +65,8 @@ ninja.version = ">=1.11"
 # The extension uses the stable ABI from 3.12 on, so one cp312-abi3 wheel covers
 # every later CPython; older versions still get version-specific wheels.
 wheel.py-api = "cp312"
+# These pinned headers are tracked upstream but match upstream ignore rules.
+sdist.include = ["3rdparty/libsndfile/include/sndfile.h", "3rdparty/vorbis/symbian/config.h"]
 
 [[tool.scikit-build.overrides]]
 if.platform-system = "^win32$"
