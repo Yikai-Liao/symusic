@@ -68,3 +68,27 @@ def test_pedals_are_detached_from_controls():
     assert track.shift_time(-2 * TPQ) is None
     assert track.pedals()[0].time == -TPQ
     assert track.clip(-TPQ, 0).pedals() == ()
+
+
+def test_pedal_promoted_after_program_change():
+    track_data = bytes.fromhex(
+        "00 B0 40 7F"  # Sustain on at tick 0, before any note.
+        " 01 C0 05"  # Program 5 at tick 1.
+        " 01 90 3C 64"  # Note on at tick 2.
+        " 02 80 3C 00"  # Note off at tick 4.
+        " 01 B0 40 00"  # Sustain off at tick 5.
+        " 00 FF 2F 00"
+    )
+    midi = (
+        b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0MTrk"
+        + len(track_data).to_bytes(4, "big")
+        + track_data
+    )
+    score = Score.from_midi(midi)
+    assert len(score.tracks) == 1
+    track = score.tracks[0]
+    assert track.program == 5
+    assert [(pedal.time, pedal.end) for pedal in track.pedals()] == [(0, 5)]
+    restored = Score.from_midi(score.to_midi())
+    assert restored == score
+    assert restored.tracks[0].pedals() == track.pedals()
