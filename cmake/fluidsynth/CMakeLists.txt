@@ -29,6 +29,10 @@ file(WRITE "${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}/VorbisConfig.cmake" "")
 # Vorbis-only build changes to a private source copy.
 set(sndfile_source "${CMAKE_CURRENT_BINARY_DIR}/libsndfile-source")
 file(COPY "${vendor}/libsndfile/" DESTINATION "${sndfile_source}" PATTERN ".git" EXCLUDE)
+# Restore patched inputs by content even when file(COPY) sees equal timestamps.
+foreach(path IN ITEMS CMakeLists.txt cmake/SndFileChecks.cmake src/flac.c src/ogg_opus.c src/command.c)
+    file(COPY_FILE "${vendor}/libsndfile/${path}" "${sndfile_source}/${path}" ONLY_IF_DIFFERENT)
+endforeach()
 include(VorbisOnly.cmake)
 
 set(BUILD_SHARED_LIBS ON)
