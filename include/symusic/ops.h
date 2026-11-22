@@ -283,6 +283,7 @@ void adjust_time_inplace_inner(
     auto cur_range  = std::make_pair(original_times[0], original_times[1]);
     auto cur_factor = get_factor(1);
     auto pivot_new  = new_times[0];
+    auto right_new  = new_times[1];
 
     size_t i = 0;
     // clang-format off
@@ -295,8 +296,9 @@ void adjust_time_inplace_inner(
             cur_factor = get_factor(idx);
             cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
             pivot_new  = new_times[idx - 1];
+            right_new  = new_times[idx];
         }
-        unit start = symusic::details::add_time<unit>(
+        unit start = event.time == cur_range.second ? right_new : symusic::details::add_time<unit>(
             pivot_new,
             trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
         );
@@ -308,8 +310,9 @@ void adjust_time_inplace_inner(
                 cur_factor = get_factor(idx);
                 cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
                 pivot_new  = new_times[idx - 1];
+                right_new  = new_times[idx];
             }
-            unit end = symusic::details::add_time<unit>(
+            unit end = original_end == cur_range.second ? right_new : symusic::details::add_time<unit>(
                 pivot_new,
                 trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
             );

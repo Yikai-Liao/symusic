@@ -14,6 +14,13 @@ if TYPE_CHECKING:
 # as tuples (original notes, original times, new times, expected notes)
 NOTES_OG = [Note(0, 4, 72, 72), Note(4, 6, 72, 72), Note(8, 4, 72, 72)]
 TEST_CASES = (
+    # Both note endpoints on an anchor must map to its exact replacement.
+    (
+        [Note(0, 7, 72, 72), Note(7, 2, 72, 72)],
+        [0, 7, 9],
+        [0, 61, 63],
+        [Note(0, 61, 72, 72), Note(61, 2, 72, 72)],
+    ),
     # Only shkrinks the [0,4] to [0,2]
     (
         NOTES_OG,
