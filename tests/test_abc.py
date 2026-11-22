@@ -385,6 +385,29 @@ def test_core_score_file_pathlike(tmp_path, path_type):
     assert core.ScoreTick.from_file(midi) == score
 
 
+@pytest.mark.parametrize("warn", ["false", 0, None])
+def test_dump_abc_requires_bool(tmp_path, warn):
+    score = make_roundtrip_score()
+    path = tmp_path / "score.abc"
+    with pytest.raises(TypeError):
+        score.dumps_abc(warn=warn)
+    with pytest.raises(TypeError):
+        score.dump_abc(path, warn=warn)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("extension", ["abc", "mid"])
+@pytest.mark.parametrize("sanitize_data", ["false", 0, None])
+def test_score_from_file_requires_bool(tmp_path, extension, sanitize_data):
+    path = tmp_path / f"score.{extension}"
+    if extension == "abc":
+        path.write_text(make_roundtrip_abc_text(), encoding="utf-8")
+    else:
+        make_roundtrip_score().dump_midi(path)
+    with pytest.raises(TypeError):
+        core.ScoreTick.from_file(path, sanitize_data=sanitize_data)
+
+
 # ---------------------------------------------------------------------------
 # Regression test for GitHub issue #78
 # https://github.com/lzqlzzq/symusic/issues/78
