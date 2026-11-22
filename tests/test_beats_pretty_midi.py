@@ -119,7 +119,7 @@ def test_beats_and_downbeats_are_consistent_across_ttypes_on_real_midis(midi_pat
 
 
 def test_mid_beat_tempo_change_preserves_remaining_beat_ratio_in_second_time():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
 
     lead = Track("Lead", 0, False)
     lead.notes.append(Note(0, 24 * 480, 60, 100))

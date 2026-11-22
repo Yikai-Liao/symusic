@@ -28,7 +28,7 @@ INT_MIN = -(2**31)
 
 
 def tick_score(*notes: Note) -> Score:
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tracks.append(Track(notes=list(notes), ttype=Tick))
     return score
 
@@ -59,17 +59,14 @@ def test_shift_time_overflow(make):
     event = make(*args, ttype=Tick)
     with pytest.raises(OverflowError):
         event.shift_time(1)
-    with pytest.raises(OverflowError):
-        event.shift_time(1, inplace=True)
     assert event.time == INT_MAX
-    assert event.shift_time(-1).time == INT_MAX - 1
+    assert event.shift_time(-1) is None
+    assert event.time == INT_MAX - 1
 
 
 def test_shift_time_event_is_applied():
     note = Note(10, 5, 60, 80, ttype=Tick)
-    assert note.shift_time(5).time == 15
-    assert note.time == 10
-    assert note.shift_time(5, inplace=True).time == 15
+    assert note.shift_time(5) is None
     assert note.time == 15
 
 
@@ -85,7 +82,7 @@ def test_track_score_overflow():
     with pytest.raises(OverflowError):
         score.to(Second)
     with pytest.raises(OverflowError):
-        score.dumps_midi()
+        score.to_midi()
 
 
 def test_clip_trim_extreme():
@@ -142,7 +139,7 @@ def test_second_conversion_at_range_edges():
     score = tick_score(
         Note(INT_MAX, 0, 60, 80, ttype=Tick), Note(-480, 480, 60, 80, ttype=Tick)
     )
-    score.tempos.append(Tempo(0, mspq=500000))
+    score.tempos.append(Tempo(0, microseconds_per_quarter=500000))
     notes = score.to(Second).tracks[0].notes
     assert notes[1].time == pytest.approx(-0.5)
     assert notes[1].duration == pytest.approx(0.5)
@@ -150,32 +147,24 @@ def test_second_conversion_at_range_edges():
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
-@pytest.mark.parametrize("bad", [1.0e10, -1.0e10, math.inf, -math.inf])
+@pytest.mark.parametrize("bad", [1.0e10, -1.0e10])
 def test_to_tick_out_of_range(ttype: str, bad: float):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(Track(notes=[Note(bad, 1.0, 60, 80, ttype=ttype)], ttype=ttype))
     with pytest.raises(OverflowError):
         score.to(Tick)
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
-def test_to_tick_nan(ttype: str):
-    score = Score(480, ttype=ttype)
-    score.tracks.append(
-        Track(notes=[Note(math.nan, 1.0, 60, 80, ttype=ttype)], ttype=ttype)
-    )
-    with pytest.raises(ValueError, match="NaN"):
-        score.to(Tick)
+@pytest.mark.parametrize("time", [math.nan, math.inf, -math.inf])
+def test_event_rejects_nonfinite_time(ttype, time):
+    with pytest.raises(ValueError, match="time"):
+        Note(time, 1.0, 60, 80, ttype=ttype)
 
 
-def test_to_tick_zero_mspq():
-    score = Score(480, ttype=Second)
-    score.tempos.append(Tempo(0.0, mspq=0, ttype=Second))
-    score.tracks.append(
-        Track(notes=[Note(1.0, 1.0, 60, 80, ttype=Second)], ttype=Second)
-    )
-    with pytest.raises((OverflowError, ValueError)):
-        score.to(Tick)
+def test_tempo_rejects_zero_microseconds_per_quarter():
+    with pytest.raises(ValueError, match="microseconds_per_quarter"):
+        Tempo(0.0, microseconds_per_quarter=0, ttype=Second)
 
 
 @pytest.mark.parametrize("qpm", [0, -1, -math.inf, math.inf, math.nan, 1e300, 1e9])
@@ -185,7 +174,7 @@ def test_tempo_qpm_invalid(qpm: float):
     tempo = Tempo(0, 120)
     with pytest.raises(ValueError, match="qpm"):
         tempo.qpm = qpm
-    assert tempo.mspq == 500000
+    assert tempo.microseconds_per_quarter == 500000
 
 
 @pytest.mark.parametrize("qpm", [1e-3, 1e-300])
@@ -195,8 +184,8 @@ def test_tempo_qpm_tiny(qpm: float):
 
 
 def test_tempo_qpm_bounds():
-    assert Tempo(0, 120).mspq == 500000
-    assert Tempo(0, 60_000_000).mspq == 1
+    assert Tempo(0, 120).microseconds_per_quarter == 500000
+    assert Tempo(0, 60_000_000).microseconds_per_quarter == 1
 
 
 @pytest.mark.parametrize("time", [1_000_000, -1_000_000])
@@ -218,14 +207,13 @@ def test_resample_extreme_factor(time: int):
     ("collection", "kind", "event"),
     [
         ("time_signatures", "time signature", TimeSignature(-2, 4, 4)),
-        ("key_signatures", "key signature", KeySignature(-2, 0, 0)),
+        ("key_signatures", "key signature", KeySignature(-2, 0, False)),
         ("tempos", "tempo", Tempo(-2, 120)),
         ("markers", "marker", TextMeta(-2, "marker")),
         ("notes", "note", Note(-2, 5, 60, 80)),
         ("controls", "control change", ControlChange(-2, 64, 0)),
         ("pitch_bends", "pitch bend", PitchBend(-2, 0)),
         ("lyrics", "lyric", TextMeta(-2, "lyric")),
-        ("pedals", "pedal", Pedal(-2, 5)),
     ],
 )
 def test_midi_rejects_negative_start(collection, kind, event):
@@ -233,17 +221,17 @@ def test_midi_rejects_negative_start(collection, kind, event):
     target = score if hasattr(score, collection) else score.tracks[0]
     getattr(target, collection).append(event)
     with pytest.raises(ValueError, match=rf"{kind} time.*-2"):
-        score.dumps_midi()
+        score.to_midi()
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_midi_rejects_negative_start_before_rounding(ttype):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(
         Track(notes=[Note(-0.0001, 1, 60, 80, ttype=ttype)], ttype=ttype)
     )
     with pytest.raises(ValueError, match="note time"):
-        score.dumps_midi()
+        score.to_midi()
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
@@ -256,53 +244,51 @@ def test_midi_duration_overflow(ttype):
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-@pytest.mark.parametrize("tpq", [-1, 0, 32768, 65536])
-def test_midi_rejects_invalid_division(ttype, tpq):
-    score = Score(480, ttype=ttype)
-    score.ticks_per_quarter = tpq
-    with pytest.raises(ValueError, match=rf"ticks_per_quarter.*1\.\.32767.*{tpq}"):
-        score.dumps_midi()
+@pytest.mark.parametrize("ticks_per_quarter", [-1, 0, 32768, 65536])
+def test_midi_rejects_invalid_division(ttype, ticks_per_quarter):
+    score = Score(ticks_per_quarter=480, ttype=ttype)
+    if ticks_per_quarter <= 0:
+        with pytest.raises(ValueError, match="ticks_per_quarter"):
+            score.ticks_per_quarter = ticks_per_quarter
+    else:
+        score.ticks_per_quarter = ticks_per_quarter
+        with pytest.raises(ValueError, match=r"ticks_per_quarter.*1\.\.32767"):
+            score.to_midi()
 
 
-@pytest.mark.parametrize("tpq", [1, 32767])
-def test_midi_preserves_division_limits(tpq):
-    score = Score(tpq)
+@pytest.mark.parametrize("ticks_per_quarter", [1, 32767])
+def test_midi_preserves_division_limits(ticks_per_quarter):
+    score = Score(ticks_per_quarter=ticks_per_quarter)
     score.tracks.append(Track(notes=[Note(0, 1, 60, 80)]))
-    assert Score.from_midi(score.dumps_midi()).ticks_per_quarter == tpq
+    assert Score.from_midi(score.to_midi()).ticks_per_quarter == ticks_per_quarter
 
 
-@pytest.mark.parametrize("value", [-8193, 8192, 65536])
-def test_midi_rejects_unrepresentable_pitch_bend(value):
-    score = tick_score(Note(0, 1, 60, 80))
-    score.tracks[0].pitch_bends.append(PitchBend(0, value))
-    with pytest.raises(ValueError, match=rf"pitch bend.*{value}"):
-        score.dumps_midi()
+@pytest.mark.parametrize("value", [-8193, 8192, 65536, 2**80])
+def test_pitch_bend_rejects_out_of_range_value(value):
+    with pytest.raises(ValueError, match="value"):
+        PitchBend(0, value)
 
 
-@pytest.mark.parametrize("mspq", [-1, 1 << 24])
-def test_midi_rejects_unrepresentable_tempo(mspq):
-    score = Score(480)
-    score.tempos.append(Tempo(0, mspq=mspq))
-    with pytest.raises(ValueError, match=r"mspq.*24 bits"):
-        score.dumps_midi()
+def test_midi_rejects_tempo_above_24_bits():
+    score = Score(ticks_per_quarter=480)
+    score.tempos.append(Tempo(0, microseconds_per_quarter=1 << 24))
+    with pytest.raises(ValueError, match=r"microseconds_per_quarter.*24 bits"):
+        score.to_midi()
 
 
-@pytest.mark.parametrize("denominator", [0, 3])
-def test_midi_rejects_unrepresentable_denominator(denominator):
-    score = Score(480)
-    score.time_signatures.append(TimeSignature(0, 4, denominator))
-    with pytest.raises(ValueError, match=r"denominator.*power of two"):
-        score.dumps_midi()
+@pytest.mark.parametrize("denominator", [0, 3, 256, 2**80])
+def test_denominator_requires_power_of_two(denominator):
+    with pytest.raises(ValueError, match="denominator"):
+        TimeSignature(0, 4, denominator)
 
 
 def test_midi_rejects_unrepresentable_delta():
     score = tick_score(Note(1 << 28, 1, 60, 80))
     with pytest.raises(ValueError, match=r"event delta.*28 bits"):
-        score.dumps_midi()
+        score.to_midi()
 
 
 @pytest.mark.parametrize(("pitch", "velocity"), [(-1, 80), (60, -1)])
 def test_midi_rejects_negative_note_data(pitch, velocity):
-    score = tick_score(Note(0, 1, pitch, velocity))
-    with pytest.raises(ValueError, match=r"note pitch and velocity.*-1"):
-        score.dumps_midi()
+    with pytest.raises(ValueError, match=r"(pitch|velocity).*-1"):
+        Note(0, 1, pitch, velocity)

@@ -10,7 +10,7 @@ namespace symusic {
 
 namespace detail {
 
-// The NumPy dtype of a MIDI key-signature tonality is unsigned.
+// The NumPy dtype of a MIDI key-signature minor is unsigned.
 template<TimeEvent E, size_t I>
 using ColumnValue = std::conditional_t<
     std::same_as<E, KeySignature<typename E::ttype>> && I == 2, u8, EventField<E, I>

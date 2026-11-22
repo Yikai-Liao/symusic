@@ -50,7 +50,7 @@ TEST_CASE("Test TrackPianoroll", "[symusic][pianoroll]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(960, 240, 67, 80));   // G4
 
         // Define pianoroll modes
-        std::vector<PianorollMode> modes = {PianorollMode::onset};
+        std::vector<PianorollMode> modes = {PianorollMode::Onset};
 
         // Define pitch range (C4 to G4+1)
         std::pair<uint8_t, uint8_t> pitchRange = {60, 68};
@@ -206,7 +206,7 @@ TEST_CASE("Test ScorePianoroll", "[symusic][pianoroll]") {
         score.tracks.push_back(melody_track);
 
         // Define pianoroll modes
-        std::vector<PianorollMode> modes = {PianorollMode::onset};
+        std::vector<PianorollMode> modes = {PianorollMode::Onset};
 
         // Define pitch range (E2 to C5+1)
         std::pair<uint8_t, uint8_t> pitchRange = {40, 73};
@@ -346,7 +346,7 @@ TEST_CASE("Test ScorePianoroll", "[symusic][pianoroll]") {
 }
 
 TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
-    const std::vector<PianorollMode>  modes = {PianorollMode::onset, PianorollMode::frame};
+    const std::vector<PianorollMode>  modes = {PianorollMode::Onset, PianorollMode::Frame};
     const std::pair<uint8_t, uint8_t> range = {0, 128};
 
     auto track_with = [](Note<Tick> note) {
@@ -369,7 +369,8 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
     }
 
     SECTION("Negative note duration") {
-        const auto track = track_with(detail::make_event<Note<Tick>>(20, -5, 61, 80));
+        auto track = track_with(detail::make_event<Note<Tick>>(20, 5, 61, 80));
+        track.notes.back().duration = -5;
         REQUIRE_THROWS_AS(
             TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
         );
@@ -397,7 +398,7 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
     SECTION("Zero duration is valid") {
         const auto track = track_with(detail::make_event<Note<Tick>>(5, 0, 61, 80));
         auto       roll  = TrackPianoroll::from_track(
-            track, {PianorollMode::frame, PianorollMode::onset}, range, true
+            track, {PianorollMode::Frame, PianorollMode::Onset}, range, true
         );
         REQUIRE(roll.get(0, 61, 5) == 0);
         REQUIRE(roll.get(1, 61, 5) == 80);

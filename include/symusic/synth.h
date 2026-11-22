@@ -73,7 +73,7 @@ public:
                     std::string{}, track.program, track.is_drum, std::move(seconds),
                     converter.template time_vec<ControlChange>(S::get(track.controls)),
                     converter.template time_vec<PitchBend>(S::get(track.pitch_bends)),
-                    vec<Pedal<Second>>{}, vec<TextMeta<Second>>{}
+                    vec<TextMeta<Second>>{}
                 );
             }
             return render_seconds(rendering_score, stereo);

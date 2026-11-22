@@ -11,7 +11,7 @@
 namespace symusic::py {
 
 constexpr const char* kEventShiftTimeDoc
-    = R"pbdoc(Add *offset* to ``time``. Returns a new event unless *inplace* is true.)pbdoc";
+    = R"pbdoc(Add *offset* to ``time``.)pbdoc";
 constexpr const char* kEventVecNumpyDoc
     = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
 constexpr const char* kEventVecFromNumpyDoc
@@ -24,20 +24,20 @@ constexpr const char* kEventNoteEmptyDoc
 constexpr const char* kEventEndDoc
     = R"pbdoc(``time + duration``. Setting it changes ``duration``.)pbdoc";
 constexpr const char* kEventNoteShiftPitchDoc    = R"pbdoc(
-Add *offset* to ``pitch``. Returns a new note unless *inplace* is true. Raises ``ValueError`` when
-the result leaves -128..127.
+Add *offset* to ``pitch``. Raises ``ValueError`` when
+the result leaves 0..127.
 )pbdoc";
 constexpr const char* kEventNoteShiftVelocityDoc = R"pbdoc(
-Add *offset* to ``velocity``. Returns a new note unless *inplace* is true. Raises ``ValueError``
-when the result leaves -128..127.
+Add *offset* to ``velocity``. Raises ``ValueError``
+when the result leaves 0..127.
 )pbdoc";
 
 constexpr const char* kEventTempoInitDoc = R"pbdoc(
-Create a tempo change from *qpm* or *mspq*; *qpm* wins when both are given. Raises ``ValueError``
+Create a tempo change from *qpm* or *microseconds_per_quarter*; *qpm* wins when both are given. Raises ``ValueError``
 when neither is given.
 )pbdoc";
 constexpr const char* kEventTempoQpmDoc  = R"pbdoc(
-Quarter notes per minute, computed from ``mspq``. Setting it rounds ``mspq`` to the nearest
+Quarter notes per minute, computed from ``microseconds_per_quarter``. Setting it rounds ``microseconds_per_quarter`` to the nearest
 microsecond.
 )pbdoc";
 
@@ -45,15 +45,48 @@ template<TimeEvent E, size_t I>
 constexpr bool time_field = I == 0 || (HashDuration<E> && I == 1);
 
 template<template<class> class Event, size_t I>
-using EventArg = std::
-    conditional_t<time_field<Event<Tick>, I>, nb::handle, detail::EventField<Event<Tick>, I>>;
+using EventArg = std::conditional_t<
+    std::same_as<detail::EventField<Event<Tick>, I>, std::string>, std::string, nb::handle
+>;
 
-template<TType T, class Input>
-auto event_input(const Input& value) {
-    if constexpr (std::same_as<Input, nb::handle>)
-        return read_time<T>(value);
-    else
+template<TimeEvent E, size_t I>
+auto event_input(const auto& value) {
+    using F = detail::EventField<E, I>;
+    const auto name = std::get<I>(detail::event_fields<E>).first;
+    if constexpr (std::same_as<F, bool>) {
+        if (!PyBool_Check(value.ptr())) throw nb::type_error("minor must be a bool");
+        return value.ptr() == Py_True;
+    } else if constexpr (std::integral<F>) {
+        return detail::checked_event_field<E, I>(read_integer(value, name));
+    } else if constexpr (std::floating_point<F>) {
+        double number;
+        if (!nb::try_cast(value, number)) throw nb::type_error("Expected a numeric time");
+        return detail::checked_event_field<E, I>(number);
+    } else {
         return value;
+    }
+}
+
+template<TimeEvent E, size_t I>
+const std::string& event_field_doc() {
+    using F = detail::EventField<E, I>;
+    static const auto doc = [] {
+        if constexpr (std::same_as<F, bool>) {
+            return std::string("True for minor and False for major.");
+        } else if constexpr (std::same_as<F, std::string>) {
+            return std::string("Text stored in the event.");
+        } else if constexpr (I == 0) {
+            return std::string("Event time in the object's unit, within its finite scalar range.");
+        } else if constexpr (HashDuration<E> && I == 1) {
+            return std::string("Non-negative finite duration in the event's time unit.");
+        } else {
+            const auto [low, high] = detail::field_range<E, I>();
+            return std::string("Allowed values are ") + std::to_string(low) + ".."
+                + std::to_string(high) + (detail::power_of_two_field<E, I>
+                    ? ", restricted to powers of two." : ".");
+        }
+    }();
+    return doc;
 }
 
 // A native descriptor already checks the receiver type. Check nanobind's
@@ -85,13 +118,15 @@ struct NoteTimeField {
         try {
             note->visit([&](const auto& ptr) {
                 using T                                                   = UnitOf<decltype(ptr)>;
-                (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second = read_time<T>(value);
+                (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second = event_input<Note<T>, I>(nb::handle(value));
             });
             return 0;
         } catch (nb::python_error& error) {
             error.restore();
         } catch (const nb::builtin_exception& error) {
             PyErr_SetString(PyExc_TypeError, error.what());
+        } catch (const std::invalid_argument& error) {
+            PyErr_SetString(PyExc_ValueError, error.what());
         } catch (const std::overflow_error& error) {
             PyErr_SetString(PyExc_OverflowError, error.what());
         } catch (const std::bad_alloc&) { PyErr_NoMemory(); }
@@ -111,7 +146,7 @@ constexpr PyGetSetDef note_time_field{
     std::get<I>(detail::event_fields<Note<Tick>>).first,
     NoteTimeField<I>::get,
     NoteTimeField<I>::set,
-    nullptr,
+    const_cast<char*>(I == 0 ? "Event time in the object's unit." : "Non-negative finite duration in the event's time unit."),
     nullptr,
 };
 
@@ -136,9 +171,10 @@ void bind_event_field(
         [](const Value& self, const EventArg<Event, I>& value) {
             self.visit([&](const auto& ptr) {
                 using T                                                    = UnitOf<decltype(ptr)>;
-                (*ptr).*std::get<I>(detail::event_fields<Event<T>>).second = event_input<T>(value);
+                (*ptr).*std::get<I>(detail::event_fields<Event<T>>).second = event_input<Event<T>, I>(value);
             });
-        }
+        },
+        event_field_doc<Event<Tick>, I>().c_str()
     );
 }
 
@@ -151,7 +187,7 @@ void bind_event_init(nb::class_<UnitValue<Event>>& type, std::index_sequence<I..
             new (self) Value(with_unit(marker, [&](auto unit) {
                 using T = decltype(unit);
                 using E = Event<T>;
-                return Value(std::make_shared<E>(detail::make_event<E>(event_input<T>(values)...)));
+                return Value(std::make_shared<E>(detail::make_event<E>(event_input<E, I>(values)...)));
             }));
         },
         args...,
@@ -163,10 +199,51 @@ void bind_event_init(nb::class_<UnitValue<Event>>& type, std::index_sequence<I..
 template<class Scalar>
 using Column = nb::ndarray<Scalar, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
+template<class Scalar>
+struct InputColumn {
+    Column<Scalar> native;
+    vec<Scalar> converted;
+
+    size_t size() const { return native.is_valid() ? native.size() : converted.size(); }
+    Scalar operator()(size_t row) const {
+        return native.is_valid() ? native(row) : converted[row];
+    }
+};
+
+template<TimeEvent E, size_t I>
+auto read_column(nb::handle input) {
+    using F = detail::EventField<E, I>;
+    InputColumn<F> column;
+    if (nb::try_cast(input, column.native, false)) return column;
+
+    // Coercing directly to the target NumPy dtype could wrap an integer before validation.
+    using Array = nb::ndarray<nb::ndim<1>, nb::device::cpu>;
+    const auto source = nb::cast<Array>(input, false);
+    column.converted.reserve(source.size());
+    for (nb::handle item : nb::borrow<nb::iterable>(input)) {
+        if constexpr (std::integral<F> && !std::same_as<F, bool>) {
+            if (PyIndex_Check(item.ptr())) {
+                column.converted.push_back(event_input<E, I>(item));
+            } else {
+                f64 number;
+                if (!nb::try_cast(item, number)) throw nb::type_error("Expected a numeric column");
+                column.converted.push_back(detail::checked_event_field<E, I>(number));
+            }
+        } else if constexpr (std::same_as<F, bool>) {
+            const auto number = read_integer(item, std::get<I>(detail::event_fields<E>).first);
+            if (number != 0 && number != 1) throw std::invalid_argument("minor must be boolean");
+            column.converted.push_back(number == 1);
+        } else {
+            column.converted.push_back(event_input<E, I>(item));
+        }
+    }
+    return column;
+}
+
 template<TimeEvent E, size_t... I>
 auto event_list_from_numpy(const auto& arrays, std::index_sequence<I...>) {
     auto columns
-        = std::make_tuple(nb::cast<Column<detail::EventField<E, I>>>(std::get<I>(arrays))...);
+        = std::make_tuple(read_column<E, I>(std::get<I>(arrays))...);
     const auto size = std::get<0>(columns).size();
     if (!((std::get<I>(columns).size() == size) && ...)) {
         throw std::invalid_argument("Event columns must have the same size");
@@ -174,7 +251,7 @@ auto event_list_from_numpy(const auto& arrays, std::index_sequence<I...>) {
     vec<E> events;
     events.reserve(size);
     for (size_t row = 0; row < size; ++row) {
-        events.push_back(detail::make_event<E>(std::get<I>(columns)(row)...));
+        events.push_back(detail::make_event<E>(detail::checked_event_field<E, I>(std::get<I>(columns)(row))...));
     }
     return SharedStorage::adopt(std::move(events));
 }
@@ -248,23 +325,17 @@ auto bind_event(
     });
     type.def(
         "shift_time",
-        [](nb::handle self, nb::handle offset, bool inplace) {
-            return transform<Value>(self, inplace, [&](const auto& ptr) {
+        [](const Value& self, nb::handle offset) {
+            self.visit( [&](const auto& ptr) {
                 using T     = UnitOf<decltype(ptr)>;
-                auto result = inplace ? ptr : std::make_shared<Event<T>>(*ptr);
-                symusic::shift_time(*result, read_time<T>(offset));
-                return Value(std::move(result));
+                symusic::shift_time(*ptr, read_time<T>(offset));
             });
         },
         "offset"_a,
-        "inplace"_a = false,
-        nb::sig("def shift_time(self, offset: int | float, inplace: bool = False) -> typing.Self"),
+        nb::sig("def shift_time(self, offset: int | float) -> None"),
         kEventShiftTimeDoc
     );
 
-    if constexpr (std::same_as<Event<Tick>, Pedal<Tick>>) {
-        bind_event_field<Event, 0>(type, "start");
-    }
     if constexpr (HashDuration<Event<Tick>>) {
         type.def_prop_rw(
             "end",
@@ -273,8 +344,10 @@ auto bind_event(
             },
             [](const Value& self, nb::handle value) {
                 self.visit([&](const auto& ptr) {
-                    ptr->duration
-                        = detail::sub_time(read_time<UnitOf<decltype(ptr)>>(value), ptr->time);
+                    using E = Event<UnitOf<decltype(ptr)>>;
+                    ptr->duration = detail::checked_event_field<E, 1>(
+                        detail::sub_time(event_input<E, 0>(value), ptr->time)
+                    );
                 });
             },
             kEventEndDoc
@@ -292,30 +365,26 @@ auto bind_event(
             = [&](const char* name, auto operation, const char* signature, const char* doc) {
                   type.def(
                       name,
-                      [operation](nb::handle self, i8 offset, bool inplace) {
-                          return transform<Value>(self, inplace, [&](const auto& ptr) {
-                              using E     = Event<UnitOf<decltype(ptr)>>;
-                              auto result = inplace ? ptr : std::make_shared<E>(*ptr);
-                              operation(*result, offset);
-                              return Value(std::move(result));
+                      [operation](const Value& self, nb::handle offset) {
+                          self.visit( [&](const auto& ptr) {
+                              operation(*ptr, read_int32(offset, "offset"));
                           });
                       },
                       "offset"_a,
-                      "inplace"_a = false,
                       nb::sig(signature),
                       doc
                   );
               };
         bind_shift(
             "shift_pitch",
-            [](auto& note, i8 offset) { note.shift_pitch_inplace(offset); },
-            "def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Self",
+            [](auto& note, i32 offset) { note.shift_pitch(offset); },
+            "def shift_pitch(self, offset: int) -> None",
             kEventNoteShiftPitchDoc
         );
         bind_shift(
             "shift_velocity",
-            [](auto& note, i8 offset) { note.shift_velocity_inplace(offset); },
-            "def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Self",
+            [](auto& note, i32 offset) { note.shift_velocity(offset); },
+            "def shift_velocity(self, offset: int) -> None",
             kEventNoteShiftVelocityDoc
         );
     }
@@ -324,13 +393,13 @@ auto bind_event(
     bind_list_algorithms<List, Value>(list);
     bind_pickle(
         list,
-        [](const auto& ptr) { return dumps<DataFormat::ZPP>(ptr->collect()); },
+        [](const auto& ptr) { return serialize(ptr->collect()); },
         [](auto unit, std::span<const u8> data) {
-            return SharedStorage::adopt(parse<DataFormat::ZPP, vec<Event<decltype(unit)>>>(data));
+            return SharedStorage::adopt(deserialize<vec<Event<decltype(unit)>>>(data));
         }
     );
     list.def(
-        "numpy",
+        "to_numpy",
         [](const List& self) {
             return self.visit([](const auto& ptr) -> nb::dict {
                 using E = Event<UnitOf<decltype(ptr)>>;
@@ -346,8 +415,16 @@ auto bind_event(
                                     typename std::remove_reference_t<decltype(column)>::value_type;
                                 static Scalar empty = 0;
                                 auto*         ptr   = column.empty() ? &empty : column.data();
-                                result[field]
-                                    = nb::ndarray<nb::numpy, Scalar>(ptr, {column.size()}, owner);
+                                if constexpr (std::same_as<E, KeySignature<typename E::ttype>>
+                                              && std::same_as<Scalar, u8>) {
+                                    result[field] = nb::ndarray<nb::numpy, bool>(
+                                        ptr, {column.size()}, owner
+                                    );
+                                } else {
+                                    result[field] = nb::ndarray<nb::numpy, Scalar>(
+                                        ptr, {column.size()}, owner
+                                    );
+                                }
                             });
                             return result;
                         }
@@ -358,27 +435,12 @@ auto bind_event(
         kEventVecNumpyDoc
     );
     if constexpr (std::same_as<Event<Tick>, TextMeta<Tick>>) {
-        type.def_static(
-            "from_numpy",
-            [](nb::handle, nb::handle, nb::handle) {
-                PyErr_SetString(
-                    PyExc_NotImplementedError, "TextMeta does not support NumPy conversion"
-                );
-                nb::raise_python_error();
-            },
-            "time"_a,
-            "text"_a,
-            nb::kw_only(),
-            "ttype"_a = nb::type<Tick>(),
-            "Raises NotImplementedError for text events."
-        );
         list.def_static(
             "from_numpy",
             []() { throw std::runtime_error("TextMeta does not support from_numpy"); },
             kEventTextMetaNumpyDoc
         );
     } else {
-        bind_from_numpy<Event>(type, fields);
         bind_from_numpy<Event>(list, fields);
     }
     return type;

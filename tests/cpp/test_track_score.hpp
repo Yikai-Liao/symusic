@@ -20,7 +20,7 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         REQUIRE(track.notes.empty());
         REQUIRE(track.controls.empty());
         REQUIRE(track.pitch_bends.empty());
-        REQUIRE(track.pedals.empty());
+        REQUIRE(track.pedals().empty());
     }
 
     SECTION("Track Named Constructor") {
@@ -42,7 +42,7 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         REQUIRE(track1 == track2);
 
         // Test deep copy
-        Track<Tick> track3 = track1.deepcopy();
+        Track<Tick> track3 = track1.copy();
         REQUIRE(track1 == track3);
 
         // Modify the original track and verify deep copy is unchanged
@@ -68,7 +68,8 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         REQUIRE(track.end() == 500);     // End time should update
 
         // Add other event types and check if end time updates
-        track.pedals.push_back(detail::make_event<Pedal<Tick>>(600, 200));   // ends at 800
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(600, 64, 127));
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(800, 64, 0));
         REQUIRE(track.end() == 800);
     }
 
@@ -81,13 +82,13 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(200, 150, 64, 80));
 
         // Test sorting
-        track.sort_inplace();
+        track.sort();
         REQUIRE(track.notes.at(0).time == 100);
         REQUIRE(track.notes.at(1).time == 200);
         REQUIRE(track.notes.at(2).time == 300);
 
         // Test reverse sorting
-        track.sort_inplace(true);
+        track.sort(true);
         REQUIRE(track.notes.at(0).time == 300);
         REQUIRE(track.notes.at(1).time == 200);
         REQUIRE(track.notes.at(2).time == 100);
@@ -121,12 +122,13 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(300, 200, 62, 80));
 
         // Test time shifting
-        Track<Tick> shifted = track.shift_time(50);
+        Track<Tick> shifted = track;
+        shifted.shift_time(50);
         REQUIRE(shifted.notes.at(0).time == 150);
         REQUIRE(shifted.notes.at(1).time == 350);
 
         // Test inplace shifting
-        track.shift_time_inplace(-20);
+        track.shift_time(-20);
         REQUIRE(track.notes.at(0).time == 80);
         REQUIRE(track.notes.at(1).time == 280);
     }
@@ -139,12 +141,14 @@ TEST_CASE("Test Track Operations", "[symusic][track]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(300, 200, 62, 70));
 
         // Test pitch shifting
-        Track<Tick> pitched = track.shift_pitch(12);
+        Track<Tick> pitched = track;
+        pitched.shift_pitch(12);
         REQUIRE(pitched.notes.at(0).pitch == 72);
         REQUIRE(pitched.notes.at(1).pitch == 74);
 
         // Test velocity shifting
-        Track<Tick> velocitied = track.shift_velocity(10);
+        Track<Tick> velocitied = track;
+        velocitied.shift_velocity(10);
         REQUIRE(velocitied.notes.at(0).velocity == 90);
         REQUIRE(velocitied.notes.at(1).velocity == 80);
     }
@@ -158,7 +162,7 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
     SECTION("Score Default Constructor") {
         // Test default constructor
         Score<Tick> score;
-        REQUIRE(score.ticks_per_quarter == 0);
+        REQUIRE(score.ticks_per_quarter == 960);
         REQUIRE(score.tracks.empty());
         REQUIRE(score.time_signatures.empty());
         REQUIRE(score.key_signatures.empty());
@@ -191,7 +195,7 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         REQUIRE(score1 == score2);
 
         // Test deep copy
-        Score<Tick> score3 = score1.deepcopy();
+        Score<Tick> score3 = score1.copy();
         REQUIRE(score1 == score3);
 
         // Modify the original score and verify deep copy is unchanged
@@ -268,13 +272,14 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));
 
         // Test time shifting
-        Score<Tick> shifted = score.shift_time(50);
+        Score<Tick> shifted = score;
+        shifted.shift_time(50);
         REQUIRE(shifted.tracks.at(0).notes.at(0).time == 150);
         REQUIRE(shifted.tracks.at(0).notes.at(1).time == 350);
         REQUIRE(shifted.tempos.at(0).time == 50);
 
         // Test inplace shifting
-        score.shift_time_inplace(-20);
+        score.shift_time(-20);
         REQUIRE(score.tracks.at(0).notes.at(0).time == 80);
         REQUIRE(score.tracks.at(0).notes.at(1).time == 280);
         REQUIRE(score.tempos.at(0).time == -20);
@@ -290,12 +295,14 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         score.tracks.push_back(track);
 
         // Test pitch shifting
-        Score<Tick> pitched = score.shift_pitch(12);
+        Score<Tick> pitched = score;
+        pitched.shift_pitch(12);
         REQUIRE(pitched.tracks.at(0).notes.at(0).pitch == 72);
         REQUIRE(pitched.tracks.at(0).notes.at(1).pitch == 74);
 
         // Test velocity shifting
-        Score<Tick> velocitied = score.shift_velocity(10);
+        Score<Tick> velocitied = score;
+        velocitied.shift_velocity(10);
         REQUIRE(velocitied.tracks.at(0).notes.at(0).velocity == 90);
         REQUIRE(velocitied.tracks.at(0).notes.at(1).velocity == 80);
     }
@@ -314,7 +321,7 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         score.tracks.push_back(track2);
 
         // Test note count
-        REQUIRE(score.note_num() == 3);
+        REQUIRE(score.note_count() == 3);
         REQUIRE(score.track_num() == 2);
     }
 

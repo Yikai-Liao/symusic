@@ -92,7 +92,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         REQUIRE(std::get<3>(key) == 80);
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace time shift
@@ -106,29 +106,31 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         REQUIRE(note.time == 150);
     }
 
-    SECTION("Test shift_pitch() and shift_pitch_inplace() methods") {
+    SECTION("Test shift_pitch() methods") {
         Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace pitch shift
-        Note<Tick> pitched = note.shift_pitch(12);   // Up one octave
+        Note<Tick> pitched = note;
+        pitched.shift_pitch(12);   // Up one octave
         REQUIRE(pitched.pitch == 72);
         REQUIRE(note.pitch == 60);   // Original note not modified
 
         // Test inplace pitch shift
-        note.shift_pitch_inplace(12);
+        note.shift_pitch(12);
         REQUIRE(note.pitch == 72);
     }
 
-    SECTION("Test shift_velocity() and shift_velocity_inplace() methods") {
+    SECTION("Test shift_velocity() methods") {
         Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace velocity shift
-        Note<Tick> velocitied = note.shift_velocity(10);
+        Note<Tick> velocitied = note;
+        velocitied.shift_velocity(10);
         REQUIRE(velocitied.velocity == 90);
         REQUIRE(note.velocity == 80);   // Original note not modified
 
         // Test inplace velocity shift
-        note.shift_velocity_inplace(10);
+        note.shift_velocity(10);
         REQUIRE(note.velocity == 90);
     }
 
@@ -198,7 +200,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         REQUIRE(std::get<1>(key) == 200);
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
 
         // Test non-inplace time shift
@@ -277,7 +279,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(std::get<2>(key) == 127);
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
 
         // Test non-inplace time shift
@@ -354,7 +356,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
         REQUIRE(key == 100);   // Returns time
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
 
         // Test non-inplace time shift
@@ -386,33 +388,33 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         KeySignature<Tick> default_ks;
         REQUIRE(default_ks.time == 0);
         REQUIRE(default_ks.key == 0);
-        REQUIRE(default_ks.tonality == 0);
+        REQUIRE(default_ks.minor == 0);
 
         // Constructor with parameters
         KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);   // D major, 2 sharps
         REQUIRE(ks.time == 100);
         REQUIRE(ks.key == 2);
-        REQUIRE(ks.tonality == 0);
+        REQUIRE(ks.minor == 0);
 
         // Copy constructor
         KeySignature<Tick> copied_ks(ks);
         REQUIRE(copied_ks.time == ks.time);
         REQUIRE(copied_ks.key == ks.key);
-        REQUIRE(copied_ks.tonality == ks.tonality);
+        REQUIRE(copied_ks.minor == ks.minor);
 
         // Constructor from other time type
         KeySignature<Quarter> quarter_ks = detail::make_event<KeySignature<Quarter>>(1.0f, -3, 1);   // C minor, 3 flats
         KeySignature<Tick> converted_ks = detail::retime_event<KeySignature<Tick>>(50, quarter_ks);
         REQUIRE(converted_ks.time == 50);
         REQUIRE(converted_ks.key == -3);
-        REQUIRE(converted_ks.tonality == 1);
+        REQUIRE(converted_ks.minor == 1);
 
         // Assignment operator
         KeySignature<Tick> assigned_ks;
         assigned_ks = ks;
         REQUIRE(assigned_ks.time == ks.time);
         REQUIRE(assigned_ks.key == ks.key);
-        REQUIRE(assigned_ks.tonality == ks.tonality);
+        REQUIRE(assigned_ks.minor == ks.minor);
     }
 
     SECTION("Test degree() method") {
@@ -444,7 +446,7 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(key == 100);   // Returns time
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
 
         // Test non-inplace time shift
@@ -475,36 +477,36 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         // Default constructor
         Tempo<Tick> default_tempo;
         REQUIRE(default_tempo.time == 0);
-        REQUIRE(default_tempo.mspq == 0);
+        REQUIRE(default_tempo.microseconds_per_quarter == 500000);
 
         // Constructor with parameters
         Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);   // 120 BPM
         REQUIRE(tempo.time == 100);
-        REQUIRE(tempo.mspq == 500000);
+        REQUIRE(tempo.microseconds_per_quarter == 500000);
 
         // Copy constructor
         Tempo<Tick> copied_tempo(tempo);
         REQUIRE(copied_tempo.time == tempo.time);
-        REQUIRE(copied_tempo.mspq == tempo.mspq);
+        REQUIRE(copied_tempo.microseconds_per_quarter == tempo.microseconds_per_quarter);
 
         // Constructor from other time type
         Tempo<Quarter> quarter_tempo = detail::make_event<Tempo<Quarter>>(1.0f, 400000);   // 150 BPM
         Tempo<Tick> converted_tempo = detail::retime_event<Tempo<Tick>>(50, quarter_tempo);
         REQUIRE(converted_tempo.time == 50);
-        REQUIRE(converted_tempo.mspq == 400000);
+        REQUIRE(converted_tempo.microseconds_per_quarter == 400000);
 
         // Assignment operator
         Tempo<Tick> assigned_tempo;
         assigned_tempo = tempo;
         REQUIRE(assigned_tempo.time == tempo.time);
-        REQUIRE(assigned_tempo.mspq == tempo.mspq);
+        REQUIRE(assigned_tempo.microseconds_per_quarter == tempo.microseconds_per_quarter);
     }
 
     SECTION("Test from_qpm() and qpm() methods") {
         // Test creating Tempo from QPM
         Tempo<Tick> tempo = Tempo<Tick>::from_qpm(100, 120.0);
         REQUIRE(tempo.time == 100);
-        REQUIRE(tempo.mspq == 500000);   // 120 BPM = 500000 microseconds/quarter note
+        REQUIRE(tempo.microseconds_per_quarter == 500000);   // 120 BPM = 500000 microseconds/quarter note
 
         // Test reading QPM
         REQUIRE(tempo.qpm() == Catch::Approx(120.0));
@@ -515,17 +517,17 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
 
         // Change tempo to 80 BPM
         tempo.set_qpm(80.0);
-        REQUIRE(tempo.mspq == 750000);   // 80 BPM = 750000 microseconds/quarter note
+        REQUIRE(tempo.microseconds_per_quarter == 750000);   // 80 BPM = 750000 microseconds/quarter note
         REQUIRE(tempo.qpm() == Catch::Approx(80.0));
     }
 
     SECTION("Test static conversion methods") {
         // Test QPM to MSPQ conversion
-        i32 mspq = Tempo<Tick>::qpm2mspq(120.0);
-        REQUIRE(mspq == 500000);
+        i32 microseconds_per_quarter = Tempo<Tick>::qpm_to_microseconds_per_quarter(120.0);
+        REQUIRE(microseconds_per_quarter == 500000);
 
         // Test MSPQ to QPM conversion
-        f64 qpm = Tempo<Tick>::mspq2qpm(500000);
+        f64 qpm = Tempo<Tick>::microseconds_per_quarter_to_qpm(500000);
         REQUIRE(qpm == Catch::Approx(120.0));
     }
 
@@ -545,7 +547,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(std::get<0>(key) == 100);   // Returns time
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);
 
         // Test non-inplace time shift
@@ -579,9 +581,9 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(default_pb.value == 0);
 
         // Constructor with parameters
-        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);   // Center value
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);   // Center value
         REQUIRE(pb.time == 100);
-        REQUIRE(pb.value == 8192);
+        REQUIRE(pb.value == 0);
 
         // Copy constructor
         PitchBend<Tick> copied_pb(pb);
@@ -589,10 +591,10 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(copied_pb.value == pb.value);
 
         // Constructor from other time type
-        PitchBend<Quarter> quarter_pb = detail::make_event<PitchBend<Quarter>>(1.0f, 12288);   // Upward bend
+        PitchBend<Quarter> quarter_pb = detail::make_event<PitchBend<Quarter>>(1.0f, 4096);   // Upward bend
         PitchBend<Tick> converted_pb = detail::retime_event<PitchBend<Tick>>(50, quarter_pb);
         REQUIRE(converted_pb.time == 50);
-        REQUIRE(converted_pb.value == 12288);
+        REQUIRE(converted_pb.value == 4096);
 
         // Assignment operator
         PitchBend<Tick> assigned_pb;
@@ -602,23 +604,23 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
     }
 
     SECTION("Test equality operators") {
-        PitchBend<Tick> pb1 = detail::make_event<PitchBend<Tick>>(100, 8192);
-        PitchBend<Tick> pb2 = detail::make_event<PitchBend<Tick>>(100, 8192);
-        PitchBend<Tick> pb3 = detail::make_event<PitchBend<Tick>>(100, 10000);   // Different value
+        PitchBend<Tick> pb1 = detail::make_event<PitchBend<Tick>>(100, 0);
+        PitchBend<Tick> pb2 = detail::make_event<PitchBend<Tick>>(100, 0);
+        PitchBend<Tick> pb3 = detail::make_event<PitchBend<Tick>>(100, 5000);   // Different value
 
         REQUIRE(pb1 == pb2);
         REQUIRE(pb1 != pb3);
     }
 
     SECTION("Test default_key() method") {
-        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);
         auto            key = pb.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
-        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
+    SECTION("Test shift_time() methods") {
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);
 
         // Test non-inplace time shift
         PitchBend<Tick> shifted = pb;
@@ -632,7 +634,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);
 
         PitchBend<Tick> copied = pb;
         REQUIRE(copied == pb);
@@ -689,7 +691,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
         REQUIRE(key == 100);   // Returns time
     }
 
-    SECTION("Test shift_time() and shift_time_inplace() methods") {
+    SECTION("Test shift_time() methods") {
         TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
 
         // Test non-inplace time shift

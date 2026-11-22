@@ -35,7 +35,7 @@ TEST_CASE("Test Note Formatting (Tick)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
-    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);   // mspq = 500000 corresponds to 120 qpm
+    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);   // microseconds_per_quarter = 500000 corresponds to 120 qpm
 
     SECTION("Default/Short Format") {
         // Fix: Adjust expected QPM format based on previous failure (120 instead of 120.00)
@@ -46,7 +46,7 @@ TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
     SECTION("Detailed Format") {
         // Fix: Adjust expected QPM format
         REQUIRE(
-            fmt::format("{:d}", tempo) == "Tempo(time=150, qpm=120, mspq=500000, ttype='Tick')"
+            fmt::format("{:d}", tempo) == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')"
         );
     }
 
@@ -54,7 +54,7 @@ TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
         std::stringstream ss;
         ss << tempo;
         // Fix: Adjust expected QPM format and assume detailed format for stream op
-        REQUIRE(ss.str() == "Tempo(time=150, qpm=120, mspq=500000, ttype='Tick')");
+        REQUIRE(ss.str() == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')");
     }
 }
 
@@ -94,14 +94,14 @@ TEST_CASE("Test Tempo Formatting (Quarter)", "[repr][tempo]") {
     SECTION("Detailed Format") {
         REQUIRE(
             fmt::format("{:d}", tempo)
-            == "Tempo(time=150.75, qpm=120, mspq=500000, ttype='Quarter')"
+            == "Tempo(time=150.75, qpm=120, microseconds_per_quarter=500000, ttype='Quarter')"
         );
     }
 
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << tempo;
-        REQUIRE(ss.str() == "Tempo(time=150.75, qpm=120, mspq=500000, ttype='Quarter')");
+        REQUIRE(ss.str() == "Tempo(time=150.75, qpm=120, microseconds_per_quarter=500000, ttype='Quarter')");
     }
 }
 
@@ -140,14 +140,14 @@ TEST_CASE("Test Tempo Formatting (Second)", "[repr][tempo]") {
 
     SECTION("Detailed Format") {
         REQUIRE(
-            fmt::format("{:d}", tempo) == "Tempo(time=2.25, qpm=120, mspq=500000, ttype='Second')"
+            fmt::format("{:d}", tempo) == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')"
         );
     }
 
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << tempo;
-        REQUIRE(ss.str() == "Tempo(time=2.25, qpm=120, mspq=500000, ttype='Second')");
+        REQUIRE(ss.str() == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')");
     }
 }
 
@@ -220,26 +220,26 @@ TEST_CASE("Test TimeSignature Formatting (Tick)", "[repr][timesig]") {
 
 // Add tests for KeySignature type (Tick only)
 TEST_CASE("Test KeySignature Formatting (Tick)", "[repr][keysig]") {
-    // Assuming key=2 (D major/B minor), tonality=0 (major)
+    // Assuming key=2 (D major/B minor), minor=0 (major)
     KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(300, 2, 0);
 
     SECTION("Default/Short Format") {
-        // Assuming degree() returns 10 for key=2, tonality=0
-        REQUIRE(fmt::format("{}", ks) == "KeySignature(300, 2, 0, 10, 'Tick')");
-        REQUIRE(fmt::format("{:s}", ks) == "KeySignature(300, 2, 0, 10, 'Tick')");
+        // Assuming degree() returns 10 for key=2, minor=0
+        REQUIRE(fmt::format("{}", ks) == "KeySignature(300, 2, false, 10, 'Tick')");
+        REQUIRE(fmt::format("{:s}", ks) == "KeySignature(300, 2, false, 10, 'Tick')");
     }
 
     SECTION("Detailed Format") {
         REQUIRE(
             fmt::format("{:d}", ks)
-            == "KeySignature(time=300, key=2, tonality=0, degree=10, ttype='Tick')"
+            == "KeySignature(time=300, key=2, minor=false, degree=10, ttype='Tick')"
         );
     }
 
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << ks;
-        REQUIRE(ss.str() == "KeySignature(time=300, key=2, tonality=0, degree=10, ttype='Tick')");
+        REQUIRE(ss.str() == "KeySignature(time=300, key=2, minor=false, degree=10, ttype='Tick')");
     }
 }
 
@@ -309,7 +309,7 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 
 // Add tests for Score summary/to_string (Tick only)
 TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
-    Score<Tick> score(480);   // tpq
+    Score<Tick> score(480);   // ticks_per_quarter
     auto& track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
     track1.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
     auto& track2 = score.tracks.emplace_back(Track<Tick>("Track 2", 1, false));
@@ -321,7 +321,7 @@ TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     REQUIRE(score.end() == 960);   // end time is start + duration
 
     std::string expected_summary = fmt::format(
-        "Score(ttype=Tick, tpq=480, begin=0, end=960, tracks=2, notes=2, time_sig=1, key_sig=1, "
+        "Score(ttype=Tick, ticks_per_quarter=480, begin=0, end=960, tracks=2, notes=2, time_sig=1, key_sig=1, "
         "markers=0)"
     );
 

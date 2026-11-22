@@ -8,6 +8,7 @@ from symusic import (
     KeySignature,
     Note,
     Pedal,
+    PedalList,
     PitchBend,
     Quarter,
     Score,
@@ -43,9 +44,9 @@ def _event_cases(
         ("pitch_bend", PitchBend(time, 4096, ttype=ttype)),
         ("pedal", Pedal(time, duration, ttype=ttype)),
         ("text_meta", TextMeta(time, "marker", ttype=ttype)),
-        ("tempo", Tempo(time, mspq=500000, ttype=ttype)),
+        ("tempo", Tempo(time, microseconds_per_quarter=500000, ttype=ttype)),
         ("time_signature", TimeSignature(time, 7, 8, ttype=ttype)),
-        ("key_signature", KeySignature(time, -3, 1, ttype=ttype)),
+        ("key_signature", KeySignature(time, -3, True, ttype=ttype)),
     ]
 
 
@@ -56,13 +57,18 @@ def _build_track(ttype: type[Tick] | type[Quarter] | type[Second]):
     track.notes.append(Note(time + duration, duration, 64, 88, ttype=ttype))
     track.controls.append(ControlChange(time, 64, 127, ttype=ttype))
     track.pitch_bends.append(PitchBend(time + duration, 2048, ttype=ttype))
-    track.pedals.append(Pedal(time, duration * 2, ttype=ttype))
+    track.controls.extend(
+        [
+            ControlChange(time, 64, 127, ttype=ttype),
+            ControlChange(time + duration * 2, 64, 0, ttype=ttype),
+        ]
+    )
     track.lyrics.append(TextMeta(time + duration, "lyric", ttype=ttype))
     return track
 
 
 def _build_score(ttype: type[Tick] | type[Quarter] | type[Second]):
-    score = Score(960, ttype=ttype)
+    score = Score(ticks_per_quarter=960, ttype=ttype)
     score.tracks.append(_build_track(ttype))
 
     other_track = Track("Backing", 32, False, ttype=ttype)
@@ -70,9 +76,9 @@ def _build_score(ttype: type[Tick] | type[Quarter] | type[Second]):
     other_track.notes.append(Note(time * 2, duration, 67, 72, ttype=ttype))
     score.tracks.append(other_track)
 
-    score.tempos.append(Tempo(time, mspq=500000, ttype=ttype))
+    score.tempos.append(Tempo(time, microseconds_per_quarter=500000, ttype=ttype))
     score.time_signatures.append(TimeSignature(time, 7, 8, ttype=ttype))
-    score.key_signatures.append(KeySignature(time, -3, 1, ttype=ttype))
+    score.key_signatures.append(KeySignature(time, -3, True, ttype=ttype))
     score.markers.append(TextMeta(time + duration, "section-a", ttype=ttype))
     return score
 
@@ -105,12 +111,13 @@ def test_pickle_event_roundtrip_float_ttypes(
 
 
 def test_pickle_event_lists_roundtrip(ttype: type[Tick] | type[Quarter] | type[Second]):
+    time, duration = _time_pair(ttype)
     track = _build_track(ttype)
     event_lists = [
         track.notes,
         track.controls,
         track.pitch_bends,
-        track.pedals,
+        PedalList([Pedal(time, duration * 2, ttype=ttype)], ttype=ttype),
         track.lyrics,
     ]
 
@@ -129,7 +136,7 @@ def test_pickle_track_roundtrip(ttype: type[Tick] | type[Quarter] | type[Second]
     assert restored.notes == track.notes
     assert restored.controls == track.controls
     assert restored.pitch_bends == track.pitch_bends
-    assert restored.pedals == track.pedals
+    assert restored.pedals() == track.pedals()
     assert restored.lyrics == track.lyrics
 
 
@@ -139,7 +146,7 @@ def test_pickle_track_list_roundtrip(ttype: type[Tick] | type[Quarter] | type[Se
     time, duration = _time_pair(ttype)
     track_b.notes.append(Note(time + duration, duration, 69, 80, ttype=ttype))
 
-    score = Score(960, ttype=ttype)
+    score = Score(ticks_per_quarter=960, ttype=ttype)
     score.tracks.extend([track_a, track_b])
 
     restored = _assert_pickle_roundtrip(score.tracks)
@@ -171,9 +178,9 @@ def _restore_state(obj, state):
 def test_pickle_rejects_other_format_version(ttype, build):
     obj = build(ttype)
     marker, state = obj.__getstate__()
-    assert state.startswith(b"SYMZ\x01")
-    changed = state[:4] + b"\x02" + state[5:]
-    with pytest.raises(ValueError, match=r"version 2 .*version 1"):
+    assert state.startswith(b"SYMZ\x02")
+    changed = state[:4] + b"\x01" + state[5:]
+    with pytest.raises(ValueError, match=r"version 1 .*version 2"):
         _restore_state(obj, (marker, changed))
 
 
@@ -186,3 +193,19 @@ def test_pickle_rejects_invalid_state(ttype):
     for invalid in (b"garbage", state + b"extra"):
         with pytest.raises(ValueError, match="Invalid ZPP pickle"):
             _restore_state(obj, (marker, invalid))
+
+
+def test_pickle_roundtrips_empty_tracks():
+    score = Score()
+    score.tracks.extend([Track() for _ in range(5)])
+    assert pickle.loads(pickle.dumps(score.tracks)) == score.tracks
+
+
+def test_pickle_rejects_invalid_minor_flag():
+    signature = KeySignature(0, 0, False)
+    marker, body = signature.__getstate__()
+    # The prefix occupies five bytes, followed by the tick and signed key.
+    minor = 5 + 4 + 1
+    invalid = body[:minor] + b"\x02" + body[minor + 1 :]
+    with pytest.raises(ValueError, match="Invalid ZPP pickle"):
+        _restore_state(signature, (marker, invalid))

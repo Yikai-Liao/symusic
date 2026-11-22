@@ -57,8 +57,8 @@ def test_adjust_time(test_case: tuple[list[Note], list[int], list[int], list[Not
     notes_og, times_og, times_new, notes_expected = test_case
     midi = Score()
     midi.tracks.append(Track(notes=notes_og))
-    midi_adjusted = midi.adjust_time(times_og, times_new)
-    assert midi_adjusted.tracks[0].notes == notes_expected
+    assert midi.adjust_time(times_og, times_new) is None
+    assert midi.tracks[0].notes == notes_expected
 
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
@@ -71,34 +71,46 @@ def test_adjust_time_midi(midi_path: Path, times: tuple[list[int], list[int]]):
     _ = midi.adjust_time(times_og, times_new)
 
 
-@pytest.mark.parametrize("inplace", [False, True])
 @pytest.mark.parametrize(
     ("times_og", "times_new"),
     [([0, 10], [0]), ([0], [0]), ([10, 0], [0, 5]), ([0, 10], [5, 0])],
     ids=["unequal-size", "one-anchor", "unsorted-original", "unsorted-new"],
 )
 def test_score_adjust_time_rejects_invalid_anchors(
-    times_og: list[int], times_new: list[int], inplace: bool
+    times_og: list[int], times_new: list[int]
 ):
-    """Copy and in-place adjust_time validate the anchors the same way."""
     score = Score()
     score.tracks.append(Track(notes=NOTES_OG))
     with pytest.raises(ValueError, match="adjust_time"):
-        score.adjust_time(times_og, times_new, inplace=inplace)
+        score.adjust_time(times_og, times_new)
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_repeated_original_anchor(ttype, inplace):
-    score = Score(480, ttype=ttype)
+def test_repeated_original_anchor(ttype):
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype=ttype)], ttype=ttype))
     with pytest.raises(ValueError, match="original_times must be strictly increasing"):
-        score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
+        score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4])
     assert score.tracks[0].notes[0].time == 2
 
 
 def test_adjust_time_checks_both_note_endpoints():
-    score = Score(480)
-    score.tracks.append(Track(notes=[Note(2, -10, 60, 80)]))
-    adjusted = score.adjust_time([0, 4], [0, 8])
-    assert not adjusted.tracks[0].notes
+    score = Score(ticks_per_quarter=480)
+    score.tracks.append(Track(notes=[Note(2, 10, 60, 80)]))
+    score.adjust_time([0, 4], [0, 8])
+    assert not score.tracks[0].notes
+
+
+def test_adjust_time_overflow_leaves_other_tracks_unchanged():
+    score = Score()
+    score.tracks.extend(
+        [
+            Track(notes=[Note(0, 0, 60)]),
+            Track(notes=[Note(0, 1, 61)]),
+        ]
+    )
+    first = score.tracks[0].notes[0]
+    with pytest.raises(OverflowError):
+        score.adjust_time([0, 1], [-(2**31), 2**31 - 1])
+    assert first.time == 0
+    assert score.tracks[1].notes[0].duration == 1

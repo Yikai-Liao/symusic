@@ -69,7 +69,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
         KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(300, 2, 0);
         REQUIRE(ks.time == 300);
         REQUIRE(ks.key == 2);
-        REQUIRE(ks.tonality == 0);
+        REQUIRE(ks.minor == 0);
         REQUIRE(ks.degree() == 10);   // (2*5) % 12 + 0*12 = 10
     }
 
@@ -77,7 +77,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
         // Test tempo event with MSPQ value
         Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);
         REQUIRE(tempo.time == 150);
-        REQUIRE(tempo.mspq == 500000);
+        REQUIRE(tempo.microseconds_per_quarter == 500000);
 
         // Test qpm conversion (microseconds per quarter to quarters per minute)
         REQUIRE_THAT(tempo.qpm(), Catch::Matchers::WithinRel(120.0, 0.001));
@@ -85,7 +85,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
         // Test static factory from_qpm
         auto tempo2 = Tempo<Tick>::from_qpm(150, 120.0);
         REQUIRE(tempo2.time == 150);
-        REQUIRE(tempo2.mspq == 500000);
+        REQUIRE(tempo2.microseconds_per_quarter == 500000);
     }
 
     SECTION("PitchBend Constructor") {
@@ -123,20 +123,22 @@ TEST_CASE("Test Time Event Shift Operations", "[symusic][time_events][shifts]") 
         REQUIRE(note.time == 150);
 
         // Test pitch shifting
-        auto pitched_note = note.shift_pitch(12);
+        auto pitched_note = note;
+        pitched_note.shift_pitch(12);
         REQUIRE(pitched_note.pitch == 72);
         REQUIRE(pitched_note.time == 150);
 
         // Test inplace pitch shifting
-        note.shift_pitch_inplace(-24);
+        note.shift_pitch(-24);
         REQUIRE(note.pitch == 36);
 
         // Test velocity shifting
-        auto vel_note = note.shift_velocity(10);
+        auto vel_note = note;
+        vel_note.shift_velocity(10);
         REQUIRE(vel_note.velocity == 100);
 
         // Test inplace velocity shifting
-        note.shift_velocity_inplace(-20);
+        note.shift_velocity(-20);
         REQUIRE(note.velocity == 70);
     }
 
@@ -192,7 +194,7 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][time_events][conversion]") {
         Tempo<Tick> tick_tempo = detail::make_event<Tempo<Tick>>(480, 500000);
         Tempo<Quarter> quarter_tempo = detail::retime_event<Tempo<Quarter>>(1.0, tick_tempo);
         REQUIRE(quarter_tempo.time == 1.0);
-        REQUIRE(quarter_tempo.mspq == 500000);
+        REQUIRE(quarter_tempo.microseconds_per_quarter == 500000);
 
         TimeSignature<Tick> tick_ts = detail::make_event<TimeSignature<Tick>>(960, 6, 8);
         TimeSignature<Quarter> quarter_ts = detail::retime_event<TimeSignature<Quarter>>(2.0, tick_ts);

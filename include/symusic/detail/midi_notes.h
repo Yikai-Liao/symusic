@@ -15,18 +15,17 @@
 #include <pdqsort.h>
 
 #include "symusic/event.h"
+#include "symusic/score.h"
 #include "symusic/utils.h"
 
 namespace symusic::detail {
 
 [[nodiscard]] inline bool is_valid_midi_data_byte(const u8 value) { return value <= 0x7F; }
 
-inline void ensure_valid_midi_data_byte(
-    const char* const field_name, const u8 value, const bool sanitize_data
-) {
-    if (!sanitize_data && !is_valid_midi_data_byte(value)) {
-        throw std::runtime_error("Get " + std::string(field_name) + "=" + std::to_string(value));
-    }
+inline u8 read_midi_data_byte(const char* field, u8 value, InvalidDataBytes policy) {
+    if (is_valid_midi_data_byte(value)) return value;
+    if (policy == InvalidDataBytes::Clamp) return 127;
+    throw std::runtime_error("Get " + std::string(field) + "=" + std::to_string(value));
 }
 
 [[noreturn]] SYMUSIC_COLD inline void throw_midi_time_overflow(const u32 time) {
@@ -100,7 +99,7 @@ template<TType T, MidiNoteSink<T> Sink, typename Container, typename Convert>
 void decode_midi_track(
     const minimidi::TrackView<Container>& track,
     Convert                               tick_to_unit,
-    bool                                  sanitize_data,
+    InvalidDataBytes                      policy,
     Sink&                                 sink
 ) {
     PendingMidiNotes<T, Sink> notes;
@@ -115,49 +114,37 @@ void decode_midi_track(
         switch (msg.type()) {
         case minimidi::MessageType::NoteOn: {
             const auto& note_on = msg.template cast<minimidi::NoteOn>();
-            ensure_valid_midi_data_byte("pitch", note_on.pitch(), sanitize_data);
-            ensure_valid_midi_data_byte("velocity", note_on.velocity(), sanitize_data);
-            if (note_on.velocity() != 0) {
-                notes.begin(sink, note_on.channel(), note_on.pitch(), cur_time, note_on.velocity());
-                break;
-            }
+            const auto pitch = read_midi_data_byte("pitch", note_on.pitch(), policy);
+            const auto velocity = read_midi_data_byte("velocity", note_on.velocity(), policy);
+            if (velocity != 0)
+                notes.begin(sink, note_on.channel(), pitch, cur_time, velocity);
+            else
+                notes.end(sink, note_on.channel(), pitch, cur_time);
+            break;
         }
-            [[fallthrough]];
         case minimidi::MessageType::NoteOff: {
             const auto& note_off = msg.template cast<minimidi::NoteOff>();
-            ensure_valid_midi_data_byte("pitch", note_off.pitch(), sanitize_data);
-            ensure_valid_midi_data_byte("velocity", note_off.velocity(), sanitize_data);
-            notes.end(sink, note_off.channel(), note_off.pitch(), cur_time);
+            const auto pitch = read_midi_data_byte("pitch", note_off.pitch(), policy);
+            read_midi_data_byte("velocity", note_off.velocity(), policy);
+            notes.end(sink, note_off.channel(), pitch, cur_time);
             break;
         }
         case minimidi::MessageType::ProgramChange: {
-            const auto& program_change = msg.template cast<minimidi::ProgramChange>();
-            const u8    channel        = program_change.channel();
-            const u8    program        = program_change.program();
-            ensure_valid_midi_data_byte("program", program, sanitize_data);
-            sink.set_program(channel, program);
+            const auto& change = msg.template cast<minimidi::ProgramChange>();
+            sink.set_program(change.channel(), read_midi_data_byte("program", change.program(), policy));
             break;
         }
         case minimidi::MessageType::ControlChange: {
-            const auto& control_change = msg.template cast<minimidi::ControlChange>();
-            const u8    channel        = control_change.channel();
-
-            const u8 control_number = control_change.control_number();
-            const u8 control_value  = control_change.control_value();
-
-            ensure_valid_midi_data_byte("control_number", control_number, sanitize_data);
-            ensure_valid_midi_data_byte("control_value", control_value, sanitize_data);
-            sink.add_control(channel, cur_time, control_number, control_value);
+            const auto& change = msg.template cast<minimidi::ControlChange>();
+            const auto number = read_midi_data_byte("control_number", change.control_number(), policy);
+            const auto value = read_midi_data_byte("control_value", change.control_value(), policy);
+            sink.add_control(change.channel(), cur_time, number, value);
             break;
         }
         case minimidi::MessageType::PitchBend: {
-            const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
-            auto        value      = pitch_bend.pitch_bend();
-            if (!sanitize_data
-                && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                    || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
-                throw std::runtime_error("Get pitch_bend=" + std::to_string(value));
-            sink.add_pitch_bend(pitch_bend.channel(), cur_time, value);
+            const auto low = read_midi_data_byte("pitch_bend", msg.data()[0], policy);
+            const auto high = read_midi_data_byte("pitch_bend", msg.data()[1], policy);
+            sink.add_pitch_bend(msg.channel(), cur_time, (high << 7) + low - 8192);
             break;
         }
             // Meta Message
@@ -179,14 +166,17 @@ void decode_midi_track(
                 break;
             }
             case (minimidi::MetaType::SetTempo): {
-                // store the raw tempo value(mspq) directly
+                // store the raw tempo value(microseconds_per_quarter) directly
                 // qpm is calculated when needed
                 sink.add(symusic::detail::make_event<Tempo<T>>(cur_time, meta.template cast<minimidi::SetTempo>().tempo()));
                 break;
             }
             case (minimidi::MetaType::KeySignature): {
                 const auto& k_msg = meta.template cast<minimidi::KeySignature>();
-                sink.add(symusic::detail::make_event<KeySignature<T>>(cur_time, k_msg.key(), k_msg.tonality()));
+                if (k_msg.tonality() > 1) {
+                    throw std::runtime_error("Invalid MIDI key signature mode");
+                }
+                sink.add(make_event<KeySignature<T>>(cur_time, k_msg.key(), k_msg.tonality() != 0));
                 break;
             }
             case (minimidi::MetaType::Lyric): {

@@ -38,7 +38,8 @@ TEST_CASE("Concurrent renders serialize FluidSynth sample-cache access", "[symus
     auto       failing_render = std::async(std::launch::async, [&] {
         Score<Tick> score{480};
         score.tracks.emplace_back();
-        score.tracks.back().notes.push_back(detail::make_event<Note<Tick>>(0, 480, -1, 100));
+        score.tracks.back().notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
+        score.tracks.back().notes.back().pitch = -1;
         ready.wait();
         try {
             (void)first.render(score);

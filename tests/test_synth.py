@@ -12,7 +12,6 @@ import pytest
 from symusic import (
     ControlChange,
     Note,
-    Pedal,
     PitchBend,
     Quarter,
     Score,
@@ -129,7 +128,7 @@ def synth(soundfont: Path) -> Synthesizer:
 
 @pytest.fixture
 def score() -> Score:
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     track = Track(program=0, is_drum=False, name="sine")
     track.notes.append(Note(0, 480, 69, 100))
     score.tracks.append(track)
@@ -149,13 +148,6 @@ def test_render_shape_and_dtype(synth: Synthesizer, score: Score, stereo: bool) 
 @pytest.mark.parametrize("unit", [Tick, Quarter, Second])
 def test_render_time_units(synth: Synthesizer, score: Score, unit: str) -> None:
     np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
-
-
-def test_render_ignores_pedals(synth, score):
-    expected = synth.render(score)
-    # Converting this unused pedal's end to seconds would overflow its tick time.
-    score.tracks[0].pedals.append(Pedal(2**31 - 1, 1))
-    np.testing.assert_array_equal(synth.render(score), expected)
 
 
 def test_render_tempo_changes(synth, score):
@@ -361,19 +353,9 @@ def test_render_malformed_soundfont(score, tmp_path):
 
 
 @pytest.mark.parametrize("unit", [Tick, Quarter, Second])
-def test_render_rejects_negative_duration(synth, score, unit):
-    score = score.to(unit)
-    score.tracks[0].notes[0].duration = -1
-    with pytest.raises(
-        ValueError, match="Note duration must be finite and nonnegative"
-    ):
-        synth.render(score)
-
-
-def test_second_duration_validation_follows_scheduler_order(synth, score):
-    seconds = score.to(Second)
-    note = seconds.tracks[0].notes[0]
-    note.pitch = -1
-    note.duration = -1
-    with pytest.raises(ValueError, match="MIDI data must be in the range 0 to 127"):
-        synth.render(seconds)
+def test_note_duration_setter_rejects_negative_values(score, unit):
+    note = score.to(unit).tracks[0].notes[0]
+    original = note.duration
+    with pytest.raises(ValueError, match="duration"):
+        note.duration = -1
+    assert note.duration == original

@@ -80,7 +80,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
         REQUIRE(detail::make_event<Note<Tick>>(kMax - 5, 5, 60, 80).end() == kMax);
         REQUIRE_THROWS_AS(detail::make_event<Note<Tick>>(kMax - 5, 6, 60, 80).end(), std::overflow_error);
         REQUIRE_THROWS_AS(detail::make_event<Pedal<Tick>>(kMax, 1).end(), std::overflow_error);
-        REQUIRE_THROWS_AS(detail::make_event<Pedal<Tick>>(kMin, -1).end(), std::overflow_error);
+        REQUIRE_THROWS_AS(detail::make_event<Pedal<Tick>>(kMin, -1), std::invalid_argument);
         // Float units do not overflow
         REQUIRE(
             detail::make_event<Note<Quarter>>(3.0e38f, 3.0e38f, 60, 80).end() == std::numeric_limits<f32>::infinity()
@@ -114,7 +114,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
         notes.push_back(detail::make_event<Note<Tick>>(kMax - 5, 100, 60, 80));
         notes.push_back(detail::make_event<Note<Tick>>(kMax - 5, 5, 60, 80));
         notes.push_back(detail::make_event<Note<Tick>>(0, 10, 60, 80));
-        ops::clip_inplace(notes, 0, kMax, true);
+        ops::clip(notes, 0, kMax, true);
         auto& clipped = notes;
         REQUIRE(clipped.size() == 2);
         REQUIRE(clipped[0].time == kMax - 5);
@@ -124,18 +124,18 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
     SECTION("trim with extreme values") {
         vec<Note<Tick>> notes;
         notes.push_back(detail::make_event<Note<Tick>>(kMax - 10, 100, 60, 80));
-        ops::trim_inplace(notes, 0, kMax, 0, "retain", "truncate");
+        ops::trim(notes, 0, kMax, 0, "retain", "truncate");
         REQUIRE(notes.size() == 1);
         REQUIRE(notes[0].duration == 10);
 
         vec<Note<Tick>> removed;
         removed.push_back(detail::make_event<Note<Tick>>(kMax - 10, 100, 60, 80));
-        ops::trim_inplace(removed, 0, kMax);
+        ops::trim(removed, 0, kMax);
         REQUIRE(removed.empty());
 
         vec<Note<Tick>> head;
         head.push_back(detail::make_event<Note<Tick>>(kMin + 10, 100, 60, 80));
-        ops::trim_inplace(head, kMin + 20, kMax, 0, "truncate", "remove");
+        ops::trim(head, kMin + 20, kMax, 0, "truncate", "remove");
         REQUIRE(head.size() == 1);
         REQUIRE(head[0].time == kMin + 20);
         REQUIRE(head[0].duration == 90);
@@ -145,21 +145,21 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
         Track<Tick> track("t", 0, false);
         track.notes.push_back(detail::make_event<Note<Tick>>(1, 0, 60, 80));
         REQUIRE_THROWS_AS(
-            ops::adjust_time_inplace(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
+            ops::adjust_time(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
             std::overflow_error
         );
 
         // Events ending past the last original time are dropped, not wrapped
         Track<Tick> tail("t", 0, false);
         tail.notes.push_back(detail::make_event<Note<Tick>>(kMax - 1, 5, 60, 80));
-        ops::adjust_time_inplace(tail, vec<i32>{0, kMax}, vec<i32>{0, kMax});
+        ops::adjust_time(tail, vec<i32>{0, kMax}, vec<i32>{0, kMax});
         REQUIRE(tail.notes.empty());
 
         // Equal original times give an infinite scale factor
         Track<Tick> flat("t", 0, false);
         flat.notes.push_back(detail::make_event<Note<Tick>>(0, 0, 60, 80));
         REQUIRE_THROWS_AS(
-            ops::adjust_time_inplace(flat, vec<i32>{0, 0}, vec<i32>{0, 10}), std::invalid_argument
+            ops::adjust_time(flat, vec<i32>{0, 0}, vec<i32>{0, 10}), std::invalid_argument
         );
     }
 }
@@ -192,18 +192,18 @@ TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
     constexpr f64 kInf  = std::numeric_limits<f64>::infinity();
     constexpr f32 kInff = std::numeric_limits<f32>::infinity();
 
-    SECTION("qpm2mspq") {
-        REQUIRE(Tempo<Tick>::qpm2mspq(120.0) == 500000);
-        REQUIRE(Tempo<Tick>::qpm2mspq(60000000.0) == 1);
+    SECTION("qpm_to_microseconds_per_quarter") {
+        REQUIRE(Tempo<Tick>::qpm_to_microseconds_per_quarter(120.0) == 500000);
+        REQUIRE(Tempo<Tick>::qpm_to_microseconds_per_quarter(60000000.0) == 1);
         for (const f64 qpm : {0.0, -1.0, -kInf, kInf, kNan, 1.0e300, 1.0e9}) {
-            REQUIRE_THROWS_AS(Tempo<Tick>::qpm2mspq(qpm), std::invalid_argument);
+            REQUIRE_THROWS_AS(Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::invalid_argument);
         }
         for (const f64 qpm : {1.0e-3, 1.0e-300, 5.0e-324}) {
-            REQUIRE_THROWS_AS(Tempo<Tick>::qpm2mspq(qpm), std::overflow_error);
+            REQUIRE_THROWS_AS(Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::overflow_error);
         }
         Tempo<Second> tempo = detail::make_event<Tempo<Second>>(0.0f, 500000);
         REQUIRE_THROWS_AS(tempo.set_qpm(kNan), std::invalid_argument);
-        REQUIRE(tempo.mspq == 500000);
+        REQUIRE(tempo.microseconds_per_quarter == 500000);
     }
 
     SECTION("Quarter to Tick") {
@@ -234,9 +234,10 @@ TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
         REQUIRE_THROWS_AS(convert<Tick>(score), std::invalid_argument);
     }
 
-    SECTION("Second to Tick with a zero mspq tempo") {
+    SECTION("Second to Tick with a zero microseconds_per_quarter tempo") {
         Score<Second> score(480);
-        score.tempos.push_back(detail::make_event<Tempo<Second>>(0.0f, 0));
+        score.tempos.emplace_back();
+        score.tempos.back().microseconds_per_quarter = 0;
         auto track = Track<Second>("t", 0, false);
         track.notes.push_back(detail::make_event<Note<Second>>(1.0f, 1.0f, 60, 80));
         score.tracks.push_back(track);

@@ -47,15 +47,15 @@ struct SimpleTimeConverter {
     template<template<class> class Event, typename Range>
         requires HashDuration<Event<From>>
     [[nodiscard]] vec<Event<To>> duration_vec(
-        const Range& data, typename To::unit min_dur
+        const Range& data, typename To::unit min_duration
     ) const {
-        min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
+        min_duration = std::max(min_duration, static_cast<typename To::unit>(0));
 
         vec<Event<To>> converted;
         converted.reserve(data.size());
         for (const auto& event : data) {
             converted.push_back(detail::retime_event<Event<To>>(
-                time_value(event.time), std::max(min_dur, time_value(event.duration)), event
+                time_value(event.time), std::max(min_duration, time_value(event.duration)), event
             ));
         }
         return converted;
@@ -73,7 +73,7 @@ struct SecondTimeConverter {
         f64                             factor;
     };
 
-    f64            tpq;
+    f64            ticks_per_quarter;
     vec<to_unit>   to_times;
     vec<from_unit> from_times;
     vec<f64>       factors;
@@ -81,7 +81,7 @@ struct SecondTimeConverter {
 
     template<typename S>
     explicit SecondTimeConverter(const Score<From, S>& score) :
-        tpq(static_cast<f64>(score.ticks_per_quarter)) {
+        ticks_per_quarter(static_cast<f64>(score.ticks_per_quarter)) {
         constexpr i32 default_mspq = 500000;
         const auto& source_tempos = S::get(score.tempos);
         vec<Tempo<From>> tempos(source_tempos.begin(), source_tempos.end());
@@ -95,8 +95,8 @@ struct SecondTimeConverter {
         const auto origin = zero - tempos.begin();
         if (zero == tempos.end() || zero->time != from_unit{0}) {
             // Carry an active negative-time tempo across the origin.
-            const auto mspq = zero == tempos.begin() ? default_mspq : std::prev(zero)->mspq;
-            tempos.insert(zero, detail::make_event<Tempo<From>>(from_unit{0}, mspq));
+            const auto microseconds_per_quarter = zero == tempos.begin() ? default_mspq : std::prev(zero)->microseconds_per_quarter;
+            tempos.insert(zero, detail::make_event<Tempo<From>>(from_unit{0}, microseconds_per_quarter));
         }
 
         const auto self = static_cast<const Converter*>(this);
@@ -171,9 +171,9 @@ struct SecondTimeConverter {
     template<template<class> class Event, typename Range>
         requires HashDuration<Event<From>>
     [[nodiscard]] vec<Event<To>> duration_vec(
-        const Range& data, typename To::unit min_dur
+        const Range& data, typename To::unit min_duration
     ) const {
-        min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
+        min_duration = std::max(min_duration, static_cast<typename To::unit>(0));
 
         vec<Event<To>> converted;
         converted.reserve(data.size());
@@ -190,7 +190,7 @@ struct SecondTimeConverter {
             update_state(state, end_time);
             const auto end
                 = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
-            converted.push_back(retime_event<Event<To>>(start, std::max(min_dur, sub_time<to_unit>(end, start)), event));
+            converted.push_back(retime_event<Event<To>>(start, std::max(min_duration, sub_time<to_unit>(end, start)), event));
         }
         return converted;
     }
@@ -245,26 +245,26 @@ struct Second2SecondConverter : SimpleTimeConverter<Second2SecondConverter, Seco
 };
 
 struct Tick2QuarterConverter : SimpleTimeConverter<Tick2QuarterConverter, Quarter, Tick> {
-    f32 tpq;
+    f32 ticks_per_quarter;
 
     template<typename S>
     explicit Tick2QuarterConverter(const Score<Tick, S>& score) :
-        SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
+        SimpleTimeConverter(score), ticks_per_quarter(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Quarter::unit time(const Tick::unit value) const {
-        return static_cast<Quarter::unit>(value) / tpq;
+        return static_cast<Quarter::unit>(value) / ticks_per_quarter;
     }
 };
 
 struct Quarter2TickConverter : SimpleTimeConverter<Quarter2TickConverter, Tick, Quarter> {
-    f32 tpq;
+    f32 ticks_per_quarter;
 
     template<typename S>
     explicit Quarter2TickConverter(const Score<Quarter, S>& score) :
-        SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
+        SimpleTimeConverter(score), ticks_per_quarter(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Tick::unit time(const Quarter::unit value) const {
-        return round_to_i32(value * tpq);
+        return round_to_i32(value * ticks_per_quarter);
     }
 };
 
@@ -272,7 +272,7 @@ struct Tick2SecondConverter : SecondTimeConverter<Tick2SecondConverter, Second, 
     using SecondTimeConverter<Tick2SecondConverter, Second, Tick>::SecondTimeConverter;
 
     [[nodiscard]] f64 get_factor(const Tempo<Tick>& tempo) const {
-        return static_cast<f64>(tempo.mspq) / 1000000. / tpq;
+        return static_cast<f64>(tempo.microseconds_per_quarter) / 1000000. / ticks_per_quarter;
     }
 
     [[nodiscard]] static Second::unit get_time(
@@ -289,7 +289,7 @@ struct Second2TickConverter : SecondTimeConverter<Second2TickConverter, Tick, Se
     using SecondTimeConverter<Second2TickConverter, Tick, Second>::SecondTimeConverter;
 
     [[nodiscard]] f64 get_factor(const Tempo<Second>& tempo) const {
-        return 1000000. * tpq / static_cast<f64>(tempo.mspq);
+        return 1000000. * ticks_per_quarter / static_cast<f64>(tempo.microseconds_per_quarter);
     }
 
     [[nodiscard]] static Tick::unit get_time(
@@ -306,7 +306,7 @@ struct Quarter2SecondConverter : SecondTimeConverter<Quarter2SecondConverter, Se
     using SecondTimeConverter<Quarter2SecondConverter, Second, Quarter>::SecondTimeConverter;
 
     [[nodiscard]] static f64 get_factor(const Tempo<Quarter>& tempo) {
-        return static_cast<f64>(tempo.mspq) / 1000000.;
+        return static_cast<f64>(tempo.microseconds_per_quarter) / 1000000.;
     }
 
     [[nodiscard]] static Second::unit get_time(
@@ -323,7 +323,7 @@ struct Second2QuarterConverter : SecondTimeConverter<Second2QuarterConverter, Qu
     using SecondTimeConverter<Second2QuarterConverter, Quarter, Second>::SecondTimeConverter;
 
     [[nodiscard]] static f64 get_factor(const Tempo<Second>& tempo) {
-        return 1000000. / static_cast<f64>(tempo.mspq);
+        return 1000000. / static_cast<f64>(tempo.microseconds_per_quarter);
     }
 
     [[nodiscard]] static Quarter::unit get_time(

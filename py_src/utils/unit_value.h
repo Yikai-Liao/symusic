@@ -104,11 +104,5 @@ auto unit_class(
     return type;
 }
 
-template<class Value, class Function>
-nb::object transform(nb::handle python_self, bool inplace, Function&& function) {
-    const auto& self   = nb::cast<const Value&>(python_self);
-    Value       result = self.visit(std::forward<Function>(function));
-    return inplace ? nb::borrow(python_self) : nb::cast(std::move(result));
-}
 
 }   // namespace symusic::py

@@ -14,15 +14,15 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
     SECTION("Tick to Quarter Conversion") {
         // Test simple conversion from Tick to Quarter
         // Assuming 480 ticks per quarter note
-        int tpq = 480;
+        int ticks_per_quarter = 480;
 
         // Test direct value conversion
         Tick::unit    tick_val    = 960;   // 2 quarters
-        Quarter::unit quarter_val = tick_to_quarter(tick_val, tpq);
+        Quarter::unit quarter_val = tick_to_quarter(tick_val, ticks_per_quarter);
         REQUIRE_THAT(double(quarter_val), Catch::Matchers::WithinRel(2.0, 0.0001));
 
         // Test reverse conversion
-        Tick::unit tick_val_round_trip = quarter_to_tick(quarter_val, tpq);
+        Tick::unit tick_val_round_trip = quarter_to_tick(quarter_val, ticks_per_quarter);
         REQUIRE(tick_val_round_trip == tick_val);
     }
 
@@ -30,16 +30,16 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
         // Test conversion from Quarter to Second
         // Using a tempo of 120 BPM (500000 microseconds per quarter)
         Quarter::unit quarter_val = 2.0;      // 2 quarters
-        int           mspq        = 500000;   // microseconds per quarter (120 BPM)
+        int           microseconds_per_quarter        = 500000;   // microseconds per quarter (120 BPM)
 
         // Test direct conversion
-        Second::unit second_val = quarter_to_second(quarter_val, mspq);
+        Second::unit second_val = quarter_to_second(quarter_val, microseconds_per_quarter);
         REQUIRE_THAT(
             double(second_val), Catch::Matchers::WithinRel(1.0, 0.0001)
         );   // 2 quarters at 120BPM = 1 second
 
         // Test reverse conversion
-        Quarter::unit quarter_val_round_trip = second_to_quarter(second_val, mspq);
+        Quarter::unit quarter_val_round_trip = second_to_quarter(second_val, microseconds_per_quarter);
         REQUIRE_THAT(
             double(quarter_val_round_trip), Catch::Matchers::WithinRel(double(quarter_val), 0.0001)
         );
@@ -49,17 +49,17 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
         // Test conversion from Tick directly to Second
         // Using a tempo of 120 BPM (500000 microseconds per quarter) and 480 ticks per quarter
         Tick::unit tick_val = 960;   // 2 quarters
-        int        tpq      = 480;
-        int        mspq     = 500000;   // microseconds per quarter (120 BPM)
+        int        ticks_per_quarter      = 480;
+        int        microseconds_per_quarter     = 500000;   // microseconds per quarter (120 BPM)
 
         // Test direct conversion
-        Second::unit second_val = tick_to_second(tick_val, tpq, mspq);
+        Second::unit second_val = tick_to_second(tick_val, ticks_per_quarter, microseconds_per_quarter);
         REQUIRE_THAT(
             double(second_val), Catch::Matchers::WithinRel(1.0, 0.0001)
-        );   // 960 ticks at 480 tpq and 120BPM = 1 second
+        );   // 960 ticks at 480 ticks_per_quarter and 120BPM = 1 second
 
         // Test reverse conversion
-        Tick::unit tick_val_round_trip = second_to_tick(second_val, tpq, mspq);
+        Tick::unit tick_val_round_trip = second_to_tick(second_val, ticks_per_quarter, microseconds_per_quarter);
         REQUIRE(tick_val_round_trip == tick_val);
     }
 }
@@ -123,7 +123,7 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
 
     SECTION("Tick to Second with Tempo Change") {
         // Create a sequence of tempo changes
-        int                      tpq    = 480;
+        int                      ticks_per_quarter    = 480;
         std::vector<Tempo<Tick>> tempos = {
             detail::make_event<Tempo<Tick>>(0, 500000),       // 120 BPM at time 0
             detail::make_event<Tempo<Tick>>(1920, 1000000),   // 60 BPM at time 4 quarters (1920 ticks)
@@ -134,17 +134,17 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
 
         // Before first tempo change - 120 BPM
         REQUIRE_THAT(
-            double(tick_to_second(960, tpq, tempos)), Catch::Matchers::WithinRel(1.0, 0.0001)
+            double(tick_to_second(960, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(1.0, 0.0001)
         );
 
         // Between first and second tempo changes - 60 BPM
         REQUIRE_THAT(
-            double(tick_to_second(2880, tpq, tempos)), Catch::Matchers::WithinRel(4.0, 0.0001)
+            double(tick_to_second(2880, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(4.0, 0.0001)
         );
 
         // After all tempo changes - 240 BPM
         REQUIRE_THAT(
-            double(tick_to_second(4800, tpq, tempos)), Catch::Matchers::WithinRel(6.5, 0.0001)
+            double(tick_to_second(4800, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(6.5, 0.0001)
         );   // Corrected to 6.5 based on actual test results
     }
 }
@@ -172,7 +172,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Add events directly without shared_ptr
         track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 60, 100));
         track.controls.push_back(detail::make_event<ControlChange<Tick>>(240, 7, 100));
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(360, 8192));
+        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(360, 0));
 
         tick_score.tracks.push_back(track);
 
@@ -196,12 +196,12 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
             Catch::Matchers::WithinRel(0.5, 0.0001)
         );
         REQUIRE(quarter_score.key_signatures.at(0).key == 0);
-        REQUIRE(quarter_score.key_signatures.at(0).tonality == true);
+        REQUIRE(quarter_score.key_signatures.at(0).minor == true);
 
         // Verify tempo conversion
         REQUIRE(quarter_score.tempos.size() == 1);
         REQUIRE(quarter_score.tempos.at(0).time == 0.0f);
-        REQUIRE(quarter_score.tempos.at(0).mspq == 500000);
+        REQUIRE(quarter_score.tempos.at(0).microseconds_per_quarter == 500000);
 
         // Verify marker conversion
         REQUIRE(quarter_score.markers.size() == 1);
@@ -240,7 +240,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         REQUIRE_THAT(
             double(quarter_track.pitch_bends.at(0).time), Catch::Matchers::WithinRel(0.75, 0.0001)
         );
-        REQUIRE(quarter_track.pitch_bends.at(0).value == 8192);
+        REQUIRE(quarter_track.pitch_bends.at(0).value == 0);
     }
 
     SECTION("Quarter to Tick Score Conversion") {
@@ -259,7 +259,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Add events directly without shared_ptr
         track.notes.push_back(detail::make_event<Note<Quarter>>(1.0f, 1.0f, 60, 100));
         track.controls.push_back(detail::make_event<ControlChange<Quarter>>(0.5f, 7, 100));
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Quarter>>(0.75f, 8192));
+        track.pitch_bends.push_back(detail::make_event<PitchBend<Quarter>>(0.75f, 0));
 
         quarter_score.tracks.push_back(track);
 
@@ -280,12 +280,12 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         REQUIRE(tick_score.key_signatures.size() == 1);
         REQUIRE(tick_score.key_signatures.at(0).time == 240);
         REQUIRE(tick_score.key_signatures.at(0).key == 0);
-        REQUIRE(tick_score.key_signatures.at(0).tonality == true);
+        REQUIRE(tick_score.key_signatures.at(0).minor == true);
 
         // Verify tempo conversion
         REQUIRE(tick_score.tempos.size() == 1);
         REQUIRE(tick_score.tempos.at(0).time == 0);
-        REQUIRE(tick_score.tempos.at(0).mspq == 500000);
+        REQUIRE(tick_score.tempos.at(0).microseconds_per_quarter == 500000);
 
         // Verify marker conversion
         REQUIRE(tick_score.markers.size() == 1);
@@ -314,7 +314,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Verify pitch bend conversion
         REQUIRE(tick_track.pitch_bends.size() == 1);
         REQUIRE(tick_track.pitch_bends.at(0).time == 360);
-        REQUIRE(tick_track.pitch_bends.at(0).value == 8192);
+        REQUIRE(tick_track.pitch_bends.at(0).value == 0);
     }
 
     SECTION("Tick to Second Score Conversion") {
@@ -343,7 +343,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Verify tempo conversion
         REQUIRE(second_score.tempos.size() == 1);
         REQUIRE(second_score.tempos.at(0).time == 0.0f);
-        REQUIRE(second_score.tempos.at(0).mspq == 500000);
+        REQUIRE(second_score.tempos.at(0).microseconds_per_quarter == 500000);
 
         // Verify track conversion
         auto& second_track = second_score.tracks.at(0);
@@ -394,7 +394,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Verify tempo conversion
         REQUIRE(tick_score.tempos.size() == 1);
         REQUIRE(tick_score.tempos.at(0).time == 0);
-        REQUIRE(tick_score.tempos.at(0).mspq == 500000);
+        REQUIRE(tick_score.tempos.at(0).microseconds_per_quarter == 500000);
 
         // Verify track conversion
         auto& tick_track = tick_score.tracks.at(0);

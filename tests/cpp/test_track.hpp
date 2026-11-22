@@ -19,7 +19,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         REQUIRE(track.notes.empty());
         REQUIRE(track.controls.empty());
         REQUIRE(track.pitch_bends.empty());
-        REQUIRE(track.pedals.empty());
+        REQUIRE(track.pedals().empty());
         REQUIRE(track.lyrics.empty());
     }
 
@@ -74,10 +74,10 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume control
 
         vec<PitchBend<Tick>> pitch_bends;
-        pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(50, 8192));   // Center value pitch bend
+        pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(50, 0));   // Center value pitch bend
 
-        vec<Pedal<Tick>> pedals;
-        pedals.push_back(detail::make_event<Pedal<Tick>>(0, 200));   // Hold pedal for 200 ticks
+        controls.push_back(detail::make_event<ControlChange<Tick>>(0, 64, 127));
+        controls.push_back(detail::make_event<ControlChange<Tick>>(200, 64, 0));
 
         vec<TextMeta<Tick>> lyrics;
         lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "La"));
@@ -90,16 +90,15 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
             std::move(notes),
             std::move(controls),
             std::move(pitch_bends),
-            std::move(pedals),
             std::move(lyrics)
         );
 
         REQUIRE(event_track.name == "Event Track");
         REQUIRE(event_track.program == 5);
         REQUIRE(event_track.notes.size() == 2);
-        REQUIRE(event_track.controls.size() == 1);
+        REQUIRE(event_track.controls.size() == 3);
         REQUIRE(event_track.pitch_bends.size() == 1);
-        REQUIRE(event_track.pedals.size() == 1);
+        REQUIRE(event_track.pedals().size() == 1);
         REQUIRE(event_track.lyrics.size() == 1);
     }
 
@@ -153,10 +152,11 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     track.controls.push_back(detail::make_event<ControlChange<Tick>>(100, 10, 64));   // Pan
 
     // Add pitch bends
-    track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(150, 8192 + 4096));   // 1/3 up bend
+    track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(150, 4096));   // 1/3 up bend
 
     // Add pedals
-    track.pedals.push_back(detail::make_event<Pedal<Tick>>(0, 300));   // Pedal pressed for 300 ticks
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 64, 127));
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(300, 64, 0));
 
     // Add lyrics
     track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "Do"));
@@ -178,7 +178,7 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         REQUIRE(copied.notes == track.notes);
 
         // Test deep copy
-        Track<Tick> deep_copied = track.deepcopy();
+        Track<Tick> deep_copied = track.copy();
         REQUIRE(deep_copied == track);
         REQUIRE(deep_copied.notes.data() != track.notes.data());
         REQUIRE(deep_copied.notes == track.notes);             // Same content
@@ -200,8 +200,8 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         REQUIRE(track.end() == 300);   // Last ending event is pedal (0+300)
     }
 
-    SECTION("note_num() method") {
-        REQUIRE(track.note_num() == 3);   // 3 notes
+    SECTION("note_count() method") {
+        REQUIRE(track.notes.size() == 3);   // 3 notes
     }
 
     SECTION("empty() method") {
@@ -219,7 +219,7 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         REQUIRE_FALSE(summary.empty());
     }
 
-    SECTION("sort() and sort_inplace() methods") {
+    SECTION("sort() methods") {
         // Create a Track that needs sorting
         Track<Tick> unsorted("Unsorted", 0, false);
         unsorted.notes.push_back(detail::make_event<Note<Tick>>(200, 100, 60, 100));
@@ -227,62 +227,66 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         unsorted.notes.push_back(detail::make_event<Note<Tick>>(100, 100, 64, 100));
 
         // Test non-inplace sort
-        Track<Tick> sorted = unsorted.sort();
+        Track<Tick> sorted = unsorted;
+        sorted.sort();
         REQUIRE(sorted.notes.at(0).time == 0);
         REQUIRE(sorted.notes.at(1).time == 100);
         REQUIRE(sorted.notes.at(2).time == 200);
 
         // Test inplace sort
-        unsorted.sort_inplace();
+        unsorted.sort();
         REQUIRE(unsorted.notes.at(0).time == 0);
         REQUIRE(unsorted.notes.at(1).time == 100);
         REQUIRE(unsorted.notes.at(2).time == 200);
     }
 
-    SECTION("clip() and clip_inplace() methods") {
+    SECTION("clip() methods") {
         // Test non-inplace clip
         Track<Tick> clipped = track.clip(50, 150, false);
         REQUIRE(clipped.notes.size() == 1);      // Only one note in range (100-200)
         REQUIRE(clipped.controls.size() == 1);   // Only one control in range (100)
 
         // Test inplace clip
-        track.clip_inplace(50, 150, false);
+        track = track.clip(50, 150, false);
         REQUIRE(track.notes.size() == 1);
         REQUIRE(track.controls.size() == 1);
     }
 
-    SECTION("shift_time() and shift_time_inplace() methods") {
+    SECTION("shift_time() methods") {
         // Test non-inplace time shift
-        Track<Tick> shifted = track.shift_time(50);
+        Track<Tick> shifted = track;
+        shifted.shift_time(50);
         REQUIRE(shifted.notes.at(0).time == 50);    // 0 -> 50
         REQUIRE(shifted.notes.at(1).time == 150);   // 100 -> 150
 
         // Test inplace time shift
-        track.shift_time_inplace(50);
+        track.shift_time(50);
         REQUIRE(track.notes.at(0).time == 50);
         REQUIRE(track.notes.at(1).time == 150);
     }
 
-    SECTION("shift_pitch() and shift_pitch_inplace() methods") {
+    SECTION("shift_pitch() methods") {
         // Test non-inplace pitch shift
-        Track<Tick> pitched = track.shift_pitch(12);   // Up one octave
+        Track<Tick> pitched = track;
+        pitched.shift_pitch(12);   // Up one octave
         REQUIRE(pitched.notes.at(0).pitch == 72);     // C4 -> C5
         REQUIRE(pitched.notes.at(1).pitch == 74);     // D4 -> D5
 
         // Test inplace pitch shift
-        track.shift_pitch_inplace(12);
+        track.shift_pitch(12);
         REQUIRE(track.notes.at(0).pitch == 72);
         REQUIRE(track.notes.at(1).pitch == 74);
     }
 
-    SECTION("shift_velocity() and shift_velocity_inplace() methods") {
+    SECTION("shift_velocity() methods") {
         // Test non-inplace velocity shift
-        Track<Tick> velocitied = track.shift_velocity(10);
+        Track<Tick> velocitied = track;
+        velocitied.shift_velocity(10);
         REQUIRE(velocitied.notes.at(0).velocity == 110);
         REQUIRE(velocitied.notes.at(1).velocity == 110);
 
         // Test inplace velocity shift
-        track.shift_velocity_inplace(10);
+        track.shift_velocity(10);
         REQUIRE(track.notes.at(0).velocity == 110);
         REQUIRE(track.notes.at(1).velocity == 110);
     }

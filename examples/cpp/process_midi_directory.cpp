@@ -30,7 +30,7 @@ std::vector<uint8_t> read_file_to_bytes(const fs::path& path) {
 size_t count_notes(const symusic::Score<symusic::Tick>& score) {
     size_t note_count = 0;
     for (const auto& track : score.tracks) {
-        note_count += track.note_num();
+        note_count += track.notes.size();
     }
     return note_count;
 }
@@ -204,9 +204,9 @@ int main(int argc, char** argv) {
             // Assuming DataFormat is symusic::DataFormat or symusic::io::DataFormat
             // Assuming parse is symusic::parse or symusic::io::parse
             const symusic::Score<symusic::Tick> score
-                = symusic::parse<symusic::DataFormat::MIDI, symusic::Score<symusic::Tick>>(
+                = symusic::Score<symusic::Tick>::from_midi(
                     data_span,
-                    true   // sanitize_data
+                    {symusic::InvalidDataBytes::Clamp}
                 );
 
             size_t notes = count_notes(score);

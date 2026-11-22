@@ -31,7 +31,7 @@ def simple_track():
 @pytest.fixture
 def simple_score(simple_track):
     """Create a simple score with one track."""
-    score = Score(480)  # 480 ticks per quarter note
+    score = Score(ticks_per_quarter=480)  # 480 ticks per quarter note
     score.tracks.append(simple_track)
     return score
 
@@ -192,7 +192,7 @@ def test_score_pianoroll_outlives_builder_scope():
     """Test that score-backed ndarray ownership survives after the builder scope exits."""
 
     def build_pianoroll():
-        score = Score(480)
+        score = Score(ticks_per_quarter=480)
         track = Track("Piano", 0, False)
         track.notes.append(Note(0, 480, 60, 100))
         track.notes.append(Note(960, 240, 67, 70))
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
 @pytest.mark.parametrize(
     ("time", "duration"),
-    [(-5, 10), (20, -5), (-5, -5), (-(2**31), 10)],
+    [(-5, 10), (-(2**31), 10)],
 )
 def test_pianoroll_rejects_negative_time_or_duration(simple_track, time, duration):
     """Negative times and durations raise instead of writing out of bounds."""
@@ -221,7 +221,7 @@ def test_pianoroll_rejects_negative_time_or_duration(simple_track, time, duratio
     with pytest.raises(ValueError, match="pianoroll"):
         simple_track.pianoroll(modes=["frame", "onset", "offset"])
 
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tracks.append(simple_track)
     with pytest.raises(ValueError, match="pianoroll"):
         score.pianoroll(modes=["frame", "onset", "offset"])
@@ -253,11 +253,6 @@ def test_pianoroll_zero_duration_note(simple_track):
     assert roll[2, 61, 5] == 80
 
 
-def test_pianoroll_rejects_negative_encoded_velocity():
-    track = Track(notes=[Note(0, 1, 60, -1)])
-    score = Score(480)
-    score.tracks.append(track)
-    for source in (track, score):
-        with pytest.raises(ValueError, match=r"velocity.*-1"):
-            source.pianoroll(encode_velocity=True)
-        assert source.pianoroll(encode_velocity=False).any()
+def test_note_rejects_negative_encoded_velocity():
+    with pytest.raises(ValueError, match=r"velocity.*-1"):
+        Note(0, 1, 60, -1)

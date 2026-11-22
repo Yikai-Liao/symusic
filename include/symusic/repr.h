@@ -45,11 +45,7 @@ struct formatter<symusic::DataFormat> {
         // TODO using x-macro to generate this verbose code
         switch (data_format) {
         case DataFormat::MIDI: return fmt::format_to(ctx.out(), "MIDI");
-        case DataFormat::MusicXML: return fmt::format_to(ctx.out(), "MusicXML");
         case DataFormat::ABC: return fmt::format_to(ctx.out(), "ABC");
-        case DataFormat::ZPP: return fmt::format_to(ctx.out(), "ZPP");
-        case DataFormat::ALPACA: return fmt::format_to(ctx.out(), "ALPACA");
-        case DataFormat::CEREAL: return fmt::format_to(ctx.out(), "CEREAL");
         }
     }
 };
@@ -94,7 +90,7 @@ struct formatter<E> : formatter<symusic::detail::BaseParser> {
         };
         symusic::detail::for_event_field<E>([&](std::string_view label, auto member) {
             if constexpr (std::same_as<E, symusic::Tempo<T>>) {
-                if (label == "mspq") field("qpm", event.qpm());
+                if (label == "microseconds_per_quarter") field("qpm", event.qpm());
             }
             field(label, event.*member);
         });

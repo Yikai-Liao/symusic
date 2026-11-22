@@ -22,10 +22,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         Note<Tick> note = detail::make_event<Note<Tick>>(480, 240, 60, 80);
 
         // Serialize the note
-        std::vector<uint8_t> serialized = note.dumps<DataFormat::ZPP>();
+        std::vector<uint8_t> serialized = note.serialize();
 
         // Deserialize the note
-        Note<Tick> deserialized = Note<Tick>::parse<DataFormat::ZPP>(serialized);
+        Note<Tick> deserialized = Note<Tick>::deserialize(serialized);
 
         // Verify the deserialized note matches the original
         REQUIRE(deserialized.time == note.time);
@@ -39,10 +39,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(240, 7, 100);   // CC 7 = volume
 
         // Serialize
-        std::vector<uint8_t> serialized = cc.dumps<DataFormat::ZPP>();
+        std::vector<uint8_t> serialized = cc.serialize();
 
         // Deserialize
-        ControlChange<Tick> deserialized = ControlChange<Tick>::parse<DataFormat::ZPP>(serialized);
+        ControlChange<Tick> deserialized = ControlChange<Tick>::deserialize(serialized);
 
         // Verify
         REQUIRE(deserialized.time == cc.time);
@@ -55,10 +55,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(300, "Test Text");
 
         // Serialize
-        std::vector<uint8_t> serialized = text.dumps<DataFormat::ZPP>();
+        std::vector<uint8_t> serialized = text.serialize();
 
         // Deserialize
-        TextMeta<Tick> deserialized = TextMeta<Tick>::parse<DataFormat::ZPP>(serialized);
+        TextMeta<Tick> deserialized = TextMeta<Tick>::deserialize(serialized);
 
         // Verify
         REQUIRE(deserialized.time == text.time);
@@ -76,10 +76,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         track.controls.push_back(detail::make_event<ControlChange<Tick>>(240, 7, 100));
 
         // Serialize
-        std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(track);
+        std::vector<uint8_t> serialized = serialize(track);
 
         // Deserialize
-        Track<Tick> deserialized = parse<DataFormat::ZPP, Track<Tick>>(serialized);
+        Track<Tick> deserialized = deserialize<Track<Tick>>(serialized);
 
         // Verify
         REQUIRE(deserialized.name == track.name);
@@ -110,10 +110,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Serialize
-        std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(score);
+        std::vector<uint8_t> serialized = serialize(score);
 
         // Deserialize
-        Score<Tick> deserialized = parse<DataFormat::ZPP, Score<Tick>>(serialized);
+        Score<Tick> deserialized = deserialize<Score<Tick>>(serialized);
 
         // Verify
         REQUIRE(deserialized.ticks_per_quarter == score.ticks_per_quarter);
@@ -140,10 +140,10 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Serialize
-        std::vector<uint8_t> serialized = score.dumps<DataFormat::ZPP>();
+        std::vector<uint8_t> serialized = score.serialize();
 
         // Deserialize
-        Score<Tick> deserialized = Score<Tick>::parse<DataFormat::ZPP>(serialized);
+        Score<Tick> deserialized = Score<Tick>::deserialize(serialized);
 
         // Verify
         REQUIRE(deserialized.ticks_per_quarter == score.ticks_per_quarter);
@@ -172,7 +172,7 @@ std::vector<uint8_t> dumps_in_filled_storage(unsigned char fill, F make, size_t 
     std::memset(storage, fill, sizeof(storage));
     E* event = new (storage) E(make());
     std::memset(storage + payload, fill, sizeof(E) - payload);
-    auto bytes = event->template dumps<DataFormat::ZPP>();
+    auto bytes = event->template serialize();
     event->~E();
     return bytes;
 }
@@ -186,7 +186,7 @@ std::vector<uint8_t> dumps_vec_in_filled_storage(unsigned char fill, F make, siz
         auto* raw = reinterpret_cast<unsigned char*>(&events.back());
         std::memset(raw + payload, fill, sizeof(E) - payload);
     }
-    return dumps<DataFormat::ZPP>(events);
+    return serialize(events);
 }
 
 }   // namespace
@@ -199,7 +199,7 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             auto second = dumps_in_filled_storage<E>(0x55, make, payload);
             REQUIRE(first == second);
             REQUIRE(first.size() == 5 + sizeof(E));
-            REQUIRE(E::template parse<DataFormat::ZPP>(first) == make());
+            REQUIRE(E::deserialize(first) == make());
         };
         check([] { return detail::make_event<Note<Tick>>(480, 240, 60, 80); }, 10);
         check([] { return detail::make_event<Note<Quarter>>(1.5f, 0.5f, 60, 80); }, 10);
@@ -242,10 +242,10 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             score.tracks.push_back(track);
             return score;
         };
-        const auto first  = build(0xAA).dumps<DataFormat::ZPP>();
-        const auto second = build(0x55).dumps<DataFormat::ZPP>();
+        const auto first  = build(0xAA).serialize();
+        const auto second = build(0x55).serialize();
         REQUIRE(first == second);
-        REQUIRE(Score<Tick>::parse<DataFormat::ZPP>(first) == build(0x00));
+        REQUIRE(Score<Tick>::deserialize(first) == build(0x00));
     }
 
     SECTION("Padding bytes are zero and the layout is unchanged") {
@@ -259,11 +259,11 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
     }
 
     SECTION("Images with nonzero padding still load") {
-        auto bytes = detail::make_event<Note<Tick>>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
+        auto bytes = detail::make_event<Note<Tick>>(1, 2, 3, 4).serialize();
         auto image = std::span(bytes).last(sizeof(Note<Tick>));
         image[10] = 0xAA;
         image[11] = 0x55;
-        REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == detail::make_event<Note<Tick>>(1, 2, 3, 4));
+        REQUIRE(Note<Tick>::deserialize(bytes) == detail::make_event<Note<Tick>>(1, 2, 3, 4));
     }
 }
 

@@ -1,37 +1,15 @@
 #include <stdexcept>
-#include "symusic/event.h"
+#include "symusic/detail/event_fields.h"
 namespace symusic {
 
-inline i8 safe_add(const i8 a, const i8 b) {
-    const int ans = a + b;
-    if (ans > 127 || ans < 0)
-        throw std::range_error(
-            "Overflow while adding " + std::to_string(a) + " and " + std::to_string(b)
-        );
-    // The range check bounds the result to a MIDI data byte.
-    return static_cast<i8>(ans);
+template<TType T>
+void Note<T>::shift_pitch(const i32 offset) {
+    pitch = detail::checked_event_field<Note<T>, 2>(static_cast<i64>(pitch) + offset);
 }
 
 template<TType T>
-Note<T> Note<T>::shift_pitch(const i8 offset) const {
-    return Note<T>(*this).shift_pitch_inplace(offset);
-}
-
-template<TType T>
-Note<T>& Note<T>::shift_pitch_inplace(const i8 offset) {
-    this->pitch = safe_add(this->pitch, offset);
-    return *this;
-}
-
-template<TType T>
-Note<T> Note<T>::shift_velocity(const i8 offset) const {
-    return Note<T>(*this).shift_velocity_inplace(offset);
-}
-
-template<TType T>
-Note<T>& Note<T>::shift_velocity_inplace(const i8 offset) {
-    this->velocity = safe_add(this->velocity, offset);
-    return *this;
+void Note<T>::shift_velocity(const i32 offset) {
+    velocity = detail::checked_event_field<Note<T>, 3>(static_cast<i64>(velocity) + offset);
 }
 
 template struct Note<Tick>;

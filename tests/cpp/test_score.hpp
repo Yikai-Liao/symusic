@@ -10,20 +10,12 @@
 
 using namespace symusic;
 
-template<symusic::DataFormat F>
-concept ScoreCanParse = requires { symusic::Score<symusic::Tick>::parse<F>({}); };
-
-template<symusic::DataFormat F>
-concept ScoreCanDump = requires(const symusic::Score<symusic::Tick>& score) {
-    score.template dumps<F>();
-};
-
-static_assert(ScoreCanParse<symusic::DataFormat::MIDI>);
-static_assert(ScoreCanParse<symusic::DataFormat::ZPP>);
-static_assert(!ScoreCanParse<symusic::DataFormat::ABC>);
-static_assert(ScoreCanDump<symusic::DataFormat::MIDI>);
-static_assert(ScoreCanDump<symusic::DataFormat::ZPP>);
-static_assert(!ScoreCanDump<symusic::DataFormat::ABC>);
+static_assert(requires(const Score<Tick>& score, std::span<const u8> bytes) {
+    Score<Tick>::from_midi(bytes);
+    Score<Tick>::deserialize(bytes);
+    score.to_midi();
+    score.serialize();
+});
 
 TEST_CASE("Test Score class functionality", "[score]") {
     // Create a Score for testing
@@ -52,7 +44,7 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     SECTION("Default constructor and initial values") {
         Score<Tick> default_score;
-        REQUIRE(default_score.ticks_per_quarter == 0);
+        REQUIRE(default_score.ticks_per_quarter == 960);
         REQUIRE(default_score.tracks.empty());
         REQUIRE(default_score.time_signatures.empty());
         REQUIRE(default_score.key_signatures.empty());
@@ -101,19 +93,20 @@ TEST_CASE("Test Score class functionality", "[score]") {
         sortable.tracks.push_back(track);
 
         // Sort the score and store the result
-        Score<Tick> sorted = sortable.sort();
+        Score<Tick> sorted = sortable;
+        sorted.sort();
 
         // Check if notes in the sorted score are in correct order
         REQUIRE(sorted.tracks.at(0).notes.at(0).time == 0);
         REQUIRE(sorted.tracks.at(0).notes.at(1).time == 240);
 
         // Also test inplace sorting
-        sortable.sort_inplace();
+        sortable.sort();
         REQUIRE(sortable.tracks.at(0).notes.at(0).time == 0);
         REQUIRE(sortable.tracks.at(0).notes.at(1).time == 240);
     }
 
-    SECTION("clip() and clip_inplace() methods") {
+    SECTION("clip() methods") {
         // Test non-inplace clip
         Score<Tick> clipped = score.clip(200, 400, false);
         REQUIRE(clipped.tracks.at(0).notes.size() == 1);   // Only one note left (240-480)
@@ -122,43 +115,46 @@ TEST_CASE("Test Score class functionality", "[score]") {
         );   // One note (0-480) clipped and removed
 
         // Test inplace clip
-        score.clip_inplace(200, 400, false);
+        score = score.clip(200, 400, false);
         REQUIRE(score.tracks.at(0).notes.size() == 1);
         REQUIRE(score.tracks.at(1).notes.size() == 0);
     }
 
-    SECTION("shift_time() and shift_time_inplace() methods") {
+    SECTION("shift_time() methods") {
         // Test non-inplace time shift
-        Score<Tick> shifted = score.shift_time(100);
+        Score<Tick> shifted = score;
+        shifted.shift_time(100);
         REQUIRE(shifted.tracks.at(0).notes.at(0).time == 100);   // 0 -> 100
         REQUIRE(shifted.tracks.at(0).notes.at(1).time == 340);   // 240 -> 340
 
         // Test inplace time shift
-        score.shift_time_inplace(100);
+        score.shift_time(100);
         REQUIRE(score.tracks.at(0).notes.at(0).time == 100);
         REQUIRE(score.tracks.at(0).notes.at(1).time == 340);
     }
 
-    SECTION("shift_pitch() and shift_pitch_inplace() methods") {
+    SECTION("shift_pitch() methods") {
         // Test non-inplace pitch shift
-        Score<Tick> pitched = score.shift_pitch(12);                // Up one octave
+        Score<Tick> pitched = score;
+        pitched.shift_pitch(12);                // Up one octave
         REQUIRE(pitched.tracks.at(0).notes.at(0).pitch == 72);   // C4 -> C5
         REQUIRE(pitched.tracks.at(0).notes.at(1).pitch == 74);   // D4 -> D5
 
         // Test inplace pitch shift
-        score.shift_pitch_inplace(12);
+        score.shift_pitch(12);
         REQUIRE(score.tracks.at(0).notes.at(0).pitch == 72);
         REQUIRE(score.tracks.at(0).notes.at(1).pitch == 74);
     }
 
-    SECTION("shift_velocity() and shift_velocity_inplace() methods") {
+    SECTION("shift_velocity() methods") {
         // Test non-inplace velocity shift
-        Score<Tick> velocitied = score.shift_velocity(10);   // Increase velocity
+        Score<Tick> velocitied = score;
+        velocitied.shift_velocity(10);   // Increase velocity
         REQUIRE(velocitied.tracks.at(0).notes.at(0).velocity == 110);
         REQUIRE(velocitied.tracks.at(0).notes.at(1).velocity == 110);
 
         // Test inplace velocity shift
-        score.shift_velocity_inplace(10);
+        score.shift_velocity(10);
         REQUIRE(score.tracks.at(0).notes.at(0).velocity == 110);
         REQUIRE(score.tracks.at(0).notes.at(1).velocity == 110);
     }
