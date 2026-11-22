@@ -85,3 +85,13 @@ def test_score_adjust_time_rejects_invalid_anchors(
     score.tracks.append(Track(notes=NOTES_OG))
     with pytest.raises(ValueError, match="adjust_time"):
         score.adjust_time(times_og, times_new, inplace=inplace)
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("inplace", [False, True])
+def test_repeated_original_anchor(ttype, inplace):
+    score = Score(480, ttype=ttype)
+    score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype)], ttype=ttype))
+    with pytest.raises(ValueError, match="original_times must be strictly increasing"):
+        score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
+    assert score.tracks[0].notes[0].start == 2

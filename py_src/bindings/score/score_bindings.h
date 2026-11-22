@@ -128,7 +128,8 @@ constexpr const char* kEmptyDoc
     = R"pbdoc(Return whether the score has no tracks and no global events.)pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+lists must be the same length and have at least two anchors. Original times must be strictly
+increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a new score unless *inplace* is true.
 )pbdoc";
 constexpr const char* kUseCountDoc

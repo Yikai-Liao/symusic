@@ -336,8 +336,14 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
             "should have at least 2 elements"
         );
     }
-    if (!std::is_sorted(original_times.begin(), original_times.end())) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times should be sorted");
+    const auto invalid = std::adjacent_find(
+        original_times.begin(), original_times.end(),
+        [](const T left, const T right) { return !(left < right); }
+    );
+    if (invalid != original_times.end()) {
+        throw std::invalid_argument(
+            "symusic::ops::adjust_time: original_times must be strictly increasing"
+        );
     }
     if (!std::is_sorted(new_times.begin(), new_times.end())) {
         throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");
