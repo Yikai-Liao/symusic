@@ -59,7 +59,7 @@ import symusic.types as smt
 
 
 def first_onset(score: smt.Score[Second]) -> float:
-    return score.tracks[0].notes[0].time
+    return min(note.time for track in score.tracks for note in track.notes)
 
 
 print(first_onset(Score("song.mid", ttype="second")))

@@ -164,9 +164,8 @@ public:
         }
         // Only create real track if handling notes or lyrics
         auto& straggler = stragglers[channel];
-        if constexpr (!create_new) return straggler;
-
         straggler.track.program = program;
+        if constexpr (!create_new) return straggler;
         straggler.track.is_drum = channel == 9;
 
         auto [iter, inserted] = formalTracks.try_emplace(key, std::move(straggler));
@@ -208,6 +207,15 @@ public:
         for (auto& [fallback, lyric] : lyrics) {
             auto& owner = lyric_owner ? *lyric_owner : *fallback;
             owner.track.lyrics.push_back(std::move(lyric));
+        }
+        // Promote channel events that arrived without a note or lyric.
+        for (size_t channel = 0; channel < stragglers.size(); ++channel) {
+            const auto& pending = stragglers[channel].track;
+            if (!pending.empty()) {
+                const auto channel_number = static_cast<u8>(channel);
+                set_program(channel_number, pending.program);
+                get<true>(channel_number);
+            }
         }
         for (auto& [_, handler] : formalTracks) {
             if (handler.track.empty()) continue;

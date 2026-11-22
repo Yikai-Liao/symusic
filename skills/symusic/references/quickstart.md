@@ -30,7 +30,7 @@ A score holds global tempos, signatures and markers and a list of tracks; each t
 
 ```python
 print(score)
-track = score.tracks[0]
+track = next(track for track in score.tracks if track.notes)
 print(track.name, track.program, track.is_drum, len(track.notes))
 note = track.notes[0]
 print(note.time, note.duration, note.pitch, note.velocity)
@@ -46,7 +46,7 @@ score.shift_time(480, inplace=True)
 Event lists convert to NumPy arrays, and tick scores to piano rolls; see [arrays.md](arrays.md):
 
 ```python
-arrays = score.tracks[0].notes.numpy()  # time, duration, pitch, velocity
+arrays = next(track for track in score.tracks if track.notes).notes.numpy()  # time, duration, pitch, velocity
 roll = score.resample(tpq=6, min_dur=1).pianoroll(modes=["frame"])
 ```
 
