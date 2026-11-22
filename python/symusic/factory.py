@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 from . import core  # type: ignore
 from . import types as smt
 from ._score_io import install_score_file_methods
-from .soundfont import BuiltInSF3
 
 if TYPE_CHECKING:
     from numpy import ndarray
@@ -19,7 +18,6 @@ __all__ = [
     "Pedal",
     "PitchBend",
     "Score",
-    "Synthesizer",
     "Tempo",
     "TextMeta",
     "TimeSignature",
@@ -592,43 +590,6 @@ class ScoreFactory:
         return isinstance(instance, self.__core_classes)  # type: ignore
 
 
-class SynthesizerFactory:
-    """``Synthesizer(sf_path=None, sample_rate=44100, quality=0)`` loads a SoundFont."""
-
-    def __call__(
-        self,
-        sf_path: str | Path | None = None,
-        sample_rate: int = 44100,
-        quality: int = 0,
-    ):
-        """Create a synthesizer that renders scores with a SoundFont.
-
-        Parameters
-        ----------
-        sf_path : str | pathlib.Path | None, default None
-            Path to an SF2 or SF3 file. When ``None``, MuseScore General
-            (``BuiltInSF3.MuseScoreGeneral``, about 38 MB) is downloaded once into
-            the user data directory.
-        sample_rate : int, default 44100
-            Output sample rate in Hz.
-        quality : int, default 0
-            Resampling of SoundFont samples to ``sample_rate``, 0-4: 0 is linear
-            interpolation, 1 zero-order hold, 2-4 sinc from fastest to best.
-            Other values raise ``ValueError``.
-
-        Returns
-        -------
-        symusic.core.Synthesizer
-        """
-        if sf_path is None:
-            sf_path = BuiltInSF3.MuseScoreGeneral().path(download=True)
-        sf_path = str(sf_path)
-        return core.Synthesizer(sf_path, sample_rate, quality)
-
-    def __instancecheck__(self, instance) -> bool:
-        return isinstance(instance, core.Synthesizer)
-
-
 Note = NoteFactory()
 KeySignature = KeySignatureFactory()
 TimeSignature = TimeSignatureFactory()
@@ -639,4 +600,3 @@ PitchBend = PitchBendFactory()
 TextMeta = TextMetaFactory()
 Track = TrackFactory()
 Score = ScoreFactory()
-Synthesizer = SynthesizerFactory()

@@ -1,7 +1,5 @@
 from ._abc import ABCConversionWarning
-from .core import (
-    dump_wav,
-)
+from .core import Synthesizer
 from .factory import (
     ControlChange,
     KeySignature,
@@ -9,7 +7,6 @@ from .factory import (
     Pedal,
     PitchBend,
     Score,
-    Synthesizer,
     Tempo,
     TextMeta,
     TimeSignature,
@@ -41,5 +38,4 @@ __all__ = [
     "TimeSignature",
     "TimeUnit",
     "Track",
-    "dump_wav",
 ]

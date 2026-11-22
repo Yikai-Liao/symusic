@@ -1,40 +1,42 @@
 #pragma once
-#include "prestosynth/synthesizer.h"
-#include "symusic/score.h"
 
 #include <filesystem>
-#include <stdexcept>
-#include <string>
+
+#include "symusic/score.h"
 
 namespace symusic {
-class Synthesizer {
-private:
-    psynth::Synthesizer synthesizer;
 
-    static u8 checked_quality(const u8 quality) {
-        if (quality > 4) {
-            throw std::invalid_argument(
-                "Synthesizer quality must be between 0 and 4, got " + std::to_string(quality)
-            );
-        }
-        return quality;
-    }
+struct AudioBuffer {
+    vec<float> samples;
+    size_t     channels;
 
-public:
-    /// `quality` selects the libsamplerate converter as `4 - quality`, so only 0-4 are valid;
-    /// larger values make every resampled sample silent.
-    Synthesizer(const std::string& soundfont_path, u32 sample_rate, u8 quality) :
-        synthesizer(soundfont_path, sample_rate, checked_quality(quality), 1) {}
-
-    Synthesizer(const std::filesystem::path& soundfont_path, u32 sample_rate, u8 quality) :
-        Synthesizer(soundfont_path.string(), sample_rate, quality) {}
-
-    template<TType T>
-    psynth::AudioData render(const Score<T>& score, bool stereo);
+    [[nodiscard]] size_t frames() const { return samples.size() / channels; }
 };
 
-namespace detail {
-psynth::Sequence to_sequence(const Score<Second>& score);
-}
+struct SynthSettings {
+    int    sample_rate  = 44100;
+    int    polyphony    = 256;
+    bool   reverb       = false;
+    bool   chorus       = false;
+    double tail_seconds = 1.0;
+};
+
+class Synthesizer {
+    struct Backend;
+
+    std::shared_ptr<const Backend> backend;
+    std::filesystem::path          soundfont;
+    SynthSettings                  settings;
+
+public:
+    Synthesizer(
+        const std::filesystem::path& library_path,
+        const std::filesystem::path& soundfont,
+        SynthSettings                settings = {}
+    );
+
+    template<TType T>
+    [[nodiscard]] AudioBuffer render(const Score<T>& score, bool stereo = true) const;
+};
 
 }   // namespace symusic
