@@ -38,6 +38,18 @@ def test_concepts_reuse_classes(ttype):
     assert score.to(Second).ttype is Second
 
 
+@pytest.mark.parametrize("unit", [Quarter, Second])
+def test_positional_list_copy_preserves_unit(unit):
+    score = Score(ttype=unit)
+    score.tracks.append(Track(notes=[Note(0, 1, 60, ttype=unit)], ttype=unit))
+    for source in (score.tracks, score.tracks[0].notes):
+        copied = type(source)(source)
+        assert copied.ttype is unit
+        assert copied == source
+        copied.clear()
+        assert len(source) == 1
+
+
 def test_list_rejects_mixed_units():
     notes = NoteList([Note(0, 2, 60)])
     second = Note(0, 2, 62, ttype=Second)

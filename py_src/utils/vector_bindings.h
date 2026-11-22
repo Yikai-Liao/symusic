@@ -144,6 +144,10 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
 
     type.def(
             "__init__",
+            [copy](List* self, const List& other) { new (self) List(copy(other, false)); }
+    )
+        .def(
+            "__init__",
             [](List* self, nb::handle items, nb::handle marker) {
                 new (self) List(with_unit(marker, [&](auto unit) {
                     using Vector = Native<decltype(unit)>;
@@ -158,11 +162,6 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             nb::kw_only(),
             "ttype"_a = nb::type<Tick>()
     )
-        .def(
-            "__init__",
-            [copy](List* self, const List& other) { new (self) List(copy(other, false)); },
-            "other"_a
-        )
         .def(
             "__len__",
             [](const List& self) { return self.visit([](const auto& ptr) { return ptr->size(); }); }
