@@ -1,8 +1,6 @@
 #include <bit>
 #include <limits>
 #include <string_view>
-#include <map>
-#include <queue>
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4996)
@@ -10,8 +8,6 @@
 
 #include <fmt/format.h>
 
-#include "minimidi/MiniMidi.hpp"
-#include "pdqsort.h"
 #include "MetaMacro.h"
 
 #include "symusic/score.h"
@@ -19,374 +15,103 @@
 #include "symusic/utils.h"
 #include "symusic/conversion.h"
 
+#include "midi_notes.h"
+#include "score_builder.h"
+
 namespace symusic {
 
-namespace details {
-// define some utils
+namespace detail {
 
-[[nodiscard]] bool is_valid_midi_data_byte(const uint8_t value) { return value <= 0x7F; }
+struct MidiTrackKey {
+    u8 channel;
+    u8 program;
 
-void ensure_valid_midi_data_byte(
-    const char* const field_name, const uint8_t value, const bool sanitize_data
-) {
-    if (!sanitize_data && !is_valid_midi_data_byte(value)) {
-        throw std::runtime_error("Get " + std::string(field_name) + "=" + std::to_string(value));
-    }
-}
-
-[[noreturn]] SYMUSIC_COLD void throw_midi_time_overflow(const uint32_t time) {
-    throw std::runtime_error(
-        "MIDI event time " + std::to_string(time) + " exceeds the 32-bit tick range"
-    );
-}
-
-template<typename T>
-void sort_by_time(vec<T>& data) {
-    pdqsort_branchless(data.begin(), data.end(), [](const auto& a, const auto& b) {
-        return (a.time) < (b.time);
-    });
-}
-
-template<typename T>
-struct TrackHandler {
-    TrackNative<T> track;
-
-    TrackHandler() = default;
-    TrackHandler(const std::string& name, uint8_t program, bool is_drum) :
-        track(name, program, is_drum) {}
+    auto operator<=>(const MidiTrackKey&) const = default;
 };
 
-template<typename T>
-struct NoteManager {
-    struct Slot {
-        size_t                count = 0;
-        size_t                index = 0;
-        std::vector<Note<T>>* notes = nullptr;
-    };
+template<TType T>
+class MidiTrackSink {
+    using unit = typename T::unit;
+    ScoreBuilder<T, MidiTrackKey>& builder;
+    size_t                         message_count;
+    std::string                    name;
+    std::array<TrackNative<T>, 16> pending_tracks;
+    std::array<u8, 16>             programs{};
+    std::array<unit, 16>           pedal_start;
 
-    // 16 channels * 128 pitches
-    std::array<Slot, 16 * 128> slots{};
-    // useed if multiple note is activated at the same channel and pitch
-    std::unordered_map<uint16_t, std::queue<std::pair<size_t, std::vector<Note<T>>*>>> overflow;
-
-    void add(
-        const uint8_t         channel,
-        uint8_t               pitch,
-        typename T::unit      time,
-        int8_t                velocity,
-        std::vector<Note<T>>& notes
-    ) {
-        // The channel is four bits and the pitch was validated as seven bits.
-        const auto key = static_cast<u16>(channel * 128 + pitch);
-        // Create a note placeholder with duration -1
-        notes.emplace_back(time, -1, pitch, velocity);
-        const auto idx = notes.size() - 1;  // The emplace above added this note.
-
-        if (Slot& slot = slots[key]; slot.count++ == 0) {
-            slot.index = idx;
-            slot.notes = &notes;
-        } else {
-            // Put the extra note into the queue
-            overflow.try_emplace(key).first->second.emplace(idx, &notes);
-        }
+    TrackNative<T>& track(u8 channel, bool promote) {
+        auto& result = builder.track(
+            {channel, programs[channel]}, pending_tracks[channel], promote, message_count / 2 + 1
+        );
+        result.program = programs[channel];
+        result.is_drum = channel == 9;
+        return result;
     }
-
-    bool end(const uint8_t channel, const uint8_t pitch, typename T::unit end_time) {
-        // The channel is four bits and the pitch was validated as seven bits.
-        const auto     key  = static_cast<u16>(channel * 128 + pitch);
-        Slot&          slot = slots[key];
-        if (slot.count == 0 || !slot.notes) return false;
-
-        // Modify the duration of the placeholder
-        auto& note    = (*slot.notes)[slot.index];
-        note.duration = sub_time(end_time, note.time);
-
-        if (--slot.count > 0) {  // An occupied slot has at least one active note.
-            // Pop the queue if needed
-            auto& [new_idx, new_notes] = overflow[key].front();
-            slot.index                 = new_idx;
-            slot.notes                 = new_notes;
-            overflow[key].pop();
-        }
-        return true;
-    }
-};
-
-struct TrackKey {
-    uint8_t channel;
-    uint8_t program;
-
-    bool operator==(const TrackKey& other) const {
-        return channel == other.channel && program == other.program;
-    }
-    auto operator<=>(const TrackKey& other) const {
-        return std::tie(channel, program) <=> std::tie(other.channel, other.program);
-    }
-};
-
-
-
-template<typename T>
-class TrackManager {
-    // Used to manager multiple symusic Track corresponding to a single MIDI Track
-    NoteManager<T>                      noteManager;
-    std::map<TrackKey, TrackHandler<T>> formalTracks;
-    vec<TrackHandler<T>*> note_tracks;
-    vec<std::pair<TrackHandler<T>*, TextMeta<T>>> lyrics;
-    // used to store events if a real track haven't been created
-    std::array<TrackHandler<T>, 16> stragglers;
-    // last track cache to accelerate track searching
-    TrackHandler<T>* lastTrack = nullptr;
-    TrackKey         lastKey{255, 255};
-    // used to reserve enough space when create a track
-    size_t msg_num = 0;
-    // the current program number for each channel
-    std::array<uint8_t, 16> cur_instr{};
-
-    std::vector<Note<T>>& get_notes(uint8_t channel) { return get<false>(channel).track.notes; }
 
 public:
-    explicit TrackManager(const size_t msg_num) : msg_num(msg_num) {}
+    using NoteHandle = typename ScoreBuilder<T, MidiTrackKey>::NoteHandle;
 
-    void set_program(uint8_t channel, uint8_t program) { cur_instr[channel] = program; }
+    MidiTrackSink(ScoreBuilder<T, MidiTrackKey>& builder, size_t message_count) :
+        builder(builder), message_count(message_count) {
+        pedal_start.fill(-1);
+    }
 
-    template<bool create_new>
-    TrackHandler<T>& get(uint8_t channel) {
-        const uint8_t  program = cur_instr[channel];
-        const TrackKey key{channel, program};
+    void set_program(u8 channel, u8 program) { programs[channel] = program; }
+    void set_name(std::string value) { name = std::move(value); }
 
-        if (lastTrack && lastKey == key) { return *lastTrack; }
+    NoteHandle begin_note(u8 channel, u8 pitch, unit time, u8 velocity) {
+        // Pitch and velocity fit signed eight-bit fields after MIDI validation.
+        return builder.begin_note(
+            track(channel, true), time, static_cast<i8>(pitch), static_cast<i8>(velocity)
+        );
+    }
 
-        if (auto it = formalTracks.find(key); it != formalTracks.end()) {
-            lastKey   = key;
-            lastTrack = &it->second;
-            return *lastTrack;
+    void end_note(NoteHandle handle, unit time) { builder.end_note(handle, time); }
+
+    void add_control(u8 channel, unit time, u8 number, u8 value) {
+        auto& target = track(channel, false);
+        if (target.controls.capacity() < message_count / 2) [[unlikely]] {
+            target.controls.reserve(message_count / 2);
         }
-        // Only create real track if handling notes or lyrics
-        auto& straggler = stragglers[channel];
-        if constexpr (!create_new) return straggler;
+        target.controls.emplace_back(time, number, value);
+        if (number != 64) return;
 
-        straggler.track.program = program;
-        straggler.track.is_drum = channel == 9;
-
-        auto [iter, inserted] = formalTracks.try_emplace(key, std::move(straggler));
-
-        stragglers[channel] = TrackHandler<T>();
-
-        auto& newTrack = iter->second;
-        newTrack.track.notes.reserve(msg_num / 2 + 1);
-        lastKey   = key;
-        lastTrack = &newTrack;
-        return *lastTrack;
-    }
-
-    void add_note(uint8_t channel, uint8_t pitch, typename T::unit time, int8_t velocity) {
-        // Add a note placeholder with duration == -1
-        // This strategy removes the need for sorting the notes
-        auto& handler = get<true>(channel);
-        if (handler.track.notes.empty()) { note_tracks.push_back(&handler); }
-        noteManager.add(channel, pitch, time, velocity, handler.track.notes);
-    }
-
-    void add_lyric(uint8_t channel, typename T::unit time, std::string text) {
-        auto& fallback = get<true>(channel);
-        lyrics.emplace_back(&fallback, TextMeta<T>(time, std::move(text)));
-    }
-
-    bool end_note(uint8_t channel, uint8_t pitch, typename T::unit end_time) {
-        // Close a note on event (modify the note placeholder)
-        return noteManager.end(channel, pitch, end_time);
-    }
-
-    void finalize(ScoreNative<T>& score, const std::string& name) {
-        TrackHandler<T>* lyric_owner = nullptr;
-        for (auto* handler : note_tracks) {
-            auto& notes = handler->track.notes;
-            std::erase_if(notes, [](const Note<T>& note) { return note.duration < 0; });
-            if (!lyric_owner && !notes.empty()) { lyric_owner = handler; }
-        }
-        for (auto& [fallback, lyric] : lyrics) {
-            auto& owner = lyric_owner ? *lyric_owner : *fallback;
-            owner.track.lyrics.push_back(std::move(lyric));
-        }
-        for (auto& [_, handler] : formalTracks) {
-            if (handler.track.empty()) continue;
-            handler.track.name = name;
-            score.tracks.push_back(std::move(handler.track));
+        auto& start = pedal_start[channel];
+        if (value >= 64) {
+            if (start < 0) start = time;
+        } else if (start >= 0) {
+            target.pedals.emplace_back(start, details::sub_time(time, start));
+            start = -1;
         }
     }
+
+    void add_pitch_bend(u8 channel, unit time, i32 value) {
+        track(channel, false).pitch_bends.emplace_back(time, value);
+    }
+
+    void add_lyric(u8 channel, unit time, std::string text) {
+        builder.add_lyric(track(channel, true), TextMeta<T>(time, std::move(text)));
+    }
+
+    template<TimeEvent E>
+    void add(E event) {
+        builder.add(std::move(event));
+    }
+
+    void finish() { builder.finish_group(name); }
 };
 
-/**
- * Parse the given MIDI view while optionally sanitizing payload bytes prior to decoding.
- *
- * @param midi MIDI view produced by minimidi.
- * @param tick2unit Converter that maps MIDI ticks to the desired time unit.
- * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range before parsing.
- */
-template<TType T, typename Conv, typename Container>   // only works for Tick and Quarter
-    requires(std::is_same_v<T, Tick> || std::is_same_v<T, Quarter>)
+template<TType T, typename Convert, typename Container>
 [[nodiscard]] Score<T> parse_midi(
-    const minimidi::MidiFileView<Container>& midi, Conv tick2unit, bool sanitize_data = false
+    const minimidi::MidiFileView<Container>& midi, Convert tick_to_unit, bool sanitize_data
 ) {
-    typedef typename T::unit unit;
-    // remove this redundant copy in the future
-    const u16      tpq = midi.ticks_per_quarter();
-    ScoreNative<T> score(tpq);   // create a score with the given ticks per quarter
-    for (const minimidi::TrackView<Container>& midi_track : midi) {
-
-        const size_t    message_num = midi_track.size / 3 + 100;
-        TrackManager<T> trackManager(message_num);
-        std::string     cur_name;
-        // channel -> pedal_on
-        std::array<unit, 16> last_pedal_on;
-        last_pedal_on.fill(-1);
-        // iter midi messages in the track
-
-        for (const auto& msg : midi_track) {
-            // Event times accumulate delta times in u32; anything above INT32_MAX (including a
-            // wrapped sum, which must pass through that range first) cannot be a valid tick.
-            if (msg.time > static_cast<uint32_t>(std::numeric_limits<Tick::unit>::max()))
-                [[unlikely]] {
-                throw_midi_time_overflow(msg.time);
-            }
-            const auto cur_tick = narrow_i32(msg.time);
-            const auto cur_time = tick2unit(cur_tick);
-            switch (msg.type()) {
-            case minimidi::MessageType::NoteOn: {
-                const auto& note_on = msg.template cast<minimidi::NoteOn>();
-                ensure_valid_midi_data_byte("pitch", note_on.pitch(), sanitize_data);
-                ensure_valid_midi_data_byte("velocity", note_on.velocity(), sanitize_data);
-                if (note_on.velocity() != 0) {
-                    trackManager.add_note(
-                        note_on.channel(), note_on.pitch(), cur_time, note_on.velocity()
-                    );
-                    break;
-                }
-                // The msg is treated as a NoteOff Message if velocity == 0
-            }
-            case minimidi::MessageType::NoteOff: {
-                const auto& note_off = msg.template cast<minimidi::NoteOff>();
-                ensure_valid_midi_data_byte("pitch", note_off.pitch(), sanitize_data);
-                ensure_valid_midi_data_byte("velocity", note_off.velocity(), sanitize_data);
-                trackManager.end_note(note_off.channel(), note_off.pitch(), cur_time);
-                break;
-            }
-            case minimidi::MessageType::ProgramChange: {
-                const auto&   program_change = msg.template cast<minimidi::ProgramChange>();
-                const uint8_t channel        = program_change.channel();
-                const uint8_t program        = program_change.program();
-                ensure_valid_midi_data_byte("program", program, sanitize_data);
-                trackManager.set_program(
-                    channel, program
-                );   // Changed to call TrackManager's method
-                break;
-            }
-            case minimidi::MessageType::ControlChange: {
-                const auto&   control_change = msg.template cast<minimidi::ControlChange>();
-                const uint8_t channel        = control_change.channel();
-
-                auto& handler = trackManager.template get<false>(channel);
-                auto& track   = handler.track;
-                if (track.controls.capacity() < message_num / 2) [[unlikely]] {
-                    track.controls.reserve(message_num / 2);
-                }
-
-                const uint8_t control_number = control_change.control_number();
-                const uint8_t control_value  = control_change.control_value();
-
-                ensure_valid_midi_data_byte("control_number", control_number, sanitize_data);
-                ensure_valid_midi_data_byte("control_value", control_value, sanitize_data);
-                track.controls.emplace_back(cur_time, control_number, control_value);
-                // Pedal Part
-                if (control_number == 64) {
-                    if (control_value >= 64) {
-                        if (last_pedal_on[channel] < 0) last_pedal_on[channel] = cur_time;
-                    } else {
-                        if (last_pedal_on[channel] >= 0) {
-                            track.pedals.emplace_back(
-                                last_pedal_on[channel], sub_time(cur_time, last_pedal_on[channel])
-                            );
-                            last_pedal_on[channel] = -1;
-                        }
-                    }
-                }
-                break;
-            }
-            case minimidi::MessageType::PitchBend: {
-                const auto& pitch_bend = msg.template cast<minimidi::PitchBend>();
-                auto&       track = trackManager.template get<false>(pitch_bend.channel()).track;
-                auto        value = pitch_bend.pitch_bend();
-                if (!sanitize_data
-                    && (value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                        || value > minimidi::PitchBend<>::MAX_PITCH_BEND))
-                    throw std::runtime_error("Get pitch_bend=" + std::to_string(value));
-                track.pitch_bends.emplace_back(cur_time, value);
-                break;
-            }
-                // Meta Message
-            case minimidi::MessageType::Meta: {
-                switch (const auto& meta = msg.template cast<minimidi::Meta>(); meta.meta_type()) {
-                case (minimidi::MetaType::TrackName): {
-                    auto data = meta.meta_value();
-                    auto tmp  = std::string(data.begin(), data.end());
-                    cur_name  = strip_non_utf_8(tmp);
-                    break;
-                }
-                case (minimidi::MetaType::TimeSignature): {
-                    const auto data = meta.meta_value();
-                    if (data.size() != 4 || data[1] > 7) {
-                        throw std::runtime_error("Invalid MIDI time signature denominator or size");
-                    }
-                    // The exponent is at most seven, so the power of two fits in u8.
-                    score.time_signatures.emplace_back(
-                        cur_time, data[0], static_cast<u8>(1u << data[1])
-                    );
-                    break;
-                }
-                case (minimidi::MetaType::SetTempo): {
-                    // store the raw tempo value(mspq) directly
-                    // qpm is calculated when needed
-                    score.tempos.emplace_back(
-                        cur_time, meta.template cast<minimidi::SetTempo>().tempo()
-                    );
-                    break;
-                }
-                case (minimidi::MetaType::KeySignature): {
-                    const auto& k_msg = meta.template cast<minimidi::KeySignature>();
-                    score.key_signatures.emplace_back(cur_time, k_msg.key(), k_msg.tonality());
-                    break;
-                }
-                case (minimidi::MetaType::Lyric): {
-                    const auto data = meta.meta_value();
-                    auto       text = strip_non_utf_8(std::string(data.begin(), data.end()));
-                    if (!text.empty()) {
-                        trackManager.add_lyric(meta.channel(), cur_time, std::move(text));
-                    }
-                    break;
-                }
-                case (minimidi::MetaType::Marker): {
-                    auto data = meta.meta_value();
-                    auto tmp  = std::string(data.begin(), data.end());
-                    auto text = strip_non_utf_8(tmp);
-                    if (text.empty()) break;
-                    score.markers.emplace_back(cur_time, text);
-                    break;
-                }
-                default: break;
-                }
-                break;
-            }
-            default: break;
-            }
-        }
-        trackManager.finalize(score, cur_name);
+    ScoreBuilder<T, MidiTrackKey> builder(midi.ticks_per_quarter());
+    for (const auto& track : midi) {
+        MidiTrackSink<T> sink(builder, track.size / 3 + 100);
+        decode_midi_track<T>(track, tick_to_unit, sanitize_data, sink);
+        sink.finish();
     }
-    sort_by_time(score.time_signatures);
-    sort_by_time(score.key_signatures);
-    sort_by_time(score.tempos);
-    sort_by_time(score.markers);
-    return to_shared(std::move(score));
+    return to_shared(std::move(builder).finish());
 }
 
 template<TType T>
@@ -417,7 +142,9 @@ constexpr u32 kMidiVlqMax = 0x0FFFFFFF;
 
 void validate_midi_text(std::string_view text, std::string_view kind) {
     if (text.size() > kMidiVlqMax) {
-        throw std::invalid_argument(fmt::format("MIDI {} text is too long, got {} bytes", kind, text.size()));
+        throw std::invalid_argument(
+            fmt::format("MIDI {} text is too long, got {} bytes", kind, text.size())
+        );
     }
 }
 
@@ -455,19 +182,15 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
                     time_signature->denominator
                 ));
             }
-            msgs.emplace_back(
-                minimidi::TimeSignature(
-                    time_signature->time, time_signature->numerator, time_signature->denominator
-                )
-            );
+            msgs.emplace_back(minimidi::TimeSignature(
+                time_signature->time, time_signature->numerator, time_signature->denominator
+            ));
         }
         // add key signatures
         for (const auto& key_signature : *score.key_signatures) {
-            msgs.emplace_back(
-                minimidi::KeySignature(
-                    key_signature->time, key_signature->key, key_signature->tonality
-                )
-            );
+            msgs.emplace_back(minimidi::KeySignature(
+                key_signature->time, key_signature->key, key_signature->tonality
+            ));
         }
         // add tempos
         for (const auto& tempo : *score.tempos) {
@@ -515,9 +238,9 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
         for (const auto& pitch_bend : *track->pitch_bends) {
             if (pitch_bend->value < minimidi::PitchBend<>::MIN_PITCH_BEND
                 || pitch_bend->value > minimidi::PitchBend<>::MAX_PITCH_BEND) {
-                throw std::invalid_argument(fmt::format(
-                    "MIDI pitch bend must be in -8192..8191, got {}", pitch_bend->value
-                ));
+                throw std::invalid_argument(
+                    fmt::format("MIDI pitch bend must be in -8192..8191, got {}", pitch_bend->value)
+                );
             }
             // The validated MIDI interval fits in i16.
             msgs.emplace_back(
@@ -533,62 +256,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
         gfx::timsort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
             return (a.time) < (b.time);
         });
-        // add notes
-        const size_t note_size  = track->notes->size();
-        const auto   note_begin = msgs.end() - msgs.begin();
-
-        // collect notes and make sure they are sorted
-        vec<Note<Tick>> notes(track->notes->size());
-        bool            sorted    = true;
-        Tick::unit      prev_time = 0;
-        for (size_t j = 0; const auto& note : *track->notes) {
-            notes[j++] = note;
-            sorted &= note.time >= prev_time;
-            prev_time = note.time;
-        }
-        if (!sorted) { sort_by_time(notes); }
-        // add notes to messages
-        msgs.resize(msgs.size() + note_size * 2);
-        for (size_t i = note_begin; const auto& note : notes) {
-            if (note.pitch < 0 || note.velocity < 0) {
-                throw std::invalid_argument(fmt::format(
-                    "MIDI note pitch and velocity must be non-negative, got {} and {}",
-                    note.pitch, note.velocity
-                ));
-            }
-            // Non-negative i8 values fit in seven MIDI data bits.
-            const auto pitch = static_cast<u8>(note.pitch);
-            const auto velocity = static_cast<u8>(note.velocity);
-            if (note.duration > 0) {
-                msgs[i] = minimidi::NoteOff(note.end(), channel, pitch, velocity);
-                msgs[i + note_size] = minimidi::NoteOn(note.time, channel, pitch, velocity);
-            } else {   // empty note
-                msgs[i + note_size] = minimidi::NoteOff(note.time, channel, pitch, velocity);
-                msgs[i] = minimidi::NoteOn(note.time, channel, pitch, velocity);
-            }
-            i += 1;
-        }
-        // After resizing, the last note_size slots hold one message for each note.
-        const auto note_middle = msgs.end() - std::ssize(notes);
-        // insertion sort note_off
-        pdqsort_detail::insertion_sort(
-            msgs.begin() + note_begin,
-            note_middle,
-            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
-        );
-        // merge note on and note off
-        gfx::timmerge(
-            msgs.begin() + note_begin,
-            note_middle,
-            msgs.end(),
-            [](const auto& a, const auto& b) { return (a.time) < (b.time); }
-        );
-        // merge prev to (note on and note off)
-        gfx::timmerge(
-            msgs.begin(), msgs.begin() + note_begin, msgs.end(), [](const auto& a, const auto& b) {
-                return (a.time) < (b.time);
-            }
-        );
+        append_midi_notes(msgs, *track->notes, channel);
         // messages will be sorted by time in minimidi
         if (!msgs.empty()) {
             // sort msgs by time using timsort
@@ -603,9 +271,9 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
         midi.tracks.emplace_back(std::move(init_msgs));
     }
     for (const auto& track : midi.tracks) {
-        u32 previous_time = 0;
-        u64 payload_size = 4;  // End-of-track event.
-        u8 previous_status = 0;
+        u32 previous_time   = 0;
+        u64 payload_size    = 4;   // End-of-track event.
+        u8  previous_status = 0;
         for (const auto& message : track.messages) {
             // Events are sorted by time, so the unsigned difference cannot underflow.
             const u32 delta = message.time - previous_time;
@@ -623,7 +291,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
             if (payload_size > std::numeric_limits<u32>::max()) {
                 throw std::invalid_argument("MIDI track payload must fit in 32 bits");
             }
-            previous_time = message.time;
+            previous_time   = message.time;
             previous_status = message.statusByte;
         }
     }
@@ -649,9 +317,9 @@ Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = false)
                 sanitize_data
             );
         } else {
-            return convert<Second>(
-                parse_midi<Tick>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data)
-            );
+            return convert<Second>(parse_midi<Tick>(
+                midi_view, [](const Tick::unit x) { return x; }, sanitize_data
+            ));
         }
     };
 
@@ -667,46 +335,46 @@ Score<T> parse_midi(const std::span<const u8> bytes, bool sanitize_data = false)
     const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
     return parse_view(midi);
 }
-}   // namespace details
+}   // namespace detail
 
 template<>
 template<>
 Score<Tick> Score<Tick>::parse<DataFormat::MIDI>(const std::span<const u8> bytes) {
-    return details::parse_midi<Tick>(bytes);
+    return detail::parse_midi<Tick>(bytes);
 }
 
 template<>
 template<>
 Score<Quarter> Score<Quarter>::parse<DataFormat::MIDI>(const std::span<const u8> bytes) {
-    return details::parse_midi<Quarter>(bytes);
+    return detail::parse_midi<Quarter>(bytes);
 }
 
 template<>
 template<>
 Score<Second> Score<Second>::parse<DataFormat::MIDI>(const std::span<const u8> bytes) {
-    return details::parse_midi<Second>(bytes);
+    return detail::parse_midi<Second>(bytes);
 }
 
 template<>
 template<>
 vec<u8> Score<Tick>::dumps<DataFormat::MIDI>() const {
-    return details::to_midi(*this, details::midi_division(ticks_per_quarter)).to_bytes_sorted();
+    return detail::to_midi(*this, detail::midi_division(ticks_per_quarter)).to_bytes_sorted();
 }
 
 template<>
 template<>
 vec<u8> Score<Quarter>::dumps<DataFormat::MIDI>() const {
-    const auto division = details::midi_division(ticks_per_quarter);
-    details::validate_midi_times(*this);
-    return details::to_midi(convert<Tick>(*this), division).to_bytes_sorted();
+    const auto division = detail::midi_division(ticks_per_quarter);
+    detail::validate_midi_times(*this);
+    return detail::to_midi(convert<Tick>(*this), division).to_bytes_sorted();
 }
 
 template<>
 template<>
 vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
-    const auto division = details::midi_division(ticks_per_quarter);
-    details::validate_midi_times(*this);
-    return details::to_midi(convert<Tick>(*this), division).to_bytes_sorted();
+    const auto division = detail::midi_division(ticks_per_quarter);
+    detail::validate_midi_times(*this);
+    return detail::to_midi(convert<Tick>(*this), division).to_bytes_sorted();
 }
 
 #define INSTANTIATE_GLOBAL_FUNC(__COUNT, T)                                                     \
@@ -716,7 +384,7 @@ vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
     }                                                                                           \
     template<>                                                                                  \
     Score<T> parse<DataFormat::MIDI, Score<T>>(std::span<const u8> bytes, bool sanitize_data) { \
-        return details::parse_midi<T>(bytes, sanitize_data);                                    \
+        return detail::parse_midi<T>(bytes, sanitize_data);                                     \
     }                                                                                           \
     template<>                                                                                  \
     vec<u8> dumps<DataFormat::MIDI, Score<T>>(const Score<T>& data) {                           \
