@@ -34,9 +34,17 @@ _MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 # parseabc.c reads a single whitespace-delimited path of up to 79 bytes.
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(
-    rb"(?:^|(?<=[\r\n]))"
-    rb"(?P<prefix>[ \t]*(?:%%MIDI|(?P<instruction>I[ \t]*:[ \t]*MIDI))"
-    rb"[ \t]+ptstress[ \t]+)(?P<argument>[^\r\n]+)"
+    rb"(?P<prefix>"
+    rb"(?:(?:^|(?<=[\r\n]))[ \t]*(?:%%MIDI|(?P<instruction>I[ \t]*:[ \t]*MIDI))"
+    rb"|(?P<inline>\[I:)[ \t]*MIDI)"
+    rb"[ \t]+ptstress[ \t]+)"
+    # parsemusic cuts the line at the first percent sign before parsing inline fields.
+    rb"(?P<argument>(?(inline)[^\]%\r\n]+(?=\])|[^\r\n]+))"
+    # Skip other fields, music annotations, and comments that can contain literal [I: text.
+    rb"|(?:^|(?<=[\r\n]))[ \t]*[A-Za-z+][ \t]*:[^\r\n]*"
+    rb'|"[^"%\r\n]*"?'
+    rb"|\[[A-Za-z]:[^\]%\r\n]*"
+    rb"|%[^\r\n]*"
 )
 
 # parseabc.c accepts spaces and tabs before and around the field delimiter.
@@ -96,6 +104,8 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
 
     def stage_stress(match: re.Match[bytes]) -> bytes:
         original = match["argument"]
+        if original is None:
+            return match[0]
         comment = b""
         if match["instruction"]:
             # parsefield in parseabc.c splits I: fields at the first percent sign.
