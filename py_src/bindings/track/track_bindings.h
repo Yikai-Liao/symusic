@@ -52,7 +52,7 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 constexpr const char* kTrimDoc       = R"pbdoc(
 Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
-keeps them whole. Other events are clipped by time. Invalid modes raise ``ValueError``. Returns a
+keeps them whole. Other events are clipped by time. Invalid modes and negative *min_overlap* raise ``ValueError``. Returns a
 deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kSortDoc       = R"pbdoc(

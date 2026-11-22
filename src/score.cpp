@@ -271,7 +271,7 @@ void Score<T>::trim_inplace(
     if (!(start <= end)) {
         throw std::invalid_argument("trim requires start <= end");
     }
-    ops::details::validate_trim_modes(start_mode, end_mode);
+    ops::details::validate_trim_options(min_overlap, start_mode, end_mode);
     for (auto& track : *tracks) track->trim_inplace(start, end, min_overlap, start_mode, end_mode);
     ops::clip_with_sentinel_inplace(*time_signatures, start, end);
     ops::clip_with_sentinel_inplace(*key_signatures, start, end);

@@ -117,3 +117,16 @@ def test_score_trim_rejects_reversed_bounds(ttype, has_track):
 def test_score_trim_rejects_nan_bounds(ttype, bounds):
     with pytest.raises(ValueError, match="start <= end"):
         Score(ttype=ttype).trim(*bounds)
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("target", ["track", "score", "empty score"])
+def test_trim_rejects_negative_overlap(ttype, target):
+    track = Track(ttype=ttype)
+    track.notes.append(Note(0, 1, 60, 80, ttype=ttype))
+    score = Score(ttype=ttype)
+    if target == "score":
+        score.tracks.append(track)
+    obj = track if target == "track" else score
+    with pytest.raises(ValueError, match="min_overlap"):
+        obj.trim(2, 4, min_overlap=-1, start_mode="truncate")

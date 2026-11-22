@@ -112,7 +112,7 @@ to *start*. Returns a new score unless *inplace* is true.
 constexpr const char* kTrimDoc = R"pbdoc(
 Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
-keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
+keeps them whole. Invalid modes and negative *min_overlap* raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
 *start* are kept there. Returns a new score with independent tracks and events.
 )pbdoc";
 constexpr const char* kShiftTimeDoc
