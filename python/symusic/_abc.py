@@ -39,9 +39,9 @@ _STRESS = re.compile(
 # parseabc.c accepts spaces and tabs before and around the field delimiter.
 _TUNE_LINE = re.compile(
     rb"(?:^|(?<=[\r\n]))(?:"
-    rb"(?P<header>[ \t]*X[ \t]*:(?![:|])[ \t]*(?P<reference>[0-9]*))"
-    rb"|(?P<off>(?i:%%MidiOff)|%%beginps(?=[\r\n]|$)|[^\r\n]*?%%begintext)"
-    rb"|(?P<on>(?i:%%MidiOn)|%%endps(?=[\r\n]|$)|[^\r\n]*?%%endtext))"
+    rb"[ \t]*X[ \t]*:(?![:|])[ \t]*(?P<reference>[0-9]*)"
+    rb"|(?i:%%MidiOff|%%MidiOn)|%%(?:begin|end)ps(?=[\r\n]|$)"
+    rb"|[^\r\n]*?%%(?:begin|end)text)[^\r\n]*"
 )
 _INCLUDE_LINE = re.compile(_INCLUDE.pattern + rb"[^\r\n]*(?:\r\n|\n\r|\r|\n)")
 
@@ -134,11 +134,17 @@ def _isolate_tune(data: bytes, tune: int, workdir: Path, includes: set[bytes]) -
     ignored = False
     first = selected = None
     for line in _TUNE_LINE.finditer(data):
-        if line["off"] is not None:
+        content = line[0]
+        # parseline applies endtext after begintext, then checks MidiOff and MidiOn.
+        if b"%%begintext" in content or content == b"%%beginps":
             ignored = True
-        elif line["on"] is not None:
+        if b"%%endtext" in content or content == b"%%endps":
             ignored = False
-        elif not ignored:
+        if content[:9].lower() == b"%%midioff":
+            ignored = True
+        if content[:8].lower() == b"%%midion":
+            ignored = False
+        if not ignored and line["reference"] is not None:
             if first is None:
                 first = line.start()
             if selected is not None:
