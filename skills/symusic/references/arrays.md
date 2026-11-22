@@ -29,7 +29,7 @@ assert notes == score.tracks[0].notes
 
 - `time` and `duration` are `int32` in ticks and `float32` in quarters and seconds; `pitch` and `velocity` are `int8`.
 - The arrays are copies; changing them does not change the score.
-- `from_numpy` takes the same keys as keyword arguments plus `ttype`; the arrays must have equal length.
+- `from_numpy` takes the same keys as keyword arguments plus `ttype`. The arrays must be one-dimensional CPU arrays of equal length.
 - `TextMeta` lists (lyrics and markers) have no `numpy`.
 
 Arrays make statistics over a whole score short:
