@@ -94,7 +94,16 @@ public:
         builder.add(std::move(event));
     }
 
-    void finish() { builder.finish_group(name); }
+    void finish() {
+        // Keep channel events even if no note or lyric promoted their pending track.
+        for (size_t channel = 0; channel < pending_tracks.size(); ++channel) {
+            auto& pending = pending_tracks[channel];
+            if (!pending.empty()) {
+                builder.track({static_cast<u8>(channel), pending.program}, pending, true, 0);
+            }
+        }
+        builder.finish_group(name);
+    }
 };
 
 template<TType T, typename S, typename Convert, typename Container>

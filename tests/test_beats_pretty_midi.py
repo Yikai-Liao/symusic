@@ -72,6 +72,16 @@ def test_beats_and_downbeats_match_pretty_midi_on_real_midis(midi_path):
     pm = _load_pretty_midi(midi_path)
     score = Score(midi_path, ttype=Second)
 
+    if midi_path.name == "empty.mid":
+        # Retained control changes extend this fixture past time zero.
+        assert score.note_count() == 0
+        assert score.end() > 0
+        np.testing.assert_array_equal(pm.get_beats(), [])
+        np.testing.assert_array_equal(pm.get_downbeats(), [])
+        np.testing.assert_array_equal(score.get_beats(), [0])
+        np.testing.assert_array_equal(score.get_downbeats(), [0])
+        return
+
     _assert_times_match_pretty_midi(
         pm.get_beats(),
         score.get_beats(),

@@ -195,6 +195,7 @@ def test_midi_moving_lyrics_preserves_channel_events():
         (0, 3)
     ]
     assert [(bend.time, bend.value) for bend in channel_track.pitch_bends] == [(2, 1)]
+    assert Score.from_midi(score.to_midi()) == score
 
 
 def test_midi_round_trips_global_events_without_tracks():
@@ -202,6 +203,24 @@ def test_midi_round_trips_global_events_without_tracks():
     score.time_signatures.append(TimeSignature(480, 3, 4))
     score.tempos.append(Tempo(0, 120))
 
+    assert Score.from_midi(score.to_midi()) == score
+
+
+def test_midi_keeps_noteless_channel_tracks():
+    body = bytes.fromhex(
+        "00 b0 40 7f "  # sustain on, channel 1
+        "01 c1 01 "  # program 1, channel 2
+        "01 e1 01 40 "  # pitch bend, channel 2
+        "01 b0 40 00 "  # sustain off, channel 1
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    first, second = score.tracks
+    assert (first.program, second.program) == (0, 1)
+    assert [(cc.time, cc.value) for cc in first.controls] == [(0, 127), (3, 0)]
+    assert not first.pitch_bends
+    assert [(bend.time, bend.value) for bend in second.pitch_bends] == [(2, 1)]
+    assert not second.controls
     assert Score.from_midi(score.to_midi()) == score
 
 
