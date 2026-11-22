@@ -224,6 +224,10 @@ def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include, music):
 
 
 @pytest.mark.parametrize("absolute", [False, True])
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="abc2midi reads uninitialized stress velocities on Windows (store.c, genmidi.c)",
+)
 def test_abc_stress_instruction_comment(tmp_path, monkeypatch, absolute):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "stress pattern.txt"
