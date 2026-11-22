@@ -408,7 +408,7 @@ Synthesizer::Synthesizer(
     const std::filesystem::path& library_path,
     const std::filesystem::path& soundfont,
     SynthSettings                settings
-) : soundfont(std::filesystem::absolute(soundfont)), settings(settings) {
+) : settings(settings) {
     if (settings.sample_rate < 8000 || settings.sample_rate > 96000) {
         throw std::invalid_argument("sample_rate must be in the range 8000 to 96000 Hz");
     }
@@ -418,6 +418,7 @@ Synthesizer::Synthesizer(
     if (!std::isfinite(settings.tail_seconds) || settings.tail_seconds < 0) {
         throw std::invalid_argument("tail_seconds must be finite and nonnegative");
     }
+    this->soundfont = std::filesystem::absolute(soundfont);
     if (!std::filesystem::exists(this->soundfont)) {
         throw std::filesystem::filesystem_error(
             "SoundFont file does not exist",
