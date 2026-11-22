@@ -197,7 +197,11 @@ void bind_event_init(nb::class_<UnitValue<Event>>& type, std::index_sequence<I..
 }
 
 template<class Scalar>
-using Column = nb::ndarray<Scalar, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Column = std::conditional_t<
+    std::same_as<Scalar, bool>,
+    nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>,
+    nb::ndarray<Scalar, nb::ndim<1>, nb::c_contig, nb::device::cpu>
+>;
 
 template<class Scalar>
 struct InputColumn {

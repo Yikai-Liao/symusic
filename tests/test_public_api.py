@@ -268,6 +268,32 @@ def test_to_numpy_uses_field_names_and_bool_minor():
     assert not hasattr(signatures, "numpy")
 
 
+@pytest.mark.parametrize("stride", [2, -2])
+def test_key_signature_from_strided_booleans(stride):
+    from symusic import KeySignature, KeySignatureList
+
+    signatures = KeySignatureList(
+        [
+            KeySignature(0, -3, True),
+            KeySignature(1, 2, False),
+            KeySignature(2, 1, False),
+            KeySignature(3, 0, True),
+        ]
+    )
+    arrays = {name: column[::stride] for name, column in signatures.to_numpy().items()}
+    assert KeySignatureList.from_numpy(**arrays) == signatures[::stride]
+
+
+def test_key_signature_from_numpy_checks_integer_minor():
+    from symusic import KeySignatureList
+
+    columns = {"time": np.array([0, 1]), "key": np.array([-3, 2])}
+    signatures = KeySignatureList.from_numpy(**columns, minor=np.array([1, 0]))
+    assert [signature.minor for signature in signatures] == [True, False]
+    with pytest.raises(ValueError, match="minor"):
+        KeySignatureList.from_numpy(**columns, minor=np.array([1, 2]))
+
+
 @pytest.mark.parametrize("offset", [8, 2**80])
 def test_shift_range_failure_does_not_partially_mutate(offset):
     score = Score()
