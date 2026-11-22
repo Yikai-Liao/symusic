@@ -185,3 +185,22 @@ def test_issue90_first_notes_have_expected_relative_durations():
         f"Duration ratio of first two vs next three notes is {ratio:.2f}; "
         f"expected ~2.0 (durations: {dur})"
     )
+
+
+@pytest.mark.parametrize("tempo_at_zero", [False, True])
+def test_negative_tempo_boundaries(tempo_at_zero):
+    score = Score(480)
+    # Supply the tempo events out of order to exercise the sorted boundary list.
+    score.tempos = [Tempo(480, 60), Tempo(-480, 60), Tempo(-960, 240)]
+    if tempo_at_zero:
+        score.tempos.append(Tempo(0, 120))
+    score.tracks.append(Track(notes=[Note(-1440, 1920, 60, 80), Note(0, 0, 62, 80)]))
+
+    expected_end = 0.5 if tempo_at_zero else 1
+    for source in (score, score.to("quarter")):
+        seconds = source.to("second")
+        assert seconds.tracks[0].notes[0].start == pytest.approx(-1.75)
+        assert seconds.tracks[0].notes[0].end == pytest.approx(expected_end)
+        assert seconds.tracks[0].notes[1].start == 0
+        notes = seconds.to("tick").tracks[0].notes
+        assert [(note.start, note.end) for note in notes] == [(-1440, 480), (0, 0)]

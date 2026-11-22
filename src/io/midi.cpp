@@ -93,7 +93,7 @@ struct NoteManager {
 
         // Modify the duration of the placeholder
         auto& note    = (*slot.notes)[slot.index];
-        note.duration = end_time - note.time;
+        note.duration = sub_time(end_time, note.time);
 
         if (--slot.count > 0) {
             // Pop the queue if needed
@@ -293,7 +293,7 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     } else {
                         if (last_pedal_on[channel] >= 0) {
                             track.pedals.emplace_back(
-                                last_pedal_on[channel], cur_time - last_pedal_on[channel]
+                                last_pedal_on[channel], sub_time(cur_time, last_pedal_on[channel])
                             );
                             last_pedal_on[channel] = -1;
                         }
@@ -374,7 +374,34 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
     return to_shared(std::move(score));
 }
 
+template<TType T>
+void validate_midi_times(const Score<T>& score) {
+    const auto validate = [](const auto& events, const char* kind) {
+        for (const auto& event : *events) {
+            if (event.time < 0) {
+                throw std::invalid_argument(
+                    std::string("MIDI ") + kind + " time must be non-negative, got "
+                    + std::to_string(event.time)
+                );
+            }
+        }
+    };
+    validate(score.time_signatures, "time signature");
+    validate(score.key_signatures, "key signature");
+    validate(score.tempos, "tempo");
+    validate(score.markers, "marker");
+    for (const auto& track : *score.tracks) {
+        validate(track->controls, "control change");
+        validate(track->pitch_bends, "pitch bend");
+        validate(track->lyrics, "lyric");
+        validate(track->notes, "note");
+        validate(track->pedals, "pedal");
+    }
+}
+
 minimidi::MidiFile<> to_midi(const Score<Tick>& score) {
+    // Every event start fits u32. Positive note durations use the checked tick end.
+    validate_midi_times(score);
     minimidi::MidiFile<> midi{
         minimidi::MidiFormat::MultiTrack, 0, static_cast<u16>(score.ticks_per_quarter)
     };
@@ -575,12 +602,14 @@ vec<u8> Score<Tick>::dumps<DataFormat::MIDI>() const {
 template<>
 template<>
 vec<u8> Score<Quarter>::dumps<DataFormat::MIDI>() const {
+    details::validate_midi_times(*this);
     return details::to_midi(convert<Tick>(*this)).to_bytes_sorted();
 }
 
 template<>
 template<>
 vec<u8> Score<Second>::dumps<DataFormat::MIDI>() const {
+    details::validate_midi_times(*this);
     return details::to_midi(convert<Tick>(*this)).to_bytes_sorted();
 }
 

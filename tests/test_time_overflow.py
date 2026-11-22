@@ -5,7 +5,18 @@ from __future__ import annotations
 import math
 
 import pytest
-from symusic import Note, Pedal, Score, Tempo, Track
+from symusic import (
+    ControlChange,
+    KeySignature,
+    Note,
+    Pedal,
+    PitchBend,
+    Score,
+    Tempo,
+    TextMeta,
+    TimeSignature,
+    Track,
+)
 
 from tests.test_malformed_midi import build_single_track_midi
 
@@ -187,3 +198,42 @@ def test_resample_extreme_factor(time: int):
         tick_score(Note(2, 480, 60, 80, "tick")).resample(960).tracks[0].notes[0].start
         == 4
     )
+
+
+@pytest.mark.parametrize(
+    ("collection", "kind", "event"),
+    [
+        ("time_signatures", "time signature", TimeSignature(-2, 4, 4)),
+        ("key_signatures", "key signature", KeySignature(-2, 0, 0)),
+        ("tempos", "tempo", Tempo(-2, 120)),
+        ("markers", "marker", TextMeta(-2, "marker")),
+        ("notes", "note", Note(-2, 5, 60, 80)),
+        ("controls", "control change", ControlChange(-2, 64, 0)),
+        ("pitch_bends", "pitch bend", PitchBend(-2, 0)),
+        ("lyrics", "lyric", TextMeta(-2, "lyric")),
+        ("pedals", "pedal", Pedal(-2, 5)),
+    ],
+)
+def test_midi_rejects_negative_start(collection, kind, event):
+    score = tick_score()
+    target = score if hasattr(score, collection) else score.tracks[0]
+    getattr(target, collection).append(event)
+    with pytest.raises(ValueError, match=rf"{kind} time.*-2"):
+        score.dumps_midi()
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_midi_rejects_negative_start_before_rounding(ttype):
+    score = Score(480, ttype=ttype)
+    score.tracks.append(Track(notes=[Note(-0.0001, 1, 60, 80, ttype)], ttype=ttype))
+    with pytest.raises(ValueError, match="note time"):
+        score.dumps_midi()
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_midi_duration_overflow(ttype):
+    # The note-off follows nine valid deltas but exceeds the signed tick range.
+    body = bytes.fromhex("00 90 3c 40") + _spacer() * 8
+    body += bytes.fromhex("ff ff ff 7f 80 3c 40 00 ff 2f 00")
+    with pytest.raises(RuntimeError, match="32-bit tick range"):
+        Score.from_midi(build_single_track_midi(body), ttype=ttype)
