@@ -151,8 +151,8 @@ TEST_CASE("Test TextMeta formatting", "[repr][text]") {
 
 TEST_CASE("Test Track formatting", "[repr][track]") {
     Track<Tick> track("Piano", 0, false);
-    track.notes->push_back(Note<Tick>(0, 100, 60, 100));
-    track.notes->push_back(Note<Tick>(100, 100, 62, 100));
+    track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+    track.notes.push_back(Note<Tick>(100, 100, 62, 100));
 
     SECTION("Basic formatting") {
         std::string str = track.to_string();
@@ -178,9 +178,9 @@ TEST_CASE("Test Track formatting", "[repr][track]") {
 
 TEST_CASE("Test Score formatting", "[repr][score]") {
     Score<Tick> score(480);
-    auto        track = std::make_shared<Track<Tick>>("Piano", 0, false);
-    track->notes->push_back(Note<Tick>(0, 100, 60, 100));
-    score.tracks->push_back(track);
+    auto        track = Track<Tick>("Piano", 0, false);
+    track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+    score.tracks.push_back(track);
 
     SECTION("Basic formatting") {
         std::string str = score.to_string();

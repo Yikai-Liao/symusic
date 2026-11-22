@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "utils/storage.h"
 #include <span>
 #include <string>
 #include <string_view>
@@ -15,6 +16,8 @@
 #include <pyvec.hpp>
 
 namespace pyutils {
+
+using symusic::py::pyvec;
 
 using namespace symusic;
 namespace nb = nanobind;

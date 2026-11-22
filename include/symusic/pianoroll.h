@@ -55,8 +55,9 @@ public:
     TrackPianoroll& operator=(TrackPianoroll&&) noexcept = default;
     ~TrackPianoroll()                                    = default;
 
+    template<typename S>
     static TrackPianoroll from_track(
-        const Track<Tick>&                track,
+        const Track<Tick, S>&                track,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitchRange,
         bool                              encodeVelocity
@@ -100,8 +101,9 @@ public:
     ScorePianoroll& operator=(ScorePianoroll&&) noexcept = default;
     ~ScorePianoroll()                                    = default;
 
+    template<typename S>
     static ScorePianoroll from_score(
-        const Score<Tick>&                score,
+        const Score<Tick, S>&                score,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitchRange,
         bool                              encodeVelocity

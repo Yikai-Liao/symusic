@@ -31,12 +31,12 @@ class ScoreBuilder {
         TextMeta<T> lyric;
     };
 
-    ScoreNative<T>                score;
-    std::map<Key, TrackNative<T>> tracks;
-    Key                           last_key{};
-    TrackNative<T>*               last_track = nullptr;
-    vec<TrackNative<T>*>          note_tracks;
-    vec<PendingLyric>             lyrics;
+    Score<T>                score;
+    std::map<Key, Track<T>> tracks;
+    Key                     last_key{};
+    Track<T>*               last_track = nullptr;
+    vec<Track<T>*>          note_tracks;
+    vec<PendingLyric>       lyrics;
 
 public:
     struct NoteHandle {
@@ -46,7 +46,7 @@ public:
 
     explicit ScoreBuilder(i32 tpq) : score(tpq) {}
 
-    TrackNative<T>* find_track(const Key& key) {
+    Track<T>* find_track(const Key& key) {
         if (last_track && last_key == key) return last_track;
         if (auto it = tracks.find(key); it != tracks.end()) {
             last_key   = key;
@@ -56,14 +56,14 @@ public:
         return nullptr;
     }
 
-    TrackNative<T>& create_track(const Key& key, TrackNative<T>&& initial) {
+    Track<T>& create_track(const Key& key, Track<T>&& initial) {
         auto& result = tracks.try_emplace(key, std::move(initial)).first->second;
         last_key   = key;
         last_track = &result;
         return result;
     }
 
-    NoteHandle begin_note(TrackNative<T>& track, unit time, i8 pitch, i8 velocity) {
+    NoteHandle begin_note(Track<T>& track, unit time, i8 pitch, i8 velocity) {
         if (track.notes.empty()) note_tracks.push_back(&track);
         track.notes.emplace_back(time, -1, pitch, velocity);
         return {&track.notes, track.notes.size() - 1};
@@ -84,7 +84,7 @@ public:
     void add(TextMeta<T> event) { score.markers.push_back(std::move(event)); }
 
     void finish_group(const std::string& name) {
-        TrackNative<T>* lyric_owner = nullptr;
+        Track<T>* lyric_owner = nullptr;
         for (auto* track : note_tracks) {
             std::erase_if(track->notes, [](const Note<T>& note) { return note.duration < 0; });
             if (!lyric_owner && !track->notes.empty()) lyric_owner = track;
@@ -108,7 +108,7 @@ public:
         last_track = nullptr;
     }
 
-    [[nodiscard]] ScoreNative<T> finish() && {
+    [[nodiscard]] Score<T> finish() && {
         sort_by_time(score.time_signatures);
         sort_by_time(score.key_signatures);
         sort_by_time(score.tempos);

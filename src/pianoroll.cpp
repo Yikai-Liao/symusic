@@ -1,4 +1,4 @@
-#include "symusic/pianoroll.h"
+#include "symusic/detail/pianoroll_impl.h"
 
 #include <initializer_list>
 #include <limits>
@@ -8,122 +8,12 @@
 
 namespace symusic {
 
-namespace {
 
-/// Multiply dimensions, throwing std::length_error (ValueError in Python) when the element count
-/// would not fit in a signed object size.
-size_t checked_volume(std::initializer_list<size_t> dims) {
-    size_t volume = 1;
-    for (const size_t dim : dims) {
-        if (dim != 0 && volume > static_cast<size_t>(std::numeric_limits<ptrdiff_t>::max()) / dim) {
-            throw std::length_error("Pianoroll dimensions are too large.");
-        }
-        volume *= dim;
-    }
-    return volume;
-}
-
-/// Time-axis length for a track or score ending at `end` (exclusive end plus one slot).
-/// The sum is done in 64 bits so `end == INT32_MAX` cannot overflow.
-size_t time_dim_from_end(const i32 end) {
-    if (end < 0) throw std::invalid_argument("Cannot build a pianoroll: the end time is negative.");
-    // A non-negative i32 plus one fits in the size_t of supported targets.
-    return static_cast<size_t>(end) + 1;
-}
-
-/// Validate one note against a time axis of `timeDim` slots and return its start and end.
-/// Throws std::invalid_argument for a negative time or duration, or a note that runs past the axis.
-/// A zero duration is valid: frame mode writes nothing for it.
-std::pair<size_t, size_t> checked_note_span(
-    const int64_t time, const int64_t duration, const size_t timeDim
-) {
-    if (time < 0) {
-        throw std::invalid_argument(
-            "Cannot build a pianoroll: note time " + std::to_string(time) + " is negative."
-        );
-    }
-    if (duration < 0) {
-        throw std::invalid_argument(
-            "Cannot build a pianoroll: note duration " + std::to_string(duration) + " is negative."
-        );
-    }
-    const int64_t end = time + duration;   // both are non-negative i32 values, so no overflow
-    if (static_cast<uint64_t>(end) >= timeDim) {
-        throw std::invalid_argument(
-            "Cannot build a pianoroll: note end " + std::to_string(end)
-            + " lies beyond the track end."
-        );
-    }
-    // The checks above establish 0 <= time <= end < timeDim.
-    return {static_cast<size_t>(time), static_cast<size_t>(end)};
-}
-
-pianoroll_t encode_velocity(i8 velocity, bool enabled) {
-    if (!enabled) return 1;
-    if (velocity < 0) {
-        throw std::invalid_argument(
-            "Pianoroll note velocity must be non-negative, got " + std::to_string(velocity)
-        );
-    }
-    return static_cast<pianoroll_t>(velocity);
-}
-
-void check_index(const char* name, const size_t index, const size_t dim) {
-    if (index >= dim) {
-        throw std::out_of_range(
-            std::string("Pianoroll ") + name + " index " + std::to_string(index)
-            + " is out of range for size " + std::to_string(dim) + "."
-        );
-    }
-}
-
-/// Check that `duration` slots starting at `start` fit inside `timeDim` without overflowing.
-void check_time_span(const size_t start, const size_t duration, const size_t timeDim) {
-    if (start > timeDim || duration > timeDim - start) {
-        throw std::out_of_range(
-            "Pianoroll time span [" + std::to_string(start) + ", +" + std::to_string(duration)
-            + ") is out of range for size " + std::to_string(timeDim) + "."
-        );
-    }
-}
-
-}   // namespace
 
 TrackPianoroll::TrackPianoroll(size_t modeDim, size_t pitchDim, size_t timeDim) :
     modeDim(modeDim), pitchDim(pitchDim), timeDim(timeDim),
-    dataPtr(std::make_unique<pianoroll_t[]>(checked_volume({modeDim, pitchDim, timeDim}))) {}
+    dataPtr(std::make_unique<pianoroll_t[]>(detail::checked_volume({modeDim, pitchDim, timeDim}))) {}
 
-TrackPianoroll TrackPianoroll::from_track(
-    const Track<Tick>&                track,
-    const std::vector<PianorollMode>& modes,
-    const std::pair<uint8_t, uint8_t> pitchRange,
-    const bool                        encodeVelocity
-) {
-    if (pitchRange.second < pitchRange.first) {
-        throw std::invalid_argument("Pianoroll pitch range is reversed.");
-    }
-    const size_t   timeDim = time_dim_from_end(track.end());
-    TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, timeDim);
-
-    for (const auto& note : *track.notes) {
-        if (note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
-            const auto [noteStart, noteEnd] = checked_note_span(note.time, note.duration, timeDim);
-            for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                // Invariant: modeIdx < modes.size(), the pitch offset is below the pitch range
-                // size, and checked_note_span proved the span lies inside the time axis.
-                pianoroll.fill_unchecked(
-                    modeIdx,
-                    note->pitch - pitchRange.first,
-                    modes[modeIdx] != PianorollMode::offset ? noteStart : noteEnd,
-                    modes[modeIdx] == PianorollMode::frame ? noteEnd - noteStart : 1,
-                    encode_velocity(note->velocity, encodeVelocity)
-                );
-            }
-        }
-    }
-
-    return pianoroll;
-};
 
 pianoroll_t* TrackPianoroll::data() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in TrackPianoroll is moved.");
@@ -141,9 +31,9 @@ pianoroll_t* TrackPianoroll::release() {
 };
 
 pianoroll_t* TrackPianoroll::operator()(const size_t mode, const size_t pitch, const size_t time) {
-    check_index("mode", mode, this->modeDim);
-    check_index("pitch", pitch, this->pitchDim);
-    check_index("time", time, this->timeDim);
+    detail::check_index("mode", mode, this->modeDim);
+    detail::check_index("pitch", pitch, this->pitchDim);
+    detail::check_index("time", time, this->timeDim);
     return this->data() + mode * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
 };
 
@@ -168,10 +58,10 @@ void TrackPianoroll::set(
     const size_t      duration,
     const pianoroll_t value
 ) {
-    check_time_span(start, duration, this->timeDim);
+    detail::check_time_span(start, duration, this->timeDim);
     if (duration == 0) {
-        check_index("mode", mode, this->modeDim);
-        check_index("pitch", pitch, this->pitchDim);
+        detail::check_index("mode", mode, this->modeDim);
+        detail::check_index("pitch", pitch, this->pitchDim);
         return;
     }
     std::fill_n((*this)(mode, pitch, start), duration, value);
@@ -192,48 +82,9 @@ std::tuple<size_t, size_t, size_t> TrackPianoroll::dims() const {
 ScorePianoroll::ScorePianoroll(size_t modeDim, size_t trackDim, size_t pitchDim, size_t timeDim) :
     modeDim(modeDim), trackDim(trackDim), pitchDim(pitchDim), timeDim(timeDim),
     dataPtr(
-        std::make_unique<pianoroll_t[]>(checked_volume({modeDim, trackDim, pitchDim, timeDim}))
+        std::make_unique<pianoroll_t[]>(detail::checked_volume({modeDim, trackDim, pitchDim, timeDim}))
     ) {}
 
-ScorePianoroll ScorePianoroll::from_score(
-    const Score<Tick>&                score,
-    const std::vector<PianorollMode>& modes,
-    const std::pair<uint8_t, uint8_t> pitchRange,
-    const bool                        encodeVelocity
-) {
-    if (pitchRange.second < pitchRange.first) {
-        throw std::invalid_argument("Pianoroll pitch range is reversed.");
-    }
-    const auto&    tracks  = *score.tracks;
-    const size_t   timeDim = time_dim_from_end(score.end());
-    ScorePianoroll pianoroll(
-        modes.size(), tracks.size(), pitchRange.second - pitchRange.first, timeDim
-    );
-
-    for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx) {
-        for (const Track<Tick>& track = *tracks[trackIdx]; const auto& note : *track.notes) {
-            if (note.pitch >= pitchRange.first && note.pitch < pitchRange.second) {
-                const auto [noteStart, noteEnd]
-                    = checked_note_span(note.time, note.duration, timeDim);
-                for (size_t modeIdx = 0; modeIdx < modes.size(); ++modeIdx) {
-                    // Invariant: modeIdx < modes.size(), trackIdx < tracks.size(), the pitch
-                    // offset is below the pitch range size, and checked_note_span proved the
-                    // span lies inside the time axis.
-                    pianoroll.fill_unchecked(
-                        modeIdx,
-                        trackIdx,
-                        note->pitch - pitchRange.first,
-                        modes[modeIdx] != PianorollMode::offset ? noteStart : noteEnd,
-                        modes[modeIdx] == PianorollMode::frame ? noteEnd - noteStart : 1,
-                        encode_velocity(note->velocity, encodeVelocity)
-                    );
-                }
-            }
-        }
-    }
-
-    return pianoroll;
-}
 
 pianoroll_t* ScorePianoroll::data() {
     if (this->dataPtr == nullptr) throw std::runtime_error("Data in ScorePianoroll is moved.");
@@ -251,10 +102,10 @@ pianoroll_t* ScorePianoroll::release() {
 };
 
 pianoroll_t* ScorePianoroll::operator()(size_t mode, size_t track, size_t pitch, size_t time) {
-    check_index("mode", mode, this->modeDim);
-    check_index("track", track, this->trackDim);
-    check_index("pitch", pitch, this->pitchDim);
-    check_index("time", time, this->timeDim);
+    detail::check_index("mode", mode, this->modeDim);
+    detail::check_index("track", track, this->trackDim);
+    detail::check_index("pitch", pitch, this->pitchDim);
+    detail::check_index("time", time, this->timeDim);
     return data() + mode * this->trackDim * this->pitchDim * this->timeDim
            + track * this->pitchDim * this->timeDim + pitch * this->timeDim + time;
 };
@@ -278,11 +129,11 @@ void ScorePianoroll::fill_unchecked(
 void ScorePianoroll::set(
     size_t mode, size_t track, size_t pitch, size_t start, size_t duration, pianoroll_t value
 ) {
-    check_time_span(start, duration, this->timeDim);
+    detail::check_time_span(start, duration, this->timeDim);
     if (duration == 0) {
-        check_index("mode", mode, this->modeDim);
-        check_index("track", track, this->trackDim);
-        check_index("pitch", pitch, this->pitchDim);
+        detail::check_index("mode", mode, this->modeDim);
+        detail::check_index("track", track, this->trackDim);
+        detail::check_index("pitch", pitch, this->pitchDim);
         return;
     }
     std::fill_n((*this)(mode, track, pitch, start), duration, value);
@@ -299,5 +150,8 @@ void ScorePianoroll::clear() {
 std::tuple<size_t, size_t, size_t, size_t> ScorePianoroll::dims() const {
     return {this->modeDim, this->trackDim, this->pitchDim, this->timeDim};
 };
+
+template TrackPianoroll TrackPianoroll::from_track(const Track<Tick, ValueStorage>&, const vec<PianorollMode>&, std::pair<u8, u8>, bool);
+template ScorePianoroll ScorePianoroll::from_score(const Score<Tick, ValueStorage>&, const vec<PianorollMode>&, std::pair<u8, u8>, bool);
 
 }   // namespace symusic

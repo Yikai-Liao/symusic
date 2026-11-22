@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "utils/storage.h"
 #include <algorithm>
 #include <span>
 #include <string>
@@ -21,6 +22,8 @@
 #include "../docstring_helpers.h"
 
 namespace symusic {
+
+using py::pyvec;
 
 namespace nb = nanobind;
 
@@ -122,8 +125,8 @@ shared<vec<shared<T>>> clone_track_vector(const shared<vec<shared<T>>>& self) {
 template<TType T>
 auto bind_track(nb::module_& m, const std::string& name_) {
     using unit    = typename T::unit;
-    using self_t  = shared<Track<T>>;
-    using track_t = Track<T>;
+    using self_t  = shared<py::Track<T>>;
+    using track_t = py::Track<T>;
     using vec_t   = shared<vec<self_t>>;
 
     const auto     name      = "Track" + name_;
@@ -135,10 +138,10 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_docstrings::doc<T>())
-        .def("__init__", &pyutils::pyinit<Track<T>>,
+    auto track = nb::class_<shared<py::Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_docstrings::doc<T>())
+        .def("__init__", &pyutils::pyinit<py::Track<T>>,
              nb::sig("def __init__(self, /) -> None"))
-        .def("__init__", &pyutils::pyinit<Track<T>, std::string, u8, const bool>,
+        .def("__init__", &pyutils::pyinit<py::Track<T>, std::string, u8, const bool>,
              nb::arg("name"), nb::arg("program") = 0, nb::arg("is_drum") = false,
              nb::sig("def __init__(self, name: str = '', program: int = 0, is_drum: bool = False, /) -> None"))
         .def("__init__", [](self_t *self, const self_t& other) {
@@ -159,15 +162,14 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("__repr__", [](const self_t& self) { return self->to_string(); },
            nb::sig("def __repr__(self, /) -> str"))
         .def("__getstate__", [](const self_t& self) {
-            const auto native = to_native(*self);
-            const vec<unsigned char> data = dumps<DataFormat::ZPP>(native);
+            const vec<u8> data = dumps<DataFormat::ZPP>(*self);
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
         }, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__", [](self_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-            auto ans = symusic::parse<symusic::DataFormat::ZPP, TrackNative<T>>(span);
-            new (&self) self_t(std::make_shared<Track<T>>(std::move(to_shared(std::move(ans)))));
+            auto ans = symusic::parse<symusic::DataFormat::ZPP, py::Track<T>>(span);
+            new (&self) self_t(std::make_shared<py::Track<T>>(std::move(ans)));
         }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
         .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.",
             nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<T>().suffix).c_str())))
@@ -344,19 +346,16 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move,
             nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", list_name).c_str()))
         .def("__getstate__",  [](const vec_t& self) {
-            vec<TrackNative<T>> native;
-            native.reserve(self->size());
-            for (const auto& item : *self) { native.emplace_back(std::move(to_native(*item))); }
-            const vec<unsigned char> data = dumps<DataFormat::ZPP>(native);
+            const auto data = detail::dump_track_list<T, py::SharedStorage>(self);
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
         }, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__",  [](vec_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-            auto ans = symusic::parse<symusic::DataFormat::ZPP, vec<TrackNative<T>>>(span);
+            auto ans = symusic::parse<symusic::DataFormat::ZPP, vec<Track<T>>>(span);
             auto tracks = std::make_shared<vec<self_t>>();
             tracks->reserve(ans.size());
-            for (auto& item : ans) { tracks->emplace_back(std::make_shared<Track<T>>(std::move(to_shared(std::move(item))))); }
+            for (auto& item : ans) { tracks->emplace_back(std::make_shared<py::Track<T>>(detail::adopt_storage<py::SharedStorage>(std::move(item)))); }
             new (&self) vec_t(std::move(tracks));
         }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str()))
     ;

@@ -285,10 +285,10 @@ TEST_CASE("Test TextMeta Formatting (Tick)", "[repr][text]") {
 
 // Add tests for Track summary/to_string (Tick only)
 TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
-    auto         track_ptr = std::make_shared<Track<Tick>>("Piano", 0, false);
-    Track<Tick>& track     = *track_ptr;
-    track.notes->push_back(Note<Tick>(100, 200, 60, 90));
-    track.notes->push_back(Note<Tick>(300, 100, 62, 80));
+    auto         track_ptr = Track<Tick>("Piano", 0, false);
+    Track<Tick>& track     = track_ptr;
+    track.notes.push_back(Note<Tick>(100, 200, 60, 90));
+    track.notes.push_back(Note<Tick>(300, 100, 62, 80));
 
     REQUIRE(
         track.summary()
@@ -310,12 +310,12 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 // Add tests for Score summary/to_string (Tick only)
 TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     Score<Tick> score(480);   // tpq
-    auto track1 = score.tracks->emplace_back(std::make_shared<Track<Tick>>("Track 1", 0, false));
-    track1->notes->push_back(Note<Tick>(0, 480, 60, 100));
-    auto track2 = score.tracks->emplace_back(std::make_shared<Track<Tick>>("Track 2", 1, false));
-    track2->notes->push_back(Note<Tick>(480, 480, 62, 90));
-    score.time_signatures->push_back(TimeSignature<Tick>(0, 4, 4));
-    score.key_signatures->push_back(KeySignature<Tick>(0, 0, 0));   // C major
+    auto& track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
+    track1.notes.push_back(Note<Tick>(0, 480, 60, 100));
+    auto& track2 = score.tracks.emplace_back(Track<Tick>("Track 2", 1, false));
+    track2.notes.push_back(Note<Tick>(480, 480, 62, 90));
+    score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
+    score.key_signatures.push_back(KeySignature<Tick>(0, 0, 0));   // C major
 
     REQUIRE(score.start() == 0);
     REQUIRE(score.end() == 960);   // end time is start + duration

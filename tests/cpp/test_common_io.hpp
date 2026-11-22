@@ -75,7 +75,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         const Score<Tick> original_score
             = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(fixture_data));
         REQUIRE(original_score.ticks_per_quarter > 0);
-        REQUIRE_FALSE(original_score.tracks->empty());
+        REQUIRE_FALSE(original_score.tracks.empty());
 
         const fs::path roundtrip_path = temp_dir / "issue_91_roundtrip.mid";
         write_file(roundtrip_path, original_score.dumps<DataFormat::MIDI>());
@@ -85,7 +85,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
             = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(roundtrip_data));
 
         REQUIRE(roundtrip_score.ticks_per_quarter == original_score.ticks_per_quarter);
-        REQUIRE(roundtrip_score.tracks->size() == original_score.tracks->size());
+        REQUIRE(roundtrip_score.tracks.size() == original_score.tracks.size());
         REQUIRE(roundtrip_score.note_num() == original_score.note_num());
     }
 

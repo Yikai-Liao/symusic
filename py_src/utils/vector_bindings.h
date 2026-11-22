@@ -51,12 +51,12 @@ nanobind::class_<Vector> bind_vector_copy(
 ) {
     using namespace nanobind;
 
-    using ValueRef = typename detail::iterator_access<typename Vector::iterator>::result_type;
+    using ValueRef = typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
     using Value    = std::decay_t<ValueRef>;
 
     static_assert(
-        !detail::is_base_caster_v<detail::make_caster<Value>>
-            || detail::is_copy_constructible_v<Value>,
+        !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
+            || nanobind::detail::is_copy_constructible_v<Value>,
         "bind_vector(): the value type must be copy-constructible."
     );
 
@@ -80,7 +80,7 @@ nanobind::class_<Vector> bind_vector_copy(
 
               .def(
                   "__repr__",
-                  [](handle_t<Vector> h) { return steal<str>(detail::repr_list(h.ptr())); }
+                  [](handle_t<Vector> h) { return steal<str>(nanobind::detail::repr_list(h.ptr())); }
               )
 
               .def(
@@ -93,13 +93,13 @@ nanobind::class_<Vector> bind_vector_copy(
 
               .def(
                   "__getitem__",
-                  [](Vector& v, Py_ssize_t i) -> ValueRef { return v[detail::wrap(i, v.size())]; },
+                  [](Vector& v, Py_ssize_t i) -> ValueRef { return v[nanobind::detail::wrap(i, v.size())]; },
                   item_policy<Value>{}
               )
 
               .def("clear", [](Vector& v) { v.clear(); }, "Remove all items from list.");
 
-    if constexpr (detail::is_copy_constructible_v<Value>) {
+    if constexpr (nanobind::detail::is_copy_constructible_v<Value>) {
         cl.def(init<const Vector&>(), "Copy constructor");
 
         cl.def(
@@ -112,7 +112,7 @@ nanobind::class_<Vector> bind_vector_copy(
             "Construct from an iterable object"
         );
 
-        implicitly_convertible<iterable, detail::self_t>();
+        implicitly_convertible<iterable, nanobind::detail::self_t>();
 
         cl.def(
               "append",
@@ -134,7 +134,7 @@ nanobind::class_<Vector> bind_vector_copy(
             .def(
                 "pop",
                 [](Vector& v, Py_ssize_t i) {
-                    size_t index  = detail::wrap(i, v.size());
+                    size_t index  = nanobind::detail::wrap(i, v.size());
                     Value  result = std::move(v[index]);
                     v.erase(v.begin() + index);
                     return result;
@@ -152,13 +152,13 @@ nanobind::class_<Vector> bind_vector_copy(
             .def(
                 "__setitem__",
                 [](Vector& v, Py_ssize_t i, const Value& value) {
-                    v[detail::wrap(i, v.size())] = value;
+                    v[nanobind::detail::wrap(i, v.size())] = value;
                 }
             )
 
             .def(
                 "__delitem__",
-                [](Vector& v, Py_ssize_t i) { v.erase(v.begin() + detail::wrap(i, v.size())); }
+                [](Vector& v, Py_ssize_t i) { v.erase(v.begin() + nanobind::detail::wrap(i, v.size())); }
             )
 
             .def(
@@ -220,7 +220,7 @@ nanobind::class_<Vector> bind_vector_copy(
             });
     }
 
-    if constexpr (detail::is_equality_comparable_v<Value>) {
+    if constexpr (nanobind::detail::is_equality_comparable_v<Value>) {
         cl.def(self == self)
             .def(self != self)
 
@@ -264,13 +264,13 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 ) {
     using namespace nanobind;
 
-    using ValueRef = typename detail::iterator_access<typename Vector::iterator>::result_type;
+    using ValueRef = typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
     using Value    = std::decay_t<ValueRef>;
     using self_t   = std::shared_ptr<Vector>;
 
     static_assert(
-        !detail::is_base_caster_v<detail::make_caster<Value>>
-            || detail::is_copy_constructible_v<Value>,
+        !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
+            || nanobind::detail::is_copy_constructible_v<Value>,
         "bind_vector(): the value type must be copy-constructible."
     );
 
@@ -296,7 +296,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 
                   .def(
                       "__repr__",
-                      [](handle_t<self_t> h) { return steal<str>(detail::repr_list(h.ptr())); }
+                      [](handle_t<self_t> h) { return steal<str>(nanobind::detail::repr_list(h.ptr())); }
                   )
 
                   .def(
@@ -310,14 +310,14 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                   .def(
                       "__getitem__",
                       [](self_t& v, Py_ssize_t i) -> ValueRef {
-                          return v->operator[](detail::wrap(i, v->size()));
+                          return v->operator[](nanobind::detail::wrap(i, v->size()));
                       },
                       item_policy<Value>{}
                   )
 
                   .def("clear", [](self_t& v) { v->clear(); }, "Remove all items from list.");
 
-    if constexpr (detail::is_copy_constructible_v<Value>) {
+    if constexpr (nanobind::detail::is_copy_constructible_v<Value>) {
         cl.def(
             "__init__",
             [](self_t* self, const self_t& other) {
@@ -358,7 +358,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             .def(
                 "pop",
                 [](self_t& v, Py_ssize_t i) {
-                    size_t index  = detail::wrap(i, v->size());
+                    size_t index  = nanobind::detail::wrap(i, v->size());
                     Value  result = std::move(v->operator[](index));
                     v->erase(v->begin() + index);
                     return result;
@@ -376,13 +376,13 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             .def(
                 "__setitem__",
                 [](self_t& v, Py_ssize_t i, const Value& value) {
-                    v->operator[](detail::wrap(i, v->size())) = value;
+                    v->operator[](nanobind::detail::wrap(i, v->size())) = value;
                 }
             )
 
             .def(
                 "__delitem__",
-                [](self_t& v, Py_ssize_t i) { v->erase(v->begin() + detail::wrap(i, v->size())); }
+                [](self_t& v, Py_ssize_t i) { v->erase(v->begin() + nanobind::detail::wrap(i, v->size())); }
             )
 
             .def(
@@ -444,7 +444,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             });
     }
 
-    if constexpr (detail::is_equality_comparable_v<Value>) {
+    if constexpr (nanobind::detail::is_equality_comparable_v<Value>) {
         auto equal = [](const self_t& v, const self_t& other) {
             if (!v) return !other;
             if (v->size() != other->size()) return false;
@@ -671,7 +671,7 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
 
 
 
-    if constexpr (detail::is_equality_comparable_v<T>) {
+    if constexpr (nanobind::detail::is_equality_comparable_v<T>) {
         auto eq_list = [](const self_t& v, const list& other) {
             if (v->size() != len(other)) return false;
             for (size_t i = 0; i < v->size(); i++) {

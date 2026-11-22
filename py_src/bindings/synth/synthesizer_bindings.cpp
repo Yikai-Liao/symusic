@@ -2,6 +2,7 @@
 // Implementation of the Synthesizer bindings.
 //
 
+#include "utils/storage.h"
 #include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
 
@@ -51,8 +52,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Tick>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+            [](Synthesizer& self, const shared<py::Score<Tick>>& score, const bool stereo) {
+                return self.render(py::copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
@@ -60,8 +61,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Quarter>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+            [](Synthesizer& self, const shared<py::Score<Quarter>>& score, const bool stereo) {
+                return self.render(py::copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
@@ -69,8 +70,8 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Second>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+            [](Synthesizer& self, const shared<py::Score<Second>>& score, const bool stereo) {
+                return self.render(py::copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,

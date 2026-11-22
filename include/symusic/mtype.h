@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
-#include "pyvec.hpp"
 
 namespace symusic {
 // Simple Type Definitions Begin
@@ -28,7 +27,6 @@ using vec = std::vector<_Ty, _Alloc>;
 template<class _Ty>
 using shared = std::shared_ptr<_Ty>;
 
-using pycontainer::pyvec;
 }   // namespace symusic
 
 
