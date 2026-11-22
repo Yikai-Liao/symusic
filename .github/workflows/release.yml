@@ -1,7 +1,8 @@
 name: Release
 
 # Publishing a GitHub release builds every wheel and the sdist, then uploads
-# them to PyPI through trusted publishing (environment `pypi`).
+# them to PyPI through trusted publishing (environment `pypi`). The native
+# runtime also has a corresponding-source archive on the GitHub release.
 
 on:
   release:
@@ -21,10 +22,21 @@ jobs:
       name: pypi
       url: https://pypi.org/p/symusic
     permissions:
+      contents: write
       id-token: write
     steps:
       - uses: actions/download-artifact@v8
         with:
+          name: fluidsynth-source
+          path: corresponding-source
+      - name: Attach FluidSynth corresponding source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" corresponding-source/symusic-fluidsynth-source.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+      - uses: actions/download-artifact@v8
+        with:
           path: dist
+          pattern: '{wheels-*,sdist}'
           merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3

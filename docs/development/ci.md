@@ -55,6 +55,8 @@ The test lanes use the commands in [CONTRIBUTING.md](../CONTRIBUTING.md#validate
 
 Packaging changes build a single wheel in PRs, so the [release steps](../CONTRIBUTING.md#releasing) start with a manual full **Wheels** run and a manual **CI** run with `compatibility` enabled.
 
+The full build first builds one `py3-none` FluidSynth companion wheel per platform. Wheel tests check the missing-companion error and install the companion from the local wheelhouse before running the rendering tests. Release CI publishes both packages and attaches the native runtime’s corresponding source to the GitHub release. Configure PyPI trusted publishing for both package names against `release.yml`.
+
 The full build keeps every interpreter for one platform in the same job. It builds separate wheels for CPython 3.10/3.11 and supported PyPy targets, then builds one `cp312-abi3` wheel and reuses it for tests on 3.13, 3.14 and 3.15. Splitting those interpreters into separate jobs would lose reuse.
 
 ## Compiler caches

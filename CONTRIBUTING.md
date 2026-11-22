@@ -104,7 +104,7 @@ Formatters own style: clice with `.clang-format` for C++, Ruff (configured in `p
 
 ### Dependencies
 
-C++ dependencies are submodules under `3rdparty/`, pinned to release tags. A dependency without releases (`pdqsort`, `prestosynth`, `pyvec`, and `minimidi`, whose pin is newer than its only release) stays at a reviewed commit; never track a branch head. To update, check out the new tag in the submodule, run the full checks and commit the new pin with its version in the title.
+C++ dependencies are submodules under `3rdparty/`, pinned to release tags. A dependency without releases (`pdqsort`, `pyvec`, and `minimidi`, whose pin is newer than its only release) stays at a reviewed commit; never track a branch head. To update, check out the new tag in the submodule, run the full checks and commit the new pin with its version in the title.
 
 Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one only when it solves a recurring, non-trivial problem better than a small in-repo helper, builds on every wheel platform and has a clear license and maintained upstream. Optional workflows go in extras, not runtime dependencies. Explain the choice and the rejected alternative in the pull request.
 
@@ -154,6 +154,6 @@ AI assistance is welcome, and a person stays accountable for the whole change. R
 
 ## Releasing
 
-1. Set `__version__` in `python/symusic/__init__.py`; the build reads the version from there.
+1. Set `__version__` in `python/symusic/__init__.py` and update the `fluidsynth` extra in `pyproject.toml` to match. Both builds read their wheel version from `__init__.py`.
 2. Run **CI** manually with `compatibility` enabled and run **Wheels** on that commit; wait for both to pass. Daily PR checks use Linux, and only packaging changes build a smoke wheel.
 3. Publish a GitHub release with a `vX.Y.Z` tag and notes generated from merged pull requests. Publishing runs `.github/workflows/release.yml`, which builds the wheels and the sdist again and uploads them to PyPI.

@@ -115,7 +115,11 @@ manylinux-aarch64-image = "manylinux_2_28"
 musllinux-x86_64-image = "musllinux_1_2"
 musllinux-aarch64-image = "musllinux_1_2"
 test-extras = ["test"]
-test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
+test-command = [
+    "python -m pytest {project}/tests/test_synth.py -k companion_required -p no:cacheprovider",
+    "python -m pip install --no-index --find-links {project}/wheelhouse symusic-fluidsynth",
+    "cd {project} && pytest tests -n auto -p no:cacheprovider",
+]
 # NumPy has no PyPy wheels, so testing would build it from source; the CI
 # python lane tests PyPy instead.
 test-skip = "pp*"
@@ -126,7 +130,11 @@ MACOSX_DEPLOYMENT_TARGET = "13.0"
 [tool.cibuildwheel.windows]
 environment = { CMAKE_GENERATOR = "Ninja" }
 # cmd's `cd` does not change drives without /d.
-test-command = "cd /d {project} && pytest tests -n auto -p no:cacheprovider"
+test-command = [
+    "python -m pytest {project}/tests/test_synth.py -k companion_required -p no:cacheprovider",
+    "python -m pip install --no-index --find-links {project}/wheelhouse symusic-fluidsynth",
+    "cd /d {project} && pytest tests -n auto -p no:cacheprovider",
+]
 # The extension links no external DLLs; skip delvewheel.
 repair-wheel-command = ""
 
