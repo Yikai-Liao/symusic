@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from symusic import ControlChange, Note, Score, Track
+from symusic import ControlChange, Note, Quarter, Score, Second, Tick, Track
 
 TPQ = 480
 # At 120 qpm (the default tempo), one quarter lasts 0.5 s.
@@ -25,7 +25,7 @@ def _build_score(n_channels: int) -> Score:
 
 @pytest.mark.parametrize(
     ("ttype", "scale"),
-    [("tick", TPQ), ("quarter", 1), ("second", SECONDS_PER_QUARTER)],
+    [(Tick, TPQ), (Quarter, 1), (Second, SECONDS_PER_QUARTER)],
 )
 def test_pedal_starts_at_cc64_time_on_every_channel(
     tmp_path: Path, ttype: str, scale: float

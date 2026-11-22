@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 
 import pytest
-from symusic import Note, Score, Tempo, TimeSignature, Track
+from symusic import Note, Quarter, Score, Second, Tempo, Tick, TimeSignature, Track
 
 
 @pytest.fixture
@@ -261,7 +261,7 @@ def test_invert_notes():
     assert inverted_track.notes[2].pitch == 53  # G -> F below C
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_clip_keeps_global_events_in_effect_at_start(ttype):
     score = Score(480)
     score.tempos.append(Tempo(0, 120.0))
@@ -274,14 +274,14 @@ def test_clip_keeps_global_events_in_effect_at_start(ttype):
     assert [t.time for t in at_zero.tempos] == [0]
     assert [ts.time for ts in at_zero.time_signatures] == [0]
 
-    start = tempo_change / 2 if ttype != "tick" else tempo_change // 2
+    start = tempo_change / 2 if ttype != Tick else tempo_change // 2
     later = score.clip(start, score.end() + 1)
     assert [t.time for t in later.tempos] == [start, tempo_change]
     assert later.tempos[0].qpm == pytest.approx(120.0)
     assert [(ts.time, ts.numerator) for ts in later.time_signatures] == [(start, 3)]
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("inplace", [False, True])
 def test_event_shift_time(ttype, inplace):
     note = Note(10, 5, 60, 100, ttype=ttype)

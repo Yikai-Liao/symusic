@@ -17,9 +17,12 @@ from symusic import (
     Note,
     Pedal,
     PitchBend,
+    Quarter,
     Score,
+    Second,
     Tempo,
     TextMeta,
+    Tick,
     TimeSignature,
     Track,
 )
@@ -312,15 +315,15 @@ def test_numpy_integration():
         assert pianoroll[0, pitch, time] == 80  # Velocity value
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_list_equals_python_list(ttype):
-    note = Note(0, 1, 60, 100, ttype)
+    note = Note(0, 1, 60, 100, ttype=ttype)
     track = Track("a", 0, False, notes=[note], ttype=ttype)
     other = Track("b", 0, False, ttype=ttype)
 
     assert track.notes == [note]
-    assert track.notes != [Note(0, 1, 61, 100, ttype)]
-    assert type(track.notes)([track.notes[0]]) == [note]
+    assert track.notes != [Note(0, 1, 61, 100, ttype=ttype)]
+    assert type(track.notes)([track.notes[0]], ttype=ttype) == [note]
 
     tracks = Score(480, ttype=ttype).tracks
     tracks.append(track)
@@ -329,7 +332,7 @@ def test_list_equals_python_list(ttype):
     assert tracks != []
 
 
-def _from_other_score() -> Score:
+def _score_for_conversion() -> Score:
     score = Score(480)
     score.tempos.append(Tempo(0, 120.0))
     track = Track(name="t", program=0, is_drum=False)
@@ -339,31 +342,23 @@ def _from_other_score() -> Score:
     return score
 
 
-def test_score_from_other_copy_is_independent():
-    original = _from_other_score()
-    for copy in (Score(original), Score.from_other(original)):
-        assert copy == original
-        assert copy is not original
-        copy.tracks[0].notes[0].pitch = 1
-        assert original.tracks[0].notes[0].pitch == 60
-
-
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_score_from_other_matches_to(ttype):
-    original = _from_other_score()
-    assert Score(original, ttype=ttype) == original.to(ttype)
-    assert Score.from_other(original, ttype=ttype) == original.to(ttype)
+def test_score_conversion_is_independent():
+    original = _score_for_conversion()
+    duplicate = original.to(Tick)
+    assert duplicate == original
+    assert duplicate is not original
+    duplicate.tracks[0].notes[0].pitch = 1
+    assert original.tracks[0].notes[0].pitch == 60
 
 
 @pytest.mark.parametrize(
-    ("ttype", "min_dur"), [("tick", 100), ("quarter", 2.0), ("second", 0.5)]
+    ("ttype", "min_dur"), [(Tick, 100), (Quarter, 2.0), (Second, 0.5)]
 )
-def test_score_from_other_forwards_min_dur(ttype, min_dur):
-    original = _from_other_score()
-    expected = original.to(ttype, min_dur=min_dur)
-    assert expected != original.to(ttype)
-    assert Score(original, ttype=ttype, min_dur=min_dur) == expected
-    assert Score.from_other(original, ttype=ttype, min_dur=min_dur) == expected
+def test_score_conversion_enforces_minimum_duration(ttype, min_dur):
+    original = _score_for_conversion()
+    converted = original.to(ttype, min_dur=min_dur)
+    assert converted != original.to(ttype)
+    assert converted.tracks[0].notes[0].duration == min_dur
 
 
 if __name__ == "__main__":
@@ -377,11 +372,11 @@ def test_flat_key_degree():
     assert "degree=19" in repr(KeySignature(0, -1, 1))
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_note_end_binding(ttype):
     from symusic import Note
 
-    note = Note(1, 2, 60, 80, ttype)
+    note = Note(1, 2, 60, 80, ttype=ttype)
     assert note.end == 3
     assert not hasattr(note, "ent_time")
 

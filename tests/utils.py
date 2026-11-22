@@ -10,7 +10,7 @@ from symusic import Score, Track
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from symusic.core import TrackTickList
+    from symusic import Tick, TrackList
 
 HERE = Path(__file__).parent
 
@@ -24,7 +24,7 @@ print(MIDI_PATHS_ONE_TRACK)
 
 
 def merge_tracks(
-    tracks: list[Track] | TrackTickList | Score,
+    tracks: list[Track[Tick]] | TrackList[Tick] | Score[Tick],
     effects: bool = True,
 ) -> Track:
     r"""Merge several ``symusic.Track``\s.
@@ -84,14 +84,16 @@ def merge_scores(scores: Sequence[Score]) -> Score:
     :param scores: ``symusic.Score``\s to merge.
     :return: the merged ``symusic.Score``.
     """
-    if not all(score.tpq == scores[0].tpq for score in scores):
+    if not all(
+        score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
+    ):
         msg = (
             "Some `Score`s have different time divisions (`tpq`). They must be all"
             "identical in order to merge the `Scores`s."
         )
         raise ValueError(msg)
 
-    score = Score(scores[0].tpq)
+    score = Score(scores[0].ticks_per_quarter)
     for score_split in scores:
         score.tracks.extend(score_split.tracks)
         score.tempos.extend(score_split.tempos)
@@ -108,7 +110,7 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
     r"""Concatenate a sequence of ``symusic.Score``\s.
 
     **Note:** the tracks are concatenated in the same order as they are given.
-    **The scores must all have the same time division.** (``score.tpq``)
+    **The scores must all have the same time division.** (``score.ticks_per_quarter``)
     The concatenated score might have identical consecutive tempos, time signatures or
     key signatures values.
 

@@ -1,24 +1,10 @@
-from __future__ import annotations
-
 import ast
 from pathlib import Path
 
-import pytest
-from symusic import core
+import symusic
+from symusic import _core
 
-TIME_UNITS = ("Tick", "Quarter", "Second")
-GENERIC_BASES = (
-    "Score",
-    "Track",
-    "Note",
-    "KeySignature",
-    "TimeSignature",
-    "Tempo",
-    "ControlChange",
-    "Pedal",
-    "PitchBend",
-    "TextMeta",
-)
+
 EXPECTED_METHODS = {
     "Score": {"tracks", "tempos", "copy", "clip", "dump_midi", "pianoroll"},
     "Track": {"notes", "controls", "copy", "clip", "trim"},
@@ -42,26 +28,30 @@ def _method_names(class_node: ast.ClassDef) -> set[str]:
     }
 
 
-def test_generic_bases_contain_every_shared_specialization_member() -> None:
-    stub_path = Path(core.__file__).with_name("core.pyi")
-    raw_stub_path = stub_path.with_name("core.raw.pyi")
-    assert stub_path.is_file()
-    assert not raw_stub_path.exists()
-
-    module = ast.parse(stub_path.read_text())
+def test_stub_exposes_runtime_classes():
+    stub = Path(_core.__file__).with_name("_core.pyi")
+    module = ast.parse(stub.read_text())
     classes = {
-        node.name: node for node in module.body if isinstance(node, ast.ClassDef)
+        node.name: node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and not node.name.startswith("_")
     }
+    assert classes.keys() == {
+        name
+        for name in symusic.__all__
+        if getattr(symusic, name).__module__ == _core.__name__
+    }
+    for name, node in classes.items():
+        if name.endswith("List") or name in {"Score", "Track", "Note", "Tempo"}:
+            assert [ast.unparse(base) for base in node.bases] == ["Generic[_Unit]"]
 
-    for base in GENERIC_BASES:
-        shared = set.intersection(
-            *(_method_names(classes[f"{base}{unit}"]) for unit in TIME_UNITS),
-        )
-        assert shared
-        assert shared <= _method_names(classes[base]), base
-        assert EXPECTED_METHODS[base] <= _method_names(classes[base]), base
-
-    assert EXPECTED_METHODS["PyVec"] <= _method_names(classes["PyVec"])
+    for name, methods in EXPECTED_METHODS.items():
+        if name == "PyVec":
+            for list_name, node in classes.items():
+                if list_name.endswith("List"):
+                    assert methods <= _method_names(node), list_name
+        else:
+            assert methods <= _method_names(classes[name]), name
 
     score_methods = [
         node for node in classes["Score"].body if isinstance(node, ast.FunctionDef)
@@ -98,31 +88,20 @@ def test_generic_bases_contain_every_shared_specialization_member() -> None:
     ]
 
 
-@pytest.mark.parametrize("base", ["Score", "Track"])
-@pytest.mark.parametrize("unit", ["", *TIME_UNITS])
-def test_trim_modes_are_literals(base: str, unit: str) -> None:
-    class_name = f"{base}{unit}"
-    stub_path = Path(core.__file__).with_name("core.pyi")
-    module = ast.parse(stub_path.read_text())
-    cls = next(
-        node
+    trim_mode = next(
+        node.value
         for node in module.body
-        if isinstance(node, ast.ClassDef) and node.name == class_name
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_TrimMode" for target in node.targets)
     )
-    methods = [
-        node
-        for node in cls.body
-        if isinstance(node, ast.FunctionDef) and node.name == "trim"
-    ]
-    assert methods
-    for method in methods:
-        annotations = {arg.arg: arg.annotation for arg in method.args.args}
-        for mode in ("start_mode", "end_mode"):
-            annotation = annotations[mode]
-            assert isinstance(annotation, ast.Subscript)
-            assert ast.unparse(annotation.value) in {"Literal", "typing.Literal"}
-            assert ast.literal_eval(annotation.slice) == (
-                "remove",
-                "truncate",
-                "retain",
-            )
+    assert ast.unparse(trim_mode.value) in {"Literal", "typing.Literal"}
+    assert ast.literal_eval(trim_mode.slice) == ("remove", "truncate", "retain")
+    for name in ("Score", "Track"):
+        trim_methods = [
+            node for node in classes[name].body
+            if isinstance(node, ast.FunctionDef) and node.name == "trim"
+        ]
+        assert len(trim_methods) == 3
+        for method in trim_methods:
+            annotations = {arg.arg: ast.unparse(arg.annotation) for arg in method.args.args if arg.annotation}
+            assert annotations["start_mode"] == annotations["end_mode"] == "_TrimMode"

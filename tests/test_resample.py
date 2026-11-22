@@ -1,16 +1,26 @@
 """`Score.resample` rescales times to a new ticks-per-quarter and rounds half away from zero."""
 
 import pytest
-from symusic import ControlChange, Note, Score, Tempo, TimeSignature, Track
+from symusic import (
+    ControlChange,
+    Note,
+    Quarter,
+    Score,
+    Second,
+    Tempo,
+    Tick,
+    TimeSignature,
+    Track,
+)
 
 
-def make_score(tpq, notes, ttype="tick"):
+def make_score(tpq, notes, ttype=Tick):
     score = Score(tpq, ttype=ttype)
     score.tempos.append(Tempo(0, mspq=500000, ttype=ttype))
-    score.time_signatures.append(TimeSignature(0, 4, 4, ttype))
+    score.time_signatures.append(TimeSignature(0, 4, 4, ttype=ttype))
     track = Track("Piano", 3, False, ttype=ttype)
     for time, duration in notes:
-        track.notes.append(Note(time, duration, 60, 100, ttype))
+        track.notes.append(Note(time, duration, 60, 100, ttype=ttype))
     score.tracks.append(track)
     return score
 
@@ -68,19 +78,19 @@ def test_resample_keeps_source():
 def test_resample_other_events():
     score = make_score(4, [])
     score.tempos.append(Tempo(1, mspq=400000))
-    score.tracks[0].controls.append(ControlChange(3, 7, 100, "tick"))
+    score.tracks[0].controls.append(ControlChange(3, 7, 100, ttype=Tick))
     out = score.resample(6)
     assert [t.time for t in out.tempos] == [0, 2]
     assert [c.time for c in out.tracks[0].controls] == [5]
     assert out.tempos[1].mspq == 400000
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_resample_other_units_returns_ticks(ttype):
     # At 120 BPM one quarter lasts 0.5 s; the result is always a tick score.
-    time, duration = (1.0, 2.0) if ttype == "quarter" else (0.5, 1.0)
+    time, duration = (1.0, 2.0) if ttype == Quarter else (0.5, 1.0)
     out = make_score(480, [(time, duration)], ttype).resample(960)
-    assert out.ttype.__class__.__name__ == "Tick"
+    assert out.ttype is Tick
     assert out.ticks_per_quarter == 960
     assert note_times(out) == [(960, 1920)]
 

@@ -1,32 +1,31 @@
 """Containers reject `None` and foreign objects as elements with ``TypeError``."""
 
 import pytest
-from symusic import Note, Track
-from symusic.core import NoteTickList, TrackTickList
+from symusic import Note, NoteList, Tick, Track, TrackList
 
 BAD_ITEMS = [None, 1, "note"]
 
 
 @pytest.fixture
 def notes():
-    return NoteTickList([Note(0, 1, 60, 100, "tick"), Note(1, 1, 62, 100, "tick")])
+    return NoteList([Note(0, 1, 60, 100, ttype=Tick), Note(1, 1, 62, 100, ttype=Tick)])
 
 
 @pytest.fixture
 def tracks():
-    return TrackTickList([Track("a", 0, False, ttype="tick")])
+    return TrackList([Track("a", 0, False, ttype=Tick)])
 
 
 @pytest.mark.parametrize("bad", BAD_ITEMS)
 def test_note_list_ctor_rejects(bad):
     with pytest.raises(TypeError):
-        NoteTickList([Note(0, 1, 60, 100, "tick"), bad])
+        NoteList([Note(0, 1, 60, 100, ttype=Tick), bad])
 
 
 @pytest.mark.parametrize("bad", BAD_ITEMS)
 def test_track_list_ctor_rejects(bad):
     with pytest.raises(TypeError):
-        TrackTickList([Track("a", 0, False, ttype="tick"), bad])
+        TrackList([Track("a", 0, False, ttype=Tick), bad])
 
 
 @pytest.mark.parametrize("bad", BAD_ITEMS)
@@ -82,7 +81,7 @@ def test_list_equality_unequal(notes, tracks, bad):
 
 
 def test_track_assignment_rejects():
-    track = Track("a", 0, False, ttype="tick")
+    track = Track("a", 0, False, ttype=Tick)
     with pytest.raises(TypeError):
         track.notes = [None]
     with pytest.raises(TypeError):

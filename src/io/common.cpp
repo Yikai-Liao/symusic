@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "fmt/core.h"
+#include "fmt/std.h"
 
 #include "symusic/io/common.h"
 
@@ -82,19 +83,18 @@ DataFormat score_file_format(const std::filesystem::path& path, std::string form
 }
 
 vec<u8> read_score_file(const std::filesystem::path& path) {
-    const auto status = std::filesystem::status(path);
-    if (!std::filesystem::exists(status)) {
-        throw std::filesystem::filesystem_error(
-            "Cannot read score", path, std::make_error_code(std::errc::no_such_file_or_directory)
-        );
-    }
+    std::error_code error;
+    const auto status = std::filesystem::status(path, error);
+    if (error) { throw std::filesystem::filesystem_error("Cannot read score", path, error); }
     if (std::filesystem::is_directory(status)) {
         throw std::filesystem::filesystem_error(
             "Cannot read score", path, std::make_error_code(std::errc::is_a_directory)
         );
     }
     if (!std::filesystem::is_regular_file(status)) {
-        throw std::runtime_error("Cannot seek to the end of the file");
+        throw std::runtime_error(fmt::format(
+            "Cannot seek to the end of the file: path must refer to a regular file, got {}", path
+        ));
     }
     return read_file(path);
 }

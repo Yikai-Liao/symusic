@@ -1,726 +1,522 @@
-/*
-    nanobind/stl/bind_vector.h: Automatic creation of bindings for vector-style containers
-
-    Copyright (c) 2022 Wenzel Jakob
-
-    All rights reserved. Use of this source code is governed by a
-    BSD-style license that can be found in the LICENSE file.
-*/
-
 #pragma once
+
+#include <algorithm>
+
+#include <nanobind/typing.h>
 #include <nanobind/stl/bind_vector.h>
-#include <memory>
-#include <pyvec.hpp>
+#include <timsort.hpp>
+
+#include "utils/python_helpers.h"
 
 namespace symusic::py {
 
-// Convert one item of a Python iterable into the shared event or track held by the
-// containers below. nanobind rejects `None` for typed arguments such as `append`, but
-// `cast` on an iterable's items turns it into an empty pointer and reports other
-// mismatches as `RuntimeError`. Every element that enters a container from Python goes
-// through this check, so containers never hold an empty `shared_ptr` and the helpers
-// below dereference their elements without null checks.
-template<typename Ptr>
-bool try_cast_element(const nanobind::handle h, Ptr& out) {
-    return nanobind::try_cast<Ptr>(h, out) && out;
+template<template<class> class Event>
+struct EventSequence {
+    template<TType T>
+    using Native = pyvec<Event<T>>;
+    using Value  = UnitValue<Native>;
+};
+
+template<TType T>
+using TrackSequence = vec<shared<Track<T>>>;
+using TrackList     = UnitValue<TrackSequence>;
+
+template<class Vector>
+constexpr bool is_event_sequence = requires(Vector& list) { list.pbegin(); };
+
+template<class Vector>
+auto list_item(Vector& list, Py_ssize_t index) {
+    if constexpr (is_event_sequence<Vector>)
+        return list.getitem(index);
+    else
+        return list[nb::detail::wrap(index, list.size())];
 }
 
-// Raising form of `try_cast_element`, used where an item is stored. Comparisons use
-// `try_cast_element` directly: an item of another kind, `None` included, is unequal
-// to every element, so `==` returns `False` instead of raising.
-template<typename Ptr>
-Ptr cast_element(const nanobind::handle h) {
-    Ptr ptr;
-    if (!try_cast_element(h, ptr)) {
-        throw nanobind::type_error(("list elements must be instances of the element type, not "
-                                    + std::string(nanobind::type_name(h.type()).c_str()))
-                                       .c_str());
-    }
-    return ptr;
+template<class Vector, class Item>
+void append_item(Vector& list, const Item& item) {
+    if constexpr (is_event_sequence<Vector>)
+        list.append(item);
+    else
+        list.push_back(item);
 }
 
-// Return value policy for `__getitem__`: Python owns elements stored by raw
-// pointer and gets a copy otherwise. nanobind needs it as a compile-time tag.
-template<typename Value>
-using item_policy = nanobind::rv_policy::policy_tag<
-    std::is_pointer_v<Value> ? nanobind::rv_policy::take_ownership_v : nanobind::rv_policy::copy_v>;
-
-template<typename Vector, typename... Args>
-nanobind::class_<Vector> bind_vector_copy(
-    nanobind::handle scope, const char* name, Args&&... args
-) {
-    using namespace nanobind;
-
-    using ValueRef =
-        typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
-    using Value = std::decay_t<ValueRef>;
-
-    static_assert(
-        !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
-            || nanobind::detail::is_copy_constructible_v<Value>,
-        "bind_vector(): the value type must be copy-constructible."
-    );
-
-    handle cl_cur = type<Vector>();
-    if (cl_cur.is_valid()) {
-        // Binding already exists, don't re-create
-        return borrow<class_<Vector>>(cl_cur);
+template<class List, class Item, class Vector>
+shared<Vector> read_list(nb::handle source) {
+    using T = typename NativeUnit<Vector>::type;
+    if (nb::isinstance<List>(source)) return nb::cast<const List&>(source).template get<T>();
+    auto result = std::make_shared<Vector>();
+    for (nb::handle item : nb::cast<nb::iterable>(source)) {
+        if (!nb::isinstance<Item>(item)) throw nb::type_error("Invalid item type for this list");
+        const auto& handle = nb::cast<const Item&>(item).template get<T>();
+        if constexpr (is_event_sequence<Vector>)
+            result->push_back(*handle);
+        else
+            result->push_back(handle);
     }
+    return result;
+}
 
-    auto cl = class_<Vector>(scope, name, std::forward<Args>(args)...)
-                  .def(init<>(), "Default constructor")
+template<class Vector>
+shared<Vector> clone_list(Vector& list, bool deep) {
+    if constexpr (is_event_sequence<Vector>) {
+        return std::make_shared<Vector>(deep ? list.deepcopy() : list.copy());
+    } else {
+        if (!deep) return std::make_shared<Vector>(list);
+        auto result = std::make_shared<Vector>();
+        result->reserve(list.size());
+        for (const auto& item : list) {
+            using Track = typename Vector::value_type::element_type;
+            result->push_back(std::make_shared<Track>(item->deepcopy()));
+        }
+        return result;
+    }
+}
 
-                  .def("__len__", [](const Vector& v) { return v.size(); })
+template<class List, class Item>
+struct ListIterator {
+    List   list;
+    size_t index = 0;
 
-                  .def(
-                      "__bool__",
-                      [](const Vector& v) { return !v.empty(); },
-                      "Check whether the vector is nonempty"
-                  )
+    Item next() {
+        return list.visit([&](const auto& ptr) {
+            if (index >= ptr->size()) throw nb::stop_iteration();
+            return Item(list_item(*ptr, static_cast<Py_ssize_t>(index++)));
+        });
+    }
+};
 
-                  .def(
-                      "__repr__",
-                      [](handle_t<Vector> h) {
-                          return steal<str>(nanobind::detail::repr_list(h.ptr()));
-                      }
-                  )
-
-                  .def(
-                      "__iter__",
-                      [](Vector& v) {
-                          return make_iterator(type<Vector>(), "Iterator", v.begin(), v.end());
-                      },
-                      keep_alive<0, 1>()
-                  )
-
-                  .def(
-                      "__getitem__",
-                      [](Vector& v, Py_ssize_t i) -> ValueRef {
-                          return v[nanobind::detail::wrap(i, v.size())];
-                      },
-                      item_policy<Value>{}
-                  )
-
-                  .def("clear", [](Vector& v) { v.clear(); }, "Remove all items from list.");
-
-    if constexpr (nanobind::detail::is_copy_constructible_v<Value>) {
-        cl.def(init<const Vector&>(), "Copy constructor");
-
-        cl.def(
-            "__init__",
-            [](Vector* v, typed<iterable, Value>& seq) {
-                new (v) Vector();
-                v->reserve(len_hint(seq));
-                for (handle h : seq) v->push_back(cast<Value>(h));
-            },
-            "Construct from an iterable object"
-        );
-
-        implicitly_convertible<iterable, nanobind::detail::self_t>();
-
-        cl.def(
-              "append",
-              [](Vector& v, const Value& value) { v.push_back(value); },
-              "Append `arg` to the end of the list."
+template<template<class> class Native, class Item>
+void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
+    using List     = UnitValue<Native>;
+    using Iterator = ListIterator<List, Item>;
+    nb::class_<Iterator>(type, "_Iterator")
+        .def(
+            "__iter__", [](Iterator& self) -> Iterator& { return self; }, nb::rv_policy::reference
         )
-
-            .def(
-                "insert",
-                [](Vector& v, Py_ssize_t i, const Value& x) {
-                    // Vector sizes fit in their signed iterator difference type.
-                    if (i < 0) i += static_cast<Py_ssize_t>(v.size());
-                    if (i < 0 || static_cast<size_t>(i) > v.size()) throw index_error();
-                    v.insert(v.begin() + i, x);
-                },
-                "Insert object `arg1` before index `arg0`."
-            )
-
-            .def(
-                "pop",
-                [](Vector& v, Py_ssize_t i) {
-                    size_t index  = nanobind::detail::wrap(i, v.size());
-                    Value  result = std::move(v[index]);
-                    v.erase(v.begin() + index);
-                    return result;
-                },
-                arg("index") = -1,
-                "Remove and return item at `index` (default last)."
-            )
-
-            .def(
-                "extend",
-                [](Vector& v, const Vector& src) { v.insert(v.end(), src.begin(), src.end()); },
-                "Extend `self` by appending elements from `arg`."
-            )
-
-            .def(
-                "__setitem__",
-                [](Vector& v, Py_ssize_t i, const Value& value) {
-                    v[nanobind::detail::wrap(i, v.size())] = value;
-                }
-            )
-
-            .def(
-                "__delitem__",
-                [](Vector& v, Py_ssize_t i) {
-                    v.erase(v.begin() + nanobind::detail::wrap(i, v.size()));
-                }
-            )
-
-            .def(
-                "__getitem__",
-                [](const Vector& v, const slice& slice) -> Vector* {
-                    auto [start, stop, step, length] = slice.compute(v.size());
-                    auto* seq                        = new Vector();
-                    seq->reserve(length);
-
-                    for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice
-                        // normalization.
-                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
-                        seq->push_back(v[index]);
-                    }
-
-                    return seq;
-                }
-            )
-
-            .def(
-                "__setitem__",
-                [](Vector& v, const slice& slice, const Vector& value) {
-                    auto [start, stop, step, length] = slice.compute(v.size());
-
-                    if (length != value.size())
-                        throw index_error(
-                            "The left and right hand side of the slice "
-                            "assignment have mismatched sizes!"
-                        );
-
-                    for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice
-                        // normalization.
-                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
-                        v[index]         = value[i];
-                    }
-                }
-            )
-
-            .def("__delitem__", [](Vector& v, const slice& slice) {
-                auto [start, stop, step, length] = slice.compute(v.size());
-                if (length == 0) return;
-
-                // A nonempty normalized slice has length at most the signed vector size.
-                stop = start + (static_cast<Py_ssize_t>(length) - 1) * step;
-                if (start > stop) {
-                    std::swap(start, stop);
-                    step = -step;
-                }
-
-                if (step == 1) {
-                    v.erase(v.begin() + start, v.begin() + stop + 1);
+        .def("__next__", &Iterator::next);
+    const auto copy = [](const List& self, bool deep) {
+        return self.visit([&](const auto& ptr) { return List(clone_list(*ptr, deep)); });
+    };
+    const auto equal = [](const List& self, nb::handle other) {
+        if (nb::isinstance<List>(other)) {
+            const auto& rhs = nb::cast<const List&>(other);
+            return self.visit([&](const auto& ptr) {
+                const auto* match = rhs.template find<UnitOf<decltype(ptr)>>();
+                if (!match || ptr->size() != (*match)->size()) return false;
+                if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
+                    return *ptr == **match;
                 } else {
-                    for (size_t i = 0; i < length; ++i) {
-                        v.erase(v.begin() + (stop - static_cast<Py_ssize_t>(i) * step));
-                    }
+                    return std::equal(
+                        ptr->begin(),
+                        ptr->end(),
+                        (*match)->begin(),
+                        [](const auto& left, const auto& right) { return *left == *right; }
+                    );
                 }
             });
-    }
-
-    if constexpr (nanobind::detail::is_equality_comparable_v<Value>) {
-        cl.def(self == self)
-            .def(self != self)
-
-            .def(
-                "__contains__",
-                [](const Vector& v, const Value& x) {
-                    return std::find(v.begin(), v.end(), x) != v.end();
-                }
-            )
-
-            .def(
-                "__contains__",   // fallback for incompatible types
-                [](const Vector&, handle) { return false; }
-            )
-
-            .def(
-                "count",
-                [](const Vector& v, const Value& x) { return std::count(v.begin(), v.end(), x); },
-                "Return number of occurrences of `arg`."
-            )
-
-            .def(
-                "remove",
-                [](Vector& v, const Value& x) {
-                    auto p = std::find(v.begin(), v.end(), x);
-                    if (p != v.end())
-                        v.erase(p);
-                    else
-                        throw value_error();
-                },
-                "Remove first occurrence of `arg`."
-            );
-    }
-
-    return cl;
-}
-
-template<typename Vector, typename... Args>
-nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
-    nanobind::handle scope, const char* name, Args&&... args
-) {
-    using namespace nanobind;
-
-    using ValueRef =
-        typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
-    using Value  = std::decay_t<ValueRef>;
-    using self_t = std::shared_ptr<Vector>;
-
-    static_assert(
-        !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
-            || nanobind::detail::is_copy_constructible_v<Value>,
-        "bind_vector(): the value type must be copy-constructible."
-    );
-
-    handle cl_cur = type<std::shared_ptr<Vector>>();
-    if (cl_cur.is_valid()) {
-        // Binding already exists, don't re-create
-        return borrow<class_<std::shared_ptr<Vector>>>(cl_cur);
-    }
-
-    auto cl = class_<self_t>(scope, name, std::forward<Args>(args)...)
-                  .def(
-                      "__init__",
-                      [](self_t* self) { new (self) self_t(std::move(std::make_shared<Vector>())); }
-                  )
-
-                  .def("__len__", [](const self_t& v) { return v->size(); })
-
-                  .def(
-                      "__bool__",
-                      [](const self_t& v) { return !v->empty(); },
-                      "Check whether the vector is nonempty"
-                  )
-
-                  .def(
-                      "__repr__",
-                      [](handle_t<self_t> h) {
-                          return steal<str>(nanobind::detail::repr_list(h.ptr()));
-                      }
-                  )
-
-                  .def(
-                      "__iter__",
-                      [](self_t& v) {
-                          return make_iterator(type<self_t>(), "Iterator", v->begin(), v->end());
-                      },
-                      keep_alive<0, 1>()
-                  )
-
-                  .def(
-                      "__getitem__",
-                      [](self_t& v, Py_ssize_t i) -> ValueRef {
-                          return v->operator[](nanobind::detail::wrap(i, v->size()));
-                      },
-                      item_policy<Value>{}
-                  )
-
-                  .def("clear", [](self_t& v) { v->clear(); }, "Remove all items from list.");
-
-    if constexpr (nanobind::detail::is_copy_constructible_v<Value>) {
-        cl.def(
-            "__init__",
-            [](self_t* self, const self_t& other) {
-                new (self) self_t(std::move(std::make_shared<Vector>(*other)));
-            },
-            "Shallow Copy constructor"
-        );
-
-        cl.def(
-            "__init__",
-            [](self_t& v, typed<iterable, Value>& seq) {
-                new (&v) self_t(std::move(std::make_shared<Vector>()));
-                v->reserve(len_hint(seq));
-                for (handle h : seq) v->push_back(cast_element<Value>(h));
-            },
-            "Construct from an iterable object"
-        );
-
-        implicitly_convertible<iterable, self_t>();
-
-        cl.def(
-              "append",
-              [](self_t& v, const Value& value) { v->push_back(value); },
-              "Append `arg` to the end of the list."
-        )
-
-            .def(
-                "insert",
-                [](self_t& v, Py_ssize_t i, const Value& x) {
-                    // Vector sizes fit in their signed iterator difference type.
-                    if (i < 0) i += static_cast<Py_ssize_t>(v->size());
-                    if (i < 0 || static_cast<size_t>(i) > v->size()) throw index_error();
-                    v->insert(v->begin() + i, x);
-                },
-                "Insert object `arg1` before index `arg0`."
-            )
-
-            .def(
-                "pop",
-                [](self_t& v, Py_ssize_t i) {
-                    size_t index  = nanobind::detail::wrap(i, v->size());
-                    Value  result = std::move(v->operator[](index));
-                    v->erase(v->begin() + index);
-                    return result;
-                },
-                arg("index") = -1,
-                "Remove and return item at `index` (default last)."
-            )
-
-            .def(
-                "extend",
-                [](self_t& v, const self_t& src) { v->insert(v->end(), src->begin(), src->end()); },
-                "Extend `self` by appending elements from `arg`."
-            )
-
-            .def(
-                "__setitem__",
-                [](self_t& v, Py_ssize_t i, const Value& value) {
-                    v->operator[](nanobind::detail::wrap(i, v->size())) = value;
-                }
-            )
-
-            .def(
-                "__delitem__",
-                [](self_t& v, Py_ssize_t i) {
-                    v->erase(v->begin() + nanobind::detail::wrap(i, v->size()));
-                }
-            )
-
-            .def(
-                "__getitem__",
-                [](const self_t& v, const slice& slice) -> self_t {
-                    auto [start, stop, step, length] = slice.compute(v->size());
-                    auto seq                         = std::make_shared<Vector>();
-                    seq->reserve(length);
-
-                    for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice
-                        // normalization.
-                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
-                        seq->push_back(v->operator[](index));
-                    }
-
-                    return seq;
-                }
-            )
-
-            .def(
-                "__setitem__",
-                [](self_t& v, const slice& slice, const self_t& other) {
-                    auto [start, stop, step, length] = slice.compute(v->size());
-
-                    if (length != other->size())
-                        throw index_error(
-                            "The left and right hand side of the slice "
-                            "assignment have mismatched sizes!"
-                        );
-
-                    for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice
-                        // normalization.
-                        const auto index     = start + static_cast<Py_ssize_t>(i) * step;
-                        v->operator[](index) = other->operator[](i);
-                    }
-                }
-            )
-
-            .def("__delitem__", [](self_t& v, const slice& slice) {
-                auto [start, stop, step, length] = slice.compute(v->size());
-                if (length == 0) return;
-
-                // A nonempty normalized slice has length at most the signed vector size.
-                stop = start + (static_cast<Py_ssize_t>(length) - 1) * step;
-                if (start > stop) {
-                    std::swap(start, stop);
-                    step = -step;
-                }
-
-                if (step == 1) {
-                    v->erase(v->begin() + start, v->begin() + stop + 1);
-                } else {
-                    for (size_t i = 0; i < length; ++i) {
-                        v->erase(v->begin() + (stop - static_cast<Py_ssize_t>(i) * step));
-                    }
-                }
-            });
-    }
-
-    if constexpr (nanobind::detail::is_equality_comparable_v<Value>) {
-        auto equal = [](const self_t& v, const self_t& other) {
-            if (!v) return !other;
-            if (v->size() != other->size()) return false;
-            for (size_t i = 0; i < v->size(); i++) {
-                const auto& a = v->operator[](i);
-                const auto& b = other->operator[](i);
-                if (a != b && *a != *b) return false;
+        }
+        if (!nb::isinstance<nb::list>(other)) return false;
+        auto rhs = nb::borrow<nb::list>(other);
+        return self.visit([&](const auto& ptr) {
+            if (ptr->size() != rhs.size()) return false;
+            for (size_t i = 0; i < ptr->size(); ++i) {
+                nb::handle object = rhs[i];
+                if (!nb::isinstance<Item>(object)) return false;
+                const auto& value = nb::cast<const Item&>(object);
+                const auto* match = value.template find<UnitOf<decltype(ptr)>>();
+                if (!match || *list_item(*ptr, i) != **match) return false;
             }
             return true;
-        };
-        auto eq_list = [](const self_t& v, const list& other) {
-            if (!v) return false;
-            if (v->size() != len(other)) return false;
-            for (size_t i = 0; i < v->size(); i++) {
-                Value item;
-                if (!try_cast_element(other[i], item) || *v->operator[](i) != *item) return false;
-            }
-            return true;
-        };
-        cl.def("__eq__", equal)
-            .def("__eq__", eq_list)
-            .def("__eq__", [](const self_t&, const object&) { return false; })
-            .def(
-                "__ne__", [equal](const self_t& v, const self_t& other) { return !equal(v, other); }
-            )
-            .def(
-                "__ne__",
-                [eq_list](const self_t& v, const list& other) { return !eq_list(v, other); }
-            )
-            .def("__ne__", [](const self_t&, const object&) { return true; })
+        });
+    };
+    const auto count = [](const List& self, const Item& value) -> size_t {
+        return self.visit([&](const auto& ptr) -> size_t {
+            const auto* match = value.template find<UnitOf<decltype(ptr)>>();
+            if (!match) return 0;
+            if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>)
+                return ptr->count(*match);
+            else
+                return std::ranges::count_if(*ptr, [&](const auto& item) {
+                    return *item == **match;
+                });
+        });
+    };
 
-            .def(
-                "__contains__",
-                [](const self_t& v, const Value& x) {
-                    for (size_t i = 0; i < v->size(); i++) {
-                        if (*v->operator[](i) == *x) return true;
-                    }
-                    return false;
-                }
-            )
-
-            .def(
-                "__contains__",   // fallback for incompatible types
-                [](const self_t&, handle) { return false; },
-                arg("item").none()
-            )
-
-            .def(
-                "count",
-                [](const self_t& v, const Value& x) {
-                    size_t count = 0;
-                    for (size_t i = 0; i < v->size(); i++) {
-                        const auto& a = v->operator[](i);
-                        if (a == x || *a == *x) count++;
-                    }
-                    return count;
-                },
-                "Return number of occurrences of `arg`."
-            )
-
-            .def(
-                "remove",
-                [](self_t& v, const Value& x) {
-                    for (size_t i = 0; i < v->size(); i++) {
-                        const auto& a = v->operator[](i);
-                        if (a == x || *a == *x) {
-                            v->erase(v->begin() + i);
-                            return;
-                        }
-                    }
-                    throw value_error();
-                },
-                "Remove first occurrence of `arg`."
-            );
-    }
-
-    return cl;
-}
-
-template<typename T, typename... Args>
-nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
-    nanobind::handle scope, const char* name, Args&&... args
-) {
-    using namespace nanobind;
-    using namespace pycontainer;
-
-    using Vector   = pyvec<T>;
-    using ValueRef = std::shared_ptr<T>;
-    using self_t   = std::shared_ptr<Vector>;
-
-    handle cl_cur = type<self_t>();
-    if (cl_cur.is_valid()) {
-        // Binding already exists, don't re-create
-        return borrow<class_<self_t>>(cl_cur);
-    }
-
-    auto cl = class_<self_t>(scope, name, std::forward<Args>(args)...)
-                  .def(
-                      "__init__",
-                      [](self_t* self) { new (self) self_t(std::move(std::make_shared<Vector>())); }
-                  )
-
-                  .def("__len__", [](const self_t& v) { return v->size(); })
-
-                  .def(
-                      "__bool__",
-                      [](const self_t& v) { return !v->empty(); },
-                      "Check whether the vector is nonempty"
-                  )
-
-                  .def(
-                      "__iter__",
-                      [](self_t& v) {
-                          return make_iterator(type<self_t>(), "Iterator", v->sbegin(), v->send());
-                      },
-                      keep_alive<0, 1>()
-                  )
-
-                  .def(
-                      "__getitem__",
-                      [](self_t& v, Py_ssize_t i) -> ValueRef { return v->getitem(i); },
-                      rv_policy::copy
-                  )
-
-                  .def("clear", [](self_t& v) { v->clear(); }, "Remove all items from list.");
-
-    cl.def(
-        "__init__",
-        [](self_t* self, const self_t& other) {
-            new (self) self_t(std::move(std::make_shared<Vector>(*other)));
-        },
-        "Shallow Copy constructor"
-    );
-
-    cl.def(
-        "__init__",
-        [](self_t& v, typed<iterable, ValueRef>& seq) {
-            new (&v) self_t(std::move(std::make_shared<Vector>()));
-            v->reserve(len_hint(seq));
-            for (handle h : seq) v->push_back(*cast_element<ValueRef>(h));
-        },
-        "Construct from an iterable object"
-    );
-
-    implicitly_convertible<iterable, self_t>();
-
-    cl.def(
-          "append",
-          [](self_t& v, const ValueRef& value) { v->append(value); },
-          "Append `arg` to the end of the list."
+    type.def(
+            "__init__",
+            [](List* self, nb::handle items, nb::handle marker) {
+                new (self) List(with_unit(marker, [&](auto unit) {
+                    using Vector = Native<decltype(unit)>;
+                    if (items.is_none()) return List(std::make_shared<Vector>());
+                    auto source = read_list<List, Item, Vector>(items);
+                    return List(
+                        nb::isinstance<List>(items) ? clone_list(*source, false) : std::move(source)
+                    );
+                }));
+            },
+            "items"_a = nb::none(),
+            nb::kw_only(),
+            "ttype"_a = nb::type<Tick>()
     )
-
         .def(
-            "insert",
-            [](self_t& v, Py_ssize_t i, const ValueRef& x) { v->insert(i, x); },
-            "Insert object `arg1` before index `arg0`."
+            "__init__",
+            [copy](List* self, const List& other) { new (self) List(copy(other, false)); },
+            "other"_a
         )
-
         .def(
-            "pop",
-            [](self_t& v, Py_ssize_t i) { return v->pop(i); },
-            arg("index") = -1,
-            "Remove and return item at `index` (default last)."
+            "__len__",
+            [](const List& self) { return self.visit([](const auto& ptr) { return ptr->size(); }); }
         )
-
         .def(
-            "extend",
-            [](self_t& v, const self_t& src) { v->extend(*src); },
-            "Extend `self` by appending elements from `arg`."
+            "__bool__",
+            [](const List& self) {
+                return self.visit([](const auto& ptr) { return !ptr->empty(); });
+            }
         )
-
+        .def("__iter__", [](const List& self) { return Iterator{self}; })
         .def(
-            "__setitem__",
-            [](self_t& v, Py_ssize_t i, const ValueRef& value) { v->setitem(i, value); }
+            "__repr__",
+            [](nb::handle self) { return nb::steal<nb::str>(nb::detail::repr_list(self.ptr())); },
+            nb::sig("def __repr__(self, /) -> str")
         )
-
-        .def("__delitem__", [](self_t& v, Py_ssize_t i) { v->delitem(i); })
-
+        .def("__eq__", equal, "other"_a.none())
+        .def("clear", [](const List& self) { self.visit([](const auto& ptr) { ptr->clear(); }); })
         .def(
             "__getitem__",
-            [](const self_t& v, const nanobind::slice& slice) -> self_t {
-                auto [start, stop, step, length] = slice.compute(v->size());
-                return std::make_shared<Vector>(std::move(v->getitem({start, stop, step})));
-            }
+            [](const List& self, Py_ssize_t index) {
+                return self.visit([&](const auto& ptr) { return Item(list_item(*ptr, index)); });
+            },
+            "index"_a
         )
-
+        .def(
+            "__getitem__",
+            [](const List& self, const nb::slice& slice) {
+                return self.visit([&](const auto& ptr) {
+                    using Vector                           = Native<UnitOf<decltype(ptr)>>;
+                    const auto [start, stop, step, length] = slice.compute(ptr->size());
+                    if constexpr (is_event_sequence<Vector>) {
+                        return List(std::make_shared<Vector>(ptr->getitem({start, stop, step})));
+                    } else {
+                        auto result = std::make_shared<Vector>();
+                        result->reserve(length);
+                        for (size_t i = 0; i < length; ++i) {
+                            result->push_back((*ptr)[start + static_cast<Py_ssize_t>(i) * step]);
+                        }
+                        return List(std::move(result));
+                    }
+                });
+            },
+            "index"_a
+        )
+        .def(
+            "append",
+            [](const List& self, const Item& item) {
+                self.visit([&](const auto& ptr) {
+                    append_item(*ptr, item.template get<UnitOf<decltype(ptr)>>());
+                });
+            },
+            "item"_a
+        )
+        .def(
+            "insert",
+            [](const List& self, Py_ssize_t index, const Item& item) {
+                self.visit([&](const auto& ptr) {
+                    using T           = UnitOf<decltype(ptr)>;
+                    const auto& value = item.template get<T>();
+                    if constexpr (is_event_sequence<Native<T>>)
+                        ptr->insert(index, value);
+                    else {
+                        const auto size = static_cast<Py_ssize_t>(ptr->size());
+                        if (index < 0) index += size;
+                        if (index < 0 || index > size) throw nb::index_error();
+                        ptr->insert(ptr->begin() + index, value);
+                    }
+                });
+            },
+            "index"_a,
+            "item"_a
+        )
+        .def(
+            "pop",
+            [](const List& self, Py_ssize_t index) {
+                return self.visit([&](const auto& ptr) {
+                    if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>)
+                        return Item(ptr->pop(index));
+                    else {
+                        auto item = ptr->begin() + nb::detail::wrap(index, ptr->size());
+                        Item out(*item);
+                        ptr->erase(item);
+                        return out;
+                    }
+                });
+            },
+            "index"_a = -1
+        )
+        .def(
+            "extend",
+            [](const List& self, const nb::iterable& items) {
+                self.visit([&](const auto& ptr) {
+                    using Vector = Native<UnitOf<decltype(ptr)>>;
+                    auto source  = read_list<List, Item, Vector>(items);
+                    if (source == ptr) source = clone_list(*source, false);
+                    if constexpr (is_event_sequence<Vector>)
+                        ptr->extend(*source);
+                    else
+                        ptr->insert(ptr->end(), source->begin(), source->end());
+                });
+            },
+            "items"_a
+        )
         .def(
             "__setitem__",
-            [](self_t& v, const nanobind::slice& slice, const self_t& other) {
-                auto [start, stop, step, length] = slice.compute(v->size());
-                v->setitem({start, stop, step}, *other);
-            }
+            [](const List& self, Py_ssize_t index, const Item& item) {
+                self.visit([&](const auto& ptr) {
+                    using T           = UnitOf<decltype(ptr)>;
+                    const auto& value = item.template get<T>();
+                    if constexpr (is_event_sequence<Native<T>>)
+                        ptr->setitem(index, value);
+                    else
+                        (*ptr)[nb::detail::wrap(index, ptr->size())] = value;
+                });
+            },
+            "index"_a,
+            "item"_a
         )
-
+        .def(
+            "__setitem__",
+            [](const List& self, const nb::slice& slice, const nb::iterable& items) {
+                self.visit([&](const auto& ptr) {
+                    using Vector = Native<UnitOf<decltype(ptr)>>;
+                    auto source  = read_list<List, Item, Vector>(items);
+                    if (source == ptr) source = clone_list(*source, false);
+                    const auto [start, stop, step, length] = slice.compute(ptr->size());
+                    if constexpr (is_event_sequence<Vector>)
+                        ptr->setitem({start, stop, step}, *source);
+                    else {
+                        if (length != source->size()) throw nb::index_error("Slice size mismatch");
+                        for (size_t i = 0; i < length; ++i) {
+                            (*ptr)[start + static_cast<Py_ssize_t>(i) * step] = (*source)[i];
+                        }
+                    }
+                });
+            },
+            "index"_a,
+            "items"_a
+        )
         .def(
             "__delitem__",
-            [](self_t& v, const nanobind::slice& slice) {
-                auto [start, stop, step, length] = slice.compute(v->size());
-                if (length == 0) return;
-                v->delitem({start, stop, step});
-            }
-        )
-
-        .def("copy", [](const self_t& v) { return std::make_shared<Vector>(std::move(v->copy())); })
-        .def(
-            "__copy__",
-            [](const self_t& v, const bool deep) {
-                if (deep) return std::make_shared<Vector>(std::move(v->deepcopy()));
-                return std::make_shared<Vector>(std::move(v->copy()));
+            [](const List& self, Py_ssize_t index) {
+                self.visit([&](const auto& ptr) {
+                    if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>)
+                        ptr->delitem(index);
+                    else
+                        ptr->erase(ptr->begin() + nb::detail::wrap(index, ptr->size()));
+                });
             },
-            arg("deep") = true
+            "index"_a
+        )
+        .def(
+            "__delitem__",
+            [](const List& self, const nb::slice& slice) {
+                self.visit([&](const auto& ptr) {
+                    auto [start, stop, step, length] = slice.compute(ptr->size());
+                    if (length == 0) return;
+                    if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
+                        ptr->delitem({start, stop, step});
+                    } else {
+                        if (step > 0) {
+                            start += (static_cast<Py_ssize_t>(length) - 1) * step;
+                            step = -step;
+                        }
+                        for (size_t i = 0; i < length; ++i) {
+                            ptr->erase(ptr->begin() + (start + static_cast<Py_ssize_t>(i) * step));
+                        }
+                    }
+                });
+            },
+            "index"_a
+        )
+        .def(
+            "__contains__",
+            [count](const List& self, nb::handle item) {
+                return nb::isinstance<Item>(item) && count(self, nb::cast<const Item&>(item)) != 0;
+            },
+            "item"_a.none()
+        )
+        .def("count", count, "item"_a)
+        .def(
+            "remove",
+            [](const List& self, const Item& value) {
+                self.visit([&](const auto& ptr) {
+                    using T          = UnitOf<decltype(ptr)>;
+                    const auto& item = value.template get<T>();
+                    if constexpr (is_event_sequence<Native<T>>)
+                        ptr->remove(item);
+                    else {
+                        auto pos = std::ranges::find_if(*ptr, [&](const auto& element) {
+                            return *element == *item;
+                        });
+                        if (pos == ptr->end()) throw std::invalid_argument("Item is not in list");
+                        ptr->erase(pos);
+                    }
+                });
+            },
+            "item"_a
         )
         .def(
             "__deepcopy__",
-            [](const self_t& v, const handle&, const handle&) {
-                return std::make_shared<Vector>(std::move(v->deepcopy()));
-            },
-            arg("memo") = none(),
-            arg("_nil") = none()
-        )
+            [copy](const List& self, nb::handle, nb::handle) { return copy(self, true); },
+            "memo"_a = nb::none(),
+            "_nil"_a = nb::none()
+        );
 
-        .def("__use_count", [](const self_t& v) { return v.use_count(); });
-
-    if constexpr (nanobind::detail::is_equality_comparable_v<T>) {
-        auto eq_list = [](const self_t& v, const list& other) {
-            if (v->size() != len(other)) return false;
-            for (size_t i = 0; i < v->size(); i++) {
-                ValueRef item;
-                if (!try_cast_element(other[i], item) || v->operator[](i) != *item) return false;
-            }
-            return true;
-        };
-
-        cl.def("__eq__", [](const self_t& v, const self_t& other) { return *v == *other; })
-            .def("__eq__", eq_list)
-            .def("__eq__", [](const self_t&, handle) { return false; })
-            .def("__ne__", [](const self_t& v, const self_t& other) { return *v != *other; })
-            .def(
-                "__ne__",
-                [eq_list](const self_t& v, const list& other) { return !eq_list(v, other); }
-            )
-            .def("__ne__", [](const self_t&, handle) { return true; })
-
-            .def("__contains__", [](const self_t& v, const ValueRef& x) { return v->contains(x); })
-
-            .def(
-                "__contains__",   // fallback for incompatible types
-                [](const self_t&, handle) { return false; },
-                arg("item").none()
-            )
-
-            .def(
-                "count",
-                [](const self_t& v, const ValueRef& x) { return v->count(x); },
-                "Return number of occurrences of `arg`."
-            )
-
-            .def(
-                "remove",
-                [](self_t& v, const ValueRef& x) { v->remove(x); },
-                "Remove first occurrence of `arg`."
-            );
+    if constexpr (is_event_sequence<Native<Tick>>) {
+        type.def(
+                "copy", [copy](const List& self) { return copy(self, false); }
+        ).def("__copy__", copy, "deep"_a = true);
+    } else {
+        type.def("copy", copy, "deep"_a = true).def("__copy__", [copy](const List& self) {
+            return copy(self, false);
+        });
     }
+}
 
-    return cl;
+template<class List, class Item>
+void bind_list_algorithms(nb::class_<List>& type) {
+    const auto order = [](auto& list, const nb::object& key, bool reverse, bool sort) {
+        const auto default_key = [](const auto& item) { return item.default_key(); };
+        const auto python_key  = [&](const auto& ptr) { return key(Item(ptr)); };
+        using Vector           = std::remove_reference_t<decltype(list)>;
+        if constexpr (is_event_sequence<Vector>) {
+            if (sort) {
+                if (key.is_none())
+                    list.sort(default_key, reverse);
+                else
+                    list.sort_shared(python_key, reverse);
+                return true;
+            }
+            if (key.is_none()) return list.is_sorted(default_key, reverse);
+            return list.is_sorted_shared(python_key, reverse);
+        } else {
+            const auto less = [&](const auto& left, const auto& right) {
+                if (key.is_none())
+                    return detail::track_sort_key(*left) < detail::track_sort_key(*right);
+                return python_key(left) < python_key(right);
+            };
+            const auto apply = [&](auto first, auto last) {
+                if (!sort) return std::is_sorted(first, last, less);
+                gfx::timsort(first, last, less);
+                return true;
+            };
+            return reverse ? apply(list.rbegin(), list.rend()) : apply(list.begin(), list.end());
+        }
+    };
+
+    type.def(
+            "sort",
+            [order](nb::handle self, const nb::object& key, bool reverse, bool inplace) {
+                return transform<List>(self, inplace, [&](const auto& ptr) {
+                    auto result = inplace ? ptr : clone_list(*ptr, false);
+                    order(*result, key, reverse, true);
+                    return List(std::move(result));
+                });
+            },
+            "key"_a     = nb::none(),
+            "reverse"_a = false,
+            "inplace"_a = true,
+            nb::sig(
+                "def sort(self, key: collections.abc.Callable | None = None, reverse: bool = "
+                "False, inplace: bool = True) -> typing.Self"
+            ),
+            "Sort by the given key or by the default ordering."
+    )
+        .def(
+            "is_sorted",
+            [order](const List& self, const nb::object& key, bool reverse) {
+                return self.visit([&](const auto& ptr) {
+                    return order(*ptr, key, reverse, false);
+                });
+            },
+            "key"_a     = nb::none(),
+            "reverse"_a = false,
+            nb::sig(
+                "def is_sorted(self, key: collections.abc.Callable | None = None, reverse: bool = "
+                "False) -> bool"
+            ),
+            "Check the ordering without modifying the list."
+        )
+        .def(
+            "filter",
+            [](nb::handle self, const nb::callable& function, bool inplace) {
+                return transform<List>(self, inplace, [&](const auto& ptr) {
+                    auto       result = inplace ? ptr : clone_list(*ptr, false);
+                    const auto keep
+                        = [&](const auto& item) { return nb::cast<bool>(function(Item(item))); };
+                    using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
+                    if constexpr (is_event_sequence<Vector>)
+                        result->filter_shared(keep);
+                    else
+                        std::erase_if(*result, [&](const auto& item) { return !keep(item); });
+                    return List(std::move(result));
+                });
+            },
+            "function"_a,
+            "inplace"_a = true,
+            nb::sig(
+                "def filter(self, function: collections.abc.Callable, inplace: bool = True) -> "
+                "typing.Self"
+            ),
+            "Keep the items for which the function returns true."
+        )
+        .def(
+            "adjust_time",
+            [](nb::handle          self,
+               const nb::iterable& original_times,
+               const nb::iterable& new_times,
+               bool                inplace) {
+                return transform<List>(self, inplace, [&](const auto& ptr) {
+                    using T                = UnitOf<decltype(ptr)>;
+                    const auto original    = read_times<T>(original_times);
+                    const auto replacement = read_times<T>(new_times);
+                    auto       result      = inplace ? ptr : clone_list(*ptr, true);
+                    using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
+                    if constexpr (is_event_sequence<Vector>) {
+                        ops::adjust_time_inplace<true, SharedStorage>(
+                            *result, original, replacement
+                        );
+                    } else {
+                        detail::adjust_track_times(*result, original, replacement);
+                    }
+                    return List(std::move(result));
+                });
+            },
+            "original_times"_a,
+            "new_times"_a,
+            "inplace"_a = false,
+            nb::sig(
+                "def adjust_time(self, original_times: collections.abc.Iterable[int | float], "
+                "new_times: collections.abc.Iterable[int | float], inplace: bool = False) -> "
+                "typing.Self"
+            ),
+            "Map item times through paired anchors."
+        );
+}
+
+template<class List, class Item, class Owner, class Field>
+void bind_list_property(nb::class_<Owner>& type, const char* name, Field field, const char* doc) {
+    type.def_prop_rw(
+        name,
+        [field](const Owner& self) {
+            return self.visit([&](const auto& ptr) { return List(field(*ptr)); });
+        },
+        [field](const Owner& self, nb::handle items) {
+            self.visit([&](const auto& ptr) {
+                using Vector = typename std::remove_cvref_t<decltype(field(*ptr))>::element_type;
+                field(*ptr)  = read_list<List, Item, Vector>(items);
+            });
+        },
+        doc
+    );
 }
 
 }   // namespace symusic::py

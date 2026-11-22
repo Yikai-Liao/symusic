@@ -33,18 +33,24 @@ def _remember_verified(key: tuple[Path, tuple[int, int, int, int, int], str]) ->
 
 @dataclass(frozen=True)
 class Soundfont:
-    """Location and expected SHA-384 digest for a SoundFont artifact."""
+    """Soundfont(name: str, url: str, sha384_digest: str)
+
+    Location and expected SHA-384 digest for a SoundFont artifact."""
 
     name: str
     url: str
     sha384_digest: str
 
     def path(self) -> Path:
-        """Return the cache path for this SoundFont."""
+        """path(self) -> Path
+
+        Return the cache path for this SoundFont."""
         return user_data_path("soundfont", "symusic") / self.name
 
     def verify(self) -> bool:
-        """Return whether the cached SoundFont exists and matches its SHA-384 digest."""
+        """verify(self) -> bool
+
+        Return whether the cached SoundFont exists and matches its SHA-384 digest."""
         path = self.path()
         try:
             # Take the identity from the open file: on Windows a stat by path can
@@ -69,7 +75,9 @@ class Soundfont:
             return False
 
     def download(self) -> Path:
-        """Return a verified local copy, downloading it if needed."""
+        """download(self) -> Path
+
+        Return a verified local copy, downloading it if needed."""
         path = self.path()
         if self.verify():
             return path
@@ -97,7 +105,9 @@ class Soundfont:
 
 
 class BuiltInSF3:
-    """Curated SoundFont 3 (SF3) presets.
+    """BuiltInSF3()
+
+    Curated SoundFont 3 (SF3) presets.
 
     Methods return a :class:`Soundfont` descriptor that can be used to download
     and verify the corresponding asset.
@@ -105,7 +115,9 @@ class BuiltInSF3:
 
     @staticmethod
     def musescore_general() -> Soundfont:
-        """MuseScore General (SF3) preset.
+        """musescore_general() -> Soundfont
+
+        MuseScore General (SF3) preset.
 
         Returns
         -------
@@ -120,7 +132,9 @@ class BuiltInSF3:
 
 
 class BuiltInSF2:
-    """Curated SoundFont 2 (SF2) presets.
+    """BuiltInSF2()
+
+    Curated SoundFont 2 (SF2) presets.
 
     Methods return a :class:`Soundfont` descriptor that can be used to download
     and verify the corresponding asset.
@@ -128,7 +142,9 @@ class BuiltInSF2:
 
     @staticmethod
     def musescore_general() -> Soundfont:
-        """MuseScore General (SF2) preset.
+        """musescore_general() -> Soundfont
+
+        MuseScore General (SF2) preset.
 
         Returns
         -------

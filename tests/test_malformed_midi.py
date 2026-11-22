@@ -238,10 +238,10 @@ def test_midi_rejects_unrepresentable_denominator():
 @pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/stdin")
 def test_midi_rejects_non_seekable_file():
     script = """
-from symusic.core import ScoreTick
+from symusic import Score
 
 try:
-    ScoreTick.from_file("/dev/stdin", format="midi")
+    Score.from_file("/dev/stdin", format="midi")
 except RuntimeError as error:
     if "Cannot seek" in str(error):
         raise SystemExit(0)
