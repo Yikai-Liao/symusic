@@ -141,7 +141,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
     SECTION("adjust_time rejects overflowing results") {
         Track<Tick> track("t", 0, false);
-        track.notes->emplace_back(1, 0, 60, 80);
+        track.notes->emplace_back(0, 1, 60, 80);
         REQUIRE_THROWS_AS(
             ops::adjust_time_inplace(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
             std::overflow_error
