@@ -26,6 +26,9 @@ class _FileMethods:
         tune: int | None = None,
     ) -> typing_extensions.Self:
         """Read MIDI or ABC, selecting the format by extension or explicit name."""
+        if not isinstance(sanitize_data, bool):
+            msg = "sanitize_data must be a bool"
+            raise TypeError(msg)
         path = pathlib.Path(os.fsdecode(path))
         if format is not None and not isinstance(format, str):
             msg = "format must be a string or None"
@@ -78,6 +81,9 @@ class _FileMethods:
 
     def dumps_abc(self, warn: bool = False) -> str:
         """Return ABC text. With ``warn=True``, report converter diagnostics."""
+        if not isinstance(warn, bool):
+            msg = "warn must be a bool"
+            raise TypeError(msg)
         return _abc.write_abc(self.dumps_midi(), warn)
 
 
