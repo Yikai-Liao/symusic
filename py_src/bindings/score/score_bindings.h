@@ -109,6 +109,13 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
 to *start*. Returns a new score unless *inplace* is true.
 )pbdoc";
+constexpr const char* kTrimDoc = R"pbdoc(
+Keep the notes and pedals inside ``[start, end)``. At each boundary, ``"remove"`` drops crossing
+events, ``"truncate"`` cuts them at the boundary, and ``"retain"`` keeps them whole. Truncated and
+retained events must overlap the window by at least *min_overlap*. Invalid modes raise
+``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
+*start* are kept there. Returns a deep copy unless *inplace* is true.
+)pbdoc";
 constexpr const char* kShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
 constexpr const char* kShiftPitchDoc    = R"pbdoc(
@@ -454,6 +461,13 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
+        .def("trim", [](self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode, const bool inplace) {
+            if (inplace) {
+                self->trim_inplace(start, end, min_overlap, start_mode, end_mode);
+                return self;
+            }
+            return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false, score_docstrings::kTrimDoc)
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);

@@ -117,7 +117,7 @@ Score and track methods return a new object unless you pass `inplace=True`; with
 | `shift_pitch(offset)` | Score, Track, `Note` | Add `offset` to every pitch |
 | `shift_velocity(offset)` | Score, Track, `Note` | Add `offset` to every velocity |
 | `clip(start, end, clip_end=False)` | Score, Track | Keep the events in `[start, end)` |
-| `trim(start, end, min_overlap=0, start_mode="remove", end_mode="remove")` | Track | Keep the notes and pedals inside the window |
+| `trim(start, end, min_overlap=0, start_mode="remove", end_mode="remove")` | Score, Track | Keep the notes and pedals inside the window |
 | `adjust_time(original_times, new_times)` | Score, Track, lists | Warp times piecewise linearly |
 | `sort(reverse=False)` | Score, Track | Sort every event list by its default key |
 

@@ -68,7 +68,7 @@ for i in range(0, len(downbeats) - bars, bars):
 print(len(segments), segments[0])
 ```
 
-`clip` keeps notes that start inside the window, so a note can extend past `end`; pass `clip_end=True` to drop those, or use `Track.trim` to cut them at the boundary. The tempo and signatures in effect at `start` are kept. See [data_model.md](data_model.md#transformations).
+`clip` keeps notes that start inside the window, so a note can extend past `end`; pass `clip_end=True` to drop those, or use `Score.trim` or `Track.trim` to cut them at the boundary. The tempo and signatures in effect at `start` are kept. See [data_model.md](data_model.md#transformations).
 
 ## Augmenting
 
