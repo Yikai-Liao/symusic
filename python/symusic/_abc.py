@@ -28,6 +28,7 @@ _MIDI2ABC = _BIN / f"midi2abc{_EXE_SUFFIX}"
 _TEMP_PREFIX = "symusic-abc-"
 # parseabc.c reads a single whitespace-delimited path of up to 79 bytes.
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
+_STRESS = re.compile(rb"(?:^|(?<=[\r\n]))([ \t]*%%MIDI[ \t]+ptstress[ \t]+)([^\r\n]+)")
 
 
 def _diagnostics(stdout: bytes, stderr: bytes) -> str:
@@ -70,24 +71,37 @@ def _complete_midi(data: bytes) -> bool:
     return track_count > 0 and offset == len(data)
 
 
-def _stage_includes(data: bytes, workdir: Path) -> bytes:
-    # Resolve includes in the caller's cwd and give the converter ASCII names
-    # relative to its own working directory.
-    staged: dict[bytes, bytes] = {}
+def _stage_input_files(data: bytes, workdir: Path) -> bytes:
+    # Resolve paths in the caller's cwd and use short ASCII names in the converter's cwd.
+    includes: dict[bytes, bytes] = {}
+    stress_files: dict[bytes, bytes] = {}
 
-    def stage(match: re.Match[bytes]) -> bytes:
-        original = match[1][:79]
-        if original not in staged:
-            name = f"include-{len(staged)}.abc"
+    def stage_stress(match: re.Match[bytes]) -> bytes:
+        original = match[2]
+        if original not in stress_files:
+            name = f"stress-{len(stress_files)}.txt"
             try:
                 shutil.copyfile(os.fsdecode(original), workdir / name)
-            except OSError:
+            except (OSError, ValueError):
+                # This may be an inline stress pattern or a missing file.
+                return match[0]
+            stress_files[original] = name.encode("ascii")
+        return match[1] + stress_files[original]
+
+    def stage_include(match: re.Match[bytes]) -> bytes:
+        original = match[1][:79]
+        if original not in includes:
+            try:
+                content = Path(os.fsdecode(original)).read_bytes()
+            except (OSError, ValueError):
                 # Let the converter report its original include diagnostic.
                 return match[0]
-            staged[original] = name.encode("ascii")
-        return b"%%abc-include " + staged[original]
+            name = f"include-{len(includes)}.abc"
+            (workdir / name).write_bytes(_STRESS.sub(stage_stress, content))
+            includes[original] = name.encode("ascii")
+        return b"%%abc-include " + includes[original]
 
-    return _INCLUDE.sub(stage, data)
+    return _INCLUDE.sub(stage_include, _STRESS.sub(stage_stress, data))
 
 
 def _read_abc(
@@ -117,10 +131,11 @@ def _read_abc(
             args.extend(("-o", output.name))
         args.append("-silent")
 
+        data = _stage_input_files(data, workdir)
         if _INCLUDE.search(data):
             # The parser seeks back to its input after consuming an include.
             input_path = workdir / "input.abc"
-            input_path.write_bytes(_stage_includes(data, workdir))
+            input_path.write_bytes(data)
             with input_path.open("rb") as source:
                 result = subprocess.run(
                     args, stdin=source, cwd=workdir, capture_output=True
