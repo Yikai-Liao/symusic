@@ -260,6 +260,9 @@ void Score<T, S>::trim_inplace(
     const std::string& start_mode,
     const std::string& end_mode
 ) {
+    if (!(start <= end)) {
+        throw std::invalid_argument("Trim bounds must satisfy start <= end");
+    }
     detail::validate_trim_modes(start_mode, end_mode);
     for (auto& track : S::get(tracks)) S::get(track).trim_inplace(start, end, min_overlap, start_mode, end_mode);
     ops::clip_with_sentinel_inplace<S>(S::get(time_signatures), start, end);

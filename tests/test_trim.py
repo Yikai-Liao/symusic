@@ -100,3 +100,20 @@ def test_score_trim_rejects_inplace(ttype):
 def test_empty_score_rejects_unknown_trim_mode():
     with pytest.raises(ValueError, match=r"end_mode.*unknown"):
         Score(480).trim(0, 1, end_mode="unknown")
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("has_track", [False, True])
+def test_score_trim_rejects_reversed_bounds(ttype, has_track):
+    score = Score(ttype=ttype)
+    if has_track:
+        score.tracks.append(Track(ttype=ttype))
+    with pytest.raises(ValueError, match="start <= end"):
+        score.trim(4, 2)
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("bounds", [(float("nan"), 2), (0, float("nan"))])
+def test_score_trim_rejects_nan_bounds(ttype, bounds):
+    with pytest.raises(ValueError, match="start <= end"):
+        Score(ttype=ttype).trim(*bounds)
