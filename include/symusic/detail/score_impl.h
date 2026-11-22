@@ -328,7 +328,7 @@ Score<T, S> Score<T, S>::copy() const {
 
 template<TType T, typename S>
 std::string Score<T, S>::summary() const {
-    return fmt::format("Score(ttype={}, ticks_per_quarter={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={})",
+    return fmt::format("Score(ttype='{}', ticks_per_quarter={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={})",
                        T(), ticks_per_quarter, start(), end(), track_num(), note_count(),
                        S::get(time_signatures).size(), S::get(key_signatures).size(), S::get(markers).size());
 }

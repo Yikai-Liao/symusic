@@ -136,10 +136,38 @@ Track<T, S> Track<T, S>::copy() const {
             clone(lyrics)};
 }
 
+namespace detail {
+inline std::string quote_track_name(std::string_view name) {
+    const auto escaped = fmt::format("{:?}", name);
+    if (name.find('\'') != std::string_view::npos
+        && name.find('"') == std::string_view::npos) {
+        return escaped;
+    }
+
+    // Reuse fmt's escaping, changing only escapes affected by the delimiter.
+    std::string quoted = "'";
+    const std::string_view contents(escaped.data() + 1, escaped.size() - 2);
+    for (size_t i = 0; i < contents.size(); ++i) {
+        const char ch = contents[i];
+        if (ch == '\\') {
+            const char next = contents[++i];
+            if (next != '"') quoted += '\\';
+            quoted += next;
+        } else {
+            if (ch == '\'') quoted += '\\';
+            quoted += ch;
+        }
+    }
+    quoted += '\'';
+    return quoted;
+}
+}  // namespace detail
+
 template<TType T, typename S>
 std::string Track<T, S>::summary() const {
-    return fmt::format("Track(ttype={}, program={}, is_drum={}, name={}, notes={}, lyrics={})",
-                       T(), program, is_drum, name, S::get(notes).size(), S::get(lyrics).size());
+    return fmt::format("Track(ttype='{}', program={}, is_drum={}, name={}, notes={}, lyrics={})",
+                       T(), program, is_drum ? "True" : "False", detail::quote_track_name(name),
+                       S::get(notes).size(), S::get(lyrics).size());
 }
 
 template<TType T, typename S>

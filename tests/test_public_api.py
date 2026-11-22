@@ -353,3 +353,23 @@ def test_numpy_integer_columns_validate_before_narrowing():
     arrays["pitch"][0] = 316
     with pytest.raises(ValueError, match="pitch"):
         NoteList.from_numpy(**arrays)
+
+
+@pytest.mark.parametrize(
+    ("name", "is_drum"),
+    [("Piano", False), ("Kit's cymbal", True), ("Both '\" quotes\\\n\t\0中", False)],
+)
+def test_track_repr_quotes_name(name, is_drum):
+    track = Track(name=name, program=3, is_drum=is_drum, ttype=Quarter)
+    assert repr(track) == (
+        f"Track(ttype='Quarter', program=3, is_drum={is_drum!r}, name={name!r}, "
+        "notes=0, lyrics=0)"
+    )
+
+
+def test_score_repr_quotes_time_unit():
+    score = Score(ticks_per_quarter=480, ttype=Second)
+    assert repr(score) == (
+        "Score(ttype='Second', ticks_per_quarter=480, begin=0, end=0, tracks=0, "
+        "notes=0, time_sig=0, key_sig=0, markers=0)"
+    )
