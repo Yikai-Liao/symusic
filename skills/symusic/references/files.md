@@ -48,9 +48,9 @@ abc_text = score.dumps_abc()
 score.dump_abc("out.abc")
 ```
 
-- **Reading.** symusic runs `abc2midi` on the text and reads the MIDI file it writes, so the result follows `abc2midi`, including its `%%MIDI` directives, and the rules in [Reading MIDI](#reading-midi). Only the first tune of a file is read. `abc2midi` starts notes one tick late, at tick 1 of 480 ticks per quarter.
-- **Errors.** If `abc2midi` reports any error, even one it recovers from, loading raises `RuntimeError` ("Process exited with code 1: ..."). The converter's messages, which give the line and column, are printed to standard output, not included in the exception.
-- **Writing.** `dump_abc` and `dumps_abc` write the score as MIDI and run `midi2abc` on it. `midi2abc` infers note lengths and bar lines from the timing, so a score that is not quantized produces irregular notation, and the `T:` title line names the temporary MIDI file.
+- **Reading.** symusic runs `abc2midi` on the text and reads the MIDI file it writes, so the result follows `abc2midi`, including its `%%MIDI` directives, and the rules in [Reading MIDI](#reading-midi). The first tune is the default. Pass `tune=` with an `X:` number to select a tune. `Score.from_abc_file(path, tune=...)` reads ABC regardless of the extension. Relative paths in `%%abc-include` and `%%MIDI ptstress` resolve from the caller’s working directory. `abc2midi` starts notes one tick late, at tick 1 of 480 ticks per quarter.
+- **Errors.** Import reports diagnostics from a usable conversion as `symusic.ABCConversionWarning`. Failed conversions raise `RuntimeError` with the converter's diagnostics. An unknown tune raises `ValueError`, and a missing converter raises `FileNotFoundError`.
+- **Writing.** `dump_abc` and `dumps_abc` convert the score's MIDI bytes with `midi2abc`. The converter infers note lengths and bar lines from the timing, so unquantized scores can produce irregular notation. Export omits the tune title. Pass `warn=True` to receive `ABCConversionWarning` for converter diagnostics on success.
 
 ## Pickle
 

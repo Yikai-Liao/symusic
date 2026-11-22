@@ -15,6 +15,8 @@ MYPY_SUPPORTED = platform.python_implementation() != "PyPy"
 MYPY_SKIP_REASON = "mypy checks run on the CPython CI jobs"
 
 POSITIVE_SAMPLE = """
+    from os import PathLike
+
     from symusic import Score
     import symusic.core as core
     import symusic.types as smt
@@ -30,6 +32,15 @@ POSITIVE_SAMPLE = """
     tick_track_copy: core.Track[core.Tick] = tick_track.copy()
     tick_note_copy: core.Note[core.Tick] = tick_note.copy()
     tick_pitch: int = tick_note.pitch
+    abc_score: core.ScoreQuarter = core.ScoreQuarter.from_abc("X:1", tune=1)
+    abc_file: core.Score[core.Tick] = tick_score.from_abc_file("score.abc")
+    abc_text: str = abc_score.dumps_abc(warn=True)
+    tick_score.dump_abc("out.abc")
+
+    def file_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
+        core.ScoreTick.from_file(text).dump_abc(binary)
+        core.ScoreTick.from_abc_file(binary).dump_abc(text)
+        core.ScoreTick.from_file(binary)
 
     second_score: core.Score[core.Second] = core.ScoreSecond(480)
     second_track: core.Track[core.Second] = second_score.tracks[0]
@@ -57,6 +68,9 @@ POSITIVE_SAMPLE = """
     tick_clipped: core.Score[core.Tick] = tick_score.clip(0, 10)
     quarter_clipped: core.Score[core.Quarter] = quarter_score.clip(0.0, 1.0)
     second_clipped: core.Score[core.Second] = second_score.clip(0.0, 1.0)
+    tick_trimmed: core.Score[core.Tick] = tick_score.trim(0, 10, start_mode="retain")
+    quarter_trimmed: core.Score[core.Quarter] = quarter_score.trim(0.25, 1.5)
+    concrete_trimmed: core.ScoreTick = core.ScoreTick(480).trim(0, 10)
     tick_score.get_beats(0)
     quarter_score.get_beats(0.0)
     second_score.get_beats(0.0)
@@ -89,6 +103,9 @@ NEGATIVE_SAMPLE = """
 
     tick.clip(0.5, 1.5)
     tick.get_beats(0.5)
+    tick.trim(0, 10, start_mode="unknown")
+    tick.trim(0, 10, end_mode="unknown")
+    tick.trim(0, 10, inplace=True)
     second.pianoroll()
     wrong_unit: core.Score[core.Tick] = core.ScoreSecond(480)
 """
@@ -127,5 +144,8 @@ def test_complete_typing_contract(tmp_path: Path) -> None:
     assert str(positive) not in result.stdout, result.stdout
     assert str(negative) in result.stdout, result.stdout
     assert 'incompatible type "float"; expected "int"' in result.stdout
+    assert 'Argument "start_mode" to "trim"' in result.stdout
+    assert 'Argument "end_mode" to "trim"' in result.stdout
+    assert 'Unexpected keyword argument "inplace" for "trim"' in result.stdout
     assert "Invalid self argument" in result.stdout
     assert "Incompatible types in assignment" in result.stdout

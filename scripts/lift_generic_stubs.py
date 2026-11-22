@@ -429,8 +429,14 @@ def lift_generic_stubs(source: str) -> str:
     insertions.append((pyvec.end_lineno or 0, "\n\n".join(generated)))
 
     lines = source.splitlines()
+    # The Python package installs these methods on the concrete Score classes.
+    # The generic base shares their annotations so the signatures stay in one place.
+    score = classes["Score"]
+    score_bases = ", ".join(ast.unparse(base) for base in score.bases)
+    lines[score.lineno - 1] = f"class Score({score_bases}, _FileMethods):"
     for line_number, generated in sorted(insertions, reverse=True):
         lines[line_number:line_number] = ["", generated]
+    lines.insert(0, "from ._score_io import _FileMethods\n")
     return "\n".join(lines) + "\n"
 
 
