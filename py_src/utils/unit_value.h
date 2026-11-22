@@ -79,8 +79,13 @@ typename T::unit read_time(nb::handle value) {
 using TimeNumber = std::variant<i32, f32>;
 
 template<class Value>
-auto unit_class(nb::module_& module, const char* name, const char* doc) {
-    const auto signature = std::string("class ") + name + "(typing.Generic[_Unit])";
+auto unit_class(
+    nb::module_& module,
+    const char*  name,
+    const char*  doc,
+    const char*  base = "typing.Generic[_Unit]"
+) {
+    const auto signature = std::string("class ") + name + "(" + base + ")";
     auto type = nb::class_<Value>(module, name, nb::is_generic(), nb::sig(signature.c_str()), doc);
     type.def_prop_ro(
         "ttype",

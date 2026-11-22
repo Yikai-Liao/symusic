@@ -63,7 +63,8 @@ inline void bind_track(nb::module_& module) {
     auto list = unit_class<TrackList>(
         module,
         "TrackList",
-        "TrackList(items=None, *, ttype=Tick)\n\nA mutable list of tracks in one time unit."
+        "TrackList(items=None, *, ttype=Tick)\n\nA mutable list of tracks in one time unit.",
+        "collections.abc.MutableSequence[Track[_Unit]]"
     );
     type.def(
             "__init__",

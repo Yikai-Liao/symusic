@@ -3,6 +3,7 @@
     \from typing import ClassVar, Generic, Literal, NoReturn, TypeVar, overload
     \from collections.abc import Callable, Iterable, Iterator
     \from numpy import ndarray
+    \from typing_extensions import Self
     \from os import PathLike
     _Unit = TypeVar("_Unit", "Tick", "Quarter", "Second")
     _Target = TypeVar("_Target", "Tick", "Quarter", "Second")
@@ -176,6 +177,12 @@
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__iter__$:
     def __iter__(self) -> Iterator[\1[_Unit]]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__reversed__$:
+    def __reversed__(self) -> Iterator[\1[_Unit]]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__iadd__$:
+    def __iadd__(self, items: Iterable[\1[_Unit]], /) -> Self: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__getitem__$:
     @overload

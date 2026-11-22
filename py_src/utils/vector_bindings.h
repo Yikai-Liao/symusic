@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
+#include <optional>
 
 #include <nanobind/typing.h>
 #include <nanobind/stl/bind_vector.h>
@@ -72,10 +74,25 @@ shared<Vector> clone_list(Vector& list, bool deep) {
     }
 }
 
+inline Py_ssize_t clamp_list_index(Py_ssize_t index, Py_ssize_t size) {
+    return std::clamp(index < 0 ? index + size : index, Py_ssize_t{0}, size);
+}
+
+inline pycontainer::slice event_slice(
+    Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, size_t length
+) {
+    if (step == 1) stop = start + static_cast<Py_ssize_t>(length);
+    // A normalized reverse stop of -1 stands before the first element.
+    return pycontainer::slice{
+        start, step < 0 && stop == -1 ? std::nullopt : std::optional{stop}, step
+    };
+}
+
 template<class List, class Item>
 struct ListIterator {
     List   list;
     Py_ssize_t index = 0;
+    bool       reverse = false;
 
     Item next() {
         return list.visit([&](const auto& ptr) {
@@ -83,7 +100,9 @@ struct ListIterator {
                 index = -1;
                 throw nb::stop_iteration();
             }
-            return Item(list_item(*ptr, index++));
+            auto item = Item(list_item(*ptr, index));
+            index += reverse ? -1 : 1;
+            return item;
         });
     }
 };
@@ -152,6 +171,18 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
         });
     };
 
+    const auto extend = [](const List& self, const nb::iterable& items) {
+        self.visit([&](const auto& ptr) {
+            using Vector = Native<UnitOf<decltype(ptr)>>;
+            auto source  = read_list<List, Item, Vector>(items);
+            if (source == ptr) source = clone_list(*source, false);
+            if constexpr (is_event_sequence<Vector>)
+                ptr->extend(*source);
+            else
+                ptr->insert(ptr->end(), source->begin(), source->end());
+        });
+    };
+
     type.def(
             "__init__",
             [copy](List* self, const List& other) { new (self) List(copy(other, false)); }
@@ -171,7 +202,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             "items"_a = nb::none(),
             nb::kw_only(),
             "ttype"_a = nb::type<Tick>()
-    )
+        )
         .def(
             "__len__",
             [](const List& self) { return self.visit([](const auto& ptr) { return ptr->size(); }); }
@@ -183,6 +214,25 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             }
         )
         .def("__iter__", [](const List& self) { return Iterator{self}; })
+        .def(
+            "__reversed__",
+            [](const List& self) {
+                return self.visit([&](const auto& ptr) {
+                    return Iterator{self, static_cast<Py_ssize_t>(ptr->size()) - 1, true};
+                });
+            }
+        )
+        .def(
+            "reverse",
+            [](const List& self) {
+                self.visit([](const auto& ptr) {
+                    if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>)
+                        ptr->reverse();
+                    else
+                        std::ranges::reverse(*ptr);
+                });
+            }
+        )
         .def(
             "__repr__",
             [](nb::handle self) { return nb::steal<nb::str>(nb::detail::repr_list(self.ptr())); },
@@ -204,7 +254,10 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                     using Vector                           = Native<UnitOf<decltype(ptr)>>;
                     const auto [start, stop, step, length] = slice.compute(ptr->size());
                     if constexpr (is_event_sequence<Vector>) {
-                        return List(std::make_shared<Vector>(ptr->getitem({start, stop, step})));
+                        if (length == 0) return List(std::make_shared<Vector>());
+                        return List(std::make_shared<Vector>(
+                            ptr->getitem(event_slice(start, stop, step, length))
+                        ));
                     } else {
                         auto result = std::make_shared<Vector>();
                         result->reserve(length);
@@ -232,14 +285,11 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 self.visit([&](const auto& ptr) {
                     using T           = UnitOf<decltype(ptr)>;
                     const auto& value = item.template get<T>();
+                    const auto  position = clamp_list_index(index, ptr->size());
                     if constexpr (is_event_sequence<Native<T>>)
-                        ptr->insert(index, value);
-                    else {
-                        const auto size = static_cast<Py_ssize_t>(ptr->size());
-                        if (index < 0) index += size;
-                        if (index < 0 || index > size) throw nb::index_error();
-                        ptr->insert(ptr->begin() + index, value);
-                    }
+                        ptr->insert(position, value);
+                    else
+                        ptr->insert(ptr->begin() + position, value);
                 });
             },
             "index"_a,
@@ -261,18 +311,12 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             },
             "index"_a = -1
         )
+        .def("extend", extend, "items"_a)
         .def(
-            "extend",
-            [](const List& self, const nb::iterable& items) {
-                self.visit([&](const auto& ptr) {
-                    using Vector = Native<UnitOf<decltype(ptr)>>;
-                    auto source  = read_list<List, Item, Vector>(items);
-                    if (source == ptr) source = clone_list(*source, false);
-                    if constexpr (is_event_sequence<Vector>)
-                        ptr->extend(*source);
-                    else
-                        ptr->insert(ptr->end(), source->begin(), source->end());
-                });
+            "__iadd__",
+            [extend](nb::handle self, const nb::iterable& items) {
+                extend(nb::cast<const List&>(self), items);
+                return nb::borrow(self);
             },
             "items"_a
         )
@@ -299,10 +343,20 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                     auto source  = read_list<List, Item, Vector>(items);
                     if (source == ptr) source = clone_list(*source, false);
                     const auto [start, stop, step, length] = slice.compute(ptr->size());
-                    if constexpr (is_event_sequence<Vector>)
-                        ptr->setitem({start, stop, step}, *source);
-                    else {
-                        if (length != source->size()) throw nb::index_error("Slice size mismatch");
+                    if (step != 1 && length != source->size())
+                        throw std::invalid_argument("Extended slice size mismatch");
+                    if constexpr (is_event_sequence<Vector>) {
+                        const auto range = event_slice(start, stop, step, length);
+                        if (!source->empty())
+                            ptr->setitem(range, *source);
+                        else if (length != 0)
+                            ptr->delitem(range);
+                    } else if (step == 1 && length != source->size()) {
+                        ptr->reserve(ptr->size() - length + source->size());
+                        const auto first    = ptr->begin() + start;
+                        const auto position = ptr->erase(first, first + length);
+                        ptr->insert(position, source->begin(), source->end());
+                    } else {
                         for (size_t i = 0; i < length; ++i) {
                             (*ptr)[start + static_cast<Py_ssize_t>(i) * step] = (*source)[i];
                         }
@@ -331,7 +385,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                     auto [start, stop, step, length] = slice.compute(ptr->size());
                     if (length == 0) return;
                     if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
-                        ptr->delitem({start, stop, step});
+                        ptr->delitem(event_slice(start, stop, step, length));
                     } else {
                         if (step > 0) {
                             start += (static_cast<Py_ssize_t>(length) - 1) * step;
@@ -351,6 +405,32 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 return nb::isinstance<Item>(item) && count(self, nb::cast<const Item&>(item)) != 0;
             },
             "item"_a.none()
+        )
+        .def(
+            "index",
+            [](const List& self, nb::handle item, Py_ssize_t start, Py_ssize_t stop) {
+                if (nb::isinstance<Item>(item)) {
+                    const auto& value = nb::cast<const Item&>(item);
+                    return self.visit([&](const auto& ptr) {
+                        const auto* match = value.template find<UnitOf<decltype(ptr)>>();
+                        const auto  size  = static_cast<Py_ssize_t>(ptr->size());
+                        const auto  end   = clamp_list_index(stop, size);
+                        for (auto i = clamp_list_index(start, size); match && i < end; ++i) {
+                            const auto& element = (*ptr)[i];
+                            if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
+                                if (&element == match->get() || element == **match) return i;
+                            } else {
+                                if (element == *match || *element == **match) return i;
+                            }
+                        }
+                        throw std::invalid_argument("Item is not in list");
+                    });
+                }
+                throw std::invalid_argument("Item is not in list");
+            },
+            "item"_a.none(),
+            "start"_a = 0,
+            "stop"_a  = std::numeric_limits<Py_ssize_t>::max()
         )
         .def("count", count, "item"_a)
         .def(
@@ -378,6 +458,9 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             "memo"_a = nb::none(),
             "_nil"_a = nb::none()
         );
+
+    nb::module_::import_("collections.abc").attr("MutableSequence").attr("register")(type);
+    type.attr("__hash__") = nb::none();
 
     if constexpr (is_event_sequence<Native<Tick>>) {
         type.def(
