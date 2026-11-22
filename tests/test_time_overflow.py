@@ -237,3 +237,49 @@ def test_midi_duration_overflow(ttype):
     body += bytes.fromhex("ff ff ff 7f 80 3c 40 00 ff 2f 00")
     with pytest.raises(RuntimeError, match="32-bit tick range"):
         Score.from_midi(build_single_track_midi(body), ttype=ttype)
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("tpq", [-1, 0, 32768, 65536])
+def test_midi_rejects_invalid_division(ttype, tpq):
+    score = Score(480, ttype=ttype)
+    score.ticks_per_quarter = tpq
+    with pytest.raises(ValueError, match=rf"ticks_per_quarter.*1\.\.32767.*{tpq}"):
+        score.dumps_midi()
+
+
+@pytest.mark.parametrize("tpq", [1, 32767])
+def test_midi_preserves_division_limits(tpq):
+    score = Score(tpq)
+    score.tracks.append(Track(notes=[Note(0, 1, 60, 80)]))
+    assert Score.from_midi(score.dumps_midi()).ticks_per_quarter == tpq
+
+
+@pytest.mark.parametrize("value", [-8193, 8192, 65536])
+def test_midi_rejects_unrepresentable_pitch_bend(value):
+    score = tick_score(Note(0, 1, 60, 80))
+    score.tracks[0].pitch_bends.append(PitchBend(0, value))
+    with pytest.raises(ValueError, match=rf"pitch bend.*{value}"):
+        score.dumps_midi()
+
+
+@pytest.mark.parametrize("mspq", [-1, 1 << 24])
+def test_midi_rejects_unrepresentable_tempo(mspq):
+    score = Score(480)
+    score.tempos.append(Tempo(0, mspq=mspq))
+    with pytest.raises(ValueError, match="mspq.*24 bits"):
+        score.dumps_midi()
+
+
+@pytest.mark.parametrize("denominator", [0, 3])
+def test_midi_rejects_unrepresentable_denominator(denominator):
+    score = Score(480)
+    score.time_signatures.append(TimeSignature(0, 4, denominator))
+    with pytest.raises(ValueError, match="denominator.*power of two"):
+        score.dumps_midi()
+
+
+def test_midi_rejects_unrepresentable_delta():
+    score = tick_score(Note(1 << 28, 1, 60, 80))
+    with pytest.raises(ValueError, match="event delta.*28 bits"):
+        score.dumps_midi()

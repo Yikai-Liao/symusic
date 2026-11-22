@@ -25,8 +25,9 @@ size_t checked_volume(std::initializer_list<size_t> dims) {
 
 /// Time-axis length for a track or score ending at `end` (exclusive end plus one slot).
 /// The sum is done in 64 bits so `end == INT32_MAX` cannot overflow.
-size_t time_dim_from_end(const int64_t end) {
+size_t time_dim_from_end(const i32 end) {
     if (end < 0) throw std::invalid_argument("Cannot build a pianoroll: the end time is negative.");
+    // A non-negative i32 plus one fits in the size_t of supported targets.
     return static_cast<size_t>(end) + 1;
 }
 
@@ -53,7 +54,18 @@ std::pair<size_t, size_t> checked_note_span(
             + " lies beyond the track end."
         );
     }
+    // The checks above establish 0 <= time <= end < timeDim.
     return {static_cast<size_t>(time), static_cast<size_t>(end)};
+}
+
+pianoroll_t encode_velocity(i8 velocity, bool enabled) {
+    if (!enabled) return 1;
+    if (velocity < 0) {
+        throw std::invalid_argument(
+            "Pianoroll note velocity must be non-negative, got " + std::to_string(velocity)
+        );
+    }
+    return static_cast<pianoroll_t>(velocity);
 }
 
 void check_index(const char* name, const size_t index, const size_t dim) {
@@ -90,7 +102,7 @@ TrackPianoroll TrackPianoroll::from_track(
     if (pitchRange.second < pitchRange.first) {
         throw std::invalid_argument("Pianoroll pitch range is reversed.");
     }
-    const size_t   timeDim = time_dim_from_end(int64_t{track.end()});
+    const size_t   timeDim = time_dim_from_end(track.end());
     TrackPianoroll pianoroll(modes.size(), pitchRange.second - pitchRange.first, timeDim);
 
     for (const auto& note : *track.notes) {
@@ -104,7 +116,7 @@ TrackPianoroll TrackPianoroll::from_track(
                     note->pitch - pitchRange.first,
                     modes[modeIdx] != PianorollMode::offset ? noteStart : noteEnd,
                     modes[modeIdx] == PianorollMode::frame ? noteEnd - noteStart : 1,
-                    encodeVelocity ? note->velocity : 1
+                    encode_velocity(note->velocity, encodeVelocity)
                 );
             }
         }
@@ -193,7 +205,7 @@ ScorePianoroll ScorePianoroll::from_score(
         throw std::invalid_argument("Pianoroll pitch range is reversed.");
     }
     const auto&    tracks  = *score.tracks;
-    const size_t   timeDim = time_dim_from_end(int64_t{score.end()});
+    const size_t   timeDim = time_dim_from_end(score.end());
     ScorePianoroll pianoroll(
         modes.size(), tracks.size(), pitchRange.second - pitchRange.first, timeDim
     );
@@ -213,7 +225,7 @@ ScorePianoroll ScorePianoroll::from_score(
                         note->pitch - pitchRange.first,
                         modes[modeIdx] != PianorollMode::offset ? noteStart : noteEnd,
                         modes[modeIdx] == PianorollMode::frame ? noteEnd - noteStart : 1,
-                        encodeVelocity ? note->velocity : 1
+                        encode_velocity(note->velocity, encodeVelocity)
                     );
                 }
             }

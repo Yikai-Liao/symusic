@@ -79,6 +79,6 @@ print(track_roll.shape)  # (modes, pitches, time)
 - **Pitches.** `pitch_range=(low, high)` is half-open, both bounds within 0–128, and row `i` is pitch `low + i`. Notes outside the range are skipped. An empty or reversed range raises `ValueError`.
 - **Time.** The time axis has `end() + 1` columns, where `end()` is the end of the score or track; for a score that includes global events such as a late tempo change.
 - **Values.** The array is `uint8`. A cell holds 1, or the note velocity with `encode_velocity=True`. Where notes overlap on the same pitch, the later note in the list overwrites the earlier one.
-- **Errors.** A note with a negative time or duration raises `ValueError`. A note with zero duration marks `onset` and `offset` but no `frame` column.
+- **Errors.** A note with a negative time or duration raises `ValueError`. Encoding a negative velocity also raises `ValueError`. A note with zero duration marks `onset` and `offset` but no `frame` column.
 
 symusic has no conversion from a piano roll back to notes.

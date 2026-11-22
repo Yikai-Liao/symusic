@@ -251,3 +251,13 @@ def test_pianoroll_zero_duration_note(simple_track):
     assert roll[0, 61].sum() == 0
     assert roll[1, 61, 5] == 80
     assert roll[2, 61, 5] == 80
+
+
+def test_pianoroll_rejects_negative_encoded_velocity():
+    track = Track(notes=[Note(0, 1, 60, -1)])
+    score = Score(480)
+    score.tracks.append(track)
+    for source in (track, score):
+        with pytest.raises(ValueError, match="velocity.*-1"):
+            source.pianoroll(encode_velocity=True)
+        assert source.pianoroll(encode_velocity=False).any()

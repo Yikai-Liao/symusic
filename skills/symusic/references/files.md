@@ -30,10 +30,10 @@ assert score == same
 
 `score.dump_midi(path)` writes a file and `score.dumps_midi()` returns bytes. A score in quarters or seconds is converted to ticks first, the same way as `to("tick")`; to keep short notes from rounding to zero length, convert yourself with `score.to("tick", min_dur=1)` and dump the result.
 
-- The file is a multi-track (format 1) file with the score's `ticks_per_quarter`. Each `Track` becomes one MIDI track with its name and a program change at time 0.
+- The file is a multi-track (format 1) file with the score's `ticks_per_quarter`. A resolution outside 1–32767 raises `ValueError`. Each `Track` becomes one MIDI track with its name and a program change at time 0.
 - The global events go into the first MIDI track, or into a track of their own when the score has no tracks.
 - Drum tracks use channel 10. Every other track takes a channel from 1–9 and 11–16 by its position in `tracks`, drum tracks included, so channels repeat from the sixteenth track on.
-- An event with a negative start time raises `ValueError` with the event kind and time.
+- An event with a negative start time raises `ValueError` with the event kind and time. Pitch bends, tempos, time signatures and event deltas must fit their MIDI fields.
 - `pedals` are not written; the sustain pedal reaches the file only through the control changes in `controls`, so editing `pedals` does not change the file.
 
 A MIDI file read and written again keeps notes, control changes, pitch bends, lyrics, track names, programs and the global events. It loses what reading drops, and the track layout follows the rules above rather than the original file.

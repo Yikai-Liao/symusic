@@ -268,6 +268,7 @@ void adjust_time_inplace_inner(
     // return empty vector if events is empty
     if (events.empty()) return;
     auto get_factor = [&original_times, &new_times, diff](const size_t x) {
+        // Segment indices start at one, leaving a preceding anchor at x - 1.
         f64 factor
             = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
         return factor;
@@ -276,7 +277,9 @@ void adjust_time_inplace_inner(
     const auto range = std::make_pair(original_times.front(), original_times.back());
 
     auto valid = [get_end, range](const T& event) {
-        return (event.time >= range.first) & (get_end(event) <= range.second);
+        const auto end = get_end(event);
+        return event.time >= range.first && event.time <= range.second
+               && end >= range.first && end <= range.second;
     };
 
     auto cur_range  = std::make_pair(original_times[0], original_times[1]);
@@ -300,9 +303,8 @@ void adjust_time_inplace_inner(
             trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
         );
         if constexpr (has_dur) {
-            // `valid` guarantees original_end <= original_times.back(), so it fits in `unit`.
-            const auto original_end = static_cast<unit>(get_end(event));
-            if (original_end > cur_range.second) {
+            const auto original_end = symusic::details::narrow_time<unit>(get_end(event));
+            if (original_end < cur_range.first || original_end > cur_range.second) {
                 auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
                     - original_times.begin();
                 cur_factor = get_factor(idx);

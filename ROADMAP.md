@@ -62,7 +62,6 @@ Workarounds and unsupported configurations with current toolchains.
 
 ## Memory safety
 
-- **Integer narrowing outside tick arithmetic.** Tick arithmetic is checked; other integers are not. MIDI write casts `ticks_per_quarter` (`i32`) to `u16` (`src/io/midi.cpp`), so a value above 65535 wraps and one above 32767 sets the SMPTE bit of the MIDI division field. `KeySignature.degree()` wraps through `u8` (see [behavior defects](#behavior-defects)). Audit every subtraction on an unsigned type and every narrowing cast in `src/`, `include/` and `py_src/`, and apply the [integer rule](docs/development/conventions.md#integers-and-time).
 - **Python tests under ASan.** CI runs the C++ tests with ASan and UBSan, but not pytest. A sanitized extension needs `LD_PRELOAD` of `libasan` and `libubsan` even at install time, because the build runs nanobind's stub generator, which imports the extension (without it the install fails with "ASan runtime does not come first"). Preloading for the whole `uv pip install` process exhausted resources and was killed. Untried: build the extension with `SYMUSIC_BUILD_PYTHON=ON` and `SYMUSIC_PYTHON_STUB` pointing at a stub from a normal build to skip generation, then run pytest with the preload and `ASAN_OPTIONS=detect_leaks=0`.
 
 ## Behavior defects

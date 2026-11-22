@@ -175,3 +175,31 @@ def test_midi_without_notes_keeps_lyric_programs():
         (0, "a"),
         (1, "b"),
     ]
+
+
+def test_midi_rejects_unrepresentable_denominator():
+    body = bytes.fromhex("00 ff 58 04 04 08 18 08 00 ff 2f 00")
+    with pytest.raises(RuntimeError, match="time signature denominator"):
+        Score.from_midi(build_single_track_midi(body))
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/stdin")
+def test_midi_rejects_non_seekable_file():
+    script = """
+from symusic.core import ScoreTick
+
+try:
+    ScoreTick.from_file("/dev/stdin", format="midi")
+except RuntimeError as error:
+    if "Cannot seek" in str(error):
+        raise SystemExit(0)
+    raise
+raise SystemExit(1)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        input=b"MThd",
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

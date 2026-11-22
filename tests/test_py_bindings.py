@@ -384,3 +384,16 @@ def test_note_end_binding(ttype):
     note = Note(1, 2, 60, 80, ttype)
     assert note.end == 3
     assert not hasattr(note, "ent_time")
+
+
+def test_track_slice_with_large_step():
+    import sys
+
+    tracks = Score(480).tracks
+    tracks.extend([Track("first"), Track("second"), Track("third")])
+    selection = slice(1, None, sys.maxsize)
+    assert [track.name for track in tracks[selection]] == ["second"]
+    tracks[selection] = [Track("replacement")]
+    assert tracks[1].name == "replacement"
+    del tracks[selection]
+    assert [track.name for track in tracks] == ["first", "third"]

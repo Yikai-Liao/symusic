@@ -6,6 +6,7 @@
 #include <cmath>
 #include <concepts>
 #include <string>
+#include <utility>
 
 #include "symusic/mtype.h"
 
@@ -29,7 +30,7 @@ std::string strip_non_utf_8(const std::string& str);
 
 // Narrow a 64-bit intermediate to i32.
 inline i32 narrow_i32(const i64 value) {
-    if (value != static_cast<i32>(value)) [[unlikely]] { throw_i32_overflow(value); }
+    if (!std::in_range<i32>(value)) [[unlikely]] { throw_i32_overflow(value); }
     return static_cast<i32>(value);
 }
 

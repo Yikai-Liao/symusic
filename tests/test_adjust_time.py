@@ -95,3 +95,10 @@ def test_repeated_original_anchor(ttype, inplace):
     with pytest.raises(ValueError, match="original_times must be strictly increasing"):
         score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
     assert score.tracks[0].notes[0].start == 2
+
+
+def test_adjust_time_checks_both_note_endpoints():
+    score = Score(480)
+    score.tracks.append(Track(notes=[Note(2, -10, 60, 80)]))
+    adjusted = score.adjust_time([0, 4], [0, 8])
+    assert not adjusted.tracks[0].notes
