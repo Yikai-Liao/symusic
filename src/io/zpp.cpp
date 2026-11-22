@@ -1,6 +1,8 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <stdexcept>
 #include <span>
 
 #include "zpp_bits.h"
@@ -20,8 +22,7 @@ namespace symusic {
 // struct are indeterminate, so the output path first assembles the image in a
 // zero-filled buffer and copies each member to its offset. Invariant: the bytes
 // written depend only on member values, and padding is always zero. The input
-// path reads the image directly, which also loads pickles written before the
-// padding was zeroed.
+// path reads the image directly and ignores padding.
 template<class E, class... Members>
 constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Members&... members) {
     alignas(E) std::array<std::byte, sizeof(E)> image{};
@@ -99,94 +100,113 @@ inline constexpr std::size_t padded_payload<TimeSignature<T>> = sizeof(typename 
 template<class T>
 inline constexpr std::size_t padded_payload<KeySignature<T>> = sizeof(typename T::unit) + 2;
 
+using ZppSize = zpp::bits::default_size_type;
+
+ZppSize checked_zpp_size(size_t count) {
+    if (count > std::numeric_limits<ZppSize>::max()) {
+        throw std::overflow_error("ZPP container size exceeds the format limit");
+    }
+    return static_cast<ZppSize>(count);
+}
+
+// Minimum wire sizes bound allocations before zpp_bits reads container contents.
 template<class E>
-struct ZeroedPaddingVec {
-    const vec<E>& events;
+inline constexpr size_t min_zpp_size = sizeof(E);
+template<TType T>
+inline constexpr size_t min_zpp_size<TextMeta<T>> = sizeof(typename T::unit) + sizeof(ZppSize);
+template<TType T>
+inline constexpr size_t min_zpp_size<TrackNative<T>> = 2 * sizeof(u8) + 6 * sizeof(ZppSize);
+
+template<class Container>
+struct ZppContainer {
+    Container& values;
 };
 
-template<class E>
-constexpr auto serialize(auto& archive, const ZeroedPaddingVec<E>& zeroed_vec) {
-    const auto&           events  = zeroed_vec.events;
-    constexpr std::size_t payload = padded_payload<E>;
-    static_assert(sizeof(E) - payload == 2, "padding is a 2-byte tail");
-    const std::size_t count  = events.size();
-    auto              result = archive(
-        static_cast<zpp::bits::default_size_type>(count),
-        zpp::bits::bytes(std::span<const E>(events))
-    );
-    // zpp_bits also instantiates this with a type-probing archive that has no buffer.
-    if constexpr (std::is_same_v<decltype(result), zpp::bits::errc>) {
-        if (zpp::bits::failure(result)) return result;
-        auto* tail
-            = archive.processed_data().data() + archive.position() - count * sizeof(E) + payload;
-        for (std::size_t left = count; left != 0; --left, tail += sizeof(E)) {
-            constexpr std::uint16_t kZero = 0;
-            std::memcpy(tail, &kZero, sizeof(kZero));
+template<class Container>
+constexpr zpp::bits::errc serialize(auto& archive, const ZppContainer<Container>& wrapped) {
+    using E = typename Container::value_type;
+    auto& values = wrapped.values;
+    if constexpr (std::is_const_v<Container>) {
+        const auto count = checked_zpp_size(values.size());
+        if constexpr (padded_payload<E> != 0) {
+            constexpr size_t payload = padded_payload<E>;
+            static_assert(sizeof(E) - payload == 2, "padding is a 2-byte tail");
+            auto result = archive(count, zpp::bits::bytes(std::span<const E>(values)));
+            if (zpp::bits::failure(result) || count == 0) return result;
+
+            // A successful bulk write includes count complete event images at the end.
+            auto images = archive.processed_data().last(std::span<const E>(values).size_bytes());
+            for (size_t index = 0; index < count; ++index) {
+                constexpr u16 kZero = 0;
+                std::memcpy(images.data() + index * sizeof(E) + payload, &kZero, sizeof(kZero));
+            }
+            return result;
+        } else {
+            return archive(count, zpp::bits::unsized(values));
         }
+    } else {
+        ZppSize count{};
+        if (auto result = archive(count); zpp::bits::failure(result)) return result;
+        if (count > archive.remaining_data().size() / min_zpp_size<E>) {
+            return std::errc::result_out_of_range;
+        }
+        values.resize(count);
+        return archive(zpp::bits::unsized(values));
     }
+}
+
+template<TType T>
+constexpr auto serialize(auto& archive, const TextMeta<T>& data) {
+    return archive(data.time, ZppContainer{data.text});
+}
+
+template<TType T>
+constexpr auto serialize(auto& archive, TextMeta<T>& data) {
+    return archive(data.time, ZppContainer{data.text});
+}
+
+template<class Track>
+constexpr auto serialize_track(auto& archive, Track& data, auto& drum_flag) {
+    return archive(
+        ZppContainer{data.name}, data.program, drum_flag,
+        ZppContainer{data.notes}, ZppContainer{data.controls}, ZppContainer{data.pitch_bends},
+        ZppContainer{data.pedals}, ZppContainer{data.lyrics}
+    );
+}
+
+template<TType T>
+constexpr auto serialize(auto& archive, const TrackNative<T>& data) {
+    const u8 drum_flag = data.is_drum;
+    return serialize_track(archive, data, drum_flag);
+}
+
+template<TType T>
+constexpr zpp::bits::errc serialize(auto& archive, TrackNative<T>& data) {
+    u8 drum_flag{};
+    auto result = serialize_track(archive, data, drum_flag);
+    if (zpp::bits::failure(result)) return result;
+    if (drum_flag > 1) return std::errc::invalid_argument;
+    data.is_drum = drum_flag != 0;
     return result;
 }
 
-template<class V>
-constexpr bool is_padded_vec = false;
-template<class E>
-constexpr bool is_padded_vec<vec<E>> = padded_payload<E> > 0;
-
-// Const (output) padded vectors take the bulk path; everything else, including
-// the mutable (input) side, is passed through unchanged.
-template<class V>
-constexpr decltype(auto) zeroed(V&& value) {
-    if constexpr (
-        std::is_const_v<std::remove_reference_t<V>> && is_padded_vec<std::remove_cvref_t<V>>
-    ) {
-        return ZeroedPaddingVec<typename std::remove_cvref_t<V>::value_type>{value};
-    } else {
-        return (value);
-    }
+template<class Score>
+constexpr auto serialize_score(auto& archive, Score& data) {
+    return archive(
+        data.ticks_per_quarter, ZppContainer{data.tracks}, ZppContainer{data.time_signatures},
+        ZppContainer{data.key_signatures}, ZppContainer{data.tempos}, ZppContainer{data.markers}
+    );
 }
 
-#define HELPER(X) X
-#define SERIALIZE_COMMON(...) HELPER(SERIALIZE_COMMON_INNER(__VA_ARGS__))
-#define SERIALIZE_COMMON_INNER(STRUCT, DATA, ...)                             \
-    template<symusic::TType T>                                                \
-    constexpr auto serialize(auto& archive, const symusic::STRUCT<T>& DATA) { \
-        return archive(__VA_ARGS__);                                          \
-    }                                                                         \
-    template<symusic::TType T>                                                \
-    constexpr auto serialize(auto& archive, symusic::STRUCT<T>& DATA) {       \
-        return archive(__VA_ARGS__);                                          \
-    }
+template<TType T>
+constexpr auto serialize(auto& archive, const ScoreNative<T>& data) {
+    return serialize_score(archive, data);
+}
 
-
-SERIALIZE_COMMON(TextMeta, d, d.time, d.text)
-
-SERIALIZE_COMMON(
-    TrackNative,
-    d,
-    d.name,
-    d.program,
-    d.is_drum,
-    zeroed(d.notes),
-    zeroed(d.controls),
-    d.pitch_bends,
-    d.pedals,
-    d.lyrics
-)
-
-SERIALIZE_COMMON(
-    ScoreNative,
-    d,
-    d.ticks_per_quarter,
-    d.tracks,
-    zeroed(d.time_signatures),
-    zeroed(d.key_signatures),
-    d.tempos,
-    d.markers
-)
-
-#undef SERIALIZE_COMMON
-#undef SERIALIZE_COMMON_INNER
-#undef HELPER
+template<TType T>
+constexpr auto serialize(auto& archive, ScoreNative<T>& data) {
+    return serialize_score(archive, data);
+}
 
 }   // namespace symusic
 
@@ -194,19 +214,45 @@ namespace symusic {
 
 namespace details {
 
+constexpr std::array<u8, 4> kZppMagic{'S', 'Y', 'M', 'Z'};
+constexpr u8 kZppVersion = 1;
+
 template<class T>
-vec<u8> serailize_zpp(const T& data) {
+auto archive_zpp_state(auto& archive, T& data) {
+    if constexpr (requires { typename T::value_type; }) {
+        return archive(ZppContainer{data});
+    } else {
+        return archive(data);
+    }
+}
+
+template<class T>
+vec<u8> serialize_zpp(const T& data) {
     vec<u8> buffer;
-    auto    out = zpp::bits::out(buffer);
-    out(data).or_throw();
+    auto out = zpp::bits::out(buffer);
+    out(kZppMagic, kZppVersion).or_throw();
+    archive_zpp_state(out, data).or_throw();
     return buffer;
 }
 
 template<class T>
-T deserailize_zpp(std::span<const u8> buffer) {
+T deserialize_zpp(std::span<const u8> buffer) {
     auto in = zpp::bits::in(buffer);
-    T    data{};
-    in(data).or_throw();
+    std::array<u8, kZppMagic.size()> magic{};
+    u8 version{};
+    if (zpp::bits::failure(in(magic, version)) || magic != kZppMagic) {
+        throw std::invalid_argument("Invalid ZPP pickle header");
+    }
+    if (version != kZppVersion) {
+        throw std::invalid_argument(
+            "ZPP pickle version " + std::to_string(version) + " does not match expected version "
+            + std::to_string(kZppVersion)
+        );
+    }
+    T data{};
+    if (zpp::bits::failure(archive_zpp_state(in, data)) || in.position() != buffer.size()) {
+        throw std::invalid_argument("Invalid ZPP pickle payload");
+    }
     return data;
 }
 
@@ -216,28 +262,28 @@ T deserailize_zpp(std::span<const u8> buffer) {
     template<>                                                           \
     template<>                                                           \
     vec<u8> NAME<T>::dumps<DataFormat::ZPP>() const {                    \
-        return details::serailize_zpp(*this);                            \
+        return details::serialize_zpp(*this);                            \
     }                                                                    \
     template<>                                                           \
     template<>                                                           \
     NAME<T> NAME<T>::parse<DataFormat::ZPP>(std::span<const u8> bytes) { \
-        return details::deserailize_zpp<NAME<T>>(bytes);                 \
+        return details::deserialize_zpp<NAME<T>>(bytes);                 \
     }                                                                    \
     template<>                                                           \
     vec<u8> dumps<DataFormat::ZPP>(const NAME<T>& data) {                \
-        return details::serailize_zpp(data);                             \
+        return details::serialize_zpp(data);                             \
     }                                                                    \
     template<>                                                           \
     NAME<T> parse<DataFormat::ZPP>(std::span<const u8> bytes) {          \
-        return details::deserailize_zpp<NAME<T>>(bytes);                 \
+        return details::deserialize_zpp<NAME<T>>(bytes);                 \
     }                                                                    \
     template<>                                                           \
     vec<u8> dumps<DataFormat::ZPP>(const vec<NAME<T>>& data) {           \
-        return details::serailize_zpp(data);                             \
+        return details::serialize_zpp(data);                             \
     }                                                                    \
     template<>                                                           \
     vec<NAME<T>> parse<DataFormat::ZPP>(std::span<const u8> bytes) {     \
-        return details::deserailize_zpp<vec<NAME<T>>>(bytes);            \
+        return details::deserialize_zpp<vec<NAME<T>>>(bytes);            \
     }
 
 #define INSTANTIATE_ZPP(__COUNT, NAME)   \
@@ -266,12 +312,12 @@ REPEAT_ON(
     template<>                                                                         \
     template<>                                                                         \
     vec<u8> NAME<T>::dumps<DataFormat::ZPP>() const {                                  \
-        return details::serailize_zpp(to_native(*this));                               \
+        return details::serialize_zpp(to_native(*this));                               \
     }                                                                                  \
     template<>                                                                         \
     template<>                                                                         \
     NAME<T> NAME<T>::parse<DataFormat::ZPP>(std::span<const u8> bytes) {               \
-        return to_shared(std::move(details::deserailize_zpp<NAME##Native<T>>(bytes))); \
+        return to_shared(std::move(details::deserialize_zpp<NAME##Native<T>>(bytes))); \
     }                                                                                  \
     template<>                                                                         \
     vec<u8> dumps<DataFormat::ZPP>(const NAME<T>& data) {                              \

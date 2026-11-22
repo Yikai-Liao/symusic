@@ -65,4 +65,4 @@ restored = pickle.loads(pickle.dumps(score))
 assert restored == score
 ```
 
-[datasets.md](datasets.md) shows a multiprocessing pipeline.
+Use the same symusic version in every worker. Pickle state with an unsupported format version or a malformed payload raises `ValueError`. [datasets.md](datasets.md) shows a multiprocessing pipeline.
