@@ -1,18 +1,15 @@
-"""Offline tests for Synthesizer rendering and WAV export."""
+"""Offline tests for the FluidSynth backend and its Python boundary."""
 
 from __future__ import annotations
 
 import math
 import struct
-import wave
-from typing import TYPE_CHECKING
+import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
-from symusic import Note, Score, Synthesizer, Track, dump_wav
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from symusic import ControlChange, Note, PitchBend, Score, Synthesizer, Track
 
 SAMPLE_RATE = 22050
 SAMPLE_COUNT = 22050
@@ -31,15 +28,25 @@ def _name(text: str) -> bytes:
     return text.encode("ascii").ljust(20, b"\0")
 
 
-def write_minimal_sf2(path: Path) -> None:
-    """Write a one-preset SF2 whose only sample is a unlooped 440 Hz sine."""
+def write_test_soundfont(path: Path) -> None:
+    """Write SF2 or SF3 presets backed by one 440 Hz sine sample."""
     pcm = np.round(
         12000 * np.sin(2 * math.pi * 440 * np.arange(SAMPLE_COUNT) / SAMPLE_RATE)
     ).astype("<i2")
     # The SF2 spec requires 46 zero samples after each sample.
     smpl = pcm.tobytes() + bytes(46 * 2)
 
-    info = _list(b"INFO", _chunk(b"ifil", struct.pack("<HH", 2, 1)))
+    sample_end = SAMPLE_COUNT
+    sample_type = 1
+    version = (2, 1)
+    if path.suffix == ".sf3":
+        vorbis = (Path(__file__).parent / "testcases/soundfonts/sine.ogg").read_bytes()
+        smpl = vorbis + bytes(len(vorbis) % 2)
+        sample_end = len(vorbis)
+        sample_type |= 0x10
+        version = (3, 0)
+
+    info = _list(b"INFO", _chunk(b"ifil", struct.pack("<HH", *version)))
     sdta = _list(b"sdta", _chunk(b"smpl", smpl))
 
     def phdr(name, preset, bank, bag):
@@ -54,25 +61,34 @@ def write_minimal_sf2(path: Path) -> None:
         + struct.pack(
             "<IIIIIBbHH",
             0,
-            SAMPLE_COUNT,
+            sample_end,
             0,
             SAMPLE_COUNT,
             SAMPLE_RATE,
             key_pitch,
             0,
             0,
-            1,
+            sample_type,
         )
         + _name("EOS")
         + struct.pack("<IIIIIBbHH", 0, 0, 0, 0, 0, 0, 0, 0, 0)
     )
 
+    presets = [(0, 0, 0), (0, 1, 12), (1, 0, -12), (128, 0, 3), (130, 0, 7)]
+    headers = b"".join(
+        phdr("sine", program, bank, index)
+        for index, (bank, program, _) in enumerate(presets)
+    )
+    bags = b"".join(
+        struct.pack("<HH", index * 2, 0) for index in range(len(presets) + 1)
+    )
+    generators = b"".join(gen(51, tune & 0xFFFF) + gen(41, 0) for _, _, tune in presets)
     pdta = _list(
         b"pdta",
-        _chunk(b"phdr", phdr("piano", 0, 0, 0) + phdr("EOP", 0, 0, 1)),
-        _chunk(b"pbag", struct.pack("<HHHH", 0, 0, 1, 0)),
+        _chunk(b"phdr", headers + phdr("EOP", 0, 0, len(presets))),
+        _chunk(b"pbag", bags),
         _chunk(b"pmod", bytes(10)),
-        _chunk(b"pgen", gen(41, 0) + gen(0, 0)),  # Instrument 0, terminal
+        _chunk(b"pgen", generators + gen(0, 0)),
         _chunk(
             b"inst",
             _name("sine") + struct.pack("<H", 0) + _name("EOI") + struct.pack("<H", 1),
@@ -87,16 +103,22 @@ def write_minimal_sf2(path: Path) -> None:
 
 
 @pytest.fixture(scope="module")
-def synth(tmp_path_factory: pytest.TempPathFactory) -> Synthesizer:
-    sf2 = tmp_path_factory.mktemp("sf2") / "sine.sf2"
-    write_minimal_sf2(sf2)
-    return Synthesizer(sf2, sample_rate=SAMPLE_RATE)
+def soundfont(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    path = tmp_path_factory.mktemp("sf2") / "sine.sf2"
+    write_test_soundfont(path)
+    return path
+
+
+@pytest.fixture(scope="module")
+def synth(soundfont: Path) -> Synthesizer:
+    pytest.importorskip("symusic_fluidsynth")
+    return Synthesizer(soundfont, sample_rate=SAMPLE_RATE)
 
 
 @pytest.fixture
 def score() -> Score:
     score = Score(480)
-    track = Track(program=0, is_drum=False, name="t")
+    track = Track(program=0, is_drum=False, name="sine")
     track.notes.append(Note(0, 480, 69, 100))
     score.tracks.append(track)
     return score
@@ -105,36 +127,130 @@ def score() -> Score:
 @pytest.mark.parametrize("stereo", [True, False])
 def test_render_shape_and_dtype(synth: Synthesizer, score: Score, stereo: bool) -> None:
     audio = synth.render(score, stereo=stereo)
-    assert isinstance(audio, np.ndarray)
     assert audio.dtype == np.float32
-    assert audio.ndim == 2
-    assert audio.shape[0] == (2 if stereo else 1)
-    assert audio.shape[1] > 0
+    assert audio.flags.c_contiguous
+    # The 0.5 s note ends at frame 11025, dispatched at the next 64-frame block.
+    assert audio.shape == (11072 + SAMPLE_RATE, 2 if stereo else 1)
+    assert np.abs(audio).max() > 0.01
+
+
+@pytest.mark.parametrize("unit", ["tick", "quarter", "second"])
+def test_render_time_units(synth: Synthesizer, score: Score, unit: str) -> None:
+    np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
+
+
+def test_sf3_render(score: Score, tmp_path: Path) -> None:
+    pytest.importorskip("symusic_fluidsynth")
+    sf3 = tmp_path / "sine.sf3"
+    write_test_soundfont(sf3)
+    audio = Synthesizer(sf3, sample_rate=SAMPLE_RATE, tail_seconds=0).render(score)
+    assert audio.shape == (11072, 2)
+    assert audio.dtype == np.float32
+    assert np.abs(audio).max() > 0.01
+
+
+def _frequency(audio) -> float:
+    channel = audio[2048:8192, 0]
+    bins = np.abs(np.fft.rfft(channel * np.hanning(len(channel))))
+    return float(np.argmax(bins) * SAMPLE_RATE / len(channel))
+
+
+def test_pitch_bend(synth: Synthesizer, score: Score) -> None:
+    plain = synth.render(score)
+    score.tracks[0].pitch_bends.append(PitchBend(0, 8191))
+    bent = synth.render(score)
+    assert _frequency(bent) / _frequency(plain) == pytest.approx(
+        2 ** (2 / 12), rel=0.02
+    )
+
+
+def test_control_and_render_isolation(synth: Synthesizer, score: Score) -> None:
+    plain = synth.render(score)
+    score.tracks[0].controls.append(ControlChange(0, 7, 0))
+    assert np.abs(synth.render(score)).max() < np.abs(plain).max() * 0.01
+    score.tracks[0].controls.clear()
+    np.testing.assert_array_equal(synth.render(score), plain)
+
+
+def test_track_controls_are_independent(synth: Synthesizer, score: Score) -> None:
+    plain = synth.render(score)
+    muted = Track(program=0, is_drum=False)
+    muted.notes.append(Note(0, 480, 76, 100))
+    muted.controls.append(ControlChange(0, 7, 0))
+    score.tracks.append(muted)
+    np.testing.assert_allclose(synth.render(score), plain, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("program", "is_drum", "controls", "semitones"),
+    [
+        (1, False, [], 12),
+        (0, True, [], 3),
+        (0, False, [(0, 1)], -12),
+        (0, False, [(0, 1), (32, 2)], 7),
+    ],
+)
+def test_select_presets(synth, score, program, is_drum, controls, semitones) -> None:
+    track = score.tracks[0]
+    track.program = program
+    track.is_drum = is_drum
+    for number, value in controls:
+        track.controls.append(ControlChange(0, number, value))
+    assert _frequency(synth.render(score)) == pytest.approx(
+        440 * 2 ** (semitones / 12), rel=0.02
+    )
+
+
+def test_sustain(synth: Synthesizer, score: Score) -> None:
+    track = score.tracks[0]
+    track.notes[0].duration = 240
+    track.controls.append(ControlChange(720, 64, 0))
+    plain = synth.render(score)
+    # Put events out of time order to exercise the scheduling sort.
+    track.controls.append(ControlChange(120, 64, 127))
+    held = synth.render(score)
+    assert np.abs(held[9500:13000]).max() > 0.01
+    assert np.abs(plain[9500:13000]).max() < 0.001
+    assert np.abs(held[19000:20000]).max() < 0.001
+
+
+def test_same_key_retrigger(synth: Synthesizer, score: Score) -> None:
+    score.tracks[0].notes.append(Note(240, 480, 69, 100))
+    audio = synth.render(score)
+    assert np.abs(audio[13000:15000]).max() > 0.01
+    assert np.abs(audio[19000:20000]).max() < 0.001
+
+
+def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
+    pytest.importorskip("symusic_fluidsynth")
+    seconds = score.to("second")
+    seconds.tracks[0].notes[0].duration = 0.00001
+    audio = Synthesizer(soundfont, sample_rate=SAMPLE_RATE, tail_seconds=0).render(
+        seconds
+    )
+    assert audio.shape == (64, 2)
     assert np.abs(audio).max() > 0
 
 
-def test_render_other_time_units(synth: Synthesizer, score: Score) -> None:
-    for unit in ("quarter", "second"):
-        audio = synth.render(score.to(unit), stereo=True)
-        assert audio.shape[0] == 2
-        assert np.abs(audio).max() > 0
+def test_empty_score_and_zero_tail(soundfont: Path) -> None:
+    pytest.importorskip("symusic_fluidsynth")
+    audio = Synthesizer(soundfont, tail_seconds=0).render(Score(), stereo=False)
+    assert audio.shape == (0, 1)
+    assert audio.dtype == np.float32
 
 
-def test_dump_wav_round_trip(synth: Synthesizer, score: Score, tmp_path: Path) -> None:
-    audio = synth.render(score, stereo=True)
-    out = tmp_path / "out.wav"
-    dump_wav(str(out), audio, SAMPLE_RATE, use_int16=True)
-    with wave.open(str(out), "rb") as wav:
-        assert wav.getnchannels() == 2
-        assert wav.getframerate() == SAMPLE_RATE
-        assert wav.getsampwidth() == 2
-        assert wav.getnframes() == audio.shape[1]
-        assert any(wav.readframes(wav.getnframes()))
+def test_companion_required(monkeypatch: pytest.MonkeyPatch, soundfont: Path) -> None:
+    monkeypatch.setitem(sys.modules, "symusic_fluidsynth", None)
+    with pytest.raises(ImportError, match=r"symusic\[fluidsynth\]"):
+        Synthesizer(soundfont)
 
 
-@pytest.mark.parametrize("quality", [5, 255])
-def test_quality_out_of_range_raises(tmp_path: Path, quality: int) -> None:
-    sf2 = tmp_path / "sine.sf2"
-    write_minimal_sf2(sf2)
-    with pytest.raises(ValueError, match="quality"):
-        Synthesizer(sf2, sample_rate=SAMPLE_RATE, quality=quality)
+def test_soundfont_required() -> None:
+    with pytest.raises(TypeError, match="soundfont"):
+        Synthesizer()
+
+
+def test_missing_soundfont(tmp_path: Path) -> None:
+    pytest.importorskip("symusic_fluidsynth")
+    with pytest.raises(FileNotFoundError, match=r"missing.sf2"):
+        Synthesizer(tmp_path / "missing.sf2")

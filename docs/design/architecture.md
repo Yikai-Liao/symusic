@@ -60,7 +60,7 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
 | Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |
-| Synthesis | `prestosynth` renders a `Score<Second>` (`src/synth.cpp`); `symusic.soundfont` downloads SoundFonts |
+| Synthesis | The core dynamically loads FluidSynth from the companion package and renders a `Score<Second>` into symusic-owned interleaved samples (`src/synth.cpp`). `symusic.soundfont` downloads SoundFonts explicitly. |
 
 ## Python typing
 

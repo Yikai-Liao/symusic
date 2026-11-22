@@ -1,0 +1,36 @@
+[build-system]
+requires = ["scikit-build-core>=0.11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "symusic-fluidsynth"
+description = "Offline FluidSynth runtime for symusic"
+requires-python = ">=3.10"
+license = "LGPL-2.1-or-later"
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/Yikai-Liao/symusic"
+
+[tool.scikit-build]
+cmake.version = ">=3.26.1"
+wheel.py-api = "py3"
+wheel.packages = ["symusic_fluidsynth"]
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../../python/symusic/__init__.py"
+
+[tool.cibuildwheel]
+build = "cp312-*"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "13.0"
+
+[tool.cibuildwheel.windows]
+environment = { CMAKE_GENERATOR = "Ninja" }
+repair-wheel-command = "delvewheel repair --analyze-existing -w {dest_dir} {wheel}"

@@ -1,98 +1,116 @@
-//
-// Implementation of the Synthesizer bindings.
-//
-
 #include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
 
-#include <nanobind/eigen/dense.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/filesystem.h>
 
-#include "prestosynth/wav.h"
-#include "symusic.h"
+#include "symusic/synth.h"
 
 namespace nb = nanobind;
 
 namespace symusic {
+namespace {
 
-namespace synth_docstrings {
-constexpr const char* kSynthDoc   = R"pbdoc(
-Renders scores to audio with an SF2 or SF3 SoundFont, using prestosynth.
+std::filesystem::path fluid_library_path() {
+    nb::object companion;
+    try {
+        companion = nb::module_::import_("symusic_fluidsynth");
+    } catch (nb::python_error& error) {
+        if (error.matches(PyExc_ModuleNotFoundError)
+            && error.value().attr("name").equal(nb::str("symusic_fluidsynth"))) {
+            nb::raise_from(
+                error, PyExc_ImportError, "Install symusic[fluidsynth] to render audio."
+            );
+        }
+        throw;
+    }
+    return nb::cast<std::filesystem::path>(companion.attr("library_path")());
+}
 
-*sample_rate* is the output rate in Hz. *quality*, 0-4, selects how SoundFont samples are resampled
-to it: 0 is linear interpolation, 1 zero-order hold, 2-4 sinc from fastest to best. Other values
-raise ``ValueError``. Loading reads the whole SoundFont, so reuse one synthesizer for many scores.
+using AudioArray = nb::ndarray<nb::numpy, float, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+
+template<TType T>
+AudioArray render(const Synthesizer& synth, const Score<T>& score, bool stereo) {
+    auto        audio = std::make_unique<AudioBuffer>(synth.render(score, stereo));
+    nb::capsule owner(audio.get(), [](void* data) noexcept {
+        delete static_cast<AudioBuffer*>(data);
+    });
+    auto*       buffer = audio.release();
+    // NumPy must distinguish an empty buffer from a null pointer.
+    static float empty_sample = 0;
+    auto*        samples      = buffer->samples.empty() ? &empty_sample : buffer->samples.data();
+    return {samples, {buffer->frames(), buffer->channels}, owner};
+}
+
+constexpr auto kRenderDoc = R"pbdoc(
+Render a score in any time unit to a C-contiguous float32 NumPy array of shape
+(frames, 2) in stereo or (frames, 1) in mono. MIDI events are aligned to FluidSynth
+blocks. The configured release tail follows the final event block.
 )pbdoc";
-constexpr const char* kRenderDoc  = R"pbdoc(
-Render *score*, in any time unit, to a ``float32`` array of shape ``(channels, samples)``: 2
-channels with *stereo*, otherwise 1. Only notes are rendered; pedals, pitch bends and control
-changes have no effect. Samples are not normalized and can exceed 1.
-)pbdoc";
-constexpr const char* kDumpWavDoc = R"pbdoc(
-Write *data*, a ``float32`` array of shape ``(channels, samples)``, to a WAV file. With *use_int16*
-the file holds 16-bit PCM, which clips samples beyond 1; otherwise 32-bit float.
-)pbdoc";
-}   // namespace synth_docstrings
+
+}   // namespace
 
 nb::module_& bind_synthesizer(nb::module_& m) {
-    nb::class_<Synthesizer>(m, "Synthesizer", synth_docstrings::kSynthDoc)
+    nb::class_<Synthesizer>(
+        m, "Synthesizer", "Render scores offline with a local SF2 or SF3 SoundFont."
+    )
         .def(
-            nb::init<const std::string&, u32, u8>(),
-            nb::arg("sf_path"),
-            nb::arg("sample_rate"),
-            nb::arg("quality")
-        )
-        .def(
-            nb::init<const std::filesystem::path&, u32, u8>(),
-            nb::arg("sf_path"),
-            nb::arg("sample_rate"),
-            nb::arg("quality")
+            "__init__",
+            [](Synthesizer*                 self,
+               const std::filesystem::path& soundfont,
+               int                          sample_rate,
+               int                          polyphony,
+               bool                         reverb,
+               bool                         chorus,
+               double                       tail_seconds) {
+                const auto library_path = fluid_library_path();
+                try {
+                    new (self) Synthesizer(
+                        library_path,
+                        soundfont,
+                        {sample_rate, polyphony, reverb, chorus, tail_seconds}
+                    );
+                } catch (const std::filesystem::filesystem_error& error) {
+                    const auto type = error.code() == std::errc::no_such_file_or_directory ?
+                                          PyExc_FileNotFoundError :
+                                          PyExc_OSError;
+                    PyErr_SetString(type, error.what());
+                    throw nb::python_error();
+                }
+            },
+            nb::arg("soundfont"),
+            nb::kw_only(),
+            nb::arg("sample_rate")  = 44100,
+            nb::arg("polyphony")    = 256,
+            nb::arg("reverb")       = false,
+            nb::arg("chorus")       = false,
+            nb::arg("tail_seconds") = 1.0,
+            "Configure offline rendering. Install symusic[fluidsynth] to supply the runtime."
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Tick>>& score, const bool stereo) {
-                return self.render(*score, stereo);
-            },
+            render<Tick>,
             nb::arg("score"),
+            nb::kw_only(),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kRenderDoc
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Quarter>>& score, const bool stereo) {
-                return self.render(*score, stereo);
-            },
+            render<Quarter>,
             nb::arg("score"),
+            nb::kw_only(),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kRenderDoc
         )
         .def(
             "render",
-            [](Synthesizer& self, const shared<Score<Second>>& score, const bool stereo) {
-                return self.render(*score, stereo);
-            },
+            render<Second>,
             nb::arg("score"),
+            nb::kw_only(),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kRenderDoc
         );
-
-    m.def(
-        "dump_wav",
-        [](const std::string&                                                        path,
-           const nb::ndarray<f32, nb::shape<-1, -1>, nb::device::cpu, nb::f_contig>& data,
-           const i32                                                                 sample_rate,
-           const bool                                                                use_int16) {
-            psynth::WAVE_write(
-                path, data.shape(0), data.shape(1), sample_rate, data.data(), use_int16
-            );
-        },
-        nb::arg("path"),
-        nb::arg("data"),
-        nb::arg("sample_rate"),
-        nb::arg("use_int16") = true,
-        synth_docstrings::kDumpWavDoc
-    );
     return m;
 }
 

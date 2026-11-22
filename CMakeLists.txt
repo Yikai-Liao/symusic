@@ -3,7 +3,6 @@ if(POLICY CMP0137)
     # LTO probes need the cross-toolchain variables in their test project.
     cmake_policy(SET CMP0137 NEW)
 endif()
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum supported macOS version")
 project(symusic LANGUAGES C CXX)
 
@@ -34,7 +33,7 @@ target_include_directories(symusic
     PUBLIC include 3rdparty 3rdparty/pdqsort
     PRIVATE 3rdparty/zpp_bits
 )
-target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi prestosynth pyvec)
+target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi pyvec PRIVATE ${CMAKE_DL_LIBS})
 set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION ${SYMUSIC_CORE_LTO})
 if(SYMUSIC_CORE_LTO)
     # Consumers must link the core's LTO objects, without enabling IPO on

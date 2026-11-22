@@ -37,7 +37,7 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Synthesis
 
-- **`RuntimeError: Error mapping file: ...`.** The SoundFont path does not exist.
-- **`ValueError: Synthesizer quality must be between 0 and 4`.** See [synthesis.md](synthesis.md#what-is-rendered).
-- **`ConnectionError` from `Synthesizer()`.** The built-in SoundFont could not be downloaded. Download it in advance or pass `sf_path`; see [synthesis.md](synthesis.md#soundfonts).
+- **`ImportError` from `Synthesizer`.** Install the optional runtime with `pip install "symusic[fluidsynth]"`.
+- **`FileNotFoundError` from `Synthesizer`.** Check that the local SoundFont file exists.
+- **`ConnectionError` from `Soundfont.download()`.** The download failed or did not match its expected digest. See [SoundFonts](synthesis.md#soundfonts).
 - **The rendered audio clips or sounds dry.** Samples are not normalized, and pedals and control changes are not rendered; see [synthesis.md](synthesis.md).

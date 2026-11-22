@@ -42,7 +42,7 @@ restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 - **Time units:** every score, track and event exists in `tick`, `quarter` and `second`, converted through the tempo map.
 - **Transformations:** shift time, pitch and velocity; clip, trim, sort, filter, resample and adjust time, each as a copy or in place.
 - **Analysis:** beat and downbeat grids, structure-of-arrays NumPy export and import, and piano rolls.
-- **Synthesis:** SoundFont 2/3 rendering with `Synthesizer`, built-in SoundFonts and `dump_wav`.
+- **Synthesis:** Offline SoundFont 2/3 rendering with `Synthesizer` and the `fluidsynth` extra.
 - **Typing:** generated stubs with generic types, so type checkers distinguish `Score[Tick]` from `Score[Second]`.
 
 ## Documentation
@@ -80,7 +80,7 @@ symusic was presented as an [ISMIR 2024 late-breaking demo](https://ismir2024pro
 ## Acknowledgements
 
 - [minimidi](https://github.com/lzqlzzq/minimidi): fast, lightweight MIDI parsing, the foundation of this project.
-- [prestosynth](https://github.com/lzqlzzq/prestosynth): SoundFont synthesis.
+- [FluidSynth](https://github.com/FluidSynth/fluidsynth): SoundFont synthesis via the optional companion package.
 - [nanobind](https://github.com/wjakob/nanobind): C++/Python binding.
 - [zpp_bits](https://github.com/eyalz800/zpp_bits): serialization for pickling.
 - [abcmidi](https://github.com/sshlien/abcmidi): ABC conversion.
