@@ -360,6 +360,14 @@ def test_numpy_integer_columns_validate_before_narrowing():
         NoteList.from_numpy(**arrays)
 
 
+@pytest.mark.parametrize("pitch", [[60], np.array([[60]])], ids=["list", "2d"])
+def test_numpy_rejects_invalid_column_shape(pitch):
+    with pytest.raises(TypeError, match=r"pitch.*1-D CPU array"):
+        NoteList.from_numpy(
+            time=np.array([0]), duration=np.array([1]), pitch=pitch, velocity=np.array([80])
+        )
+
+
 @pytest.mark.parametrize(
     ("name", "is_drum"),
     [("Piano", False), ("Kit's cymbal", True), ("Both '\" quotes\\\n\t\0中", False)],

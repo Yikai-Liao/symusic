@@ -4,6 +4,8 @@
 #include <optional>
 #include <stdexcept>
 
+#include <fmt/format.h>
+
 #include "symusic/detail/event_fields.h"
 #include "symusic/soa.h"
 #include "utils/vector_bindings.h"
@@ -15,7 +17,7 @@ constexpr const char* kEventShiftTimeDoc
 constexpr const char* kEventVecNumpyDoc
     = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
 constexpr const char* kEventVecFromNumpyDoc
-    = R"pbdoc(Build a list from one NumPy array per field; the arrays must have equal length.)pbdoc";
+    = R"pbdoc(Build a list from one 1-D NumPy array per field; the arrays must have equal length.)pbdoc";
 constexpr const char* kEventTextMetaNumpyDoc
     = R"pbdoc(Not supported for text events; raises ``RuntimeError``.)pbdoc";
 
@@ -237,7 +239,11 @@ auto read_column(nb::handle input) {
 
     // Coercing directly to the target NumPy dtype could wrap an integer before validation.
     using Array = nb::ndarray<nb::ndim<1>, nb::device::cpu>;
-    const auto source = nb::cast<Array>(input, false);
+    Array source;
+    if (!nb::try_cast(input, source, false)) {
+        const auto* field = std::get<I>(detail::event_fields<E>).first;
+        throw nb::type_error(fmt::format("{} must be a 1-D CPU array", field).c_str());
+    }
     column.converted.reserve(source.size());
     for (nb::handle item : nb::borrow<nb::iterable>(input)) {
         if constexpr (std::integral<F> && !std::same_as<F, bool>) {
