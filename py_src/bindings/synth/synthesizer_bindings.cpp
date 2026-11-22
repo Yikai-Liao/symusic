@@ -30,8 +30,8 @@ std::filesystem::path fluid_library_path() {
 using AudioArray = nb::ndarray<nb::numpy, float, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 
 template<TType T>
-AudioArray render(const Synthesizer& synth, const Score<T>& score, bool stereo) {
-    auto        audio = std::make_unique<AudioBuffer>(synth.render(score, stereo));
+AudioArray render(const Synthesizer& synth, const shared<Score<T>>& score, bool stereo) {
+    auto        audio = std::make_unique<AudioBuffer>(synth.render(*score, stereo));
     nb::capsule owner(audio.get(), [](void* data) noexcept {
         delete static_cast<AudioBuffer*>(data);
     });
