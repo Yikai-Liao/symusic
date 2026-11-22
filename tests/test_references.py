@@ -179,3 +179,17 @@ def test_ref_survives_list_replacement(ttype):
     track.notes = [Note(0, 1, 10, 1, ttype)]
     assert [n.pitch for n in track.notes] == [10]
     assert note.pitch == 61
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_score_equality_shares_tracks(ttype):
+    score = Score(ttype=ttype)
+    track = Track(ttype=ttype, notes=[Note(0, 1, 60, 80, ttype)])
+    track.notes[0].time = float("nan")
+    score.tracks.append(track)
+
+    other = Score(ttype=ttype)
+    other.tracks.append(track)
+    assert score == score.copy(deep=False)
+    assert score == other
+    assert score != score.copy(deep=True)

@@ -327,10 +327,11 @@ Score<T, S> Score<T, S>::shift_velocity(const i8 offset) const {
 template<TType T, typename S>
 bool Score<T, S>::operator==(const Score& other) const {
     const auto equal_tracks = [](const auto& a, const auto& b) {
-        return S::get(a) == S::get(b);
+        return &S::get(a) == &S::get(b) || S::get(a) == S::get(b);
     };
     return ticks_per_quarter == other.ticks_per_quarter
-        && std::ranges::equal(S::get(tracks), S::get(other.tracks), equal_tracks)
+        && (&S::get(tracks) == &S::get(other.tracks)
+            || std::ranges::equal(S::get(tracks), S::get(other.tracks), equal_tracks))
         && S::get(time_signatures) == S::get(other.time_signatures)
         && S::get(key_signatures) == S::get(other.key_signatures)
         && S::get(tempos) == S::get(other.tempos)
