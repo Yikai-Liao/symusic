@@ -32,7 +32,7 @@ vec<BankSelect> getBanks(const Track<Second>& track) {
         return banks;
     }
     // filter bank select events
-    for (const ControlChange<Second>& control : *track.controls) {
+    for (const ControlChange<Second>& control : track.controls) {
         if (control->number == 0) { banks.emplace_back(control->time, control->value); }
     }
     // if no bank select event, add default bank 0
@@ -48,7 +48,7 @@ vec<BankSelect> getBanks(const Track<Second>& track) {
     return banks;
 }
 
-vec<psynth::Note> toPNotes(const pyvec<Note<Second>>& notes) {
+vec<psynth::Note> toPNotes(const vec<Note<Second>>& notes) {
     static_assert(std::is_same_v<Second::unit, decltype(psynth::Note::start)>);
     vec<psynth::Note> pnotes;
     pnotes.resize(notes.size());
@@ -95,10 +95,10 @@ void divideNotes(
 psynth::Sequence toSequence(const Score<Second>& score) {
     psynth::Sequence sequence;
     TrackMapper      track_mapper{};
-    for (const shared<Track<Second>>& score_track : *(score.tracks)) {
-        auto banks  = getBanks(*score_track);
-        auto pnotes = toPNotes(*score_track->notes);
-        divideNotes(pnotes, banks, track_mapper, score_track->program);
+    for (const auto& score_track : score.tracks) {
+        auto banks  = getBanks(score_track);
+        auto pnotes = toPNotes(score_track.notes);
+        divideNotes(pnotes, banks, track_mapper, score_track.program);
     }
     for (auto& [idx, track] : track_mapper) {
         if (track.notes.empty()) continue;

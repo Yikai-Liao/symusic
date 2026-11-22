@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "utils/storage.h"
 #include <optional>
 #include <string>
 #include <tuple>
@@ -15,6 +16,8 @@
 #include "../docstring_helpers.h"
 
 namespace pyutils {
+
+using symusic::py::pyvec;
 
 namespace nb = nanobind;
 using namespace symusic;
@@ -311,7 +314,7 @@ auto bind_time_stamp(
             "adjust_time",
             [](vec_t& v, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) -> vec_t {
                 vec_t ans = inplace ? v : std::make_shared<pyvec<T>>(v->deepcopy());
-                ops::adjust_time_inplace(*ans, original_times, new_times);
+                ops::adjust_time_inplace<true, py::SharedStorage>(*ans, original_times, new_times);
                 return ans;
             },
             nb::rv_policy::copy,

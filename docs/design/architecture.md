@@ -11,7 +11,7 @@ symusic is a C++20 library for note-level symbolic music with a nanobind Python 
 | Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`), ABC conversion (`symusic._abc`) |
 | Type stubs | `scripts/lift_generic_stubs.py`, `py_src/CMakeLists.txt`, `cmake/LiftStubs.cmake.in` | `symusic/core.pyi`, generated at install time |
 
-Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core knows nothing about Python except the `pyvec` container. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer handles public dispatch and the ABC subprocesses.
+Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core has no Python dependency. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer handles public dispatch and the ABC subprocesses.
 
 ## Data model
 
@@ -25,10 +25,7 @@ Every musical type is a template over a time unit `T` (the `TType` concept in `i
 
 Events derive from `TimeStamp<T>` (`include/symusic/event.h`): `Note`, `Pedal` (with duration), `ControlChange`, `PitchBend`, `TimeSignature`, `KeySignature`, `Tempo` and `TextMeta`. A `Track<T>` holds notes, controls, pitch bends, pedals and lyrics; a `Score<T>` holds `ticks_per_quarter`, tracks, time signatures, key signatures, tempos and markers.
 
-Each container exists in two representations:
-
-- **Shared** (`Score`, `Track`): fields are `shared<pyvec<Event>>` and tracks are `shared<Track>`. This is what Python sees. Copying the outer object shares the event lists; `deepcopy` copies them.
-- **Native** (`ScoreNative`, `TrackNative`): plain `vec` fields with no shared ownership. Parsers build native values for speed and convert them once with `to_shared`; pickle serializes `to_native(...)`.
+A storage policy controls the event lists and tracks in `Track<T, S>` and `Score<T, S>`. The C++ default `ValueStorage` owns event vectors and tracks by value. The binding defines `symusic::py::SharedStorage` to share its event lists and individual tracks. A shallow Python copy shares the lists and a deep copy duplicates them.
 
 `pyvec` (submodule `3rdparty/pyvec`) stores elements in chunks that are never reallocated and keeps order in a separate pointer array. Indexing from Python returns an aliasing `shared_ptr` that keeps the chunks alive, so a Python reference to an event stays valid after the list is appended to, sorted or has the element removed.
 
@@ -56,7 +53,7 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 | MIDI read | `minimidi` parses bytes. `src/io/midi_notes.h` decodes the messages into a sink that supplies track keys to `src/io/score_builder.h`. The resulting score is converted to the requested storage and time unit |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
 | ABC read/write | `symusic._abc` runs the bundled `abc2midi` and `midi2abc` with one temporary directory per call and captures their diagnostics. The Python score methods exchange MIDI bytes with the binding. Recovered imports must produce complete MIDI before the converter's messages become warnings |
-| Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
+| Pickle | `zpp_bits` writes directly from either storage policy. Reads build value vectors and adopt them into the destination storage |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
 | Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |

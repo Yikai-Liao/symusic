@@ -30,54 +30,6 @@ REPEAT_ON(
     TextMeta
 )
 
-// Implement summary for Track and Score
-template<TType T>
-std::string Track<T>::summary() const {
-    return fmt::format(
-        "Track(ttype={}, program={}, is_drum={}, name={}, notes={}, lyrics={})",
-        T(),
-        program,
-        is_drum,
-        name,
-        notes->size(),
-        lyrics->size()
-    );
-}
-
-template<TType T>
-std::string Score<T>::summary() const {
-    return fmt::format(
-        "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, "
-        "markers={})",
-        T(),
-        ticks_per_quarter,
-        start(),
-        end(),
-        tracks->size(),
-        note_num(),
-        time_signatures->size(),
-        key_signatures->size(),
-        markers->size()
-    );
-}
-
-// Explicitly instantiate them
-#define INSTANTIATE_SUMMARY(_COUNT, NAME)                  \
-    template std::string NAME<Tick>::summary() const;      \
-    template std::string NAME<Quarter>::summary() const;   \
-    template std::string NAME<Second>::summary() const;    \
-    template<TType T>                                      \
-    std::string NAME<T>::to_string() const {               \
-        return summary();                                  \
-    }                                                      \
-    template std::string NAME<Tick>::to_string() const;    \
-    template std::string NAME<Quarter>::to_string() const; \
-    template std::string NAME<Second>::to_string() const;
-
-REPEAT_ON(INSTANTIATE_SUMMARY, Track, Score)
-
-#undef INSTANTIATE_SUMMARY
-
 }   // namespace symusic
 
 // Implement ostream operator for all the classes and corresponding vectors

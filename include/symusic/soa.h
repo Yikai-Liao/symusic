@@ -46,7 +46,7 @@ struct NoteArr {
         for (const auto& note : data) emplace_back(note);
     }
 
-    explicit NoteArr(const pyvec<Note<T>>& data) {
+    explicit NoteArr(const auto& data) {
         reserve(data.size());
         for (const auto& note : data) emplace_back(note);
     }
@@ -60,7 +60,6 @@ struct NoteArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<Note<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -86,7 +85,7 @@ struct PedalArr {
         for (const auto& pedal : data) emplace_back(pedal);
     }
 
-    explicit PedalArr(const pyvec<Pedal<T>>& data) {
+    explicit PedalArr(const auto& data) {
         reserve(data.size());
         for (const auto& pedal : data) emplace_back(pedal);
     }
@@ -98,7 +97,6 @@ struct PedalArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<Pedal<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -128,7 +126,7 @@ struct ControlChangeArr {
         for (const auto& control_change : data) emplace_back(control_change);
     }
 
-    explicit ControlChangeArr(const pyvec<ControlChange<T>>& data) {
+    explicit ControlChangeArr(const auto& data) {
         reserve(data.size());
         for (const auto& control_change : data) emplace_back(control_change);
     }
@@ -140,7 +138,6 @@ struct ControlChangeArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<ControlChange<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -170,7 +167,7 @@ struct TimeSignatureArr {
         for (const auto& time_signature : data) emplace_back(time_signature);
     }
 
-    explicit TimeSignatureArr(const pyvec<TimeSignature<T>>& data) {
+    explicit TimeSignatureArr(const auto& data) {
         reserve(data.size());
         for (const auto& time_signature : data) emplace_back(time_signature);
     }
@@ -184,7 +181,6 @@ struct TimeSignatureArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<TimeSignature<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -215,7 +211,7 @@ struct KeySignatureArr {
         for (const auto& key_signature : data) emplace_back(key_signature);
     }
 
-    explicit KeySignatureArr(const pyvec<KeySignature<T>>& data) {
+    explicit KeySignatureArr(const auto& data) {
         reserve(data.size());
         for (const auto& key_signature : data) emplace_back(key_signature);
     }
@@ -227,7 +223,6 @@ struct KeySignatureArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<KeySignature<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -254,7 +249,7 @@ struct TempoArr {
         for (const auto& tempo : data) emplace_back(tempo);
     }
 
-    explicit TempoArr(const pyvec<Tempo<T>>& data) {
+    explicit TempoArr(const auto& data) {
         reserve(data.size());
         for (const auto& tempo : data) emplace_back(tempo);
     }
@@ -266,7 +261,6 @@ struct TempoArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<Tempo<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -295,7 +289,7 @@ struct PitchBendArr {
         for (const auto& pitch_bend : data) emplace_back(pitch_bend);
     }
 
-    explicit PitchBendArr(const pyvec<PitchBend<T>>& data) {
+    explicit PitchBendArr(const auto& data) {
         reserve(data.size());
         for (const auto& pitch_bend : data) emplace_back(pitch_bend);
     }
@@ -307,7 +301,6 @@ struct PitchBendArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<PitchBend<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };
@@ -336,7 +329,7 @@ struct TextMetaArr {
         for (const auto& text_meta : data) emplace_back(text_meta);
     }
 
-    explicit TextMetaArr(const pyvec<TextMeta<T>>& data) {
+    explicit TextMetaArr(const auto& data) {
         reserve(data.size());
         for (const auto& text_meta : data) emplace_back(text_meta);
     }
@@ -348,7 +341,6 @@ struct TextMetaArr {
         return ans;
     }
 
-    auto to_pyvec() const { return pyvec<TextMeta<T>>(std::move(to_vec())); }
 
     [[nodiscard]] size_t size() const { return time.size(); }
 };

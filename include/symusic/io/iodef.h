@@ -3,6 +3,8 @@
 #ifndef LIBSYMUSIC_IO_IODEF_H
 #define LIBSYMUSIC_IO_IODEF_H
 
+#include <span>
+
 #include "symusic/mtype.h"
 namespace symusic {
 
@@ -19,6 +21,10 @@ enum class DataFormat {
 template<DataFormat F, typename T>
 [[nodiscard]] T parse(std::span<const u8> bytes);
 
+template<DataFormat F, typename T>
+    requires requires(std::span<const u8> bytes) { T::template parse<F>(bytes); }
+[[nodiscard]] T parse(std::span<const u8> bytes) { return T::template parse<F>(bytes); }
+
 /**
  * Parse raw input bytes, optionally sanitizing payload values to stay within the
  * MIDI value range enforced by minimidi.
@@ -27,10 +33,17 @@ template<DataFormat F, typename T>
  * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range before parsing.
  */
 template<DataFormat F, typename T>
-[[nodiscard]] T parse(std::span<const u8> bytes, bool sanitize_data);
+[[nodiscard]] T parse(std::span<const u8> bytes, bool sanitize_data) {
+    static_assert(F == DataFormat::MIDI);
+    return T::parse_midi_bytes(bytes, sanitize_data);
+}
 
 template<DataFormat F, typename T>
 [[nodiscard]] vec<u8> dumps(const T& data);
+
+template<DataFormat F, typename T>
+    requires requires(const T& data) { data.template dumps<F>(); }
+[[nodiscard]] vec<u8> dumps(const T& data) { return data.template dumps<F>(); }
 
 }   // namespace symusic
 

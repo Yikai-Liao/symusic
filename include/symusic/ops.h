@@ -6,7 +6,6 @@
 #include "symusic/event.h"
 #include "symusic/score.h"
 #include "pdqsort.h"
-#include "pyvec.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -47,89 +46,40 @@ inline void validate_trim_modes(const std::string& start_mode, const std::string
 }
 }   // namespace details
 
-template<typename T, class Comp>
-void sort(vec<T>& data, const bool reverse, Comp cmp) {
+template<TType T, typename S = ValueStorage>
+void sort_tracks(typename S::template Tracks<Track<T, S>>& tracks, bool reverse = false) {
+    auto projection = [](const auto& handle) {
+        const auto& track = S::get(handle);
+        return std::tuple(track.is_drum, track.program, std::string_view(track.name), track.note_num());
+    };
+    auto& values = S::get(tracks);
     if (reverse) {
-        pdqsort_branchless(data.rpbegin(), data.rpend(), cmp);
+        std::ranges::sort(values, std::ranges::greater{}, projection);
     } else {
-        pdqsort_branchless(data.pbegin(), data.pend(), cmp);
+        std::ranges::sort(values, std::ranges::less{}, projection);
     }
 }
 
-
-template<TType T>
-void sort_tracks(vec<shared<Track<T>>>& tracks, const bool reverse = false) {
-#define KEY(TRACK) \
-    std::make_tuple((TRACK)->is_drum, (TRACK)->program, (TRACK)->name, (TRACK)->note_num())
-    sort(tracks, reverse, [](const auto& a, const auto& b) { return KEY(&a) < KEY(&b); });
-}
-
-
-// deep copy filter
-template<class T, class Filter>
-vec<shared<T>> filter(const vec<shared<T>>& data, Filter t_fiter) {
-    if (data.empty()) return {};
-    vec<T> new_data;
-    new_data.reserve(data.size());
-    for (const auto& event : data) {
-        if (t_fiter(event)) { new_data.push_back(*event); }
-    }
-    if (new_data.capacity() > new_data.size() / 2) { new_data.shrink_to_fit(); }
-    // bound all the events' lifetime to the new_data
-
-    auto           capsule = std::make_shared<vec<T>>(std::move(new_data));
-    vec<shared<T>> ans;
-    ans.reserve(capsule->size());
-    for (auto& event : *capsule) { ans.emplace_back(capsule, &event); }
-    return ans;
-}
-
-// inplace filter
-template<class T, class Filter>
-void filter_inplace(vec<shared<T>>& data, Filter t_fiter) {
-    if (data.empty()) return;
-    size_t i = 0;
-    for (size_t j = 0; j < data.size(); j++) {
-        if (t_fiter(data[j])) {
-            if (i != j) { std::swap(data[i], data[j]); }
-            i++;
-        }
-    }
-    data.resize(i);
-}
-
-template<TimeEvent T>
+template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void clip_inplace(
-    pyvec<T>& events, typename T::unit start, typename T::unit end, const bool clip_end = false
+    Range& events, typename T::unit start, typename T::unit end, const bool clip_end = false
 ) {
     if constexpr (HashDuration<T>) {
         if (clip_end) {
-            events.filter([start, end](const T& event) {
-                return ((event.time) >= start) && (details::wide_end(event) <= end);
+            S::erase_if(events, [start, end](const T& event) {
+                return !(event.time >= start && details::wide_end(event) <= end);
             });
             return;
         }
     }
-    events.filter([start, end](const T& event) {
-        return ((event.time) >= start) && ((event.time) < end);
+    S::erase_if(events, [start, end](const T& event) {
+        return !(event.time >= start && event.time < end);
     });
 }
 
-template<TimeEvent T>   // used for events with duration (e.g. Note and Pedal)
-pyvec<T> clip(
-    const pyvec<T>&  events,
-    typename T::unit start,
-    typename T::unit end,
-    const bool       clip_end = false
-) {
-    auto ans = events.copy();   // shallow copy
-    clip_inplace(ans, start, end, clip_end);
-    return ans;
-}
-
-template<TimeEvent T>
+template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void trim_inplace(
-    pyvec<T>&          events,
+    Range&          events,
     typename T::unit   start,
     typename T::unit   end,
     typename T::unit   min_overlap = 0,
@@ -142,15 +92,15 @@ void trim_inplace(
         using unit = typename T::unit;
         const bool remove_at_start = start_mode == "remove";
         const bool remove_at_end = end_mode == "remove";
-        events.filter([=](const T& event) {
+        S::erase_if(events, [=](const T& event) {
             const wide event_start = event.time;
             const wide event_end = details::wide_end(event);
             if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
-                return false;
+                return true;
             }
             const wide overlap_start = std::max<wide>(event_start, start);
             const wide overlap_end = std::min<wide>(event_end, end);
-            return overlap_end - overlap_start >= min_overlap;
+            return !(overlap_end - overlap_start >= min_overlap);
         });
 
         for (auto& event : events) {
@@ -168,37 +118,23 @@ void trim_inplace(
             }
         }
     } else {
-        clip_inplace(events, start, end);
+        clip_inplace<S>(events, start, end);
     }
 }
 
-template<TimeEvent T>
-void trim(
-    const pyvec<T>&    events,
-    typename T::unit   start,
-    typename T::unit   end,
-    typename T::unit   min_overlap = 0,
-    const std::string& start_mode  = "remove",
-    const std::string& end_mode    = "remove"
-) {
-    auto ans = events.copy();
-    trim_inplace(ans, start, end, min_overlap, start_mode, end_mode);
-    return ans;
-}
-
-template<TimeEvent T>
-void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typename T::unit end) {
+template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
+void clip_with_sentinel_inplace(Range& events, typename T::unit start, typename T::unit end) {
     if (events.empty()) return;
 
     T sentinel{};
     sentinel.time = std::numeric_limits<typename T::unit>::lowest();
-    events.filter([start, end, &sentinel](const T& event) {
+    S::erase_if(events, [start, end, &sentinel](const T& event) {
         if (event.time <= start) {
-            if ((sentinel.time) < event.time) { sentinel = *event; }
-        } else if ((event.time) < end) {
-            return true;
+            if ((sentinel.time) < event.time) { sentinel = event; }
+        } else if (event.time < end) {
+            return false;
         }
-        return false;
+        return true;
     });
 
     if (sentinel.time != std::numeric_limits<typename T::unit>::lowest()) {
@@ -208,41 +144,10 @@ void clip_with_sentinel_inplace(pyvec<T>& events, typename T::unit start, typena
 }
 
 
-template<TimeEvent T>
-vec<shared<T>> clip_with_sentinel(
-    const vec<shared<T>>& events, typename T::unit start, typename T::unit end
-) {
-    auto ans = events.copy();   // shallow copy
-    clip_with_sentinel_inplace(ans, start, end);
-    return ans;
-}
-
-
-// make sure T has time and duration fields using requires
-template<TimeEvent T>
-    requires requires(T t) {
-        { t.duration } -> std::convertible_to<typename T::unit>;
-    }
-void clamp_dur_inplace(pyvec<T>& events, typename T::unit min_dur, typename T::unit max_dur) {
-    for (auto& event : events) { event.duration = std::clamp(event.duration, min_dur, max_dur); }
-}
-
-template<TimeEvent T>
-    requires requires(T t) {
-        { t.duration } -> std::convertible_to<typename T::unit>;
-    }
-vec<shared<T>> clamp_dur(
-    const vec<shared<T>>& events, typename T::unit min_dur, typename T::unit max_dur
-) {
-    auto new_events = events.deepcopy();
-    clamp_dur_inplace(new_events, min_dur, max_dur);
-    return new_events;
-}
-
 namespace details {
-template<TimeEvent T>
+template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void adjust_time_inplace_inner(
-    pyvec<T>&                    events,
+    Range&                    events,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
@@ -311,7 +216,7 @@ void adjust_time_inplace_inner(
             event.duration = symusic::details::sub_time<unit>(end, start);
         }
         event.time = start;
-        *(events.pbegin() + i) = *(events.pbegin() + j);
+        S::keep(events, i, j);
         ++i;
     }
     events.resize(i);
@@ -347,44 +252,44 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
 
 }   // namespace details
 
-template<bool check_times = true, TimeEvent T>
+template<bool check_times = true, typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void adjust_time_inplace(
-    pyvec<T>&                    events,
+    Range&                    events,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    return details::adjust_time_inplace_inner(events, original_times, new_times);
+    return details::adjust_time_inplace_inner<S>(events, original_times, new_times);
 }
 
-template<bool check_times = true, TType T>
+template<bool check_times = true, TType T, typename S>
 void adjust_time_inplace(
-    Track<T>&                    track,
+    Track<T, S>&                    track,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    adjust_time_inplace<false>(*(track.notes), original_times, new_times);
-    adjust_time_inplace<false>(*(track.controls), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pitch_bends), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pedals), original_times, new_times);
-    adjust_time_inplace<false>(*(track.lyrics), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(track.notes), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(track.controls), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(track.pitch_bends), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(track.pedals), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(track.lyrics), original_times, new_times);
 }
 
-template<bool check_times = true, TType T>
+template<bool check_times = true, TType T, typename S>
 void adjust_time_inplace(
-    Score<T>&                    score,
+    Score<T, S>&                    score,
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    for (const shared<Track<T>>& track : *(score.tracks)) {
-        adjust_time_inplace<false>(*track, original_times, new_times);
+    for (auto& track : S::get(score.tracks)) {
+        adjust_time_inplace<false>(S::get(track), original_times, new_times);
     }
-    adjust_time_inplace<false>(*(score.time_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
-    adjust_time_inplace<false>(*(score.markers), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(score.time_signatures), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(score.key_signatures), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(score.tempos), original_times, new_times);
+    adjust_time_inplace<false, S>(S::get(score.markers), original_times, new_times);
 }
 
 template<typename T>
@@ -400,8 +305,8 @@ T adjust_time(
 }
 
 // get the start time of the first event
-template<TimeEvent T>
-inline typename T::unit start(const pyvec<T>& events) {
+template<typename Range, TimeEvent T = typename Range::value_type>
+inline typename T::unit start(const Range& events) {
     if (events.empty()) { return std::numeric_limits<typename T::unit>::max(); }
     typename T::unit ans = std::numeric_limits<typename T::unit>::max();
     for (const T& event : events) { ans = std::min(ans, event.time); }
@@ -409,8 +314,8 @@ inline typename T::unit start(const pyvec<T>& events) {
 }
 
 // get the end time of the last event
-template<TimeEvent T>
-inline typename T::unit end(const pyvec<T>& events) {
+template<typename Range, TimeEvent T = typename Range::value_type>
+inline typename T::unit end(const Range& events) {
     if (events.empty()) { return std::numeric_limits<typename T::unit>::min(); }
     typename T::unit ans = std::numeric_limits<typename T::unit>::min();
     if constexpr (HashDuration<T>) {

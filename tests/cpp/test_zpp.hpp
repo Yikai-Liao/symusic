@@ -67,7 +67,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("Track Serialization") {
         // Create a track
-        TrackNative<Tick> track;
+        Track<Tick> track;
         track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
@@ -79,7 +79,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(track);
 
         // Deserialize
-        TrackNative<Tick> deserialized = parse<DataFormat::ZPP, TrackNative<Tick>>(serialized);
+        Track<Tick> deserialized = parse<DataFormat::ZPP, Track<Tick>>(serialized);
 
         // Verify
         REQUIRE(deserialized.name == track.name);
@@ -94,11 +94,11 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("Score Serialization") {
         // Create a score
-        ScoreNative<Tick> score;
+        Score<Tick> score;
         score.ticks_per_quarter = 480;
 
         // Add a track
-        TrackNative<Tick> track;
+        Track<Tick> track;
         track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
@@ -113,7 +113,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(score);
 
         // Deserialize
-        ScoreNative<Tick> deserialized = parse<DataFormat::ZPP, ScoreNative<Tick>>(serialized);
+        Score<Tick> deserialized = parse<DataFormat::ZPP, Score<Tick>>(serialized);
 
         // Verify
         REQUIRE(deserialized.ticks_per_quarter == score.ticks_per_quarter);
@@ -131,13 +131,13 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         Score<Tick> score(480);
 
         // Add a track with notes
-        auto track = std::make_shared<Track<Tick>>("Test Track", 0, false);
-        track->notes->push_back(Note<Tick>(480, 240, 60, 80));
-        score.tracks->push_back(track);
+        auto track = Track<Tick>("Test Track", 0, false);
+        track.notes.push_back(Note<Tick>(480, 240, 60, 80));
+        score.tracks.push_back(track);
 
         // Add tempo and time signature
-        score.tempos->push_back(Tempo<Tick>(0, 500000));
-        score.time_signatures->push_back(TimeSignature<Tick>(0, 4, 4));
+        score.tempos.push_back(Tempo<Tick>(0, 500000));
+        score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
 
         // Serialize
         std::vector<uint8_t> serialized = score.dumps<DataFormat::ZPP>();
@@ -147,16 +147,16 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
         // Verify
         REQUIRE(deserialized.ticks_per_quarter == score.ticks_per_quarter);
-        REQUIRE(deserialized.tracks->size() == score.tracks->size());
-        REQUIRE(deserialized.tracks->at(0)->name == score.tracks->at(0)->name);
-        REQUIRE(deserialized.tracks->at(0)->notes->size() == score.tracks->at(0)->notes->size());
+        REQUIRE(deserialized.tracks.size() == score.tracks.size());
+        REQUIRE(deserialized.tracks.at(0).name == score.tracks.at(0).name);
+        REQUIRE(deserialized.tracks.at(0).notes.size() == score.tracks.at(0).notes.size());
         REQUIRE(
-            deserialized.tracks->at(0)->notes->at(0).time == score.tracks->at(0)->notes->at(0).time
+            deserialized.tracks.at(0).notes.at(0).time == score.tracks.at(0).notes.at(0).time
         );
-        REQUIRE(deserialized.tempos->size() == score.tempos->size());
-        REQUIRE(deserialized.tempos->at(0).time == score.tempos->at(0).time);
-        REQUIRE(deserialized.time_signatures->size() == score.time_signatures->size());
-        REQUIRE(deserialized.time_signatures->at(0).time == score.time_signatures->at(0).time);
+        REQUIRE(deserialized.tempos.size() == score.tempos.size());
+        REQUIRE(deserialized.tempos.at(0).time == score.tempos.at(0).time);
+        REQUIRE(deserialized.time_signatures.size() == score.time_signatures.size());
+        REQUIRE(deserialized.time_signatures.at(0).time == score.time_signatures.at(0).time);
     }
 }
 
@@ -224,22 +224,22 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
         const auto build = [](unsigned char fill) {
             Score<Tick> score;
             score.ticks_per_quarter = 480;
-            score.time_signatures->emplace_back(0, 3, 4);
-            score.key_signatures->emplace_back(0, -2, 1);
-            auto track = std::make_shared<Track<Tick>>();
-            for (int i = 0; i < 3; ++i) track->notes->emplace_back(i * 10, 5, 60 + i, 80);
-            track->controls->emplace_back(0, 7, 100);
+            score.time_signatures.emplace_back(0, 3, 4);
+            score.key_signatures.emplace_back(0, -2, 1);
+            auto track = Track<Tick>();
+            for (int i = 0; i < 3; ++i) track.notes.emplace_back(i * 10, 5, 60 + i, 80);
+            track.controls.emplace_back(0, 7, 100);
             const auto dirty = [fill](auto& events, size_t payload) {
                 for (auto& e : events) {
                     auto* raw = reinterpret_cast<unsigned char*>(&e);
                     std::memset(raw + payload, fill, sizeof(e) - payload);
                 }
             };
-            dirty(*track->notes, 10);
-            dirty(*track->controls, 6);
-            dirty(*score.time_signatures, 6);
-            dirty(*score.key_signatures, 6);
-            score.tracks->push_back(track);
+            dirty(track.notes, 10);
+            dirty(track.controls, 6);
+            dirty(score.time_signatures, 6);
+            dirty(score.key_signatures, 6);
+            score.tracks.push_back(track);
             return score;
         };
         const auto first  = build(0xAA).dumps<DataFormat::ZPP>();

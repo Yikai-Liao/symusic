@@ -24,12 +24,12 @@ template<TType T, typename Key>
 class ScoreBuilder {
     using unit = typename T::unit;
 
-    ScoreNative<T>                               score;
-    std::map<Key, TrackNative<T>>                tracks;
+    Score<T>                               score;
+    std::map<Key, Track<T>>                tracks;
     Key                                          last_key{};
-    TrackNative<T>*                              last_track = nullptr;
-    vec<TrackNative<T>*>                         note_tracks;
-    vec<std::pair<TrackNative<T>*, TextMeta<T>>> lyrics;
+    Track<T>*                              last_track = nullptr;
+    vec<Track<T>*>                         note_tracks;
+    vec<std::pair<Track<T>*, TextMeta<T>>> lyrics;
 
 public:
     struct NoteHandle {
@@ -39,8 +39,8 @@ public:
 
     explicit ScoreBuilder(i32 tpq) : score(tpq) {}
 
-    TrackNative<T>& track(
-        const Key& key, TrackNative<T>& pending, bool promote, size_t note_capacity
+    Track<T>& track(
+        const Key& key, Track<T>& pending, bool promote, size_t note_capacity
     ) {
         if (last_track && last_key == key) return *last_track;
         if (auto it = tracks.find(key); it != tracks.end()) {
@@ -58,7 +58,7 @@ public:
         return result;
     }
 
-    NoteHandle begin_note(TrackNative<T>& track, unit time, i8 pitch, i8 velocity) {
+    NoteHandle begin_note(Track<T>& track, unit time, i8 pitch, i8 velocity) {
         if (track.notes.empty()) note_tracks.push_back(&track);
         track.notes.emplace_back(time, -1, pitch, velocity);
         return {&track.notes, track.notes.size() - 1};
@@ -69,7 +69,7 @@ public:
         note.duration = details::sub_time(time, note.time);
     }
 
-    void add_lyric(TrackNative<T>& fallback, TextMeta<T> lyric) {
+    void add_lyric(Track<T>& fallback, TextMeta<T> lyric) {
         lyrics.emplace_back(&fallback, std::move(lyric));
     }
 
@@ -79,7 +79,7 @@ public:
     void add(TextMeta<T> event) { score.markers.push_back(std::move(event)); }
 
     void finish_group(const std::string& name) {
-        TrackNative<T>* lyric_owner = nullptr;
+        Track<T>* lyric_owner = nullptr;
         for (auto* track : note_tracks) {
             std::erase_if(track->notes, [](const Note<T>& note) { return note.duration < 0; });
             if (!lyric_owner && !track->notes.empty()) lyric_owner = track;
@@ -98,7 +98,7 @@ public:
         last_track = nullptr;
     }
 
-    [[nodiscard]] ScoreNative<T> finish() && {
+    [[nodiscard]] Score<T> finish() && {
         sort_by_time(score.time_signatures);
         sort_by_time(score.key_signatures);
         sort_by_time(score.tempos);

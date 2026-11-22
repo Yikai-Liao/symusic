@@ -45,9 +45,9 @@ TEST_CASE("Test TrackPianoroll", "[symusic][pianoroll]") {
     SECTION("TrackPianoroll From Track") {
         // Create a track with notes
         Track<Tick> track("Test Track", 0, false);
-        track.notes->push_back(Note<Tick>(480, 240, 60, 80));   // C4
-        track.notes->push_back(Note<Tick>(720, 240, 64, 80));   // E4
-        track.notes->push_back(Note<Tick>(960, 240, 67, 80));   // G4
+        track.notes.push_back(Note<Tick>(480, 240, 60, 80));   // C4
+        track.notes.push_back(Note<Tick>(720, 240, 64, 80));   // E4
+        track.notes.push_back(Note<Tick>(960, 240, 67, 80));   // G4
 
         // Define pianoroll modes
         std::vector<PianorollMode> modes = {PianorollMode::onset};
@@ -193,17 +193,17 @@ TEST_CASE("Test ScorePianoroll", "[symusic][pianoroll]") {
         Score<Tick> score(480);
 
         // Add a bass track
-        auto bass_track = std::make_shared<Track<Tick>>("Bass", 32, false);
-        bass_track->notes->push_back(Note<Tick>(0, 480, 40, 80));     // E2
-        bass_track->notes->push_back(Note<Tick>(480, 480, 43, 80));   // G2
-        score.tracks->push_back(bass_track);
+        auto bass_track = Track<Tick>("Bass", 32, false);
+        bass_track.notes.push_back(Note<Tick>(0, 480, 40, 80));     // E2
+        bass_track.notes.push_back(Note<Tick>(480, 480, 43, 80));   // G2
+        score.tracks.push_back(bass_track);
 
         // Add a melody track
-        auto melody_track = std::make_shared<Track<Tick>>("Melody", 0, false);
-        melody_track->notes->push_back(Note<Tick>(0, 240, 64, 100));     // E4
-        melody_track->notes->push_back(Note<Tick>(240, 240, 67, 100));   // G4
-        melody_track->notes->push_back(Note<Tick>(480, 480, 72, 100));   // C5
-        score.tracks->push_back(melody_track);
+        auto melody_track = Track<Tick>("Melody", 0, false);
+        melody_track.notes.push_back(Note<Tick>(0, 240, 64, 100));     // E4
+        melody_track.notes.push_back(Note<Tick>(240, 240, 67, 100));   // G4
+        melody_track.notes.push_back(Note<Tick>(480, 480, 72, 100));   // C5
+        score.tracks.push_back(melody_track);
 
         // Define pianoroll modes
         std::vector<PianorollMode> modes = {PianorollMode::onset};
@@ -351,8 +351,8 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
 
     auto track_with = [](Note<Tick> note) {
         Track<Tick> track("t", 0, false);
-        track.notes->push_back(Note<Tick>(0, 10, 60, 80));
-        track.notes->push_back(note);
+        track.notes.push_back(Note<Tick>(0, 10, 60, 80));
+        track.notes.push_back(note);
         return track;
     };
 
@@ -362,7 +362,7 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
             TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
         );
         Score<Tick> score(480);
-        score.tracks->push_back(std::make_shared<Track<Tick>>(track));
+        score.tracks.push_back(Track<Tick>(track));
         REQUIRE_THROWS_AS(
             ScorePianoroll::from_score(score, modes, range, true), std::invalid_argument
         );
@@ -374,7 +374,7 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
             TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
         );
         Score<Tick> score(480);
-        score.tracks->push_back(std::make_shared<Track<Tick>>(track));
+        score.tracks.push_back(Track<Tick>(track));
         REQUIRE_THROWS_AS(
             ScorePianoroll::from_score(score, modes, range, true), std::invalid_argument
         );
@@ -382,7 +382,7 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
 
     SECTION("Track whose end is negative") {
         Track<Tick> track("t", 0, false);
-        track.notes->push_back(Note<Tick>(-20, 5, 60, 80));
+        track.notes.push_back(Note<Tick>(-20, 5, 60, 80));
         REQUIRE_THROWS_AS(
             TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument
         );

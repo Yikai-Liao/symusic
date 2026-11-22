@@ -1,0 +1,16 @@
+@PACKAGE_INIT@
+
+if(NOT TARGET symusic::symusic)
+    foreach(dependency IN ITEMS samplerate prestosynth)
+        find_library(symusic_${dependency}_library NAMES "${dependency}"
+            PATHS "@PACKAGE_CMAKE_INSTALL_LIBDIR@" NO_DEFAULT_PATH REQUIRED)
+        add_library(symusic::${dependency} UNKNOWN IMPORTED)
+        set_target_properties(symusic::${dependency} PROPERTIES
+            IMPORTED_LOCATION "${symusic_${dependency}_library}")
+    endforeach()
+    set_property(TARGET symusic::prestosynth PROPERTY
+        INTERFACE_LINK_LIBRARIES symusic::samplerate)
+    include("${CMAKE_CURRENT_LIST_DIR}/symusicTargets.cmake")
+endif()
+
+check_required_components(symusic)

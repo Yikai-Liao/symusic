@@ -99,16 +99,16 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
     SECTION("Track and Score end() propagate the error") {
         Track<Tick> track("t", 0, false);
-        track.notes->emplace_back(kMax, 1, 60, 80);
+        track.notes.emplace_back(kMax, 1, 60, 80);
         REQUIRE_THROWS_AS(track.end(), std::overflow_error);
         Score<Tick> score(480);
-        score.tracks->push_back(std::make_shared<Track<Tick>>(track));
+        score.tracks.push_back(Track<Tick>(track));
         REQUIRE_THROWS_AS(score.end(), std::overflow_error);
         REQUIRE_THROWS_AS(score.shift_time(1), std::overflow_error);
     }
 
     SECTION("clip with clip_end compares without overflowing") {
-        pyvec<Note<Tick>> notes;
+        vec<Note<Tick>> notes;
         notes.emplace_back(kMax - 5, 100, 60, 80);
         notes.emplace_back(kMax - 5, 5, 60, 80);
         notes.emplace_back(0, 10, 60, 80);
@@ -120,18 +120,18 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
     }
 
     SECTION("trim with extreme values") {
-        pyvec<Note<Tick>> notes;
+        vec<Note<Tick>> notes;
         notes.emplace_back(kMax - 10, 100, 60, 80);
         ops::trim_inplace(notes, 0, kMax, 0, "retain", "truncate");
         REQUIRE(notes.size() == 1);
         REQUIRE(notes[0].duration == 10);
 
-        pyvec<Note<Tick>> removed;
+        vec<Note<Tick>> removed;
         removed.emplace_back(kMax - 10, 100, 60, 80);
         ops::trim_inplace(removed, 0, kMax);
         REQUIRE(removed.empty());
 
-        pyvec<Note<Tick>> head;
+        vec<Note<Tick>> head;
         head.emplace_back(kMin + 10, 100, 60, 80);
         ops::trim_inplace(head, kMin + 20, kMax, 0, "truncate", "remove");
         REQUIRE(head.size() == 1);
@@ -141,7 +141,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
     SECTION("adjust_time rejects overflowing results") {
         Track<Tick> track("t", 0, false);
-        track.notes->emplace_back(1, 0, 60, 80);
+        track.notes.emplace_back(1, 0, 60, 80);
         REQUIRE_THROWS_AS(
             ops::adjust_time_inplace(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
             std::overflow_error
@@ -149,13 +149,13 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
         // Events ending past the last original time are dropped, not wrapped
         Track<Tick> tail("t", 0, false);
-        tail.notes->emplace_back(kMax - 1, 5, 60, 80);
+        tail.notes.emplace_back(kMax - 1, 5, 60, 80);
         ops::adjust_time_inplace(tail, vec<i32>{0, kMax}, vec<i32>{0, kMax});
-        REQUIRE(tail.notes->empty());
+        REQUIRE(tail.notes.empty());
 
         // Equal original times give an infinite scale factor
         Track<Tick> flat("t", 0, false);
-        flat.notes->emplace_back(0, 0, 60, 80);
+        flat.notes.emplace_back(0, 0, 60, 80);
         REQUIRE_THROWS_AS(
             ops::adjust_time_inplace(flat, vec<i32>{0, 0}, vec<i32>{0, 10}), std::invalid_argument
         );
@@ -167,21 +167,21 @@ TEST_CASE("Conversion with extreme ticks", "[symusic][checked_time]") {
 
     SECTION("Tick to Second rejects an overflowing note end") {
         Score<Tick> score(480);
-        auto        track = std::make_shared<Track<Tick>>("t", 0, false);
-        track->notes->emplace_back(kMax, 1, 60, 80);
-        score.tracks->push_back(track);
+        auto        track = Track<Tick>("t", 0, false);
+        track.notes.emplace_back(kMax, 1, 60, 80);
+        score.tracks.push_back(track);
         REQUIRE_THROWS_AS(convert<Second>(score), std::overflow_error);
     }
 
     SECTION("Negative ticks use the default tempo before the first change") {
         Score<Tick> score(480);
-        score.tempos->emplace_back(0, 1000000);
-        auto track = std::make_shared<Track<Tick>>("t", 0, false);
-        track->notes->emplace_back(-480, 480, 60, 80);
-        score.tracks->push_back(track);
+        score.tempos.emplace_back(0, 1000000);
+        auto track = Track<Tick>("t", 0, false);
+        track.notes.emplace_back(-480, 480, 60, 80);
+        score.tracks.push_back(track);
         const auto seconds = convert<Second>(score);
-        REQUIRE(seconds.tracks->at(0)->notes->at(0).time == Catch::Approx(-0.5f));
-        REQUIRE(seconds.tracks->at(0)->notes->at(0).duration == Catch::Approx(0.5f));
+        REQUIRE(seconds.tracks.at(0).notes.at(0).time == Catch::Approx(-0.5f));
+        REQUIRE(seconds.tracks.at(0).notes.at(0).duration == Catch::Approx(0.5f));
     }
 }
 
@@ -206,54 +206,54 @@ TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
 
     SECTION("Quarter to Tick") {
         Score<Quarter> score(480);
-        auto           track = std::make_shared<Track<Quarter>>("t", 0, false);
-        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
-        score.tracks->push_back(track);
-        REQUIRE(convert<Tick>(score).tracks->at(0)->notes->at(0).duration == 480);
+        auto           track = Track<Quarter>("t", 0, false);
+        track.notes.emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks.push_back(track);
+        REQUIRE(convert<Tick>(score).tracks.at(0).notes.at(0).duration == 480);
         for (const f32 bad : {1.0e10f, -1.0e10f, kInff, -kInff}) {
-            track->notes->at(0).time = bad;
+            score.tracks.front().notes.at(0).time = bad;
             REQUIRE_THROWS_AS(convert<Tick>(score), std::overflow_error);
         }
-        track->notes->at(0).time = std::numeric_limits<f32>::quiet_NaN();
+        score.tracks.front().notes.at(0).time = std::numeric_limits<f32>::quiet_NaN();
         REQUIRE_THROWS_AS(convert<Tick>(score), std::invalid_argument);
     }
 
     SECTION("Second to Tick") {
         Score<Second> score(480);
-        auto          track = std::make_shared<Track<Second>>("t", 0, false);
-        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
-        score.tracks->push_back(track);
-        REQUIRE(convert<Tick>(score).tracks->at(0)->notes->at(0).time == 960);
+        auto          track = Track<Second>("t", 0, false);
+        track.notes.emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks.push_back(track);
+        REQUIRE(convert<Tick>(score).tracks.at(0).notes.at(0).time == 960);
         for (const f32 bad : {1.0e10f, -1.0e10f, kInff, -kInff}) {
-            track->notes->at(0).time = bad;
+            score.tracks.front().notes.at(0).time = bad;
             REQUIRE_THROWS_AS(convert<Tick>(score), std::overflow_error);
         }
-        track->notes->at(0).time = std::numeric_limits<f32>::quiet_NaN();
+        score.tracks.front().notes.at(0).time = std::numeric_limits<f32>::quiet_NaN();
         REQUIRE_THROWS_AS(convert<Tick>(score), std::invalid_argument);
     }
 
     SECTION("Second to Tick with a zero mspq tempo") {
         Score<Second> score(480);
-        score.tempos->emplace_back(0.0f, 0);
-        auto track = std::make_shared<Track<Second>>("t", 0, false);
-        track->notes->emplace_back(1.0f, 1.0f, 60, 80);
-        score.tracks->push_back(track);
+        score.tempos.emplace_back(0.0f, 0);
+        auto track = Track<Second>("t", 0, false);
+        track.notes.emplace_back(1.0f, 1.0f, 60, 80);
+        score.tracks.push_back(track);
         REQUIRE_THROWS(convert<Tick>(score));
     }
 
     SECTION("resample") {
         Score<Tick> score(480);
-        auto        track = std::make_shared<Track<Tick>>("t", 0, false);
-        track->notes->emplace_back(2, 480, 60, 80);
-        score.tracks->push_back(track);
-        REQUIRE(resample<Tick>(score, 960).tracks->at(0)->notes->at(0).time == 4);
+        auto        track = Track<Tick>("t", 0, false);
+        track.notes.emplace_back(2, 480, 60, 80);
+        score.tracks.push_back(track);
+        REQUIRE(resample<Tick>(score, 960).tracks.at(0).notes.at(0).time == 4);
         // Upscaling beyond the tick range
-        track->notes->at(0).time = 1000000;
+        score.tracks.front().notes.at(0).time = 1000000;
         REQUIRE_THROWS_AS(
             resample<Tick>(score, std::numeric_limits<i32>::max()), std::overflow_error
         );
         // Lower bound
-        track->notes->at(0).time = -1000000;
+        score.tracks.front().notes.at(0).time = -1000000;
         REQUIRE_THROWS_AS(
             resample<Tick>(score, std::numeric_limits<i32>::max()), std::overflow_error
         );

@@ -10,6 +10,7 @@ endif()
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module
     OPTIONAL_COMPONENTS Development.SABIModule)
 symusic_add_dependency(nanobind)
+symusic_add_dependency(pyvec)
 
 # Only the C++ core carries LTO objects. The binding and nanobind compile
 # to native objects so each Python wheel avoids optimizing that code again.
@@ -25,6 +26,12 @@ endif()
 # these options with the first nanobind release containing it.
 add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/FIcstdio,SHELL:-include cstdio>>")
 nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
+    instantiations/conversion.cpp
+    instantiations/midi.cpp
+    instantiations/pianoroll.cpp
+    instantiations/score.cpp
+    instantiations/track.cpp
+    instantiations/zpp.cpp
     bindings/core/module.cpp
     bindings/events/register_events.cpp
     bindings/events/register_events_notes.cpp
@@ -33,7 +40,8 @@ nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
     bindings/score/register_scores.cpp
     bindings/synth/synthesizer_bindings.cpp
 )
-target_link_libraries(core PRIVATE symusic)
+target_link_libraries(core PRIVATE symusic pyvec)
+target_include_directories(core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/3rdparty/zpp_bits")
 target_compile_definitions(core PRIVATE $<$<BOOL:${SYMUSIC_WARN_ON_LEAKS}>:MEM_LEAK_WARNING>)
 set_target_properties(core PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION FALSE

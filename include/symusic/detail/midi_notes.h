@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <concepts>
 #include <limits>
@@ -262,14 +263,14 @@ void append_midi_notes(minimidi::Messages<>& msgs, const Notes& source, u8 chann
         [](const auto& a, const auto& b) { return (a.time) < (b.time); }
     );
     // merge note on and note off
-    gfx::timmerge(
+    std::inplace_merge(
         msgs.begin() + note_begin,
         note_middle,
         msgs.end(),
         [](const auto& a, const auto& b) { return (a.time) < (b.time); }
     );
     // merge prev to (note on and note off)
-    gfx::timmerge(
+    std::inplace_merge(
         msgs.begin(),
         msgs.begin() + note_begin,
         msgs.end(),
