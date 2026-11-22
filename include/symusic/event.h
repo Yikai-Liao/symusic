@@ -108,7 +108,7 @@ struct ControlChange : TimeStamp<T> {
 
     u8 number{0}, value{0};
 
-    auto default_key() const { return std::tie(this->time, number, value); }
+    auto default_key() const { return std::tie(this->time, number); }
 };
 
 template<TType T>

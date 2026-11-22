@@ -276,7 +276,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 7);
-        REQUIRE(std::get<2>(key) == 127);
+        REQUIRE(key == ControlChange<Tick>(100, 7, 0).default_key());
     }
 
     SECTION("Test shift_time() methods") {

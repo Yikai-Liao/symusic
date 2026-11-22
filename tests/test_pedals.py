@@ -92,3 +92,33 @@ def test_pedal_promoted_after_program_change():
     restored = Score.from_midi(score.to_midi())
     assert restored == score
     assert restored.tracks[0].pedals() == track.pedals()
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("scope", ["score", "track", "controls"])
+def test_sort_preserves_same_tick_controls(reverse, scope):
+    score = Score()
+    track = Track(notes=[Note(0, 20, 60, 80)])
+    track.controls.extend(
+        [
+            ControlChange(10, 64, 127),
+            ControlChange(10, 1, 75),
+            ControlChange(10, 64, 0),
+            ControlChange(10, 1, 25),
+        ]
+    )
+    score.tracks.append(track)
+    before = track.pedals()
+    assert [(pedal.time, pedal.duration) for pedal in before] == [(10, 0)]
+
+    {"score": score.sort, "track": track.sort, "controls": track.controls.sort}[scope](
+        reverse=reverse
+    )
+
+    assert track.controls.is_sorted(reverse=reverse)
+    assert [c.value for c in track.controls if c.number == 64] == [127, 0]
+    assert [c.value for c in track.controls if c.number == 1] == [75, 25]
+    assert track.pedals() == before
+    restored = Score.from_midi(score.to_midi()).tracks[0]
+    assert restored.controls == track.controls
+    assert restored.pedals() == before

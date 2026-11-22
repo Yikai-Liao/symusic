@@ -42,6 +42,12 @@ struct ValueStorage {
         }
     }
 
+    static void stable_sort(auto& events, auto projection, bool reverse) {
+        std::stable_sort(events.begin(), events.end(), [&](const auto& left, const auto& right) {
+            return reverse ? projection(right) < projection(left) : projection(left) < projection(right);
+        });
+    }
+
     static void keep(auto& events, size_t destination, size_t source) {
         if (destination != source) events[destination] = std::move(events[source]);
     }

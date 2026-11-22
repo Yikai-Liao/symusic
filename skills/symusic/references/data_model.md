@@ -53,7 +53,7 @@ print(score)
 |---|---|---|---|
 | `Note` | `time`, `duration`, `pitch`, `velocity` | `Track.notes` | `(time, duration, pitch, velocity)` |
 | `Pedal` | `time`, `duration` | `Track.pedals()` | `(time, duration)` |
-| `ControlChange` | `time`, `number`, `value` | `Track.controls` | `(time, number, value)` |
+| `ControlChange` | `time`, `number`, `value` | `Track.controls` | `(time, number)` |
 | `PitchBend` | `time`, `value` | `Track.pitch_bends` | `time` |
 | `TextMeta` | `time`, `text` | `Track.lyrics`, `Score.markers` | `time` |
 | `Tempo` | `time`, `qpm`, `microseconds_per_quarter` | `Score.tempos` | `time` |
@@ -62,6 +62,7 @@ print(score)
 
 - Every constructor takes the fields in table order, then `ttype`: `Note(0, 480, 60, 100)`, `ControlChange(0, 64, 127, ttype=Quarter)`.
 - `Note` and `Pedal` also have `end` (`time + duration`). `Note.empty()` is true when the duration or the velocity is 0 or less.
+- Default sorting preserves the order of controls with the same time and number.
 - Pitch, velocity, and control numbers and values range from 0 to 127. Duration is non-negative. Invalid field values raise `ValueError`.
 - `Tempo` stores microseconds per quarter note (`microseconds_per_quarter`, an integer); `qpm` (quarter notes per minute) is computed from it and can be set. Create one with `Tempo(0, qpm=100)` or `Tempo(0, microseconds_per_quarter=600000)`.
 - `KeySignature.key` counts sharps (positive) or flats (negative); `minor` is `False` for major and `True` for minor. Keys range from −7 to 7.
