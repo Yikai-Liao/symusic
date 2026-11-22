@@ -49,7 +49,6 @@ classifiers = [
 
 dependencies = [
     "numpy",
-    "pySmartDL",
     "platformdirs"
 ]
 
