@@ -50,7 +50,6 @@ RULES: tuple[tuple[str, frozenset[str]], ...] = (
     ("examples/*", frozenset({"cpp"})),
     ("py_src/CMakeLists.txt", frozenset({"python", "wheels"})),
     ("py_src/*", frozenset({"python"})),
-    ("packages/symusic-fluidsynth/*", frozenset({"python", "wheels"})),
     ("pyproject.toml", frozenset({"python", "wheels"})),
     ("MANIFEST.in", frozenset({"wheels"})),
     ("scripts/*", frozenset({"python", "wheels"})),

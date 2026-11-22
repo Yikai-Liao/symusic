@@ -42,13 +42,6 @@ jobs:
           path: ${{ runner.temp }}/ccache
           key: ccache-smoke-linux-x86_64-manylinux_2_28-${{ github.run_id }}
           restore-keys: ccache-smoke-linux-x86_64-manylinux_2_28-
-      - name: Build FluidSynth companion
-        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
-        with:
-          package-dir: packages/symusic-fluidsynth
-        env:
-          CIBW_ARCHS: native
-          CIBW_SKIP: "*-musllinux_*"
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
         env:
           # One stable-ABI build, tested on its oldest and newest CPython.
@@ -94,13 +87,6 @@ jobs:
         uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
         with:
           architecture: ${{ matrix.msvc }}
-      - name: Build FluidSynth companion
-        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
-        with:
-          package-dir: packages/symusic-fluidsynth
-        env:
-          CIBW_ARCHS: ${{ matrix.archs || 'native' }}
-          CIBW_SKIP: ${{ matrix.skip }}
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e  # v4.3.5
         env:
           CIBW_ARCHS: ${{ matrix.archs || 'native' }}
@@ -128,28 +114,7 @@ jobs:
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
-      - name: Check matching package versions
-        run: |
-          python - <<'PY'
-          import re
-          import tomllib
-          from pathlib import Path
-
-          version = re.search(r'^__version__ = "([^"]+)"$', Path("python/symusic/__init__.py").read_text(), re.M)[1]
-          extra = tomllib.loads(Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["fluidsynth"]
-          assert extra == [f"symusic-fluidsynth=={version}"], "Update the fluidsynth extra to the release version"
-          PY
       - run: uv build --sdist
-      - name: Archive FluidSynth corresponding source
-        run: |
-          tar --exclude=.git --exclude=__pycache__ -czf symusic-fluidsynth-source.tar.gz \
-            packages/symusic-fluidsynth python/symusic/__init__.py \
-            3rdparty/fluidsynth 3rdparty/libsndfile 3rdparty/ogg 3rdparty/vorbis
-      - uses: actions/upload-artifact@v7
-        with:
-          name: fluidsynth-source
-          path: symusic-fluidsynth-source.tar.gz
-          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
           name: sdist
