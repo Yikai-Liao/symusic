@@ -4,26 +4,26 @@ Every score, track, event and event list in symusic has one time unit, reported 
 
 | Unit | Python type | One unit is | Conversion uses |
 |---|---|---|---|
-| `tick` | `int` (32-bit) | one MIDI tick; `ticks_per_quarter` ticks make a quarter note | |
-| `quarter` | `float` (32-bit) | one quarter note | `ticks_per_quarter` |
-| `second` | `float` (32-bit) | one second | the tempo map |
+| `Tick` | `int` (32-bit) | one MIDI tick; `ticks_per_quarter` ticks make a quarter note | |
+| `Quarter` | `float` (32-bit) | one quarter note | `ticks_per_quarter` |
+| `Second` | `float` (32-bit) | one second | the tempo map |
 
 Use ticks to edit MIDI without rounding, quarters for rhythm and beat positions, and seconds to align with audio.
 
 ## Choosing and converting
 
 ```python
-from symusic import Score
+from symusic import Quarter, Score, Second, Tick
 
-score = Score("song.mid", ttype="quarter")  # load in quarters
-seconds = score.to("second")  # a new score
-ticks = seconds.to("tick", min_dur=1)  # keep every note at least 1 tick long
+score = Score("song.mid", ttype=Quarter)  # load in quarters
+seconds = score.to(Second)  # a new score
+ticks = seconds.to(Tick, min_dur=1)  # keep every note at least 1 tick long
 print(score.ttype, seconds.ttype, ticks.ttype)
 ```
 
-- `ttype` and `to` accept `"tick"`, `"quarter"` or `"second"` in any letter case, or `symusic.TimeUnit.tick`, `.quarter` or `.second`. Anything else raises `ValueError`.
+- `ttype` and `to` accept the marker classes `Tick`, `Quarter`, and `Second`. The default is `Tick`. Anything else raises `ValueError`.
 - `to` always returns a new score, even for the current unit. Only `Score` has `to`: to convert a track, convert the score that holds it.
-- An event list accepts only events of its own unit. Appending a quarter `Note` to a tick track raises `TypeError`, so create events with the matching `ttype`, for example `Note(0.5, 1.0, 60, 100, ttype="quarter")`.
+- An event list accepts only events of its own unit. Appending a quarter `Note` to a tick track raises `ValueError`, so create events with the matching `ttype`, for example `Note(0.5, 1.0, 60, 100, ttype=Quarter)`.
 - `ticks_per_quarter` is kept in every unit, because converting back to ticks and writing MIDI need it.
 
 ## Conversion rules
@@ -44,25 +44,23 @@ print(score.ttype, seconds.ttype, ticks.ttype)
 The three units share one API; only these points differ:
 
 - Time values and time arguments are `int` in tick and `float` in quarter and second.
-- `Score.pianoroll` and `Track.pianoroll` exist only in tick. Call `resample` first.
+- `Score.pianoroll` and `Track.pianoroll` require a score or track in ticks. Call `resample` first.
 - `resample` returns a tick score from any unit.
 - `get_beats()` and `get_downbeats()` return NumPy arrays in the score's unit.
 
 ## Type annotations
 
-The runtime classes are `ScoreTick`, `ScoreQuarter`, `ScoreSecond`, `NoteTick` and so on, in `symusic.core`. For type checkers, `symusic.core` also declares generic classes, so annotations name the unit:
+Each class is generic over its unit marker. Annotations name the marker as the type parameter.
 
 ```python
-from symusic import Score
-from symusic.core import Second
-import symusic.types as smt
+from symusic import Score, Second
 
 
-def first_onset(score: smt.Score[Second]) -> float:
+def first_onset(score: Score[Second]) -> float:
     return score.tracks[0].notes[0].time
 
 
-print(first_onset(Score("song.mid", ttype="second")))
+print(first_onset(Score("song.mid", ttype=Second)))
 ```
 
-`isinstance(x, symusic.Score)` is true for a score in any unit; the generic classes in `symusic.core` cannot be instantiated.
+`isinstance(x, symusic.Score)` is true for a score in any unit; pass `ttype=Second` to create a score in seconds.

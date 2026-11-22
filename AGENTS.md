@@ -35,15 +35,15 @@ cmake -S . -B ../symusic-build -DSYMUSIC_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
 prek run --all-files                                   # needs clice on PATH
 ```
 
-- Reinstall after any change to `src/`, `include/`, `py_src/`, `python/` or `scripts/lift_generic_stubs.py`; tests import the installed package and its generated `core.pyi`.
+- Reinstall after any change to `src/`, `include/`, `py_src/`, `python/` or `scripts/core_stubgen.pattern`; tests import the installed package and its generated `_core.pyi`.
 - Use a regular CPython. Free-threaded builds (`3.13t`, `3.14t`) fail `tests/test_abc.py` with a GIL `RuntimeWarning` that pytest turns into an error; `uv venv` may pick one by default, so pass `-p 3.12`.
 - Keep build directories outside the source tree; only `build/`, used by `clice lint`, lives inside it.
 
 ## Always preserve
 
 - The [contracts](docs/design/architecture.md#contracts): the same semantics for `Tick`, `Quarter` and `Second`; copy and in-place pairs; stable Python references into containers; MIDI and pickle round trips; explicit errors on invalid input.
-- Algorithms live in the C++ core. The binding adapts types; `symusic.factory` only dispatches.
-- Docstrings live at the binding site in `py_src/bindings/`. Reinstall to regenerate stubs; never edit generated `core.pyi`.
+- Algorithms live in the C++ core. The binding adapts types and dispatches over time units.
+- Docstrings live at the binding site in `py_src/bindings/`. Reinstall to regenerate stubs; never edit generated `_core.pyi`.
 - Never edit `3rdparty/` submodules in place. Update the pinned commit, or fix upstream.
 - Every behavior change comes with a test that fails without it. Never commit placeholder tests; record missing coverage in the roadmap.
 - Comments explain invariants, units and ownership, not editing history. Delete dead code instead of commenting it out.

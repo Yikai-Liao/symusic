@@ -9,7 +9,7 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Loading files
 
-- **`ValueError: Unknown file format`.** The extension is not one of `.mid`, `.midi`, `.MID`, `.MIDI` or `.abc`. Pass `fmt="midi"` or `fmt="abc"`; see [files.md](files.md#loading).
+- **`ValueError: Unknown file format`.** The extension is not one of `.mid`, `.midi`, `.MID`, `.MIDI` or `.abc`. Pass `format="midi"` or `format="abc"`; see [files.md](files.md#loading).
 - **`ValueError: ... is not a file`.** The path does not exist or is a directory.
 - **`TypeError: Invalid type: <class 'bytes'>`.** `Score(...)` takes a path, a tick count or another score. Load bytes with `Score.from_midi(data)` and ABC text with `Score.from_abc(text)`.
 - **`RuntimeError: MiniMidi: ...`.** The MIDI file is truncated or corrupt. In a dataset, catch the error and skip the file; see [datasets.md](datasets.md#parallel-loading).
@@ -19,7 +19,7 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Building and editing scores
 
-- **`TypeError: append(): incompatible function arguments` naming `NoteQuarter`, `TrackTick` or another unit.** The object you add has a different time unit from the list. Create events with the list's `ttype`, or convert the source with `to`; see [time_units.md](time_units.md).
+- **`ValueError: Time units must match`.** The object you add has a different time unit from the list. Create events with the list's `ttype`, or convert the source with `to`; see [time_units.md](time_units.md).
 - **`TypeError: __init__(): incompatible function arguments` when creating a `Note`.** A pitch or velocity outside −128..127 does not fit the 8-bit field, or a time has the wrong type for the unit; see [data_model.md](data_model.md#events).
 - **`TypeError: ... unexpected keyword argument 'tpq'`.** Pass the resolution positionally, `Score(480)`, or call `Score.from_tpq(480)`.
 - **`ValueError: ttype must be Tick, Quarter, Second or string`.** The unit name is misspelled; use `"tick"`, `"quarter"` or `"second"`.
