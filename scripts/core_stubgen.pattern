@@ -1,6 +1,6 @@
 # Unit-dependent types and Python-level protocols that stubgen cannot infer.
 ^symusic\._core\.__prefix__$:
-    \from typing import ClassVar, Generic, Literal, NoReturn, Self, TypeVar, overload
+    \from typing import ClassVar, Generic, Literal, NoReturn, TypeVar, overload
     \from collections.abc import Callable, Iterable, Iterator
     \from numpy import ndarray
     \from os import PathLike
@@ -19,7 +19,7 @@
         @overload
         def __get__(self, obj: Note[Second] | Pedal[Second] | Tempo[Second] | ControlChange[Second] | PitchBend[Second] | TimeSignature[Second] | KeySignature[Second] | TextMeta[Second], owner: type | None = None, /) -> float: ...
         @overload
-        def __get__(self, obj: None, owner: type, /) -> Self: ...
+        def __get__(self, obj: None, owner: type, /) -> _TimeField: ...
         @overload
         def __set__(self, obj: Note[Tick] | Pedal[Tick] | Tempo[Tick] | ControlChange[Tick] | PitchBend[Tick] | TimeSignature[Tick] | KeySignature[Tick] | TextMeta[Tick], value: int, /) -> None: ...
         @overload
@@ -205,10 +205,10 @@
     def extend(self, items: Iterable[\1[_Unit]]) -> None: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.filter$:
-    def filter(self, function: Callable[[\1[_Unit]], bool], inplace: bool = True) -> Self: ...
+    def filter(self, function: Callable[[\1[_Unit]], bool], inplace: bool = True) -> \1List[_Unit]: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.sort$:
-    def sort(self, key: Callable[[\1[_Unit]], object] | None = None, reverse: bool = False, inplace: bool = True) -> Self: ...
+    def sort(self, key: Callable[[\1[_Unit]], object] | None = None, reverse: bool = False, inplace: bool = True) -> \1List[_Unit]: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.is_sorted$:
     def is_sorted(self, key: Callable[[\1[_Unit]], object] | None = None, reverse: bool = False) -> bool: ...
@@ -407,16 +407,52 @@
     __match_args__: ClassVar[tuple[Literal["time"], Literal["duration"], Literal["pitch"], Literal["velocity"]]] = ("time", "duration", "pitch", "velocity")
 
 ^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|TrackList)\.copy$:
-    def copy(self, deep: bool = True) -> Self: ...
+    def copy(self, deep: bool = True) -> \1[_Unit]: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)List\.copy$:
-    def copy(self) -> Self: ...
+    def copy(self) -> \1List[_Unit]: ...
 
 ^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|TrackList)\.__copy__$:
-    def __copy__(self) -> Self: ...
+    def __copy__(self) -> \1[_Unit]: ...
 
 ^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)List\.__copy__$:
-    def __copy__(self, deep: bool = True) -> Self: ...
+    def __copy__(self, deep: bool = True) -> \1List[_Unit]: ...
 
 ^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)(List)?\.__deepcopy__$:
-    def __deepcopy__(self, memo: object | None = None, _nil: object | None = None) -> Self: ...
+    def __deepcopy__(self, memo: object | None = None, _nil: object | None = None) -> \1\2[_Unit]: ...
+
+^symusic\._core\.(Score|Track)\.sort$:
+    def sort(self, reverse: bool = False, inplace: bool = True) -> \1[_Unit]: ...
+
+^symusic\._core\.(Score|Track|Note)\.(shift_pitch|shift_velocity)$:
+    def \2(self, offset: int, inplace: bool = False) -> \1[_Unit]: ...
+
+^symusic\._core\.Pedal\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["duration"]]] = ("time", "duration")
+
+^symusic\._core\.PitchBend\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["value"]]] = ("time", "value")
+
+^symusic\._core\.Tempo\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["mspq"]]] = ("time", "mspq")
+
+^symusic\._core\.TextMeta\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["text"]]] = ("time", "text")
+
+^symusic\._core\.ControlChange\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["number"], Literal["value"]]] = ("time", "number", "value")
+
+^symusic\._core\.KeySignature\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["key"], Literal["tonality"]]] = ("time", "key", "tonality")
+
+^symusic\._core\.TimeSignature\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["numerator"], Literal["denominator"]]] = ("time", "numerator", "denominator")
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature)List\.numpy$:
+    def numpy(self) -> dict[str, ndarray]: ...
+
+^symusic\._core\.TextMetaList\.numpy$:
+    def numpy(self) -> NoReturn: ...
+
+^symusic\._core\.Synthesizer\.__init__$:
+    def __init__(self, soundfont: _Path, *, sample_rate: int = 44100, polyphony: int = 256, reverb: bool = False, chorus: bool = False, tail_seconds: float = 1.0) -> None: ...
