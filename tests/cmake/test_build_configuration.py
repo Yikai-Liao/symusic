@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,13 @@ def test_core_lto(tmp_path: Path) -> None:
     assert nanobind
     assert all("-flto" in command for command in core)
     assert all("-flto" not in command for command in binding + nanobind)
+
+    # An in-place configure must also work when the copied and original
+    # dependency files have the same timestamp, as on coarse filesystems.
+    original = root / "3rdparty/libsndfile/CMakeLists.txt"
+    copy = tmp_path / "fluidsynth/libsndfile-source/CMakeLists.txt"
+    mtime_ns = original.stat().st_mtime_ns
+    os.utime(copy, ns=(mtime_ns, mtime_ns))
 
     configure(False)
     assert all("-flto" not in command for command in commands_for(root / "src"))

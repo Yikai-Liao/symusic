@@ -41,11 +41,11 @@ target_include_directories(symusic
     PRIVATE 3rdparty/zpp_bits
 )
 target_compile_features(symusic PUBLIC cxx_std_20)
+find_package(Threads REQUIRED)
 target_link_libraries(symusic PUBLIC
     $<BUILD_INTERFACE:fmt::fmt-header-only>
     $<BUILD_INTERFACE:minimidi>
-    $<BUILD_INTERFACE:prestosynth>
-    $<INSTALL_INTERFACE:symusic::prestosynth>
+    PRIVATE Threads::Threads ${CMAKE_DL_LIBS}
 )
 target_compile_definitions(symusic INTERFACE $<INSTALL_INTERFACE:FMT_HEADER_ONLY>)
 add_library(symusic::symusic ALIAS symusic)

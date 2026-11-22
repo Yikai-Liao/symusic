@@ -18,3 +18,13 @@ if(NOT SYMUSIC_BUILD_PYTHON AND NOT CMAKE_CROSSCOMPILING)
             -P "${CMAKE_CURRENT_BINARY_DIR}/run_install_consumer.cmake"
     )
 endif()
+
+if(NOT CMAKE_CROSSCOMPILING)
+    add_library(fluid_runtime_fixture SHARED fluid_runtime_fixture.cpp)
+    target_link_libraries(fluid_runtime_fixture PRIVATE Threads::Threads)
+    set_target_properties(fluid_runtime_fixture PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    add_dependencies(symusic_test fluid_runtime_fixture)
+    target_link_libraries(symusic_test PRIVATE Threads::Threads)
+    target_compile_definitions(symusic_test PRIVATE
+        SYMUSIC_TEST_FLUID_RUNTIME="$<TARGET_FILE:fluid_runtime_fixture>")
+endif()

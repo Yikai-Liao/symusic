@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+import symusic
 from symusic import (
     ABCConversionWarning,
     Note,
@@ -813,3 +814,15 @@ for score_type in (ScoreTick, ScoreQuarter, ScoreSecond):
         raise AssertionError("MIDI constructor accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
+
+
+def test_converter_layout():
+    package = Path(symusic.__file__).resolve().parent
+    assert not (package / "bin").exists()
+    vendor = package / "_vendor" / "abcmidi"
+    suffix = ".exe" if sys.platform == "win32" else ""
+    assert {path.name for path in vendor.iterdir()} == {
+        f"abc2midi{suffix}",
+        f"midi2abc{suffix}",
+        "LICENSE.txt",
+    }
