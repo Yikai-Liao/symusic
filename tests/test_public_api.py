@@ -1,6 +1,7 @@
 import errno
 import os
 import re
+from collections.abc import MutableSequence
 from importlib.util import find_spec
 
 import numpy as np
@@ -104,7 +105,9 @@ def test_checked_python_inputs(tmp_path):
         Score.from_file(tmp_path, format="midi")
 
 
-@pytest.mark.skipif(os.name == "nt", reason="chmod does not revoke read access on Windows")
+@pytest.mark.skipif(
+    os.name == "nt", reason="chmod does not revoke read access on Windows"
+)
 def test_midi_file_preserves_permission_error(tmp_path):
     path = tmp_path / "unreadable.mid"
     path.touch()
@@ -148,3 +151,51 @@ def test_pedal_start():
     pedal = Pedal(1, 2)
     pedal.start = 3
     assert pedal.time == 3
+
+
+@pytest.mark.parametrize(
+    "name", [name for name in symusic.__all__ if name.endswith("List")]
+)
+def test_public_lists_register_mutable_sequence(name):
+    items = getattr(symusic, name)()
+    assert isinstance(items, MutableSequence)
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(items)
+
+
+@pytest.mark.parametrize(
+    "make_item", [lambda i: Note(i, 1, 60), lambda i: Track(str(i))]
+)
+def test_mutable_sequence_operations(make_item):
+    first, second, third = map(make_item, range(3))
+    empty = NoteList() if isinstance(first, Note) else symusic.TrackList()
+    empty.insert(-100, first)
+    empty.insert(100, second)
+    items = alias = empty
+    items += [first]
+    assert items is alias
+    assert items.index(first, -2, 100) == 2
+    with pytest.raises(ValueError, match="Item is not in list"):
+        items.index(first, 1, 2)
+    assert items.count(first) == 2
+    assert third not in items
+    items.remove(first)
+    assert items.pop() == first
+    assert items == [second]
+
+    items.extend([first, third])
+    items.reverse()
+    assert list(items) == [third, first, second]
+    assert list(reversed(items)) == [second, first, third]
+    items.reverse()
+    assert items[::-1] == [third, first, second]
+    items[3:1] = [second, third]
+    assert items == [second, first, third, second, third]
+    items[::-2] = [first, second, first]
+    assert items == [first, first, second, second, first]
+    del items[::-2]
+    assert items == [first, second]
+    items[:1] = []
+    assert items == [second]
+    items.clear()
+    assert not items

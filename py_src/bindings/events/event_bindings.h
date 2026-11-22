@@ -151,7 +151,8 @@ auto bind_event(
     const auto list_doc
         = std::string(list_name)
           + "(items=None, *, ttype=Tick)\n\nA mutable list of events in one time unit.";
-    auto list = unit_class<List>(module, list_name, list_doc.c_str());
+    const auto base = std::string("collections.abc.MutableSequence[") + name + "[_Unit]]";
+    auto       list = unit_class<List>(module, list_name, list_doc.c_str(), base.c_str());
     (bind_event_field<Event, I>(type), ...);
     type.attr("__match_args__")
         = nb::make_tuple(std::get<I>(detail::event_fields<Event<Tick>>).first...);

@@ -18,5 +18,9 @@ def test_stub_exposes_runtime_classes():
         if getattr(symusic, name).__module__ == _core.__name__
     }
     for name, node in classes.items():
-        if name.endswith("List") or name in {"Score", "Track", "Note", "Tempo"}:
+        if name.endswith("List"):
+            assert [ast.unparse(base) for base in node.bases] == [
+                f"MutableSequence[{name.removesuffix('List')}[_Unit]]"
+            ]
+        elif name in {"Score", "Track", "Note", "Tempo"}:
             assert [ast.unparse(base) for base in node.bases] == ["Generic[_Unit]"]

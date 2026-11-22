@@ -1,5 +1,5 @@
 # pyright: strict
-from collections.abc import Iterator
+from collections.abc import Iterator, MutableSequence, Sequence
 
 from symusic import (
     ControlChange,
@@ -62,3 +62,19 @@ def pattern(note: Note[Tick], score: Score[Second] | str) -> None:
             assert_type(marker, type[Second])
         case str():
             pass
+
+
+def inspect_tracks(tracks: Sequence[Track[Tick]]) -> None:
+    assert_type(tracks[0], Track[Tick])
+
+
+def edit_notes(notes: MutableSequence[Note[Tick]]) -> None:
+    notes.reverse()
+
+
+inspect_tracks(ticks.tracks)
+notes = ticks.tracks[0].notes
+edit_notes(notes)
+assert_type(reversed(notes), Iterator[Note[Tick]])
+notes += [Note(0, 1, 60)]
+assert_type(notes, NoteList[Tick])

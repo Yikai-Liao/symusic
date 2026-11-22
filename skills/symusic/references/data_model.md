@@ -70,7 +70,7 @@ print(score)
 
 ## Event lists
 
-Every list attribute is a typed list, such as `NoteList[Tick]`. It supports indexing, slicing, `len`, iteration, `del`, `append`, `extend`, `insert`, `pop`, `remove`, `clear` and `count`, plus:
+Every list attribute is a typed list, such as `NoteList[Tick]`. Event and track lists implement `collections.abc.MutableSequence`, including slicing, reverse iteration, and in-place extension with `+=`. They also provide:
 
 | Method | Effect |
 |---|---|
