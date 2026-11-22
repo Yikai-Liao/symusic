@@ -8,13 +8,13 @@ import copy
 import gc
 
 import pytest
-from symusic import Note, Score, Track
+from symusic import Note, Quarter, Score, Second, Tick, Track
 
-TTYPES = ["tick", "quarter", "second"]
+TTYPES = [Tick, Quarter, Second]
 
 
 def make_track(ttype):
-    notes = [Note(t, 1, 60 + t, 100, ttype) for t in (0, 1, 2, 3)]
+    notes = [Note(t, 1, 60 + t, 100, ttype=ttype) for t in (0, 1, 2, 3)]
     return Track("t", 0, False, notes=notes, ttype=ttype)
 
 
@@ -34,7 +34,7 @@ def test_ref_survives_append(ttype):
     notes = make_track(ttype).notes
     note = notes[1]
     for i in range(1000):
-        notes.append(Note(i, 1, 20, 1, ttype))
+        notes.append(Note(i, 1, 20, 1, ttype=ttype))
     assert note.pitch == 61
     note.pitch = 5
     assert notes[1].pitch == 5
@@ -44,7 +44,7 @@ def test_ref_survives_append(ttype):
 def test_ref_survives_insert(ttype):
     notes = make_track(ttype).notes
     note = notes[1]
-    notes.insert(0, Note(9, 1, 20, 1, ttype))
+    notes.insert(0, Note(9, 1, 20, 1, ttype=ttype))
     assert notes[2].pitch == 61
     note.pitch = 5
     assert notes[2].pitch == 5
@@ -84,7 +84,7 @@ def test_ref_survives_clear(ttype):
 def test_ref_survives_setitem(ttype):
     notes = make_track(ttype).notes
     note = notes[1]
-    notes[1] = Note(5, 1, 99, 1, ttype)
+    notes[1] = Note(5, 1, 99, 1, ttype=ttype)
     assert notes[1].pitch == 99
     assert note.pitch == 61
     note.pitch = 5
@@ -150,7 +150,7 @@ def test_track_ref_aliases_in_score(ttype):
     score.tracks.append(make_track(ttype))
     track = score.tracks[0]
     track.name = "renamed"
-    track.notes.append(Note(9, 1, 70, 1, ttype))
+    track.notes.append(Note(9, 1, 70, 1, ttype=ttype))
     assert score.tracks[0].name == "renamed"
     assert len(score.tracks[0].notes) == 5
     removed = score.tracks.pop()
@@ -176,15 +176,15 @@ def test_shallow_copy_shares_events(ttype):
 def test_ref_survives_list_replacement(ttype):
     track = make_track(ttype)
     note = track.notes[1]
-    track.notes = [Note(0, 1, 10, 1, ttype)]
+    track.notes = [Note(0, 1, 10, 1, ttype=ttype)]
     assert [n.pitch for n in track.notes] == [10]
     assert note.pitch == 61
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_score_equality_shares_tracks(ttype):
     score = Score(ttype=ttype)
-    track = Track(ttype=ttype, notes=[Note(0, 1, 60, 80, ttype)])
+    track = Track(ttype=ttype, notes=[Note(0, 1, 60, 80, ttype=ttype)])
     track.notes[0].time = float("nan")
     score.tracks.append(track)
 

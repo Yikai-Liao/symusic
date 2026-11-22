@@ -1,29 +1,46 @@
-//
-// Note, key signature, time signature and text bindings; see register_events.cpp.
-//
 #include "../core/binding_prelude.h"
 
-#include "../core/binding_common.h"
 #include "event_bindings.h"
-
-namespace nb = nanobind;
 
 namespace symusic::py {
 
 void bind_note_family_types(nb::module_& m) {
-    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
-        bind_note<T>(module, name);
-    });
-    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
-        bind_keysig<T>(module, name);
-    });
-    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
-        bind_timesig<T>(module, name);
-    });
-    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
-        bind_textmeta<T>(module, name);
-    });
-
+    bind_event<Note>(
+        m,
+        "Note",
+        "NoteList",
+        "Note(time, duration, pitch, velocity=0, *, ttype=Tick)\n\nA musical note.",
+        "time"_a,
+        "duration"_a,
+        "pitch"_a,
+        "velocity"_a = 0
+    );
+    bind_event<KeySignature>(
+        m,
+        "KeySignature",
+        "KeySignatureList",
+        "KeySignature(time, key, tonality, *, ttype=Tick)\n\nA key signature change.",
+        "time"_a,
+        "key"_a,
+        "tonality"_a
+    );
+    bind_event<TimeSignature>(
+        m,
+        "TimeSignature",
+        "TimeSignatureList",
+        "TimeSignature(time, numerator, denominator, *, ttype=Tick)\n\nA time signature change.",
+        "time"_a,
+        "numerator"_a,
+        "denominator"_a
+    );
+    bind_event<TextMeta>(
+        m,
+        "TextMeta",
+        "TextMetaList",
+        "TextMeta(time, text, *, ttype=Tick)\n\nA lyric or marker.",
+        "time"_a,
+        "text"_a
+    );
 }
 
 }   // namespace symusic::py

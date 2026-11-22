@@ -1,164 +1,131 @@
-//
-// Common helpers shared by the nanobind bindings.
-//
-
 #pragma once
 
-#include "utils/storage.h"
 #include <span>
-#include <string>
-#include <string_view>
+
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/tuple.h>
 
 #include "symusic.h"
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
-#include <nanobind/operators.h>
-#include <pyvec.hpp>
+#include "utils/unit_value.h"
 
 namespace symusic::py {
 
-namespace nb = nanobind;
-
-/// Helper alias for describing CPU contiguous ndarrays.
-#define NDARR(DTYPE, DIM) nb::ndarray<DTYPE, nb::ndim<DIM>, nb::c_contig, nb::device::cpu>
-
-/// Helper for binding read/write properties on shared pointer based classes.
-#define RW_COPY(type, PYNAME, NAME)                        \
-    PYNAME, [](const self_t& self) { return self->NAME; }, \
-        [](self_t& self, const type& value) { self->NAME = value; }
-
-/// Construct a shared_ptr-wrapped C++ object in-place for nanobind.
-template<typename T, typename... Args>
-void pyinit(std::shared_ptr<T>* self, Args&&... args) {
-    if constexpr (TimeEvent<T>) {
-        new (self) shared<T>(std::make_shared<T>(symusic::detail::make_event<T>(
-            std::forward<Args>(args)...
-        )));
-    } else {
-        new (self) shared<T>(std::make_shared<T>(std::forward<Args>(args)...));
-    }
+inline std::span<const u8> bytes_span(const nb::bytes& bytes) {
+    return {static_cast<const u8*>(bytes.data()), bytes.size()};
 }
 
-/// Serialize a shared object to bytes using the ZPP format.
-template<typename T>
-nb::bytes to_bytes(const shared<T>& self) {
-    const vec<unsigned char> data = dumps<DataFormat::ZPP>(*self);
-    return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
+inline nb::bytes python_bytes(std::span<const u8> bytes) {
+    return nb::bytes(bytes.data(), bytes.size());
 }
 
-/// Serialize a python vector wrapper to bytes.
-template<TimeEvent T>
-nb::bytes vec_to_bytes(const pyvec<T>& self) {
-    const vec<unsigned char> data = dumps<DataFormat::ZPP>(self.collect());
-    return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
+template<class Value, class Dump, class Load>
+void bind_pickle(nb::class_<Value>& type, Dump dump, Load load) {
+    type.def(
+            "__getstate__",
+            [dump](const Value& self) {
+                return self.visit([&](const auto& ptr) {
+                    return std::make_tuple(
+                        nb::borrow<nb::type_object>(nb::type<UnitOf<decltype(ptr)>>()),
+                        python_bytes(dump(ptr))
+                    );
+                });
+            }
+    )
+        .def(
+            "__setstate__",
+            [load](Value* self, const std::tuple<nb::type_object, nb::bytes>& state) {
+                const auto& [marker, data] = state;
+                new (self) Value(with_unit(marker, [&](auto unit) {
+                    return Value(load(unit, bytes_span(data)));
+                }));
+            },
+            "state"_a
+        );
 }
 
-/// Restore a shared object from previously serialized bytes.
-template<typename T>
-void from_bytes(shared<T>& self, const nb::bytes& bytes) {
-    const auto      data = std::string_view(bytes.c_str(), bytes.size());
-    const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-    auto            ans = std::make_shared<T>(parse<DataFormat::ZPP, T>(span));
-    new (&self) shared<T>(std::move(ans));
+template<template<class> class Data>
+void bind_value_pickle(nb::class_<UnitValue<Data>>& type) {
+    bind_pickle(
+        type,
+        [](const auto& ptr) { return dumps<DataFormat::ZPP>(*ptr); },
+        [](auto unit, std::span<const u8> bytes) {
+            using Native = Data<decltype(unit)>;
+            return std::make_shared<Native>(parse<DataFormat::ZPP, Native>(bytes));
+        }
+    );
 }
 
-/// Restore a python vector wrapper from bytes.
-template<TimeEvent T>
-void vec_from_bytes(shared<pyvec<T>>& self, const nb::bytes& bytes) {
-    const auto      data = std::string_view(bytes.c_str(), bytes.size());
-    const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-    auto            native_ans = parse<DataFormat::ZPP, vec<T>>(span);
-    new (&self) shared<pyvec<T>>(std::make_shared<pyvec<T>>(std::move(native_ans)));
+template<class Owner>
+auto owned_array(std::unique_ptr<Owner> owner, auto make_array) {
+    nb::capsule capsule(owner.get(), [](void* ptr) noexcept { delete static_cast<Owner*>(ptr); });
+    auto*       data = owner.release();
+    return make_array(*data, capsule);
 }
 
-template<typename T>
-std::shared_ptr<pyvec<T>> to_shared_vec(vec<T>&& vec_) {
-    return std::make_shared<pyvec<T>>(std::move(vec_));
+template<class Scalar>
+auto to_numpy_array(vec<Scalar> values) {
+    return owned_array(
+        std::make_unique<vec<Scalar>>(std::move(values)), [](auto& data, const nb::capsule& owner) {
+            // A null data pointer does not represent an empty NumPy array.
+            static Scalar empty = 0;
+            auto*         ptr   = data.empty() ? &empty : data.data();
+            return nb::ndarray<nb::numpy, Scalar>(ptr, {data.size()}, owner);
+        }
+    );
 }
 
-/// Conversion helpers used by the python API to ingest numpy arrays.
-template<TType T, typename unit = typename T::unit>
-auto note_from_numpy(
-    NDARR(unit, 1) time, NDARR(unit, 1) duration, NDARR(i8, 1) pitch, NDARR(i8, 1) velocity
-) {
-    const auto size = time.size();
-    if (size != duration.size() || size != pitch.size() || size != velocity.size()) {
-        throw std::invalid_argument("time, duration, pitch, velocity must have the same size");
-    }
-    vec<Note<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-        ans.push_back(symusic::detail::make_event<Note<T>>(time(i), duration(i), pitch(i), velocity(i)));
-    }
-    return to_shared_vec(std::move(ans));
+template<TType T>
+auto read_times(const nb::iterable& times) {
+    vec<typename T::unit> result;
+    for (nb::handle time : times) result.push_back(read_time<T>(time));
+    return result;
 }
 
-template<TType T, typename unit = typename T::unit>
-auto pedal_from_numpy(NDARR(unit, 1) time, NDARR(unit, 1) duration) {
-    const auto size = time.size();
-    if (size != duration.size()) { throw std::invalid_argument("time, duration size mismatch"); }
-    vec<Pedal<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<Pedal<T>>(time(i), duration(i))); }
-    return to_shared_vec(std::move(ans));
-}
-
-template<TType T, typename unit = typename T::unit>
-auto controlchange_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8, 1) value) {
-    const auto size = time.size();
-    if (size != number.size() || size != value.size()) {
-        throw std::invalid_argument("time, number, value must have the same size");
-    }
-    vec<ControlChange<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<ControlChange<T>>(time(i), number(i), value(i))); }
-    return to_shared_vec(std::move(ans));
-}
-
-template<TType T, typename unit = typename T::unit>
-auto timesig_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1) denominator) {
-    const auto size = time.size();
-    if (size != numerator.size() || size != denominator.size()) {
-        throw std::invalid_argument("time, numerator, denominator must have the same size");
-    }
-    vec<TimeSignature<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<TimeSignature<T>>(time(i), numerator(i), denominator(i))); }
-    return to_shared_vec(std::move(ans));
-}
-
-template<TType T, typename unit = typename T::unit>
-auto keysig_from_numpy(NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(u8, 1) tonality) {
-    const auto size = time.size();
-    if (size != key.size() || size != tonality.size()) {
-        throw std::invalid_argument("time, key, tonality must have the same size");
-    }
-    vec<KeySignature<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<KeySignature<T>>(time(i), key(i), tonality(i))); }
-    return to_shared_vec(std::move(ans));
-}
-
-template<TType T, typename unit = typename T::unit>
-auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
-    const auto size = time.size();
-    if (size != mspq.size()) { throw std::invalid_argument("time, mspq must have the same size"); }
-    vec<Tempo<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<Tempo<T>>(time(i), mspq(i))); }
-    return to_shared_vec(std::move(ans));
-}
-
-template<TType T, typename unit = typename T::unit>
-auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
-    const auto size = time.size();
-    if (size != value.size()) {
-        throw std::invalid_argument("time, value must have the same size");
-    }
-    vec<PitchBend<T>> ans;
-    ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<PitchBend<T>>(time(i), value(i))); }
-    return to_shared_vec(std::move(ans));
+template<class Value, class DeepCopy>
+void bind_object_ops(nb::class_<Value>& type, DeepCopy deepcopy) {
+    const auto shallow = [](const Value& self) {
+        return self.visit([](const auto& ptr) {
+            using Native = typename std::remove_cvref_t<decltype(ptr)>::element_type;
+            return Value(std::make_shared<Native>(*ptr));
+        });
+    };
+    const auto deep = [deepcopy](const Value& self) {
+        return self.visit([&](const auto& ptr) { return Value(deepcopy(*ptr)); });
+    };
+    type.def(
+            "copy",
+            [shallow, deep](const Value& self, bool copy_deep) {
+                return copy_deep ? deep(self) : shallow(self);
+            },
+            "deep"_a = true,
+            "Copy this object, including its contents when deep is true."
+    )
+        .def("__copy__", shallow)
+        .def(
+            "__deepcopy__",
+            [deep](const Value& self, nb::handle, nb::handle) { return deep(self); },
+            "memo"_a = nb::none(),
+            "_nil"_a = nb::none()
+        )
+        .def(
+            "__repr__",
+            [](const Value& self) {
+                return self.visit([](const auto& ptr) { return ptr->to_string(); });
+            }
+        )
+        .def(
+            "__eq__",
+            [](const Value& self, nb::handle other) {
+                if (!nb::isinstance<Value>(other)) return false;
+                const auto& rhs = nb::cast<const Value&>(other);
+                return self.visit([&](const auto& ptr) {
+                    const auto* match = rhs.template find<UnitOf<decltype(ptr)>>();
+                    return match && (ptr == *match || *ptr == **match);
+                });
+            },
+            "other"_a.none()
+        );
+    bind_value_pickle(type);
 }
 
 }   // namespace symusic::py

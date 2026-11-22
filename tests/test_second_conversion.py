@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from symusic import Note, Score, Tempo, Track
+from symusic import Note, Quarter, Score, Second, Tempo, Tick, Track
 
 from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
@@ -49,16 +49,16 @@ class ScoreTimeMapper:
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 def test_second_conversion(midi_path: Path):
-    s_tick = Score(midi_path, ttype="tick", fmt="midi")
-    s_sec = s_tick.to("second")
+    s_tick = Score(midi_path, ttype=Tick, format="midi")
+    s_sec = s_tick.to(Second)
     mapper = ScoreTimeMapper(s_tick)
     max_delta = 0
     max_delta_rel = 0
     for track_tick, track_sec in zip(s_tick.tracks, s_sec.tracks, strict=True):
         if len(track_tick.notes) == 0:
             continue
-        track_tick.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
-        track_sec.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
+        track_tick.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
+        track_sec.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
         notes_tick = track_tick.notes.numpy()
         start_tick = notes_tick["time"]
         end_tick = start_tick + notes_tick["duration"]
@@ -97,8 +97,8 @@ def test_quarter_parse_matches_tick_conversion(tmp_path):
     midi_path = tmp_path / "quarter_time_check.mid"
     score_tick.dump_midi(midi_path)
 
-    quarter_direct = Score(midi_path, ttype="quarter")
-    quarter_from_tick = Score(midi_path, ttype="tick").to("quarter")
+    quarter_direct = Score(midi_path, ttype=Quarter)
+    quarter_from_tick = Score(midi_path, ttype=Tick).to(Quarter)
 
     notes_direct = quarter_direct.tracks[0].notes
     notes_from_tick = quarter_from_tick.tracks[0].notes
@@ -133,7 +133,7 @@ ISSUE_90_MIDI = TESTCASES_PATH / "issue90.mid"
 
 def test_issue90_direct_second_load_durations_not_all_one():
     """Loading with ttype='second' must not produce uniform 1.0 durations."""
-    score = Score(ISSUE_90_MIDI, ttype="second")
+    score = Score(ISSUE_90_MIDI, ttype=Second)
     notes = score.tracks[0].notes
     assert len(notes) > 0, "Expected at least one note in track 0"
     durations = [n.duration for n in notes]
@@ -146,8 +146,8 @@ def test_issue90_direct_second_load_durations_not_all_one():
 
 def test_issue90_direct_load_matches_tick_conversion():
     """Score(path, ttype='second') must match Score(path).to('second')."""
-    score_direct = Score(ISSUE_90_MIDI, ttype="second")
-    score_convert = Score(ISSUE_90_MIDI, ttype="tick").to("second")
+    score_direct = Score(ISSUE_90_MIDI, ttype=Second)
+    score_convert = Score(ISSUE_90_MIDI, ttype=Tick).to(Second)
 
     assert len(score_direct.tracks) == len(score_convert.tracks)
 
@@ -172,7 +172,7 @@ def test_issue90_direct_load_matches_tick_conversion():
 
 def test_issue90_first_notes_have_expected_relative_durations():
     """The first two notes should be roughly twice as long as the next three."""
-    score = Score(ISSUE_90_MIDI, ttype="second")
+    score = Score(ISSUE_90_MIDI, ttype=Second)
     notes = score.tracks[0].notes[:5]
     assert len(notes) >= 5, "Expected at least 5 notes in track 0"
 
@@ -197,10 +197,10 @@ def test_negative_tempo_boundaries(tempo_at_zero):
     score.tracks.append(Track(notes=[Note(-1440, 1920, 60, 80), Note(0, 0, 62, 80)]))
 
     expected_end = 0.5 if tempo_at_zero else 1
-    for source in (score, score.to("quarter")):
-        seconds = source.to("second")
-        assert seconds.tracks[0].notes[0].start == pytest.approx(-1.75)
+    for source in (score, score.to(Quarter)):
+        seconds = source.to(Second)
+        assert seconds.tracks[0].notes[0].time == pytest.approx(-1.75)
         assert seconds.tracks[0].notes[0].end == pytest.approx(expected_end)
-        assert seconds.tracks[0].notes[1].start == 0
-        notes = seconds.to("tick").tracks[0].notes
-        assert [(note.start, note.end) for note in notes] == [(-1440, 480), (0, 0)]
+        assert seconds.tracks[0].notes[1].time == 0
+        notes = seconds.to(Tick).tracks[0].notes
+        assert [(note.time, note.end) for note in notes] == [(-1440, 480), (0, 0)]

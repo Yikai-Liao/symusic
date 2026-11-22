@@ -1,23 +1,30 @@
 from ._abc import ABCConversionWarning
-from .core import Synthesizer
-from .factory import (
+from ._core import (
     ControlChange,
+    ControlChangeList,
     KeySignature,
+    KeySignatureList,
     Note,
+    NoteList,
     Pedal,
+    PedalList,
     PitchBend,
+    PitchBendList,
+    Quarter,
     Score,
+    Second,
+    Synthesizer,
     Tempo,
+    TempoList,
     TextMeta,
+    TextMetaList,
+    Tick,
     TimeSignature,
-    TimeUnit,
+    TimeSignatureList,
     Track,
+    TrackList,
 )
-from .soundfont import (
-    BuiltInSF2,
-    BuiltInSF3,
-    Soundfont,
-)
+from .soundfont import BuiltInSF2, BuiltInSF3, Soundfont
 
 __version__ = "0.6.0"
 
@@ -26,16 +33,27 @@ __all__ = [
     "BuiltInSF2",
     "BuiltInSF3",
     "ControlChange",
+    "ControlChangeList",
     "KeySignature",
+    "KeySignatureList",
     "Note",
+    "NoteList",
     "Pedal",
+    "PedalList",
     "PitchBend",
+    "PitchBendList",
+    "Quarter",
     "Score",
+    "Second",
     "Soundfont",
     "Synthesizer",
     "Tempo",
+    "TempoList",
     "TextMeta",
+    "TextMetaList",
+    "Tick",
     "TimeSignature",
-    "TimeUnit",
+    "TimeSignatureList",
     "Track",
+    "TrackList",
 ]

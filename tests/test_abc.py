@@ -13,12 +13,14 @@ import symusic
 from symusic import (
     ABCConversionWarning,
     Note,
+    Quarter,
     Score,
+    Second,
     Tempo,
+    Tick,
     TimeSignature,
     Track,
     _abc,
-    core,
 )
 
 from tests.utils import TESTCASES_PATH
@@ -81,7 +83,7 @@ def isolated_symusic_temp_root(
 
 @pytest.mark.parametrize("abc_path", ABC_PATHS, ids=lambda path: path.name)
 def test_read_abc(abc_path: Path):
-    score = Score(abc_path, fmt="abc")
+    score = Score(abc_path, format="abc")
 
     assert len(score.tracks) > 0
     assert score.note_num() > 0
@@ -110,7 +112,7 @@ def test_read_abc_reports_failure(abc, diagnostic, capfd):
     assert capfd.readouterr() == ("", "")
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_abc_tune_selection(tmp_path: Path, ttype):
     first = make_roundtrip_abc_text().replace("X:1", "X:42")
     second = first.replace("X:42", "X:7").replace("C D E F|", "G G G G|")
@@ -123,16 +125,16 @@ def test_abc_tune_selection(tmp_path: Path, ttype):
         assert isinstance(score, type(Score(ttype=ttype)))
         return [note.pitch for note in score.tracks[0].notes]
 
-    assert pitches(Score(path, ttype)) == [60, 62, 64, 65]
-    assert pitches(Score.from_abc(text, ttype, tune=7)) == [67] * 4
-    assert pitches(Score.from_abc(text, ttype, tune=0)) == [69] * 4
-    assert pitches(Score.from_abc_file(path, ttype, tune=7)) == [67] * 4
-    assert pitches(Score.from_file(path, ttype, tune=7)) == [67] * 4
-    assert pitches(Score(path, ttype, tune=7)) == [67] * 4
+    assert pitches(Score(path, ttype=ttype)) == [60, 62, 64, 65]
+    assert pitches(Score.from_abc(text, ttype=ttype, tune=7)) == [67] * 4
+    assert pitches(Score.from_abc(text, ttype=ttype, tune=0)) == [69] * 4
+    assert pitches(Score.from_abc_file(path, ttype=ttype, tune=7)) == [67] * 4
+    assert pitches(Score.from_file(path, ttype=ttype, tune=7)) == [67] * 4
+    assert pitches(Score(path, ttype=ttype, tune=7)) == [67] * 4
     with pytest.raises(ValueError, match="X:99"):
-        Score.from_abc(text, ttype, tune=99)
+        Score.from_abc(text, ttype=ttype, tune=99)
     with pytest.raises(ValueError, match="X:0"):
-        Score.from_abc(first, ttype, tune=0)
+        Score.from_abc(first, ttype=ttype, tune=0)
 
 
 def test_abc_tune_zero_skips_broken_tune():
@@ -240,7 +242,7 @@ def test_dump_abc_roundtrip(tmp_path: Path):
     assert output_path.exists()
     assert output_path.stat().st_size > 0
 
-    loaded_with_ctor = Score(output_path, fmt="abc")
+    loaded_with_ctor = Score(output_path, format="abc")
     loaded_with_factory = Score.from_file(output_path, format="abc")
 
     assert loaded_with_ctor.note_num() == score.note_num()
@@ -443,10 +445,11 @@ def test_partial_midi_is_rejected(monkeypatch):
 
 def test_core_score_keeps_abc_methods(tmp_path):
     path = tmp_path / "score.abc"
-    score = core.ScoreQuarter.from_abc(make_roundtrip_abc_text())
-    assert type(score) is core.ScoreQuarter
+    score = Score.from_abc(make_roundtrip_abc_text(), ttype=Quarter)
+    assert type(score) is Score
+    assert score.ttype is Quarter
     score.dump_abc(path)
-    assert core.ScoreQuarter.from_file(path).note_num() == score.note_num()
+    assert Score.from_file(path, ttype=Quarter).note_num() == score.note_num()
 
 
 @pytest.mark.parametrize("path_type", [str, bytes])
@@ -458,14 +461,14 @@ def test_core_score_file_pathlike(tmp_path, path_type):
         def __fspath__(self):
             return os.fspath(self.path) if path_type is str else os.fsencode(self.path)
 
-    score = core.ScoreTick.from_abc(make_roundtrip_abc_text())
+    score = Score.from_abc(make_roundtrip_abc_text())
     path = FilePath(tmp_path / "score.abc")
     score.dump_abc(path)
-    assert core.ScoreTick.from_file(path).note_num() == score.note_num()
-    assert core.ScoreTick.from_abc_file(path).note_num() == score.note_num()
+    assert Score.from_file(path).note_num() == score.note_num()
+    assert Score.from_abc_file(path).note_num() == score.note_num()
     midi = FilePath(tmp_path / "score.mid")
     score.dump_midi(midi)
-    assert core.ScoreTick.from_file(midi) == score
+    assert Score.from_file(midi) == score
 
 
 @pytest.mark.parametrize("warn", ["false", 0, None])
@@ -488,7 +491,7 @@ def test_score_from_file_requires_bool(tmp_path, extension, sanitize_data):
     else:
         make_roundtrip_score().dump_midi(path)
     with pytest.raises(TypeError):
-        core.ScoreTick.from_file(path, sanitize_data=sanitize_data)
+        Score.from_file(path, sanitize_data=sanitize_data)
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +525,7 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     assert abc_text.strip(), "dumps_abc returned empty text"
 
     # --- roundtrip: reload the ABC and verify note count ---
-    reloaded = Score(output_path, fmt="abc")
+    reloaded = Score(output_path, format="abc")
     assert reloaded.note_num() > 0, "reloaded Score has no notes"
 
 

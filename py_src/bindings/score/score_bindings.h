@@ -1,47 +1,13 @@
-//
-// Score bindings and file conversion utilities.
-//
-
 #pragma once
 
-#include "utils/storage.h"
-#include <algorithm>
-#include <filesystem>
-#include <optional>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-
-#include <fmt/format.h>
-#include <nanobind/ndarray.h>
-#include <nanobind/nanobind.h>
-#include <nanobind/stl/filesystem.h>
-#include <nanobind/stl/string.h>
-
-#include "../../utils/python_helpers.h"
+#include "utils/vector_bindings.h"
 #include "../core/binding_common.h"
-#include "../docstring_helpers.h"
 
 namespace symusic::py {
 
-namespace nb = nanobind;
-
-template<TType T>
-const char* doc() {
-    constexpr auto           flavor   = time_flavor<T>();
-    static const std::string rendered = fmt::format(
-        "A score: global tempos, time signatures, key signatures and markers, and a list of "
-        "tracks.\n\nTimes are in {} ({}). ``ticks_per_quarter`` is kept in every unit.",
-        flavor.units,
-        flavor.scalar_label
-    );
-    return rendered.c_str();
-}
-
 constexpr const char* kScoreTpqCtorDoc
-    = R"pbdoc(Create an empty score with *tpq* ticks per quarter note.)pbdoc";
-constexpr const char* kScorePathCtorDoc = R"pbdoc(Read a MIDI file.)pbdoc";
+    = R"pbdoc(Create an empty score with the given ticks per quarter note.)pbdoc";
+constexpr const char* kScorePathCtorDoc = R"pbdoc(Read a MIDI or ABC file.)pbdoc";
 constexpr const char* kScoreFromMidiDoc = R"pbdoc(
 Read MIDI bytes. A channel message data byte above 127 raises ``RuntimeError``; with
 *sanitize_data* it is clamped to 127 instead.
@@ -62,8 +28,7 @@ Return the time of the first beat of every bar from *start_time* to the end of t
 NumPy array. Without a time signature at *start_time*, 4/4 is assumed.
 )pbdoc";
 constexpr const char* kScoreToDoc           = R"pbdoc(
-Return a new score converted to *ttype*: ``"tick"``, ``"quarter"``, ``"second"`` or a time unit
-object. Notes and pedals shorter than *min_dur*, in the target unit, are extended to it; pass
+Return a new score converted to the marker class *ttype*. Notes and pedals shorter than *min_dur*, in the target unit, are extended to it; pass
 ``min_dur=1`` when converting to ticks so that no note rounds to duration 0.
 )pbdoc";
 constexpr const char* kScoreResampleDoc     = R"pbdoc(
@@ -91,7 +56,7 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
 to *start*. Returns a new score unless *inplace* is true.
 )pbdoc";
-constexpr const char* kScoreTrimDoc = R"pbdoc(
+constexpr const char* kScoreTrimDoc     = R"pbdoc(
 Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
 keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
@@ -120,242 +85,313 @@ lists must be the same length and have at least two anchors. Original times must
 increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a new score unless *inplace* is true.
 )pbdoc";
-constexpr const char* kScoreUseCountDoc
-    = R"pbdoc(Return the number of references to the score, for debugging.)pbdoc";
+using ScoreValue                          = UnitValue<Score>;
 
-template<TType T>
-typename T::unit cast_time(const nb::object& t) {
-    using unit = typename T::unit;
-    if (t.is_none()) { return static_cast<unit>(0); }
-    return nb::cast<unit>(t);
+inline ScoreValue score_from_midi(std::span<const u8> data, nb::handle marker, bool sanitize_data) {
+    return with_unit(marker, [&](auto unit) {
+        using Native = Score<decltype(unit)>;
+        return ScoreValue(std::make_shared<Native>(Native::parse_midi_bytes(data, sanitize_data)));
+    });
 }
 
-template<typename To, typename From>
-nb::object convert_score_inner(const shared<Score<From>>& self, const nb::object& min_dur) {
-    return nb::cast(
-        std::make_shared<Score<To>>(convert<To>(*self, cast_time<To>(min_dur))), nb::rv_policy::copy
-    );
+inline nb::object abc_io(const char* name) {
+    return nb::module_::import_("symusic._score_io").attr(name);
 }
 
-template<typename From>
-nb::object convert_score(
-    const shared<Score<From>>& self, const nb::object& ttype, const nb::object& min_dur
+inline ScoreValue score_from_abc(
+    const char* function, nb::handle input, nb::handle marker, nb::handle tune
 ) {
-    if (ttype.is_none()) throw std::invalid_argument("ttype must be specified");
-    if (nb::isinstance<Tick>(ttype)) return convert_score_inner<Tick>(self, min_dur);
-    if (nb::isinstance<Quarter>(ttype)) return convert_score_inner<Quarter>(self, min_dur);
-    if (nb::isinstance<Second>(ttype)) return convert_score_inner<Second>(self, min_dur);
-    if (nb::isinstance<nb::str>(ttype)) {
-        const auto ttype_str = nb::cast<std::string>(ttype.attr("lower")());
-        if (ttype_str == "tick") return convert_score_inner<Tick>(self, min_dur);
-        if (ttype_str == "quarter") return convert_score_inner<Quarter>(self, min_dur);
-        if (ttype_str == "second") return convert_score_inner<Second>(self, min_dur);
+    const auto parse_midi = nb::cpp_function([marker = nb::borrow(marker)](const nb::bytes& data) {
+        return score_from_midi(bytes_span(data), marker, false);
+    });
+    return nb::cast<ScoreValue>(abc_io(function)(input, tune, parse_midi));
+}
+
+inline ScoreValue score_from_file(
+    const std::filesystem::path&      path,
+    nb::handle                        marker,
+    const std::optional<std::string>& format,
+    bool                              sanitize_data,
+    nb::handle                        tune
+) {
+    if (score_file_format(path, format.value_or("")) == DataFormat::MIDI) {
+        if (!tune.is_none()) throw std::invalid_argument("tune is only supported for ABC input");
+        return score_from_midi(read_score_file(path), marker, sanitize_data);
     }
-    throw std::invalid_argument("ttype must be Tick, Quarter, Second or string");
+    if (sanitize_data)
+        throw std::invalid_argument("sanitize_data is only supported for MIDI input");
+    return score_from_abc("read_abc_file", nb::cast(path), marker, tune);
 }
 
-template<TType T>
-shared<Score<T>> midi2score(const std::filesystem::path& path) {
-    auto     data = read_file(path);
-    Score<T> s    = parse<DataFormat::MIDI, Score<T>>(data, false);
-    return std::make_shared<Score<T>>(std::move(s));
-}
-
-template<TType T>
-void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) {
-    const auto data = self->template dumps<DataFormat::MIDI>();
-    write_file(path, data);
-}
-
-template<typename Scalar>
-auto to_numpy_array(const vec<Scalar>& values) {
-    auto* data = new Scalar[values.size()];
-    std::copy(values.begin(), values.end(), data);
-    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<Scalar*>(p); });
-    return nb::ndarray<nb::numpy, Scalar>(data, {values.size()}, owner);
-}
-
-template<TType T>
-auto get_beats_array(const shared<Score<T>>& self, const typename T::unit start_time) {
-    return to_numpy_array(self->get_beats(start_time));
-}
-
-template<TType T>
-auto get_downbeats_array(const shared<Score<T>>& self, const typename T::unit start_time) {
-    return to_numpy_array(self->get_downbeats(start_time));
-}
-
-template<TType T>
-auto bind_score(nb::module_& m, const std::string& name_) {
-    using unit   = typename T::unit;
-    using self_t = shared<Score<T>>;
-
-    const auto     name      = "Score" + name_;
-    const auto     score_sig = fmt::format("class {}(Score[{}])", name, name_);
-    constexpr auto flavor    = time_flavor<T>();
-
-    auto copy_func     = [](const self_t& self) { return std::make_shared<Score<T>>(*self); };
-    auto deepcopy_func = [](const self_t& self) {
-        return std::make_shared<Score<T>>(std::move(self->deepcopy()));
+inline void bind_score(nb::module_& module) {
+    using TrackValue = UnitValue<Track>;
+    auto type        = unit_class<ScoreValue>(
+        module,
+        "Score",
+        "Score(ticks_per_quarter=960, *, ttype=Tick)\n\nA musical score with tracks and global "
+        "events. Pass a file path to read MIDI or ABC."
+    );
+    const auto empty_score = [](i32 ticks_per_quarter, nb::handle marker) {
+        return with_unit(marker, [&](auto unit) {
+            return ScoreValue(std::make_shared<Score<decltype(unit)>>(ticks_per_quarter));
+        });
     };
-
-    // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), doc<T>())
-        .def("__init__", &pyinit<Score<T>, i32>, nb::arg("tpq"), kScoreTpqCtorDoc,
-             nb::sig("def __init__(self, tpq: int, /) -> None"))
-        .def("__init__", [](self_t* self, const self_t& other) {
-            new (self) self_t(std::make_shared<Score<T>>(other->deepcopy()));
-        }, nb::arg("other"), kScoreCopyCtorDoc,
-           nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str()))
-        .def("copy", [&](const self_t &self, const bool deep) {
-            if (deep) return deepcopy_func(self);
-            return copy_func(self);
-        }, nb::arg("deep") = true, nb::rv_policy::copy, kScoreCopyDoc,
-           nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str()))
-        .def("__copy__", copy_func, nb::rv_policy::copy,
-           nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
-        .def("__deepcopy__", [&](const self_t& self, const nb::handle, const nb::handle) {
-            return deepcopy_func(self);
-        }, nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move,
-           nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", name).c_str()))
-        .def("__repr__", [](const self_t& self) { return self->to_string(); },
-           nb::sig("def __repr__(self, /) -> str"))
-        .def("__eq__", [](const self_t& self, const self_t& other) { return self == other || *self == *other; },
-           nb::sig(fmt::format("def __eq__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__eq__", [](const self_t&, nb::handle) { return false; },
-           nb::sig("def __eq__(self, other: object, /) -> bool"))
-        .def("__ne__", [](const self_t& self, const self_t& other) { return self != other && *self != *other; },
-           nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
-        .def("__ne__", [](const self_t&, nb::handle) { return true; },
-           nb::sig("def __ne__(self, other: object, /) -> bool"))
-        .def("__getstate__", [](const self_t& self) {
-            const vec<u8> data = dumps<DataFormat::ZPP>(*self);
-            return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, nb::sig("def __getstate__(self, /) -> bytes"))
-        .def("__setstate__", [](self_t& self, const nb::bytes& bytes) {
-            const auto      data = std::string_view(bytes.c_str(), bytes.size());
-            const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-            auto ans = symusic::parse<symusic::DataFormat::ZPP, Score<T>>(span);
-            new (&self) self_t(std::make_shared<Score<T>>(std::move(ans)));
-        }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
-        .def("__init__", [](self_t* self, const std::filesystem::path& path) {
-            new (self) self_t(midi2score<T>(path));
-        }, nb::arg("path"), kScorePathCtorDoc,
-           nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
-        .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
-            const auto str  = std::string_view(data.c_str(), data.size());
-            const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
-            return std::make_shared<Score<T>>(parse<DataFormat::MIDI, Score<T>>(span, sanitize_data));
-        },
-            nb::arg("data"),
-            nb::arg("sanitize_data") = false,
+    type.def(
+            "__init__",
+            [empty_score](ScoreValue* self, i32 ticks_per_quarter, nb::handle marker) {
+                new (self) ScoreValue(empty_score(ticks_per_quarter, marker));
+            },
+            "ticks_per_quarter"_a = 960,
+            nb::kw_only(),
+            "ttype"_a = nb::type<Tick>(),
+            kScoreTpqCtorDoc
+    )
+        .def(
+            "__init__",
+            [](ScoreValue*                       self,
+               const std::filesystem::path&      path,
+               nb::handle                        marker,
+               const std::optional<std::string>& format,
+               bool                              sanitize_data,
+               nb::handle                        tune) {
+                new (self) ScoreValue(score_from_file(path, marker, format, sanitize_data, tune));
+            },
+            "path"_a,
+            nb::kw_only(),
+            "ttype"_a         = nb::type<Tick>(),
+            "format"_a        = nb::none(),
+            "sanitize_data"_a = false,
+            "tune"_a          = nb::none(),
+            kScorePathCtorDoc
+        )
+        .def_static(
+            "from_tpq",
+            empty_score,
+            "tpq"_a = 960,
+            nb::kw_only(),
+            "ttype"_a = nb::type<Tick>(),
+            kScoreTpqCtorDoc
+        )
+        .def_static(
+            "from_file",
+            &score_from_file,
+            "path"_a,
+            nb::kw_only(),
+            "ttype"_a         = nb::type<Tick>(),
+            "format"_a        = nb::none(),
+            "sanitize_data"_a = false,
+            "tune"_a          = nb::none(),
+            "Read a MIDI or ABC file."
+        )
+        .def_static(
+            "from_midi",
+            [](const nb::bytes& data, nb::handle marker, bool sanitize_data) {
+                return score_from_midi(bytes_span(data), marker, sanitize_data);
+            },
+            "data"_a,
+            nb::kw_only(),
+            "ttype"_a         = nb::type<Tick>(),
+            "sanitize_data"_a = false,
             kScoreFromMidiDoc
         )
-        .def("dump_midi", &dump_midi<T>, nb::arg("path"), kScoreDumpMidiDoc)
-        .def("dumps_midi", [](const self_t& self) {
-            auto data = self->template dumps<DataFormat::MIDI>();
-            return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
-        }, kScoreDumpsMidiDoc)
-        .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), kScoreGetBeatsDoc)
-        .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), kScoreGetDownbeatsDoc)
-        .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note, the MIDI resolution.")
-        .def_prop_rw(RW_COPY(i32, "tpq", ticks_per_quarter), "Alias of ``ticks_per_quarter``.")
-        .def_prop_rw(RW_COPY(shared<vec<shared<Track<T>>>>, "tracks", tracks), "The ``Track`` objects.")
-        .def_prop_rw(RW_COPY(shared<pyvec<TimeSignature<T>>>, "time_signatures", time_signatures), "The ``TimeSignature`` events.")
-        .def_prop_rw(RW_COPY(shared<pyvec<KeySignature<T>>>, "key_signatures", key_signatures), "The ``KeySignature`` events.")
-        .def_prop_rw(RW_COPY(shared<pyvec<Tempo<T>>>, "tempos", tempos), "The ``Tempo`` events.")
-        .def_prop_rw(RW_COPY(shared<pyvec<TextMeta<T>>>, "markers", markers), "The markers, as ``TextMeta`` events.")
-        .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.")
-        .def("__use_count", [](const self_t& self) { return self.use_count(); }, kScoreUseCountDoc)
-        .def("to", &convert_score<T>, nb::arg("ttype"), nb::arg("min_dur") = nb::none(), kScoreToDoc)
-        .def("resample", [](const self_t& self, const i32 tpq, const std::optional<unit> min_dur) {
-            const unit min_dur_ = min_dur.has_value() ? *min_dur : 0;
-            return std::make_shared<Score<Tick>>(resample(*self, tpq, min_dur_));
-        }, nb::arg("tpq"), nb::arg("min_dur") = nb::none(), nb::rv_policy::copy, kScoreResampleDoc)
-        .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
-            if (inplace) {
-                self->sort_inplace(reverse);
-                return self;
-            }   return std::make_shared<Score<T>>(self->sort(reverse));
-        }, nb::arg("reverse") = false, nb::arg("inplace") = true, kScoreSortDoc)
-        .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
-            if (inplace) {
-                self->clip_inplace(start, end, clip_end);
-                return self;
-            }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
-        }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, kScoreClipDoc)
-        .def("trim", [](const self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode) {
-            return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
-        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", kScoreTrimDoc,
-            nb::sig(fmt::format(
-                "def trim(self, start: {0}, end: {0}, min_overlap: {0} = {1}, "
-                "start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', "
-                "end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove') -> {2}",
-                flavor.scalar_label, std::is_same_v<T, Tick> ? "0" : "0.0", name
-            ).c_str()))
-        .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
-            if (inplace) {
-                self->shift_time_inplace(offset);
-                return self;
-            }   return std::make_shared<Score<T>>(self->shift_time(offset));
-        }, nb::arg("offset"), nb::arg("inplace") = false, kScoreShiftTimeDoc)
-        .def("shift_pitch", [](self_t& self, const i8 offset, const bool inplace) {
-            if (inplace) {
-                self->shift_pitch_inplace(offset);
-                return self;
-            }   return std::make_shared<Score<T>>(self->shift_pitch(offset));
-        }, nb::arg("offset"), nb::arg("inplace") = false, kScoreShiftPitchDoc)
-        .def("shift_velocity", [](self_t& self, const i8 offset, const bool inplace) {
-            if (inplace) {
-                self->shift_velocity_inplace(offset);
-                return self;
-            }   return std::make_shared<Score<T>>(self->shift_velocity(offset));
-        }, nb::arg("offset"), nb::arg("inplace") = false, kScoreShiftVelocityDoc)
-        .def("start", [](const self_t& self) { return self->start(); }, kScoreStartDoc)
-        .def("end", [](const self_t& self) { return self->end(); }, kScoreEndDoc)
-        .def("note_num", [](const self_t& self) { return self->note_num(); }, kScoreNoteNumDoc)
-        .def("empty", [](const self_t& self) { return self->empty(); }, kScoreEmptyDoc)
-        .def("adjust_time", [](self_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
-            if (inplace) {
-                ops::adjust_time_inplace(*self, original_times, new_times);
-                return self;
-            }   return std::make_shared<Score<T>>(ops::adjust_time(*self, original_times, new_times));
-        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, kScoreAdjustTimeDoc)
-    ;
-    // clang-format on
-
-    if constexpr (std::is_same_v<T, Tick>) {
-        score.def(
-            "pianoroll",
-            [](const shared<Score<Tick>>& self,
-               const vec<std::string>&    modes,
-               const std::pair<i64, i64>  pitch_range,
-               const bool                 encode_velocity) {
-                vec<PianorollMode> mode_enums(modes.size());
-                for (size_t i = 0; i < modes.size(); ++i) {
-                    mode_enums[i] = str_to_pianoroll_mode(modes[i]);
-                }
-                auto pianoroll = ScorePianoroll::from_score(
-                    *self, mode_enums, validate_pitch_range(pitch_range), encode_velocity
-                );
-                auto*       data = const_cast<u8*>(pianoroll.release());
-                nb::capsule owner(data, [](void* d) noexcept { delete[] static_cast<u8*>(d); });
-                return nb::ndarray<nb::numpy, pianoroll_t>{
-                    data,
-                    {std::get<0>(pianoroll.dims()),
-                     std::get<1>(pianoroll.dims()),
-                     std::get<2>(pianoroll.dims()),
-                     std::get<3>(pianoroll.dims())},
-                    owner
-                };
+        .def_static(
+            "from_abc",
+            [](const std::string& abc, nb::handle marker, nb::handle tune) {
+                return score_from_abc("read_abc", nb::cast(abc), marker, tune);
             },
-            nb::arg("modes")           = vec<std::string>{"frame", "onset"},
-            nb::arg("pitch_range")     = std::pair<i64, i64>(0, 128),
-            nb::arg("encode_velocity") = false,
-            kScorePianorollDoc
+            "abc"_a,
+            nb::kw_only(),
+            "ttype"_a = nb::type<Tick>(),
+            "tune"_a  = nb::none(),
+            "Read an ABC tune by its X: number, defaulting to the first tune."
+        )
+        .def_static(
+            "from_abc_file",
+            [](const std::filesystem::path& path, nb::handle marker, nb::handle tune) {
+                return score_from_abc("read_abc_file", nb::cast(path), marker, tune);
+            },
+            "path"_a,
+            nb::kw_only(),
+            "ttype"_a = nb::type<Tick>(),
+            "tune"_a  = nb::none(),
+            "Read an ABC file and select a tune by its X: number."
+        )
+        .def(
+            "dump_midi",
+            [](const ScoreValue& self, const std::filesystem::path& path) {
+                self.visit([&](const auto& ptr) { write_file(path, ptr->dump_midi_bytes()); });
+            },
+            "path"_a,
+            kScoreDumpMidiDoc
+        )
+        .def(
+            "dumps_midi",
+            [](const ScoreValue& self) {
+                return self.visit([](const auto& ptr) {
+                    return python_bytes(ptr->dump_midi_bytes());
+                });
+            },
+            kScoreDumpsMidiDoc
+        )
+        .def(
+            "dump_abc",
+            [](const ScoreValue& self, const std::filesystem::path& path, bool warn) {
+                self.visit([&](const auto& ptr) {
+                    abc_io("write_abc_file")(path, python_bytes(ptr->dump_midi_bytes()), warn);
+                });
+            },
+            "path"_a,
+            "warn"_a = false,
+            "Write ABC, optionally reporting converter diagnostics."
+        )
+        .def(
+            "dumps_abc",
+            [](const ScoreValue& self, bool warn) {
+                return self.visit([&](const auto& ptr) {
+                    return nb::cast<std::string>(
+                        abc_io("write_abc")(python_bytes(ptr->dump_midi_bytes()), warn)
+                    );
+                });
+            },
+            "warn"_a = false,
+            "Return ABC text, optionally reporting converter diagnostics."
+        )
+        .def(
+            "get_beats",
+            [](const ScoreValue& self, nb::handle start) {
+                return self.visit([&](const auto& ptr) -> nb::object {
+                    return nb::cast(
+                        to_numpy_array(ptr->get_beats(read_time<UnitOf<decltype(ptr)>>(start)))
+                    );
+                });
+            },
+            "start_time"_a = 0,
+            nb::sig("def get_beats(self, start_time: int | float = 0) -> numpy.ndarray"),
+            kScoreGetBeatsDoc
+        )
+        .def(
+            "get_downbeats",
+            [](const ScoreValue& self, nb::handle start) {
+                return self.visit([&](const auto& ptr) -> nb::object {
+                    return nb::cast(
+                        to_numpy_array(ptr->get_downbeats(read_time<UnitOf<decltype(ptr)>>(start)))
+                    );
+                });
+            },
+            "start_time"_a = 0,
+            nb::sig("def get_downbeats(self, start_time: int | float = 0) -> numpy.ndarray"),
+            kScoreGetDownbeatsDoc
+        )
+        .def(
+            "to",
+            [](const ScoreValue& self, nb::handle marker, nb::handle min_dur) {
+                return with_unit(marker, [&](auto unit) {
+                    using T = decltype(unit);
+                    const auto minimum
+                        = min_dur.is_none() ? typename T::unit{0} : read_time<T>(min_dur);
+                    return self.visit([&](const auto& ptr) {
+                        return ScoreValue(std::make_shared<Score<T>>(convert<T>(*ptr, minimum)));
+                    });
+                });
+            },
+            "ttype"_a,
+            "min_dur"_a = nb::none(),
+            nb::sig(
+                "def to(self, ttype: type[Tick] | type[Quarter] | type[Second], min_dur: int | "
+                "float | None = None) -> Score"
+            ),
+            kScoreToDoc
+        )
+        .def(
+            "resample",
+            [](const ScoreValue& self, i32 tpq, nb::handle min_dur) {
+                return self.visit([&](const auto& ptr) {
+                    using T = UnitOf<decltype(ptr)>;
+                    const auto minimum
+                        = min_dur.is_none() ?
+                              0 :
+                              detail::f64_to_i32(static_cast<f64>(read_time<T>(min_dur)));
+                    return ScoreValue(std::make_shared<Score<Tick>>(resample(*ptr, tpq, minimum)));
+                });
+            },
+            "tpq"_a,
+            "min_dur"_a = nb::none(),
+            kScoreResampleDoc
+        )
+        .def(
+            "trim",
+            [](const ScoreValue&  self,
+               nb::handle         start,
+               nb::handle         end,
+               nb::handle         min_overlap,
+               const std::string& start_mode,
+               const std::string& end_mode) {
+                return self.visit([&](const auto& ptr) {
+                    using T = UnitOf<decltype(ptr)>;
+                    return ScoreValue(
+                        std::make_shared<Score<T>>(ptr->trim(
+                            read_time<T>(start),
+                            read_time<T>(end),
+                            read_time<T>(min_overlap),
+                            start_mode,
+                            end_mode
+                        ))
+                    );
+                });
+            },
+            "start"_a,
+            "end"_a,
+            "min_overlap"_a = 0,
+            "start_mode"_a  = "remove",
+            "end_mode"_a    = "remove",
+            kScoreTrimDoc
         );
-    }
-    return score;
+
+    bind_object_ops(type, [](const auto& score) {
+        return std::make_shared<std::decay_t<decltype(score)>>(score.deepcopy());
+    });
+    bind_scalar_property(
+        type,
+        "ticks_per_quarter",
+        [](auto& score) -> auto& { return score.ticks_per_quarter; },
+        "Ticks per quarter note."
+    );
+    bind_list_property<TrackList, TrackValue>(
+        type, "tracks", [](auto& score) -> auto& { return score.tracks; }, "The tracks."
+    );
+    const auto bind_events = [&]<template<class> class E>(
+                                 const char* name, auto field, const char* doc
+                             ) {
+        bind_list_property<typename EventSequence<E>::Value, UnitValue<E>>(type, name, field, doc);
+    };
+    bind_events.template operator()<TimeSignature>(
+        "time_signatures",
+        [](auto& score) -> auto& { return score.time_signatures; },
+        "The time signatures."
+    );
+    bind_events.template operator()<KeySignature>(
+        "key_signatures",
+        [](auto& score) -> auto& { return score.key_signatures; },
+        "The key signatures."
+    );
+    bind_events.template operator()<Tempo>(
+        "tempos", [](auto& score) -> auto& { return score.tempos; }, "The tempo events."
+    );
+    bind_events.template operator()<TextMeta>(
+        "markers", [](auto& score) -> auto& { return score.markers; }, "The text markers."
+    );
+
+    bind_queries(type, kScoreStartDoc, kScoreEndDoc, kScoreNoteNumDoc, kScoreEmptyDoc);
+    bind_transformations(
+        type,
+        kScoreSortDoc,
+        kScoreClipDoc,
+        kScoreAdjustTimeDoc,
+        kScoreShiftTimeDoc,
+        kScoreShiftPitchDoc,
+        kScoreShiftVelocityDoc
+    );
+    bind_pianoroll<ScorePianoroll>(type, kScorePianorollDoc);
 }
 
 }   // namespace symusic::py

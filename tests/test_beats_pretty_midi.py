@@ -5,7 +5,7 @@ from operator import attrgetter
 
 import numpy as np
 import pytest
-from symusic import Note, Score, Tempo, TimeSignature, Track
+from symusic import Note, Quarter, Score, Second, Tempo, Tick, TimeSignature, Track
 
 from tests.utils import MIDI_PATHS_ALL
 
@@ -70,7 +70,7 @@ def _load_pretty_midi(path) -> pretty_midi.PrettyMIDI:
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 def test_beats_and_downbeats_match_pretty_midi_on_real_midis(midi_path):
     pm = _load_pretty_midi(midi_path)
-    score = Score(midi_path, ttype="second")
+    score = Score(midi_path, ttype=Second)
 
     _assert_times_match_pretty_midi(
         pm.get_beats(),
@@ -88,31 +88,31 @@ def test_beats_and_downbeats_match_pretty_midi_on_real_midis(midi_path):
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
 def test_beats_and_downbeats_are_consistent_across_ttypes_on_real_midis(midi_path):
-    score_tick = Score(midi_path, ttype="tick")
-    score_quarter = Score(midi_path, ttype="quarter")
-    score_second = Score(midi_path, ttype="second")
+    score_tick = Score(midi_path, ttype=Tick)
+    score_quarter = Score(midi_path, ttype=Quarter)
+    score_second = Score(midi_path, ttype=Second)
 
     np.testing.assert_allclose(
         score_quarter.get_beats(),
-        score_tick.to("quarter").get_beats(),
+        score_tick.to(Quarter).get_beats(),
         atol=1e-5,
         err_msg=f"{midi_path.name} quarter vs tick->quarter beats",
     )
     np.testing.assert_allclose(
         score_quarter.get_beats(),
-        score_second.to("quarter").get_beats(),
+        score_second.to(Quarter).get_beats(),
         atol=1e-5,
         err_msg=f"{midi_path.name} quarter vs second->quarter beats",
     )
     np.testing.assert_allclose(
         score_quarter.get_downbeats(),
-        score_tick.to("quarter").get_downbeats(),
+        score_tick.to(Quarter).get_downbeats(),
         atol=1e-5,
         err_msg=f"{midi_path.name} quarter vs tick->quarter downbeats",
     )
     np.testing.assert_allclose(
         score_quarter.get_downbeats(),
-        score_second.to("quarter").get_downbeats(),
+        score_second.to(Quarter).get_downbeats(),
         atol=1e-5,
         err_msg=f"{midi_path.name} quarter vs second->quarter downbeats",
     )
@@ -135,7 +135,7 @@ def test_mid_beat_tempo_change_preserves_remaining_beat_ratio_in_second_time():
     score.tempos.append(Tempo(int(8.8 * 480), 93))
     score.time_signatures.append(TimeSignature(0, 4, 4))
 
-    second_score = score.to("second")
+    second_score = score.to(Second)
     beats = second_score.get_beats()
     downbeats = second_score.get_downbeats()
 
@@ -162,12 +162,12 @@ def test_mid_beat_tempo_change_preserves_remaining_beat_ratio_in_second_time():
     np.testing.assert_allclose(downbeats[:5], expected_downbeats, atol=3e-6)
 
     np.testing.assert_allclose(
-        score.to("quarter").get_beats(),
-        second_score.to("quarter").get_beats(),
+        score.to(Quarter).get_beats(),
+        second_score.to(Quarter).get_beats(),
         atol=1e-5,
     )
     np.testing.assert_allclose(
-        score.to("quarter").get_downbeats(),
-        second_score.to("quarter").get_downbeats(),
+        score.to(Quarter).get_downbeats(),
+        second_score.to(Quarter).get_downbeats(),
         atol=1e-5,
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from symusic import Note, Score, Tempo, TimeSignature, Track
+from symusic import Note, Quarter, Score, Second, Tempo, TimeSignature, Track
 
 
 def make_tick_score(
@@ -36,7 +36,7 @@ def test_get_beats_and_downbeats_default_sentinels_tick():
 
 
 def test_get_beats_simple_meter_quarter():
-    score = make_tick_score(8, time_signatures=[(0, 4, 4)]).to("quarter")
+    score = make_tick_score(8, time_signatures=[(0, 4, 4)]).to(Quarter)
 
     beats = score.get_beats()
     downbeats = score.get_downbeats()
@@ -47,7 +47,7 @@ def test_get_beats_simple_meter_quarter():
 
 
 def test_get_beats_compound_meter_quarter():
-    score = make_tick_score(12, time_signatures=[(0, 6, 8)]).to("quarter")
+    score = make_tick_score(12, time_signatures=[(0, 6, 8)]).to(Quarter)
 
     beats = score.get_beats()
     downbeats = score.get_downbeats()
@@ -60,7 +60,7 @@ def test_get_beats_compound_meter_quarter():
 
 
 def test_get_downbeats_across_time_signature_changes():
-    score = make_tick_score(10, time_signatures=[(0, 4, 4), (4, 3, 4)]).to("quarter")
+    score = make_tick_score(10, time_signatures=[(0, 4, 4), (4, 3, 4)]).to(Quarter)
 
     beats = score.get_beats()
     downbeats = score.get_downbeats()
@@ -87,7 +87,7 @@ def test_get_beats_and_downbeats_in_second_time():
         8,
         tempos=[(0, 120), (4, 60)],
         time_signatures=[(0, 4, 4)],
-    ).to("second")
+    ).to(Second)
 
     beats = score.get_beats()
     downbeats = score.get_downbeats()

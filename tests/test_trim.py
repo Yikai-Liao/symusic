@@ -1,20 +1,19 @@
 import pytest
-from symusic import Note, Pedal, Score, Tempo, Track
-from symusic.core import NoteQuarterList
+from symusic import Note, NoteList, Pedal, Quarter, Score, Second, Tempo, Tick, Track
 
 
 def test_trim_notes():
     track = Track(
         notes=[
-            Note(time=0, duration=1, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=0, duration=3, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=1, duration=1, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=1, duration=2, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=2.91, duration=1.11, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=2, duration=3, pitch=72, velocity=100, ttype="Quarter"),
-            Note(time=4, duration=1, pitch=72, velocity=100, ttype="Quarter"),
+            Note(time=0, duration=1, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=0, duration=3, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=1, duration=1, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=1, duration=2, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=2.91, duration=1.11, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=2, duration=3, pitch=72, velocity=100, ttype=Quarter),
+            Note(time=4, duration=1, pitch=72, velocity=100, ttype=Quarter),
         ],
-        ttype="Quarter",
+        ttype=Quarter,
     )
 
     track = track.trim(
@@ -24,13 +23,14 @@ def test_trim_notes():
         start_mode="retain",
         end_mode="truncate",
     )
-    trimmed = NoteQuarterList(
+    trimmed = NoteList(
         [
-            Note(0.00, 3.00, 72, 100, "Quarter"),
-            Note(1.00, 1.00, 72, 100, "Quarter"),
-            Note(1.00, 2.00, 72, 100, "Quarter"),
-            Note(2.00, 1.00, 72, 100, "Quarter"),
+            Note(0.00, 3.00, 72, 100, ttype=Quarter),
+            Note(1.00, 1.00, 72, 100, ttype=Quarter),
+            Note(1.00, 2.00, 72, 100, ttype=Quarter),
+            Note(2.00, 1.00, 72, 100, ttype=Quarter),
         ],
+        ttype=Quarter,
     )
     assert track.notes == trimmed
 
@@ -41,13 +41,13 @@ def test_track_rejects_unknown_trim_mode(boundary, inplace):
     track = Track(notes=[Note(1, 2, 60, 80)])
     with pytest.raises(ValueError, match=rf"{boundary}.*unknown"):
         track.trim(2, 4, inplace=inplace, **{boundary: "unknown"})
-    assert track.notes[0].start == 1
+    assert track.notes[0].time == 1
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_score_trim(ttype):
     score = Score(480, ttype=ttype)
-    track = Track(notes=[Note(1, 5, 60, 80, ttype)], ttype=ttype)
+    track = Track(notes=[Note(1, 5, 60, 80, ttype=ttype)], ttype=ttype)
     score.tracks.append(track)
     score.tempos.append(Tempo(0, 120, ttype=ttype))
 
@@ -61,12 +61,12 @@ def test_score_trim(ttype):
     assert score.tempos[0].time == 0
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("mode", ["truncate", "retain"])
 def test_score_trim_checks_window_overlap(ttype, mode):
     score = Score(480, ttype=ttype)
-    track = Track(notes=[Note(0, 100, 60, 80, ttype)], ttype=ttype)
-    track.pedals.append(Pedal(0, 100, ttype))
+    track = Track(notes=[Note(0, 100, 60, 80, ttype=ttype)], ttype=ttype)
+    track.pedals.append(Pedal(0, 100, ttype=ttype))
     score.tracks.append(track)
 
     trimmed = score.trim(10, 12, 3, start_mode=mode, end_mode=mode)
@@ -91,7 +91,7 @@ def test_score_trim_checks_contained_note_duration():
     assert [note.pitch for note in trimmed.tracks[0].notes] == [61]
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_score_trim_rejects_inplace(ttype):
     with pytest.raises(TypeError, match="incompatible function arguments"):
         Score(480, ttype=ttype).trim(0, 1, inplace=True)
@@ -102,7 +102,7 @@ def test_empty_score_rejects_unknown_trim_mode():
         Score(480).trim(0, 1, end_mode="unknown")
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("has_track", [False, True])
 def test_score_trim_rejects_reversed_bounds(ttype, has_track):
     score = Score(ttype=ttype)
@@ -112,7 +112,7 @@ def test_score_trim_rejects_reversed_bounds(ttype, has_track):
         score.trim(4, 2)
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 @pytest.mark.parametrize("bounds", [(float("nan"), 2), (0, float("nan"))])
 def test_score_trim_rejects_nan_bounds(ttype, bounds):
     with pytest.raises(ValueError, match="start <= end"):

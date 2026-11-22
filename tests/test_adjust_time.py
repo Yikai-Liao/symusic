@@ -4,7 +4,7 @@ from operator import attrgetter
 from typing import TYPE_CHECKING
 
 import pytest
-from symusic import Note, Score, Track
+from symusic import Note, Quarter, Score, Second, Tick, Track
 
 from tests.utils import MIDI_PATHS_ALL
 
@@ -87,14 +87,14 @@ def test_score_adjust_time_rejects_invalid_anchors(
         score.adjust_time(times_og, times_new, inplace=inplace)
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("inplace", [False, True])
 def test_repeated_original_anchor(ttype, inplace):
     score = Score(480, ttype=ttype)
-    score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype)], ttype=ttype))
+    score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype=ttype)], ttype=ttype))
     with pytest.raises(ValueError, match="original_times must be strictly increasing"):
         score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
-    assert score.tracks[0].notes[0].start == 2
+    assert score.tracks[0].notes[0].time == 2
 
 
 def test_adjust_time_checks_both_note_endpoints():
