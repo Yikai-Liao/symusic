@@ -37,7 +37,7 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Synthesis
 
-- **`ImportError` from `Synthesizer`.** Install the optional runtime with `pip install "symusic[fluidsynth]"`.
+- **FluidSynth load error from `Synthesizer`.** Check the reported library path under `symusic/_vendor/fluidsynth/`. Reinstall symusic if the bundled runtime is missing or damaged.
 - **`FileNotFoundError` from `Synthesizer`.** Check that the local SoundFont file exists.
 - **`ConnectionError` from `Soundfont.download()`.** The download failed or did not match its expected digest. See [SoundFonts](synthesis.md#soundfonts).
 - **The rendered audio clips or sounds dry.** Samples are not normalized, and pedals and control changes are not rendered; see [synthesis.md](synthesis.md).

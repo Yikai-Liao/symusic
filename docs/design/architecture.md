@@ -55,12 +55,12 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 |---|---|
 | MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
-| ABC read/write | `symusic._abc` runs the bundled `abc2midi` and `midi2abc` with one temporary directory per call and captures their diagnostics. The Python score methods exchange MIDI bytes with the binding. Recovered imports must produce complete MIDI before the converter's messages become warnings |
+| ABC read/write | `symusic._abc` runs the bundled `abc2midi` and `midi2abc` from `symusic/_vendor/abcmidi/` with one temporary directory per call and captures their diagnostics. The Python score methods exchange MIDI bytes with the binding. Recovered imports must produce complete MIDI before the converter's messages become warnings |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
 | Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
 | Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |
-| Synthesis | The core dynamically loads FluidSynth from the companion package and renders a `Score<Second>` into symusic-owned interleaved samples (`src/synth.cpp`). `symusic.soundfont` downloads SoundFonts explicitly. |
+| Synthesis | The core dynamically loads FluidSynth from `symusic/_vendor/fluidsynth/` and renders a `Score<Second>` into symusic-owned interleaved samples (`src/synth.cpp`). `symusic.soundfont` downloads SoundFonts explicitly. |
 
 ## Python typing
 

@@ -1,6 +1,6 @@
 # Files: MIDI, ABC and pickle
 
-symusic reads and writes Standard MIDI Files natively, converts ABC notation through the bundled `abc2midi` and `midi2abc` programs, and pickles any of its objects. The objects themselves are described in [data_model.md](data_model.md).
+symusic reads and writes Standard MIDI Files natively, converts ABC notation through `abc2midi` and `midi2abc`, bundled in `symusic/_vendor/abcmidi/`, and pickles any of its objects. The objects themselves are described in [data_model.md](data_model.md).
 
 ## Loading
 

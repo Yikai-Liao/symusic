@@ -1,6 +1,6 @@
 # SoundFont synthesis
 
-Install the offline FluidSynth runtime with `pip install "symusic[fluidsynth]"`. Pass a local SF2 or SF3 SoundFont path to `Synthesizer` and a score in any time unit to `render`.
+The symusic wheel includes the offline FluidSynth runtime in `symusic/_vendor/fluidsynth/`. Pass a local SF2 or SF3 SoundFont path to `Synthesizer` and a score in any time unit to `render`.
 
 <!-- docs-test: skip, requires the optional runtime and a local SoundFont -->
 ```python

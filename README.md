@@ -80,7 +80,7 @@ symusic was presented as an [ISMIR 2024 late-breaking demo](https://ismir2024pro
 ## Acknowledgements
 
 - [minimidi](https://github.com/lzqlzzq/minimidi): fast, lightweight MIDI parsing, the foundation of this project.
-- [FluidSynth](https://github.com/FluidSynth/fluidsynth): SoundFont synthesis via the optional companion package.
+- [FluidSynth](https://github.com/FluidSynth/fluidsynth): Bundled offline SoundFont synthesis.
 - [nanobind](https://github.com/wjakob/nanobind): C++/Python binding.
 - [zpp_bits](https://github.com/eyalz800/zpp_bits): serialization for pickling.
 - [abcmidi](https://github.com/sshlien/abcmidi): ABC conversion.
