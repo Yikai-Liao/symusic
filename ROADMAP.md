@@ -72,7 +72,6 @@ Found while checking the guide against the package. Each fix needs a test that f
 
 - **Lyrics on a separate track.** MIDI import files a lyric under `meta.channel()` (`src/io/midi.cpp`), which is 15 for every meta event, so lyrics land in a track of their own instead of the track with the notes, and a written track with notes and lyrics reads back as two tracks. Decide where lyrics belong (the MIDI track's first note channel, or a per-MIDI-track lyric list) and keep the round trip stable.
 - **`Score.trim`.** `trim` is bound for tracks only; the C++ score overload has no binding.
-- **`Note.ent_time`.** A misspelled duplicate of `end()` is bound in `py_src/bindings/events/event_bindings.h`. Deprecate and remove it.
 - **`to()` in the stubs.** `Score.to`, `Track.to` and the event `to` return `object` in `core.pyi`; type them by the target unit.
 - **ABC output.** `dumps_abc` prints "calling midi2abc" to stdout, and the `T:` line of the result names the temporary MIDI file. Silence the message and write the score's title, or none.
 - **SoundFont download error.** The `ConnectionError` raised by `Soundfont.download` formats the bound method `self.path` instead of the file path.

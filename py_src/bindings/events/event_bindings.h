@@ -372,7 +372,6 @@ auto bind_note(nb::module_& m, const std::string& name_) {
             [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time);},
             event_docstrings::kEndDoc)
         .def("empty", [](const self_t& self) { return self->empty(); }, event_docstrings::kNoteEmptyDoc)
-        .def("ent_time", [](const self_t& self) { return self->end(); }, "Return ``end``. Misspelled; use ``end``.")
         .def(
             "shift_pitch",
             [](self_t& self, const int8_t offset, const bool inplace) {
