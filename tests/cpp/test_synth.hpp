@@ -8,6 +8,11 @@
 
 #include "symusic/synth.h"
 
+TEST_CASE("An empty AudioBuffer has zero frames", "[symusic][synth]") {
+    const auto audio = symusic::AudioBuffer{};
+    CHECK(audio.frames() == 0);
+}
+
 TEST_CASE("Synthesizer validates settings before opening the runtime", "[symusic][synth]") {
     using symusic::Synthesizer;
     CHECK_THROWS_AS(Synthesizer({}, {}, {.sample_rate = 0}), std::invalid_argument);
