@@ -10,15 +10,9 @@ _Score = TypeVar("_Score")
 
 
 def read_abc(
-    text: str, tune: int | None, parse_midi: Callable[[bytes], _Score]
+    data: bytes, tune: int | None, parse_midi: Callable[[bytes], _Score]
 ) -> _Score:
-    return _abc.parse_abc(text.encode("utf-8"), tune, parse_midi)
-
-
-def read_abc_file(
-    path: Path, tune: int | None, parse_midi: Callable[[bytes], _Score]
-) -> _Score:
-    return _abc.parse_abc(path.read_bytes(), tune, parse_midi)
+    return _abc.parse_abc(data, tune, parse_midi)
 
 
 def write_abc(midi: bytes, warn: bool) -> str:

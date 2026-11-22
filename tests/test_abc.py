@@ -539,3 +539,22 @@ def test_converter_layout():
         f"midi2abc{suffix}",
         "LICENSE.txt",
     }
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires a POSIX FIFO")
+def test_abc_file_rejects_named_pipe(tmp_path):
+    path = tmp_path / "input.abc"
+    os.mkfifo(path)
+    program = """
+import sys
+from symusic import Score
+
+for read in (Score, Score.from_file, Score.from_abc_file):
+    try:
+        read(sys.argv[1])
+    except RuntimeError as error:
+        assert "Cannot seek" in str(error)
+    else:
+        raise AssertionError("ABC reader accepted a named pipe")
+"""
+    subprocess.run([sys.executable, "-c", program, str(path)], check=True, timeout=5)

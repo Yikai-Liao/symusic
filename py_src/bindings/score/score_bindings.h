@@ -99,12 +99,19 @@ inline nb::object abc_io(const char* name) {
 }
 
 inline ScoreValue score_from_abc(
-    const char* function, nb::handle input, nb::handle marker, nb::handle tune
+    const nb::bytes& input, nb::handle marker, nb::handle tune
 ) {
     const auto parse_midi = nb::cpp_function([marker = nb::borrow(marker)](const nb::bytes& data) {
         return score_from_midi(bytes_span(data), marker, false);
     });
-    return nb::cast<ScoreValue>(abc_io(function)(input, tune, parse_midi));
+    return nb::cast<ScoreValue>(abc_io("read_abc")(input, tune, parse_midi));
+}
+
+inline ScoreValue score_from_abc_file(
+    const std::filesystem::path& path, nb::handle marker, nb::handle tune
+) {
+    const auto data = read_score_file(path);
+    return score_from_abc(nb::bytes(data.data(), data.size()), marker, tune);
 }
 
 inline ScoreValue score_from_file(
@@ -120,7 +127,7 @@ inline ScoreValue score_from_file(
     }
     if (sanitize_data)
         throw std::invalid_argument("sanitize_data is only supported for MIDI input");
-    return score_from_abc("read_abc_file", nb::cast(path), marker, tune);
+    return score_from_abc_file(path, marker, tune);
 }
 
 inline void bind_score(nb::module_& module) {
@@ -197,7 +204,7 @@ inline void bind_score(nb::module_& module) {
         .def_static(
             "from_abc",
             [](const std::string& abc, nb::handle marker, nb::handle tune) {
-                return score_from_abc("read_abc", nb::cast(abc), marker, tune);
+                return score_from_abc(nb::bytes(abc.data(), abc.size()), marker, tune);
             },
             "abc"_a,
             nb::kw_only(),
@@ -208,7 +215,7 @@ inline void bind_score(nb::module_& module) {
         .def_static(
             "from_abc_file",
             [](const std::filesystem::path& path, nb::handle marker, nb::handle tune) {
-                return score_from_abc("read_abc_file", nb::cast(path), marker, tune);
+                return score_from_abc_file(path, marker, tune);
             },
             "path"_a,
             nb::kw_only(),
