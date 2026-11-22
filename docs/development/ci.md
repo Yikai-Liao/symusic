@@ -14,7 +14,7 @@ CI runs on GitHub Actions. Every pull request reports an aggregate check, `ci-ok
 | `cross-validation.yml` | Manual Wheels run with `cross_validation` enabled | Experimental xclang builds on Linux, executed on native target runners |
 | `cross-wheels.yml` | Manual Wheels run with `cross_wheels` enabled | Experimental abi3 wheels built on Linux and installed on target runners |
 
-cibuildwheel reads its configuration from `[tool.cibuildwheel]` in `pyproject.toml`; the workflow picks the runner, architecture and libc.
+cibuildwheel reads its configuration from `[tool.cibuildwheel]` in `pyproject.toml`; the workflow picks the runner, architecture and libc. The cibuildwheel test commands run the runtime suite. The CI Python lane runs the typing tests.
 
 ## Lanes
 
