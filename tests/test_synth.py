@@ -229,6 +229,17 @@ def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
     assert np.abs(audio).max() > 0
 
 
+@pytest.mark.parametrize(("duration", "velocity"), [(0, 100), (0.5, 0)])
+def test_invalid_silent_note_time(synth, score, duration, velocity):
+    seconds = score.to("second")
+    note = seconds.tracks[0].notes[0]
+    note.time = -0.25
+    note.duration = duration
+    note.velocity = velocity
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        synth.render(seconds)
+
+
 def test_empty_score_and_zero_tail(soundfont: Path) -> None:
     audio = Synthesizer(soundfont, tail_seconds=0).render(Score(), stereo=False)
     assert audio.shape == (0, 1)

@@ -136,10 +136,14 @@ size_t frame_count(double frames) {
     return static_cast<size_t>(frames);
 }
 
-size_t event_frame(double time, int sample_rate, int block_size) {
+void validate_event_time(double time) {
     if (!std::isfinite(time) || time < 0) {
         throw std::invalid_argument("Audio render times must be finite and nonnegative");
     }
+}
+
+size_t event_frame(double time, int sample_rate, int block_size) {
+    validate_event_time(time);
     return frame_count(std::ceil(time * sample_rate / block_size) * block_size);
 }
 
@@ -181,7 +185,10 @@ void schedule_track(
         if (!std::isfinite(note.duration) || note.duration < 0) {
             throw std::invalid_argument("Note duration must be finite and nonnegative");
         }
-        if (note.duration == 0 || note.velocity == 0) { continue; }
+        if (note.duration == 0 || note.velocity == 0) {
+            validate_event_time(note.time);
+            continue;
+        }
         const size_t note_id = events.size() + 1;
         add(note.time, EventKind::NoteOn, note.pitch, note.velocity, note_id);
         const size_t first_off_frame = events.back().frame + static_cast<size_t>(block_size);
