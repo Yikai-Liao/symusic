@@ -1,6 +1,8 @@
 #pragma once
 
+#include <new>
 #include <optional>
+#include <stdexcept>
 
 #include "symusic/detail/event_fields.h"
 #include "symusic/soa.h"
@@ -53,6 +55,65 @@ auto event_input(const Input& value) {
     else
         return value;
 }
+
+// A native descriptor already checks the receiver type. Check nanobind's
+// construction state before accessing its C++ value.
+template<size_t I>
+struct NoteTimeField {
+    using Value = UnitValue<Note>;
+
+    static PyObject* get(PyObject* self, void*) noexcept {
+        const auto* note = ready_note(self);
+        if (!note) return nullptr;
+        return note->visit([](const auto& ptr) {
+            using T          = UnitOf<decltype(ptr)>;
+            const auto value = (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second;
+            if constexpr (std::same_as<T, Tick>)
+                return PyLong_FromLong(value);
+            else
+                return PyFloat_FromDouble(value);
+        });
+    }
+
+    static int set(PyObject* self, PyObject* value, void*) noexcept {
+        const auto* note = ready_note(self);
+        if (!note) return -1;
+        if (!value) {
+            PyErr_SetString(PyExc_AttributeError, "Cannot delete a note time field");
+            return -1;
+        }
+        try {
+            note->visit([&](const auto& ptr) {
+                using T                                                   = UnitOf<decltype(ptr)>;
+                (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second = read_time<T>(value);
+            });
+            return 0;
+        } catch (nb::python_error& error) {
+            error.restore();
+        } catch (const nb::builtin_exception& error) {
+            PyErr_SetString(PyExc_TypeError, error.what());
+        } catch (const std::overflow_error& error) {
+            PyErr_SetString(PyExc_OverflowError, error.what());
+        } catch (const std::bad_alloc&) { PyErr_NoMemory(); }
+        return -1;
+    }
+
+private:
+    static const Value* ready_note(PyObject* self) noexcept {
+        if (nb::inst_ready(self)) return nb::inst_ptr<Value>(self);
+        PyErr_SetString(PyExc_TypeError, "Note is not initialized");
+        return nullptr;
+    }
+};
+
+template<size_t I>
+constexpr PyGetSetDef note_time_field{
+    std::get<I>(detail::event_fields<Note<Tick>>).first,
+    NoteTimeField<I>::get,
+    NoteTimeField<I>::set,
+    nullptr,
+    nullptr,
+};
 
 template<template<class> class Event, size_t I>
 void bind_event_field(
@@ -147,13 +208,28 @@ auto bind_event(
 ) {
     using Value     = UnitValue<Event>;
     using List      = typename EventSequence<Event>::Value;
-    auto       type = unit_class<Value>(module, name, doc);
+    auto type       = [&] {
+        if constexpr (std::same_as<Event<Tick>, Note<Tick>>) {
+            // The descriptors retain these definitions for the lifetime of the class.
+            static PyGetSetDef fields[] = {note_time_field<0>, note_time_field<1>, {}};
+            PyType_Slot        slots[]  = {{Py_tp_getset, fields}, {0, nullptr}};
+            return unit_class<Value>(module, name, doc, nullptr, nb::type_slots(slots));
+        } else {
+            return unit_class<Value>(module, name, doc);
+        }
+    }();
     const auto list_doc
         = std::string(list_name)
           + "(items=None, *, ttype=Tick)\n\nA mutable list of events in one time unit.";
     const auto base = std::string("collections.abc.MutableSequence[") + name + "[_Unit]]";
     auto       list = unit_class<List>(module, list_name, list_doc.c_str(), base.c_str());
-    (bind_event_field<Event, I>(type), ...);
+    (
+        [&] {
+            if constexpr (!std::same_as<Event<Tick>, Note<Tick>> || !time_field<Event<Tick>, I>)
+                bind_event_field<Event, I>(type);
+        }(),
+        ...
+    );
     type.attr("__match_args__")
         = nb::make_tuple(std::get<I>(detail::event_fields<Event<Tick>>).first...);
     bind_init(type);
