@@ -62,7 +62,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         fs::path non_existent_file = temp_dir / "non_existent_file.bin";
 
         // Check that an exception is thrown
-        REQUIRE_THROWS_AS(read_file(non_existent_file), std::runtime_error);
+        REQUIRE_THROWS_AS(read_file(non_existent_file), fs::filesystem_error);
     }
 
     SECTION("Read score files") {
