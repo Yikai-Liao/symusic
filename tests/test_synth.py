@@ -365,3 +365,12 @@ def test_render_rejects_negative_duration(synth, score, unit):
         ValueError, match="Note duration must be finite and nonnegative"
     ):
         synth.render(score)
+
+
+def test_second_duration_validation_follows_scheduler_order(synth, score):
+    seconds = score.to("second")
+    note = seconds.tracks[0].notes[0]
+    note.pitch = -1
+    note.duration = -1
+    with pytest.raises(ValueError, match="MIDI data must be in the range 0 to 127"):
+        synth.render(seconds)
