@@ -19,10 +19,10 @@ void bind_note_family_types(nb::module_& m) {
         m,
         "KeySignature",
         "KeySignatureList",
-        "KeySignature(time, key, tonality, *, ttype=Tick)\n\nA key signature change.",
+        "KeySignature(time, key, minor, *, ttype=Tick)\n\nA key signature change.",
         "time"_a,
         "key"_a,
-        "tonality"_a
+        "minor"_a
     );
     bind_event<TimeSignature>(
         m,

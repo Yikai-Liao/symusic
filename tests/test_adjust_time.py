@@ -64,8 +64,8 @@ def test_adjust_time(test_case: tuple[list[Note], list[int], list[int], list[Not
     notes_og, times_og, times_new, notes_expected = test_case
     midi = Score()
     midi.tracks.append(Track(notes=notes_og))
-    midi_adjusted = midi.adjust_time(times_og, times_new)
-    assert midi_adjusted.tracks[0].notes == notes_expected
+    assert midi.adjust_time(times_og, times_new) is None
+    assert midi.tracks[0].notes == notes_expected
 
 
 @pytest.mark.parametrize("midi_path", MIDI_PATHS_ALL, ids=attrgetter("name"))
@@ -78,56 +78,58 @@ def test_adjust_time_midi(midi_path: Path, times: tuple[list[int], list[int]]):
     _ = midi.adjust_time(times_og, times_new)
 
 
-@pytest.mark.parametrize("inplace", [False, True])
 @pytest.mark.parametrize(
-    ("times_og", "times_new"),
-    [([0, 10], [0]), ([0], [0]), ([10, 0], [0, 5]), ([0, 10], [5, 0])],
+    ("times_og", "times_new", "message"),
+    [
+        ([0, 10], [0], "should have the same size"),
+        ([0], [0], "should have at least 2 elements"),
+        ([10, 0], [0, 5], "original_times must be strictly increasing, got 10, 0"),
+        ([0, 10], [5, 0], "new_times should be sorted, got 5, 0"),
+    ],
     ids=["unequal-size", "one-anchor", "unsorted-original", "unsorted-new"],
 )
 def test_score_adjust_time_rejects_invalid_anchors(
-    times_og: list[int], times_new: list[int], inplace: bool
+    times_og: list[int], times_new: list[int], message: str
 ):
-    """Copy and in-place adjust_time validate the anchors the same way."""
     score = Score()
     score.tracks.append(Track(notes=NOTES_OG))
-    with pytest.raises(ValueError, match="adjust_time"):
-        score.adjust_time(times_og, times_new, inplace=inplace)
+    with pytest.raises(ValueError, match=message):
+        score.adjust_time(times_og, times_new)
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_repeated_original_anchor(ttype, inplace):
-    score = Score(480, ttype=ttype)
+def test_repeated_original_anchor(ttype):
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype=ttype)], ttype=ttype))
     with pytest.raises(
         ValueError, match=r"original_times must be strictly increasing, got 1, 1\b"
     ):
-        score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
+        score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4])
     assert score.tracks[0].notes[0].time == 2
 
 
 def test_repeated_new_anchor():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tracks.append(Track(notes=[Note(1, 1, 60, 80)]))
-    adjusted = score.adjust_time([0, 1, 2, 3], [0, 1, 1, 3])
-    assert [(note.time, note.duration) for note in adjusted.tracks[0].notes] == [(1, 0)]
+    score.adjust_time([0, 1, 2, 3], [0, 1, 1, 3])
+    assert [(note.time, note.duration) for note in score.tracks[0].notes] == [(1, 0)]
 
 
 def test_adjust_time_checks_both_note_endpoints():
-    score = Score(480)
-    score.tracks.append(Track(notes=[Note(2, -10, 60, 80)]))
-    adjusted = score.adjust_time([0, 4], [0, 8])
-    assert not adjusted.tracks[0].notes
+    score = Score(ticks_per_quarter=480)
+    score.tracks.append(Track(notes=[Note(2, 10, 60, 80)]))
+    score.adjust_time([0, 4], [0, 8])
+    assert not score.tracks[0].notes
 
 
 def test_adjust_time_wide_tick_span_in_range():
     int32_min = -(2**31)
     int32_max = 2**31 - 1
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tracks.append(Track(notes=[Note(6, 0, 60, 80)]))
-    adjusted = score.adjust_time([0, 10], [int32_min, int32_max])
+    score.adjust_time([0, 10], [int32_min, int32_max])
     expected = int32_min + int(((int32_max - int32_min) / 10.0) * 6.0)
-    assert adjusted.tracks[0].notes[0].time == expected
+    assert score.tracks[0].notes[0].time == expected
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
@@ -143,16 +145,30 @@ def test_adjust_time_wide_tick_span_in_range():
 def test_adjust_time_rejects_non_finite_anchors(
     ttype, times_og, times_new, parameter, value
 ):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     with pytest.raises(ValueError, match=rf"{parameter} must be finite, got {value}\b"):
         score.adjust_time(times_og, times_new)
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_adjust_time_empty_tracks(ttype, inplace):
-    tracks = Score(480, ttype=ttype).tracks
+def test_adjust_time_empty_tracks(ttype):
+    tracks = Score(ticks_per_quarter=480, ttype=ttype).tracks
     with pytest.raises(ValueError, match=r"new_times must be finite, got inf\b"):
-        tracks.adjust_time([0, 1], [0, float("inf")], inplace=inplace)
-    assert not tracks.adjust_time([0, 1], [0, 2], inplace=inplace)
+        tracks.adjust_time([0, 1], [0, float("inf")])
+    assert tracks.adjust_time([0, 1], [0, 2]) is None
     assert not tracks
+
+
+def test_adjust_time_overflow_leaves_other_tracks_unchanged():
+    score = Score()
+    score.tracks.extend(
+        [
+            Track(notes=[Note(0, 0, 60)]),
+            Track(notes=[Note(0, 1, 61)]),
+        ]
+    )
+    first = score.tracks[0].notes[0]
+    with pytest.raises(OverflowError):
+        score.adjust_time([0, 1], [-(2**31), 2**31 - 1])
+    assert first.time == 0
+    assert score.tracks[1].notes[0].duration == 1

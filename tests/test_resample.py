@@ -14,9 +14,9 @@ from symusic import (
 )
 
 
-def make_score(tpq, notes, ttype=Tick):
-    score = Score(tpq, ttype=ttype)
-    score.tempos.append(Tempo(0, mspq=500000, ttype=ttype))
+def make_score(ticks_per_quarter, notes, ttype=Tick):
+    score = Score(ticks_per_quarter=ticks_per_quarter, ttype=ttype)
+    score.tempos.append(Tempo(0, microseconds_per_quarter=500000, ttype=ttype))
     score.time_signatures.append(TimeSignature(0, 4, 4, ttype=ttype))
     track = Track("Piano", 3, False, ttype=ttype)
     for time, duration in notes:
@@ -59,12 +59,12 @@ def test_resample_downsample_rounds_half_up():
 
 
 def test_resample_downsample_min_dur():
-    # Durations that round to zero are raised to `min_dur`; times are untouched by it.
+    # Durations that round to zero are raised to `min_duration`; times are untouched by it.
     notes = [(100, 1), (480, 3)]
     assert note_times(make_score(480, notes).resample(100)) == [(21, 0), (100, 1)]
-    out = make_score(480, notes).resample(100, min_dur=1)
+    out = make_score(480, notes).resample(100, min_duration=1)
     assert note_times(out) == [(21, 1), (100, 1)]
-    out = make_score(480, notes).resample(100, min_dur=5)
+    out = make_score(480, notes).resample(100, min_duration=5)
     assert note_times(out) == [(21, 5), (100, 5)]
 
 
@@ -77,12 +77,12 @@ def test_resample_keeps_source():
 
 def test_resample_other_events():
     score = make_score(4, [])
-    score.tempos.append(Tempo(1, mspq=400000))
+    score.tempos.append(Tempo(1, microseconds_per_quarter=400000))
     score.tracks[0].controls.append(ControlChange(3, 7, 100, ttype=Tick))
     out = score.resample(6)
     assert [t.time for t in out.tempos] == [0, 2]
     assert [c.time for c in out.tracks[0].controls] == [5]
-    assert out.tempos[1].mspq == 400000
+    assert out.tempos[1].microseconds_per_quarter == 400000
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
@@ -95,21 +95,21 @@ def test_resample_other_units_returns_ticks(ttype):
     assert note_times(out) == [(960, 1920)]
 
 
-@pytest.mark.parametrize("tpq", [0, -480])
-def test_resample_rejects_tpq(tpq):
+@pytest.mark.parametrize("ticks_per_quarter", [0, -480])
+def test_resample_rejects_tpq(ticks_per_quarter):
     with pytest.raises(ValueError, match="ticks_per_quarter"):
-        make_score(480, [(0, 1)]).resample(tpq)
+        make_score(480, [(0, 1)]).resample(ticks_per_quarter)
 
 
 def test_resample_rejects_negative_min_dur():
-    with pytest.raises(ValueError, match="min_dur"):
-        make_score(480, [(0, 1)]).resample(960, min_dur=-1)
+    with pytest.raises(ValueError, match="min_duration"):
+        make_score(480, [(0, 1)]).resample(960, min_duration=-1)
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
-def test_resample_min_dur_uses_target_ticks(ttype):
+def test_resample_min_duration_uses_target_ticks(ttype):
     score = make_score(480, [(0.0, 0.0001)], ttype)
-    out = score.resample(100, min_dur=5)
+    out = score.resample(100, min_duration=5)
     assert note_times(out) == [(0, 5)]
     with pytest.raises(TypeError):
-        score.resample(100, min_dur=0.5)
+        score.resample(100, min_duration=0.5)

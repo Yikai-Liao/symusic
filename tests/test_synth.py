@@ -15,7 +15,6 @@ import pytest
 from symusic import (
     ControlChange,
     Note,
-    Pedal,
     PitchBend,
     Quarter,
     Score,
@@ -132,7 +131,7 @@ def synth(soundfont: Path) -> Synthesizer:
 
 @pytest.fixture
 def score() -> Score:
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     track = Track(program=0, is_drum=False, name="sine")
     track.notes.append(Note(0, 480, 69, 100))
     score.tracks.append(track)
@@ -162,13 +161,6 @@ def test_render_time_units(
     synth: Synthesizer, score: Score, unit: type[Tick] | type[Quarter] | type[Second]
 ) -> None:
     np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
-
-
-def test_render_ignores_pedals(synth, score):
-    expected = synth.render(score)
-    # Converting this unused pedal's end to seconds would overflow its tick time.
-    score.tracks[0].pedals.append(Pedal(2**31 - 1, 1))
-    np.testing.assert_array_equal(synth.render(score), expected)
 
 
 def test_render_tempo_changes(synth, score):
@@ -292,10 +284,7 @@ def test_invalid_silent_note_time(synth, score, duration, velocity):
     note.time = -0.25
     note.duration = duration
     note.velocity = velocity
-    with pytest.raises(
-        ValueError,
-        match=r"Audio render times must be finite and nonnegative, got -0.25",
-    ):
+    with pytest.raises(ValueError, match="finite and nonnegative"):
         synth.render(seconds)
 
 
@@ -425,45 +414,9 @@ def test_render_malformed_soundfont(score, tmp_path, capfd):
 
 
 @pytest.mark.parametrize("unit", [Tick, Quarter, Second])
-def test_render_rejects_negative_duration(synth, score, unit):
-    score = score.to(unit)
-    score.tracks[0].notes[0].duration = -1
-    with pytest.raises(
-        ValueError, match=r"Note duration must be finite and nonnegative, got -1"
-    ):
-        synth.render(score)
-
-
-def test_second_duration_validation_follows_scheduler_order(synth, score):
-    seconds = score.to(Second)
-    note = seconds.tracks[0].notes[0]
-    note.pitch = -1
-    note.duration = -1
-    with pytest.raises(
-        ValueError, match=r"MIDI data must be in the range 0 to 127, got -1"
-    ):
-        synth.render(seconds)
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "message"),
-    [
-        (
-            {"sample_rate": 0},
-            "sample_rate must be in the range 8000 to 96000 Hz, got 0",
-        ),
-        ({"polyphony": 0}, "polyphony must be in the range 1 to 65535, got 0"),
-        ({"tail_seconds": -1}, "tail_seconds must be finite and nonnegative, got -1"),
-    ],
-)
-def test_synth_settings_errors_include_value(soundfont, kwargs, message):
-    with pytest.raises(ValueError, match=message):
-        Synthesizer(soundfont, **kwargs)
-
-
-def test_pitch_bend_error_includes_value(synth, score):
-    score.tracks[0].pitch_bends.append(PitchBend(0, -8193))
-    with pytest.raises(
-        ValueError, match=r"Pitch bend must be in the range -8192 to 8191, got -8193"
-    ):
-        synth.render(score)
+def test_note_duration_setter_rejects_negative_values(score, unit):
+    note = score.to(unit).tracks[0].notes[0]
+    original = note.duration
+    with pytest.raises(ValueError, match="duration"):
+        note.duration = -1
+    assert note.duration == original

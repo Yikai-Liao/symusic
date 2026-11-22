@@ -14,12 +14,5 @@ def read_abc(
     return _abc.parse_abc(data, tune, parse_midi)
 
 
-def write_abc(midi: bytes, warn: bool) -> str:
-    return _abc.write_abc(midi, warn)
-
-
-def write_abc_file(path: str, midi: bytes, warn: bool) -> None:
-    data = write_abc(midi, warn).encode("utf-8")
-    # pathlib strips trailing separators before opening a file.
-    with open(path, "wb") as file:  # noqa: PTH123
-        file.write(data)
+def write_abc(midi: bytes) -> str:
+    return _abc.write_abc(midi)

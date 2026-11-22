@@ -29,8 +29,8 @@ int main(const int argc, const char* argv[]) {
 
     const auto data = read_file(filename);
     for (size_t i = 0; i < n; ++i) {
-        const auto s = Score<Tick>::parse<DataFormat::MIDI>(data);
-        fmt::println("Score notes: {}", s.note_num());
+        const auto s = Score<Tick>::from_midi(data);
+        fmt::println("Score notes: {}", s.note_count());
     }
     return 0;
 }

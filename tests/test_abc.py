@@ -30,7 +30,7 @@ ABC_PATHS = sorted((TESTCASES_PATH / "abc_files").glob("*.abc"))
 
 
 def make_roundtrip_score() -> Score:
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     track = Track("Roundtrip", 0, False)
     track.notes.append(Note(0, 480, 60, 96))
     track.notes.append(Note(480, 480, 62, 96))
@@ -87,7 +87,7 @@ def test_read_abc(abc_path: Path):
     score = Score(abc_path, format="abc")
 
     assert len(score.tracks) > 0
-    assert score.note_num() > 0
+    assert score.note_count() > 0
 
 
 def test_read_abc_recovers_with_warning(capfd):
@@ -96,7 +96,7 @@ def test_read_abc_recovers_with_warning(capfd):
         ABCConversionWarning, match=r"Error in line-char .*Malformed note"
     ):
         score = Score(path)
-    assert score.note_num() > 0
+    assert score.note_count() > 0
     assert capfd.readouterr() == ("", "")
 
 
@@ -129,9 +129,10 @@ def test_abc_tune_selection(tmp_path: Path, ttype):
     assert pitches(Score(path, ttype=ttype)) == [60, 62, 64, 65]
     assert pitches(Score.from_abc(text, ttype=ttype, tune=7)) == [67] * 4
     assert pitches(Score.from_abc(text, ttype=ttype, tune=0)) == [69] * 4
-    assert pitches(Score.from_abc_file(path, ttype=ttype, tune=7)) == [67] * 4
-    assert pitches(Score.from_file(path, ttype=ttype, tune=7)) == [67] * 4
-    assert pitches(Score(path, ttype=ttype, tune=7)) == [67] * 4
+    assert (
+        pitches(Score.from_abc(path.read_text(encoding="utf-8"), ttype=ttype, tune=7))
+        == [67] * 4
+    )
     with pytest.raises(ValueError, match="X:99"):
         Score.from_abc(text, ttype=ttype, tune=99)
     with pytest.raises(ValueError, match="X:0"):
@@ -395,21 +396,21 @@ def test_dump_abc_roundtrip(tmp_path: Path):
     output_dir.mkdir()
     output_path = output_dir / "round trip score.abc"
 
-    abc_text = score.dumps_abc()
+    abc_text = score.to_abc()
     assert abc_text.strip()
 
-    score.dump_abc(output_path)
+    score.dump(output_path)
 
     assert output_path.exists()
     assert output_path.stat().st_size > 0
 
     loaded_with_ctor = Score(output_path, format="abc")
-    loaded_with_factory = Score.from_file(output_path, format="abc")
+    loaded_with_inferred_format = Score(output_path)
 
-    assert loaded_with_ctor.note_num() == score.note_num()
-    assert loaded_with_factory.note_num() == score.note_num()
+    assert loaded_with_ctor.note_count() == score.note_count()
+    assert loaded_with_inferred_format.note_count() == score.note_count()
     assert len(loaded_with_ctor.tracks) == 1
-    assert len(loaded_with_factory.tracks) == 1
+    assert len(loaded_with_inferred_format.tracks) == 1
 
 
 @pytest.mark.skipif(
@@ -422,11 +423,11 @@ def test_dump_abc_preserves_trailing_slash(tmp_path):
     score = make_roundtrip_score()
 
     with pytest.raises((IsADirectoryError, NotADirectoryError)):
-        score.dump_abc(f"{path}/")
+        score.dump(f"{path}/", format="abc")
     assert path.read_bytes() == original
 
-    score.dump_abc(str(path))
-    assert path.read_bytes() == score.dumps_abc().encode("utf-8")
+    score.dump(str(path))
+    assert path.read_bytes() == score.to_abc().encode("utf-8")
 
 
 @pytest.mark.parametrize(
@@ -466,20 +467,20 @@ def test_dump_abc_roundtrip_special_paths(
         injection_probe.unlink()
 
     try:
-        score.dump_abc(output_path)
+        score.dump(output_path)
     finally:
         assert not injection_probe.exists()
 
     assert output_path.exists()
-    loaded_score = Score.from_file(output_path, format="abc")
-    assert loaded_score.note_num() == score.note_num()
+    loaded_score = Score(output_path, format="abc")
+    assert loaded_score.note_count() == score.note_count()
 
 
 def test_dump_abc_is_quiet_and_has_no_title(tmp_path, capfd):
     score = make_roundtrip_score()
     destination = tmp_path / "score.abc"
-    abc_text = score.dumps_abc(warn=True)
-    score.dump_abc(destination, True)
+    abc_text = score.to_abc()
+    score.dump(destination)
 
     assert abc_text.startswith("X: 1\n")
     assert not any(line.startswith("T:") for line in abc_text.splitlines())
@@ -497,12 +498,8 @@ def test_dumps_abc_warning(monkeypatch, capfd):
     monkeypatch.setattr(_abc.subprocess, "run", run)
     score = make_roundtrip_score()
     with warnings.catch_warnings(record=True) as recorded:
-        assert score.dumps_abc(warn=False) == "X: 1\nK:C\nC|\n"
+        assert score.to_abc() == "X: 1\nK:C\nC|\n"
     assert not recorded
-    with pytest.warns(
-        ABCConversionWarning, match=r"converter stdout\s+converter stderr"
-    ):
-        score.dumps_abc(warn=True)
     assert capfd.readouterr() == ("", "")
 
 
@@ -512,7 +509,7 @@ def test_dump_abc_failure_includes_diagnostics(tmp_path, capfd):
     with pytest.raises(
         RuntimeError, match=r"(?s)calling midi2abc.*MIDI file has no notes"
     ):
-        Score().dump_abc(output)
+        Score().dump(output)
     assert output.read_text(encoding="utf-8") == "existing content"
     assert capfd.readouterr() == ("", "")
 
@@ -531,9 +528,9 @@ def test_abc_conversion_uses_one_directory(monkeypatch, tmp_path):
     source = tmp_path / "source.abc"
     source.write_text(make_roundtrip_abc_text(), encoding="utf-8")
     score = Score.from_abc(make_roundtrip_abc_text())
-    Score.from_abc_file(source)
-    score.dumps_abc()
-    score.dump_abc(tmp_path / "out.abc")
+    Score(source)
+    score.to_abc()
+    score.dump(tmp_path / "out.abc")
 
     assert len(directories) == len(set(directories)) == 4
     assert all(path.parent.name == "临时 ABC" for path in directories)
@@ -554,7 +551,7 @@ assert not any(key in os.environ for key in keys)
 for key in keys:
     os.environ[key] = "missing-converter"
 score = Score.from_abc("X:1\\nK:C\\nC D E F|\\n")
-assert score.dumps_abc().startswith("X: 1\\n")
+assert score.to_abc().startswith("X: 1\\n")
 """
     subprocess.run([sys.executable, "-c", check], cwd=tmp_path, env=env, check=True)
 
@@ -562,21 +559,21 @@ assert score.dumps_abc().startswith("X: 1\\n")
 def test_abc_conversion_is_safe_under_parallel_calls(tmp_path: Path):
     score = make_roundtrip_score()
     abc_text = make_roundtrip_abc_text()
-    expected_from_abc = Score.from_abc(abc_text).note_num()
+    expected_from_abc = Score.from_abc(abc_text).note_count()
 
     def dump_once(index: int) -> int:
         output_path = tmp_path / f"parallel {index}.abc"
-        score.dump_abc(output_path)
-        return Score.from_file(output_path, format="abc").note_num()
+        score.dump(output_path)
+        return Score(output_path, format="abc").note_count()
 
     def load_once(_: int) -> int:
-        return Score.from_abc(abc_text).note_num()
+        return Score.from_abc(abc_text).note_count()
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         dumped = list(executor.map(dump_once, range(4)))
         loaded = list(executor.map(load_once, range(4)))
 
-    assert dumped == [score.note_num()] * 4
+    assert dumped == [score.note_count()] * 4
     assert loaded == [expected_from_abc] * 4
 
 
@@ -592,7 +589,7 @@ def test_missing_converter_cleans_temp_dirs(tmp_path, monkeypatch, tool):
             Score.from_abc(make_roundtrip_abc_text())
     else:
         with pytest.raises(FileNotFoundError):
-            make_roundtrip_score().dumps_abc()
+            make_roundtrip_score().to_abc()
 
     assert list_symusic_temp_dirs() == before
 
@@ -600,7 +597,7 @@ def test_missing_converter_cleans_temp_dirs(tmp_path, monkeypatch, tool):
 @pytest.mark.usefixtures("isolated_symusic_temp_root")
 def test_partial_midi_is_rejected(monkeypatch):
     # The writer leaves the track length zero if it fails before patching it.
-    midi = bytearray(make_roundtrip_score().dumps_midi())
+    midi = bytearray(make_roundtrip_score().to_midi())
     midi[18:22] = b"\x00" * 4
 
     def run(args, *, cwd, **kwargs):
@@ -627,16 +624,15 @@ def test_core_score_keeps_abc_methods(tmp_path, ttype):
     score = Score.from_abc(make_roundtrip_abc_text(), ttype=ttype)
     assert type(score) is Score
     assert score.ttype is ttype
-    score.dump_abc(path)
-    assert path.read_bytes() == score.dumps_abc().encode("utf-8")
+    score.dump(path)
+    assert path.read_bytes() == score.to_abc().encode("utf-8")
     for loaded in (
-        Score.from_abc_file(path, ttype=ttype),
-        Score.from_file(path, ttype=ttype),
+        Score(path, ttype=ttype, format="abc"),
         Score(path, ttype=ttype),
     ):
         assert type(loaded) is Score
         assert loaded.ttype is ttype
-        assert loaded.note_num() == score.note_num()
+        assert loaded.note_count() == score.note_count()
 
 
 @pytest.mark.parametrize("path_type", [str, bytes])
@@ -650,12 +646,12 @@ def test_core_score_file_pathlike(tmp_path, path_type):
 
     score = Score.from_abc(make_roundtrip_abc_text())
     path = FilePath(tmp_path / "score.abc")
-    score.dump_abc(path)
-    assert Score.from_file(path).note_num() == score.note_num()
-    assert Score.from_abc_file(path).note_num() == score.note_num()
+    score.dump(path)
+    assert Score(path).note_count() == score.note_count()
+    assert Score(path, format="abc").note_count() == score.note_count()
     midi = FilePath(tmp_path / "score.mid")
-    score.dump_midi(midi)
-    assert Score.from_file(midi) == score
+    score.dump(midi)
+    assert Score(midi) == score
 
 
 @pytest.mark.skipif(
@@ -665,42 +661,11 @@ def test_core_score_file_pathlike(tmp_path, path_type):
 def test_core_score_readers_preserve_trailing_slash(tmp_path, file_format):
     path = tmp_path / f"score.{file_format}"
     score = make_roundtrip_score()
-    if file_format == "midi":
-        score.dump_midi(path)
-    else:
-        score.dump_abc(path)
+    score.dump(path, format=file_format)
 
-    assert Score.from_file(str(path), format=file_format).note_num() == 3
+    assert Score(str(path), format=file_format).note_count() == 3
     with pytest.raises(NotADirectoryError):
-        Score.from_file(f"{path}/", format=file_format)
-
-    if file_format == "abc":
-        assert Score.from_abc_file(str(path)).note_num() == 3
-        with pytest.raises(NotADirectoryError):
-            Score.from_abc_file(f"{path}/")
-
-
-@pytest.mark.parametrize("warn", ["false", 0, None])
-def test_dump_abc_requires_bool(tmp_path, warn):
-    score = make_roundtrip_score()
-    path = tmp_path / "score.abc"
-    with pytest.raises(TypeError):
-        score.dumps_abc(warn=warn)
-    with pytest.raises(TypeError):
-        score.dump_abc(path, warn=warn)
-    assert not path.exists()
-
-
-@pytest.mark.parametrize("extension", ["abc", "mid"])
-@pytest.mark.parametrize("sanitize_data", ["false", 0, None])
-def test_score_from_file_requires_bool(tmp_path, extension, sanitize_data):
-    path = tmp_path / f"score.{extension}"
-    if extension == "abc":
-        path.write_text(make_roundtrip_abc_text(), encoding="utf-8")
-    else:
-        make_roundtrip_score().dump_midi(path)
-    with pytest.raises(TypeError):
-        Score.from_file(path, sanitize_data=sanitize_data)
+        Score(f"{path}/", format=file_format)
 
 
 # ---------------------------------------------------------------------------
@@ -715,27 +680,27 @@ ISSUE78_MIDI = TESTCASES_PATH / "issue78_dump_abc.mid"
 def test_dump_abc_issue78_regression(tmp_path: Path):
     """Regression test for GitHub issue #78.
 
-    ``score.dump_abc()`` used to fail with ``RuntimeError: midi2abc execution
+    ``score.dump()`` used to fail with ``RuntimeError: midi2abc execution
     failed (return code: 512)`` when processing certain MIDI files.  Now that
     symusic bundles its own midi2abc, this must succeed.
     """
     score = Score(ISSUE78_MIDI)
-    assert score.note_num() > 0, "sanity: the MIDI file should contain notes"
+    assert score.note_count() > 0, "sanity: the MIDI file should contain notes"
 
     # --- dump_abc to file must not raise ---
     output_path = tmp_path / "issue78.abc"
-    score.dump_abc(output_path)
+    score.dump(output_path)
 
     assert output_path.exists(), "ABC file was not created"
     assert output_path.stat().st_size > 0, "ABC file is empty"
 
     # --- dumps_abc (to string) must also work ---
-    abc_text = score.dumps_abc()
+    abc_text = score.to_abc()
     assert abc_text.strip(), "dumps_abc returned empty text"
 
     # --- roundtrip: reload the ABC and verify note count ---
     reloaded = Score(output_path, format="abc")
-    assert reloaded.note_num() > 0, "reloaded Score has no notes"
+    assert reloaded.note_count() > 0, "reloaded Score has no notes"
 
 
 def test_converter_layout():
@@ -758,11 +723,11 @@ def test_abc_file_rejects_named_pipe(tmp_path):
 import sys
 from symusic import Score
 
-for read in (Score, Score.from_file, Score.from_abc_file):
+for read in (Score,):
     try:
         read(sys.argv[1])
-    except RuntimeError as error:
-        assert "Cannot seek" in str(error)
+    except OSError as error:
+        assert error.errno == 29
     else:
         raise AssertionError("ABC reader accepted a named pipe")
 """
@@ -774,19 +739,20 @@ def test_midi_reader_rejects_named_pipe(tmp_path):
     fifo = tmp_path / "input.mid"
     os.mkfifo(fifo)
     midi = tmp_path / "regular.mid"
-    make_roundtrip_score().dump_midi(midi)
+    make_roundtrip_score().dump(midi)
     program = """
+import errno
 import sys
 from symusic import Score
 
 try:
-    Score.from_file(sys.argv[1])
-except RuntimeError as error:
-    assert "Cannot seek" in str(error)
+    Score(sys.argv[1])
+except OSError as error:
+    assert error.errno == errno.ESPIPE
 else:
     raise AssertionError("MIDI reader accepted a named pipe")
 
-assert Score.from_file(sys.argv[2]).note_num() == 3
+assert Score(sys.argv[2]).note_count() == 3
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
 
@@ -796,8 +762,9 @@ def test_concrete_midi_constructor_rejects_named_pipe(tmp_path):
     fifo = tmp_path / "input.mid"
     os.mkfifo(fifo)
     midi = tmp_path / "regular.mid"
-    make_roundtrip_score().dump_midi(midi)
+    make_roundtrip_score().dump(midi)
     program = """
+import errno
 import sys
 from symusic import Quarter, Score, Second, Tick
 
@@ -805,22 +772,34 @@ for unit in (Tick, Quarter, Second):
     score = Score(sys.argv[2], ttype=unit)
     assert type(score) is Score
     assert score.ttype is unit
-    assert score.note_num() == 3
+    assert score.note_count() == 3
     try:
         Score(sys.argv[1], ttype=unit)
-    except RuntimeError as error:
-        assert "path must refer to a regular file" in str(error)
-        assert sys.argv[1] in str(error)
+    except OSError as error:
+        assert error.errno == errno.ESPIPE
+        assert error.filename == sys.argv[1]
     else:
         raise AssertionError("MIDI constructor accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
 
 
+def test_converter_layout():
+    package = Path(symusic.__file__).resolve().parent
+    assert not (package / "bin").exists()
+    vendor = package / "_vendor" / "abcmidi"
+    suffix = ".exe" if sys.platform == "win32" else ""
+    assert {path.name for path in vendor.iterdir()} == {
+        f"abc2midi{suffix}",
+        f"midi2abc{suffix}",
+        "LICENSE.txt",
+    }
+
+
 def test_abc_validates_ttype_before_conversion(tmp_path):
     path = tmp_path / "invalid.abc"
     path.write_text("invalid ABC", encoding="utf-8")
-    for read in (Score, Score.from_file, Score.from_abc_file):
+    for read in (Score,):
         with pytest.raises(ValueError, match="ttype must be Tick, Quarter or Second"):
             read(path, ttype=object)
     with pytest.raises(ValueError, match="ttype must be Tick, Quarter or Second"):

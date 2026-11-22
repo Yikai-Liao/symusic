@@ -17,7 +17,7 @@ from symusic import Quarter, Score, Second, Tick
 
 score = Score("song.mid", ttype=Quarter)  # load in quarters
 seconds = score.to(Second)  # a new score
-ticks = seconds.to(Tick, min_duration=1)  # keep every note at least 1 tick long
+ticks = seconds.to(Tick, min_dur=1)  # keep every note at least 1 tick long
 print(score.ttype, seconds.ttype, ticks.ttype)
 ```
 
@@ -30,14 +30,14 @@ print(score.ttype, seconds.ttype, ticks.ttype)
 
 - **Tick and quarter.** A quarter value is `tick / ticks_per_quarter`. Converting to ticks multiplies and rounds to the nearest tick, halves away from zero.
 - **Seconds.** Conversion to and from seconds follows the tempo map and keeps time zero fixed. A tempo event before zero applies from its own time until the next change. Before the first tempo event, and in a score without tempos, the tempo is 120 quarter notes per minute (500000 microseconds per quarter). Quarters and seconds convert directly into each other, not through ticks.
-- **Durations.** In tick and quarter conversions the start and the duration of a note convert separately, so a converted end can differ by one tick from the converted original end. In conversions to seconds the duration is the converted end minus the converted start, so a tempo change inside a note changes its length in seconds.
-- **`min_duration`.** After conversion, notes shorter than `min_duration` (in the target unit) are extended to it. The default `None` and negative values set no bound. Pass it when converting to ticks, where rounding can shorten a note to 0.
+- **Durations.** In tick and quarter conversions the start and the duration of a note or pedal convert separately, so a converted end can differ by one tick from the converted original end. In conversions to seconds the duration is the converted end minus the converted start, so a tempo change inside a note changes its length in seconds.
+- **`min_dur`.** After conversion, notes and pedals shorter than `min_dur` (in the target unit) are extended to it. The default `None` and negative values set no bound. Pass it when converting to ticks, where rounding can shorten a note to 0.
 - **Overflow.** Tick arithmetic is checked. Shifting, computing an event's `end`, trimming and rescaling raise `OverflowError` when the result does not fit in `int32`, instead of wrapping around. Float units do not have this limit. Converting a quarter or second score to ticks, resampling, and creating a `Tempo` from a `qpm` are checked the same way: a value outside the `int32` range raises `OverflowError`, and NaN or a non-positive or non-finite `qpm` raises `ValueError`.
 - **Precision.** Quarter and second values are 32-bit floats with about seven significant digits; at 1000 seconds the step between values is about 0.06 ms.
 
 ## Resampling
 
-`score.resample(ticks_per_quarter, min_duration=None)` returns a tick score with `ticks_per_quarter == ticks_per_quarter`. It first converts the score to ticks at its current resolution, then scales every time and duration to the new resolution and rounds. `min_duration` is an integer number of ticks at the new resolution. A low resolution (for example `ticks_per_quarter=6`, a sixteenth-note triplet grid) is the usual step before building piano rolls; see [arrays.md](arrays.md).
+`score.resample(tpq, min_dur=None)` returns a tick score with `ticks_per_quarter == tpq`. It first converts the score to ticks at its current resolution, then scales every time and duration to the new resolution and rounds. `min_dur` is an integer number of ticks at the new resolution. A low resolution (for example `tpq=6`, a sixteenth-note triplet grid) is the usual step before building piano rolls; see [arrays.md](arrays.md).
 
 ## What differs between units
 

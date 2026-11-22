@@ -16,7 +16,7 @@ from symusic import Note, Quarter, Score, Second, Tempo, Tick, TimeSignature, Tr
 @pytest.fixture
 def complex_score():
     """Create a more complex score for testing."""
-    score = Score(480)  # 480 ticks per quarter
+    score = Score(ticks_per_quarter=480)  # 480 ticks per quarter
 
     # Track 1: Piano
     piano = Track("Piano", 0, False)
@@ -127,7 +127,7 @@ def test_score_filter(complex_score):
     score = copy.deepcopy(complex_score)
 
     # Filter out all notes below middle C (MIDI note 60)
-    filtered_score = Score(score.ticks_per_quarter)
+    filtered_score = Score(ticks_per_quarter=score.ticks_per_quarter)
 
     # Copy metadata
     filtered_score.tempos = score.tempos
@@ -227,7 +227,8 @@ def test_transpose_notes():
     track.notes.append(Note(0, 480, 67, 80))  # G
 
     # Transpose up a perfect fifth (7 semitones)
-    transposed_track = track.shift_pitch(7)
+    transposed_track = track.copy()
+    assert transposed_track.shift_pitch(7) is None
 
     # Check that pitches were transposed correctly
     assert transposed_track.notes[0].pitch == 67  # C -> G
@@ -263,7 +264,7 @@ def test_invert_notes():
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_clip_keeps_global_events_in_effect_at_start(ttype):
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tempos.append(Tempo(0, 120.0))
     score.time_signatures.append(TimeSignature(0, 3, 4))
     score.tempos.append(Tempo(960, 90.0))
@@ -282,14 +283,12 @@ def test_clip_keeps_global_events_in_effect_at_start(ttype):
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_event_shift_time(ttype, inplace):
+def test_event_shift_time(ttype):
     note = Note(10, 5, 60, 100, ttype=ttype)
     tempo = Tempo(10, 120.0, ttype=ttype)
     for event in (note, tempo):
-        shifted = event.shift_time(4, inplace=inplace)
-        assert shifted.time == 14
-        assert event.time == (14 if inplace else 10)
+        assert event.shift_time(4) is None
+        assert event.time == 14
 
 
 if __name__ == "__main__":

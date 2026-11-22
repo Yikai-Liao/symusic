@@ -59,7 +59,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_meta_events.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -73,7 +73,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         in_file.close();
 
         Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify meta events were preserved
         REQUIRE(read_score.tempos.size() == 3);
@@ -82,11 +82,11 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Verify tempo values
         REQUIRE(read_score.tempos.at(0).time == 0);
-        REQUIRE(read_score.tempos.at(0).mspq == 500000);
+        REQUIRE(read_score.tempos.at(0).microseconds_per_quarter == 500000);
         REQUIRE(read_score.tempos.at(1).time == 480);
-        REQUIRE(read_score.tempos.at(1).mspq == 400000);
+        REQUIRE(read_score.tempos.at(1).microseconds_per_quarter == 400000);
         REQUIRE(read_score.tempos.at(2).time == 960);
-        REQUIRE(read_score.tempos.at(2).mspq == 600000);
+        REQUIRE(read_score.tempos.at(2).microseconds_per_quarter == 600000);
 
         // Verify time signature values
         REQUIRE(read_score.time_signatures.at(0).time == 0);
@@ -99,13 +99,13 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         // Verify key signature values
         REQUIRE(read_score.key_signatures.at(0).time == 0);
         REQUIRE(read_score.key_signatures.at(0).key == 0);
-        REQUIRE(read_score.key_signatures.at(0).tonality == 0);
+        REQUIRE(read_score.key_signatures.at(0).minor == 0);
         REQUIRE(read_score.key_signatures.at(1).time == 480);
         REQUIRE(read_score.key_signatures.at(1).key == 2);
-        REQUIRE(read_score.key_signatures.at(1).tonality == 0);
+        REQUIRE(read_score.key_signatures.at(1).minor == 0);
         REQUIRE(read_score.key_signatures.at(2).time == 960);
         REQUIRE(read_score.key_signatures.at(2).key == -3);
-        REQUIRE(read_score.key_signatures.at(2).tonality == 1);
+        REQUIRE(read_score.key_signatures.at(2).minor == 1);
     }
 
     SECTION("MIDI File with Pitch Bend Events") {
@@ -146,7 +146,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_pitch_bends.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -160,7 +160,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         in_file.close();
 
         Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify pitch bend events were preserved
         REQUIRE(read_score.tracks.at(0).pitch_bends.size() == 8);
@@ -205,7 +205,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_controls.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -219,7 +219,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         in_file.close();
 
         Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify control change events were preserved
         REQUIRE(read_score.tracks.at(0).controls.size() == 4);
@@ -257,7 +257,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Write to MIDI
         fs::path             midi_path = temp_dir / "test_time_conversion.mid";
-        std::vector<uint8_t> midi_data = tick_score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = tick_score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -271,7 +271,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         in_file.close();
 
         Score<Quarter> quarter_score
-            = Score<Quarter>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+            = Score<Quarter>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify quarter-unit values
         REQUIRE(quarter_score.tracks.at(0).notes.size() == 2);
@@ -282,7 +282,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Read as Second time type
         Score<Second> second_score
-            = Score<Second>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+            = Score<Second>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify time values in seconds
         REQUIRE(second_score.tracks.at(0).notes.size() == 2);

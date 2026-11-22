@@ -15,7 +15,7 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     """Test that a MIDI loaded and saved unchanged is indeed the save as before."""
     midi1 = Score(midi_path)
     dump_path = tmp_path / midi_path.name
-    midi1.dump_midi(dump_path)  # Writing it unchanged
+    midi1.dump(dump_path)  # Writing it unchanged
     midi2 = Score(dump_path)  # Loading it back
 
     # Sorting MIDI and tracks events, as after dump the order might have changed
@@ -24,7 +24,7 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     midi1.markers.sort(key=lambda x: (x.time, x.text))
     midi2.markers.sort(key=lambda x: (x.time, x.text))
     for track1, track2 in zip(midi1.tracks, midi2.tracks, strict=True):
-        times = track1.notes.numpy()["time"]
+        times = track1.notes.to_numpy()["time"]
         assert bool(np.all(np.diff(times) >= 0))
         track1.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
         track2.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
@@ -40,7 +40,7 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
 
     # If not, look for what's different and prints it
     if not midi_equals:
-        track_attrs = ["notes", "controls", "pitch_bends", "pedals", "lyrics"]
+        track_attrs = ["notes", "controls", "pitch_bends", "lyrics"]
         for track1, track2 in zip(midi1.tracks, midi2.tracks, strict=True):
             for track_attr in track_attrs:
                 if getattr(track1, track_attr) != getattr(track2, track_attr):
@@ -70,22 +70,22 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
 def test_midi_round_trip_with_lyrics():
     from symusic import Note, TextMeta, Track
 
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     voice = Track(name="Voice", notes=[Note(0, 480, 60, 80)])
     voice.lyrics.append(TextMeta(0, "la"))
     score.tracks.append(voice)
-    restored = Score.from_midi(score.dumps_midi())
+    restored = Score.from_midi(score.to_midi())
     assert len(restored.tracks) == 1
     assert restored.tracks[0] == score.tracks[0]
 
 
 def test_dump_preserves_simultaneous_event_order():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     track = Track(notes=[Note(4, 3, 62, 80), Note(0, 4, 60, 80), Note(4, 0, 61, 80)])
     track.controls.append(ControlChange(4, 1, 50))
     score.tracks.append(track)
 
-    midi = MidiFile(file=BytesIO(score.dumps_midi()))
+    midi = MidiFile(file=BytesIO(score.to_midi()))
     tick = 0
     events = []
     for message in midi.tracks[0]:

@@ -83,7 +83,7 @@ def _():
 @scenario("midi_dump_bytes", 4)
 def _():
     score = _load(PIANO)
-    return lambda: score.dumps_midi()
+    return lambda: score.to_midi()
 
 
 @scenario("abc_parse", 10)
@@ -150,7 +150,7 @@ def _():
     end = score.end()
     original = [0, end // 3, end]
     adjusted = [0, end // 4, end]
-    return lambda: score.adjust_time(original, adjusted)
+    return lambda: score.copy().adjust_time(original, adjusted)
 
 
 @scenario("tracks_adjust_time", 20)
@@ -165,7 +165,7 @@ def _():
 @scenario("sort", 40)
 def _():
     score = _load(PIANO)
-    return lambda: score.sort(inplace=False)
+    return lambda: score.copy().sort()
 
 
 @scenario("track_shift_clip_sort", 2000)
@@ -174,9 +174,11 @@ def _():
     end = track.end() // 2
 
     def run():
-        shifted = track.shift_time(240)
+        shifted = track.copy()
+        shifted.shift_time(240)
         clipped = shifted.clip(0, end)
-        return clipped.sort(inplace=False)
+        clipped.sort()
+        return clipped
 
     return run
 
@@ -184,13 +186,13 @@ def _():
 @scenario("notes_to_numpy", 60)
 def _():
     notes = _load(PIANO).tracks[0].notes
-    return lambda: notes.numpy()
+    return lambda: notes.to_numpy()
 
 
 @scenario("notes_from_numpy", 150)
 def _():
-    arrays = _load(PIANO).tracks[0].notes.numpy()
-    return lambda: symusic.Note.from_numpy(**arrays)
+    arrays = _load(PIANO).tracks[0].notes.to_numpy()
+    return lambda: symusic.NoteList.from_numpy(**arrays)
 
 
 @scenario("pianoroll", 1)

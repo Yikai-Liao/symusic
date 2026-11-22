@@ -59,9 +59,9 @@ def test_containers_assertions():
     assert pb1 != pb2
     assert pb2 == pb3
 
-    ks1 = [KeySignature(2, 0, 1), KeySignature(0, 0, 1)]
-    ks2 = [KeySignature(20, 0, 1), KeySignature(0, 0, 1)]
-    ks3 = [KeySignature(20, 0, 1), KeySignature(0, 0, 1)]
+    ks1 = [KeySignature(2, 0, True), KeySignature(0, 0, True)]
+    ks2 = [KeySignature(20, 0, True), KeySignature(0, 0, True)]
+    ks3 = [KeySignature(20, 0, True), KeySignature(0, 0, True)]
     assert ks1 != ks2
     assert ks2 == ks3
 
@@ -91,14 +91,6 @@ def test_check_scores_equals(file_path: Path):
 
     # Altering track events
     if len(score_copy.tracks) > 0:
-        # Altering pedals
-        score_copy = deepcopy(score)
-        if len(score_copy.tracks[0].pedals) == 0:
-            score_copy.tracks[0].pedals.append(Pedal(0, 10))
-        else:
-            score_copy.tracks[0].pedals[-1].duration += 10
-        assert score != score_copy
-
         # Altering pitch bends
         score_copy = deepcopy(score)
         if len(score_copy.tracks[0].pitch_bends) == 0:
@@ -136,7 +128,6 @@ def test_merge_tracks():
     # Test merge with effects
     merge_tracks(score, effects=True)
     assert len(score.tracks[0].notes) == 2 * len(original_track.notes)
-    assert len(score.tracks[0].pedals) == 2 * len(original_track.pedals)
     assert len(score.tracks[0].controls) == 2 * len(original_track.controls)
     assert len(score.tracks[0].pitch_bends) == 2 * len(original_track.pitch_bends)
 
@@ -148,7 +139,8 @@ def test_split_concat_score(file_path: Path):
         pytest.skip("empty file")
     tick_split = score.ticks_per_quarter * 4
     score_1 = score.clip(0, tick_split)
-    score_2 = score.clip(tick_split, score.end() + 1).shift_time(-tick_split)
+    score_2 = score.clip(tick_split, score.end() + 1)
+    score_2.shift_time(-tick_split)
 
     # Concatenate split MIDIs and assert its equal to original one
     score_concat = concat_scores((score_1, score_2), [tick_split])

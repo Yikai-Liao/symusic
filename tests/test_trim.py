@@ -1,5 +1,15 @@
 import pytest
-from symusic import Note, NoteList, Pedal, Quarter, Score, Second, Tempo, Tick, Track
+from symusic import (
+    ControlChange,
+    Note,
+    NoteList,
+    Quarter,
+    Score,
+    Second,
+    Tempo,
+    Tick,
+    Track,
+)
 
 
 def test_trim_notes():
@@ -36,17 +46,16 @@ def test_trim_notes():
 
 
 @pytest.mark.parametrize("boundary", ["start_mode", "end_mode"])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_track_rejects_unknown_trim_mode(boundary, inplace):
+def test_track_rejects_unknown_trim_mode(boundary):
     track = Track(notes=[Note(1, 2, 60, 80)])
     with pytest.raises(ValueError, match=rf"{boundary}.*unknown"):
-        track.trim(2, 4, inplace=inplace, **{boundary: "unknown"})
+        track.trim(2, 4, **{boundary: "unknown"})
     assert track.notes[0].time == 1
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_score_trim(ttype):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     track = Track(notes=[Note(1, 5, 60, 80, ttype=ttype)], ttype=ttype)
     score.tracks.append(track)
     score.tempos.append(Tempo(0, 120, ttype=ttype))
@@ -64,9 +73,11 @@ def test_score_trim(ttype):
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("mode", ["truncate", "retain"])
 def test_score_trim_checks_window_overlap(ttype, mode):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     track = Track(notes=[Note(0, 100, 60, 80, ttype=ttype)], ttype=ttype)
-    track.pedals.append(Pedal(0, 100, ttype=ttype))
+    track.controls.extend(
+        [ControlChange(0, 64, 127, ttype=ttype), ControlChange(100, 64, 0, ttype=ttype)]
+    )
     score.tracks.append(track)
 
     trimmed = score.trim(10, 12, 3, start_mode=mode, end_mode=mode)
@@ -77,13 +88,11 @@ def test_score_trim_checks_window_overlap(ttype, mode):
     assert [(note.time, note.duration) for note in trimmed.tracks[0].notes] == [
         expected
     ]
-    assert [(pedal.time, pedal.duration) for pedal in trimmed.tracks[0].pedals] == [
-        expected,
-    ]
+    assert trimmed.tracks[0].pedals() == ()
 
 
 def test_score_trim_checks_contained_note_duration():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.tracks.append(Track(notes=[Note(11, 1, 60, 80), Note(11, 2, 61, 80)]))
 
     trimmed = score.trim(10, 20, min_overlap=2)
@@ -92,31 +101,26 @@ def test_score_trim_checks_contained_note_duration():
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-@pytest.mark.parametrize("inplace", [False, True])
-def test_score_trim_inplace(ttype, inplace):
+@pytest.mark.parametrize("target", ["track", "score", "empty score"])
+def test_trim_rejects_negative_overlap(ttype, target):
+    track = Track(notes=[Note(0, 1, 60, 80, ttype=ttype)], ttype=ttype)
     score = Score(ttype=ttype)
-    score.tracks.append(Track(notes=[Note(1, 5, 60, 80, ttype=ttype)], ttype=ttype))
-    track = score.tracks[0]
-    notes = track.notes
-    note = notes[0]
+    if target == "score":
+        score.tracks.append(track)
+    obj = track if target == "track" else score
+    with pytest.raises(ValueError, match="min_overlap"):
+        obj.trim(2, 4, min_overlap=-1, start_mode="truncate")
 
-    result = score.trim(
-        2, 4, start_mode="truncate", end_mode="truncate", inplace=inplace
-    )
 
-    assert (result is score) == inplace
-    assert (result.tracks[0].notes[0].time, result.tracks[0].notes[0].duration) == (
-        2,
-        2,
-    )
-    assert (note.time, note.duration) == ((2, 2) if inplace else (1, 5))
-    assert notes[0] == note
-    assert score.tracks[0] == track
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
+def test_score_trim_rejects_inplace(ttype):
+    with pytest.raises(TypeError, match="incompatible function arguments"):
+        Score(ticks_per_quarter=480, ttype=ttype).trim(0, 1, inplace=True)
 
 
 def test_empty_score_rejects_unknown_trim_mode():
     with pytest.raises(ValueError, match=r"end_mode.*unknown"):
-        Score(480).trim(0, 1, end_mode="unknown")
+        Score(ticks_per_quarter=480).trim(0, 1, end_mode="unknown")
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])

@@ -84,6 +84,4 @@ def test_track_assignment_rejects():
     track = Track("a", 0, False, ttype=Tick)
     with pytest.raises(TypeError):
         track.notes = [None]
-    with pytest.raises(TypeError):
-        track.pedals = [None]
     assert len(track.notes) == 0

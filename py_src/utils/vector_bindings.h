@@ -69,7 +69,7 @@ shared<Vector> clone_list(Vector& list, bool deep) {
         result->reserve(list.size());
         for (const auto& item : list) {
             using Track = typename Vector::value_type::element_type;
-            result->push_back(std::make_shared<Track>(item->deepcopy()));
+            result->push_back(std::make_shared<Track>(item->copy()));
         }
         return result;
     }
@@ -498,23 +498,15 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
         )
         .def(
             "__deepcopy__",
-            [copy](const List& self, nb::handle, nb::handle) { return copy(self, true); },
-            "memo"_a = nb::none(),
-            "_nil"_a = nb::none()
+            [copy](const List& self, nb::handle) { return copy(self, true); },
+            "memo"_a.none()
         );
 
     nb::module_::import_("collections.abc").attr("MutableSequence").attr("register")(type);
     type.attr("__hash__") = nb::none();
 
-    if constexpr (is_event_sequence<Native<Tick>>) {
-        type.def(
-                "copy", [copy](const List& self) { return copy(self, false); }
-        ).def("__copy__", copy, "deep"_a = true);
-    } else {
-        type.def("copy", copy, "deep"_a = true).def("__copy__", [copy](const List& self) {
-            return copy(self, false);
-        });
-    }
+    type.def("copy", [copy](const List& self) { return copy(self, true); })
+        .def("__copy__", [copy](const List& self) { return copy(self, false); });
 }
 
 template<class List, class Item>
@@ -550,19 +542,16 @@ void bind_list_algorithms(nb::class_<List>& type) {
 
     type.def(
             "sort",
-            [order](nb::handle self, const nb::object& key, bool reverse, bool inplace) {
-                return transform<List>(self, inplace, [&](const auto& ptr) {
-                    auto result = inplace ? ptr : clone_list(*ptr, false);
-                    order(*result, key, reverse, true);
-                    return List(std::move(result));
+            [order](const List& self, const nb::object& key, bool reverse) {
+                self.visit( [&](const auto& ptr) {
+                    order(*ptr, key, reverse, true);
                 });
             },
             "key"_a     = nb::none(),
             "reverse"_a = false,
-            "inplace"_a = true,
             nb::sig(
                 "def sort(self, key: collections.abc.Callable | None = None, reverse: bool = "
-                "False, inplace: bool = True) -> typing.Self"
+                "False) -> None"
             ),
             "Sort by the given key or by the default ordering."
     )
@@ -583,56 +572,47 @@ void bind_list_algorithms(nb::class_<List>& type) {
         )
         .def(
             "filter",
-            [](nb::handle self, const nb::callable& function, bool inplace) {
-                return transform<List>(self, inplace, [&](const auto& ptr) {
-                    auto       result = inplace ? ptr : clone_list(*ptr, false);
+            [](const List& self, const nb::callable& function) {
+                self.visit( [&](const auto& ptr) {
                     const auto keep
                         = [&](const auto& item) { return nb::cast<bool>(function(Item(item))); };
                     using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
                     if constexpr (is_event_sequence<Vector>)
-                        result->filter_shared(keep);
+                        ptr->filter_shared(keep);
                     else
-                        std::erase_if(*result, [&](const auto& item) { return !keep(item); });
-                    return List(std::move(result));
+                        std::erase_if(*ptr, [&](const auto& item) { return !keep(item); });
                 });
             },
             "function"_a,
-            "inplace"_a = true,
             nb::sig(
-                "def filter(self, function: collections.abc.Callable, inplace: bool = True) -> "
-                "typing.Self"
+                "def filter(self, function: collections.abc.Callable) -> None"
             ),
             "Keep the items for which the function returns true."
         )
         .def(
             "adjust_time",
-            [](nb::handle          self,
+            [](const List&        self,
                const nb::iterable& original_times,
-               const nb::iterable& new_times,
-               bool                inplace) {
-                return transform<List>(self, inplace, [&](const auto& ptr) {
+               const nb::iterable& new_times) {
+                self.visit( [&](const auto& ptr) {
                     using T                = UnitOf<decltype(ptr)>;
                     const auto original    = read_times<T>(original_times);
                     const auto replacement = read_times<T>(new_times);
-                    auto       result      = inplace ? ptr : clone_list(*ptr, true);
                     using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
                     if constexpr (is_event_sequence<Vector>) {
-                        ops::adjust_time_inplace<true, SharedStorage>(
-                            *result, original, replacement
+                        ops::adjust_time<SharedStorage>(
+                            *ptr, original, replacement
                         );
                     } else {
-                        detail::adjust_track_times(*result, original, replacement);
+                        detail::adjust_track_times(*ptr, original, replacement);
                     }
-                    return List(std::move(result));
                 });
             },
             "original_times"_a,
             "new_times"_a,
-            "inplace"_a = false,
             nb::sig(
                 "def adjust_time(self, original_times: collections.abc.Iterable[int | float], "
-                "new_times: collections.abc.Iterable[int | float], inplace: bool = False) -> "
-                "typing.Self"
+                "new_times: collections.abc.Iterable[int | float]) -> None"
             ),
             "Map item times through paired anchors."
         );

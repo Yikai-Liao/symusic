@@ -2,6 +2,7 @@
 
 #include "symusic/event.h"
 #include "symusic/score.h"
+
 #include "fmt/core.h"
 #include "pdqsort.h"
 
@@ -15,7 +16,7 @@
 namespace symusic::detail {
 template<TType T, typename S>
 auto track_sort_key(const Track<T, S>& track) {
-    return std::tuple(track.is_drum, track.program, track.name, track.note_num());
+    return std::tuple(track.is_drum, track.program, track.name, S::get(track.notes).size());
 }
 
 // Comparisons on event ends use a wide intermediate (i64 for Tick) so that an event whose end
@@ -72,7 +73,7 @@ void sort_tracks(typename S::template Tracks<Track<T, S>>& tracks, bool reverse 
 }
 
 template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
-void clip_inplace(
+void clip(
     Range& events, typename T::unit start, typename T::unit end, const bool clip_end = false
 ) {
     if constexpr (HashDuration<T>) {
@@ -89,7 +90,7 @@ void clip_inplace(
 }
 
 template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
-void trim_inplace(
+void trim(
     Range&             events,
     typename T::unit   start,
     typename T::unit   end,
@@ -129,12 +130,12 @@ void trim_inplace(
             }
         }
     } else {
-        clip_inplace<S>(events, start, end);
+        clip<S>(events, start, end);
     }
 }
 
 template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
-void clip_with_sentinel_inplace(Range& events, typename T::unit start, typename T::unit end) {
+void clip_with_sentinel(Range& events, typename T::unit start, typename T::unit end) {
     if (events.empty()) return;
 
     T sentinel{};
@@ -229,9 +230,9 @@ void plan_time_adjustment(
             const auto start    = map_time(event.time);
             unit       duration = 0;
             if constexpr (HashDuration<E>) {
-                const auto mapped_end = map_time(symusic::detail::narrow_time<unit>(end));
+                const auto mapped_end = map_time(narrow_time<unit>(end));
                 if constexpr (std::integral<unit>) {
-                    duration = symusic::detail::sub_time(mapped_end, start);
+                    duration = sub_time(mapped_end, start);
                 } else {
                     duration = checked_adjusted_time<unit>(diff(mapped_end, start), "duration");
                 }
@@ -240,6 +241,8 @@ void plan_time_adjustment(
         }
         ++index;
     }
+    // Shared storage moves handles when compacting, so the surviving Python
+    // references keep pointing to the same events.
     plan.actions.emplace_back([&events, retained = std::move(retained)] {
         for (size_t out = 0; const auto& change : retained) {
             auto& event = events[change.index];
@@ -299,7 +302,13 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
               return !(left <= right);
           });
     if (unsorted != new_times.end()) {
-        throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");
+        throw std::invalid_argument(
+            fmt::format(
+                "symusic::ops::adjust_time: new_times should be sorted, got {}, {}",
+                *unsorted,
+                *(unsorted + 1)
+            )
+        );
     }
 }
 
@@ -313,7 +322,6 @@ void plan_time_adjustment(
     plan_time_adjustment<S>(S::get(track.notes), original_times, new_times, plan);
     plan_time_adjustment<S>(S::get(track.controls), original_times, new_times, plan);
     plan_time_adjustment<S>(S::get(track.pitch_bends), original_times, new_times, plan);
-    plan_time_adjustment<S>(S::get(track.pedals), original_times, new_times, plan);
     plan_time_adjustment<S>(S::get(track.lyrics), original_times, new_times, plan);
 }
 
@@ -346,60 +354,87 @@ void plan_time_adjustment(
     plan_time_adjustment<S>(S::get(score.markers), original_times, new_times, plan);
 }
 
+// Keep the update separate from validation so a rejected offset leaves all
+// existing event references and values intact.
+template<class V>
+class FieldUpdates {
+    vec<std::pair<V*, V>> updates;
+
+public:
+    void add(V& field, V value) { updates.emplace_back(&field, value); }
+
+    void apply() const {
+        for (const auto& [field, value] : updates) *field = value;
+    }
+};
+
+template<TType T, class S>
+void collect_time_shifts(
+    Track<T, S>& track, typename T::unit offset, FieldUpdates<typename T::unit>& changes
+) {
+    const auto collect = [&](auto& list) {
+        for (auto& event : S::get(list)) changes.add(event.time, add_time(event.time, offset));
+    };
+    collect(track.notes);
+    collect(track.controls);
+    collect(track.pitch_bends);
+    collect(track.lyrics);
+}
+
+template<TType T, class S>
+void collect_time_shifts(
+    Score<T, S>& score, typename T::unit offset, FieldUpdates<typename T::unit>& changes
+) {
+    for (auto& track : S::get(score.tracks)) collect_time_shifts(S::get(track), offset, changes);
+    const auto collect = [&](auto& list) {
+        for (auto& event : S::get(list)) changes.add(event.time, add_time(event.time, offset));
+    };
+    collect(score.time_signatures);
+    collect(score.key_signatures);
+    collect(score.tempos);
+    collect(score.markers);
+}
+
+template<size_t I, TType T, class S>
+void collect_note_shifts(Track<T, S>& track, i32 offset, FieldUpdates<i8>& changes) {
+    for (auto& note : S::get(track.notes)) {
+        auto& field = note.*std::get<I>(event_fields<Note<T>>).second;
+        changes.add(field, checked_event_field<Note<T>, I>(static_cast<i64>(field) + offset));
+    }
+}
+
+template<size_t I, TType T, class S>
+void collect_note_shifts(Score<T, S>& score, i32 offset, FieldUpdates<i8>& changes) {
+    for (auto& track : S::get(score.tracks)) collect_note_shifts<I>(S::get(track), offset, changes);
+}
+
 }   // namespace symusic::detail
 
 namespace symusic::ops {
 
-template<
-    bool check_times = true,
-    typename S       = ValueStorage,
-    typename Range,
-    TimeEvent T = typename Range::value_type>
-void adjust_time_inplace(
+template<typename S = ValueStorage, typename Range, TimeEvent E = typename Range::value_type>
+void adjust_time(
     Range&                       events,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
+    const vec<typename E::unit>& original_times,
+    const vec<typename E::unit>& new_times
 ) {
-    if constexpr (check_times) { detail::check_times(original_times, new_times); }
+    detail::check_times(original_times, new_times);
     detail::TimeAdjustments plan;
     detail::plan_time_adjustment<S>(events, original_times, new_times, plan);
     plan.apply();
 }
 
-template<bool check_times = true, TType T, typename S>
-void adjust_time_inplace(
-    Track<T, S>&                 track,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
-) {
-    if constexpr (check_times) { detail::check_times(original_times, new_times); }
-    detail::TimeAdjustments plan;
-    detail::plan_time_adjustment(track, original_times, new_times, plan);
-    plan.apply();
-}
-
-template<bool check_times = true, TType T, typename S>
-void adjust_time_inplace(
-    Score<T, S>&                 score,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
-) {
-    if constexpr (check_times) { detail::check_times(original_times, new_times); }
-    detail::TimeAdjustments plan;
-    detail::plan_time_adjustment(score, original_times, new_times, plan);
-    plan.apply();
-}
-
-template<typename T>
-T adjust_time(
-    const T&                     data,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
+template<class Object>
+    requires requires { typename Object::storage_type; }
+void adjust_time(
+    Object&                           object,
+    const vec<typename Object::unit>& original_times,
+    const vec<typename Object::unit>& new_times
 ) {
     detail::check_times(original_times, new_times);
-    T new_data = data.deepcopy();
-    adjust_time_inplace<false>(new_data, original_times, new_times);
-    return new_data;
+    detail::TimeAdjustments plan;
+    detail::plan_time_adjustment(object, original_times, new_times, plan);
+    plan.apply();
 }
 
 // get the start time of the first event

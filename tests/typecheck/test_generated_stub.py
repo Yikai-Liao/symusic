@@ -7,12 +7,12 @@ import symusic
 from symusic import _core
 
 EXPECTED_MEMBERS = {
-    "Score": {"tracks", "tempos", "copy", "clip", "dump_midi", "pianoroll"},
+    "Score": {"tracks", "tempos", "copy", "clip", "dump", "pianoroll"},
     "Track": {"notes", "controls", "copy", "clip", "trim"},
     "Note": {"time", "duration", "pitch", "copy", "shift_time"},
-    "KeySignature": {"time", "key", "tonality", "copy"},
+    "KeySignature": {"time", "key", "minor", "copy"},
     "TimeSignature": {"time", "numerator", "denominator", "copy"},
-    "Tempo": {"time", "qpm", "mspq", "copy"},
+    "Tempo": {"time", "qpm", "microseconds_per_quarter", "copy"},
     "ControlChange": {"time", "number", "value", "copy"},
     "Pedal": {"time", "duration", "copy", "shift_time"},
     "PitchBend": {"time", "value", "copy", "shift_time"},
@@ -65,7 +65,7 @@ def test_stub_exposes_runtime_classes():
     score_methods = [
         node for node in classes["Score"].body if isinstance(node, ast.FunctionDef)
     ]
-    assert len([node for node in score_methods if node.name == "dump_midi"]) == 1
+    assert len([node for node in score_methods if node.name == "dump"]) == 1
     assert len([node for node in score_methods if node.name == "__repr__"]) == 1
 
     pianoroll = [node for node in score_methods if node.name == "pianoroll"]

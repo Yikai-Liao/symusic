@@ -13,24 +13,14 @@ namespace symusic {
 
 using pianoroll_t = uint8_t;
 
-#define PIANOROLL_MODES      \
-    PIANOROLL_MODE(onset, 0) \
-    PIANOROLL_MODE(frame, 1) \
-    PIANOROLL_MODE(offset, 2)
+enum class PianorollMode : u8 { Onset, Frame, Offset };
 
-enum class PianorollMode : uint8_t {
-#define PIANOROLL_MODE(name, flag) name = flag,
-    PIANOROLL_MODES
-#undef PIANOROLL_MODE
-};
-
-static PianorollMode str_to_pianoroll_mode(const std::string& mode) {
-#define PIANOROLL_MODE(name, flag) \
-    if (mode == (#name)) return PianorollMode::name;
-    PIANOROLL_MODES
-#undef PIANOROLL_MODE
-    throw std::invalid_argument("No such pianoroll mode called " + mode + ".");
-};
+inline PianorollMode str_to_pianoroll_mode(std::string_view mode) {
+    if (mode == "onset") return PianorollMode::Onset;
+    if (mode == "frame") return PianorollMode::Frame;
+    if (mode == "offset") return PianorollMode::Offset;
+    throw std::invalid_argument("Unknown pianoroll mode: " + std::string(mode));
+}
 
 class TrackPianoroll {
 private:

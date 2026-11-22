@@ -98,12 +98,12 @@ TEST_CASE("Test KeySignature formatting", "[repr][keysig]") {
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", ks);
-        REQUIRE(str == "KeySignature(100, 2, 0, 10, 'Tick')");
+        REQUIRE(str == "KeySignature(100, 2, false, 10, 'Tick')");
     }
 
     SECTION("Detailed format") {
         std::string str = fmt::format("{:d}", ks);
-        REQUIRE(str == "KeySignature(time=100, key=2, tonality=0, degree=10, ttype='Tick')");
+        REQUIRE(str == "KeySignature(time=100, key=2, minor=false, degree=10, ttype='Tick')");
     }
 }
 
@@ -117,21 +117,21 @@ TEST_CASE("Test Tempo formatting", "[repr][tempo]") {
 
     SECTION("Detailed format") {
         std::string str = fmt::format("{:d}", tempo);
-        REQUIRE(str == "Tempo(time=100, qpm=120, mspq=500000, ttype='Tick')");
+        REQUIRE(str == "Tempo(time=100, qpm=120, microseconds_per_quarter=500000, ttype='Tick')");
     }
 }
 
 TEST_CASE("Test PitchBend formatting", "[repr][pitchbend]") {
-    PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
+    PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", pb);
-        REQUIRE(str == "PitchBend(100, 8192, 'Tick')");
+        REQUIRE(str == "PitchBend(100, 0, 'Tick')");
     }
 
     SECTION("Detailed format") {
         std::string str = fmt::format("{:d}", pb);
-        REQUIRE(str == "PitchBend(time=100, value=8192, ttype='Tick')");
+        REQUIRE(str == "PitchBend(time=100, value=0, ttype='Tick')");
     }
 }
 

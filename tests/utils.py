@@ -49,14 +49,11 @@ def merge_tracks(
     tracks_[0].notes = notes_sum
     tracks_[0].notes.sort()
     if effects:
-        # Pedals
-        pedals_sum, cc_sum, pb_sum = [], [], []
+        cc_sum = []
+        pb_sum = []
         for track in tracks_:
-            pedals_sum += track.pedals
             cc_sum += track.controls
             pb_sum += track.pitch_bends
-        tracks_[0].pedals = pedals_sum
-        tracks_[0].pedals.sort()
         # Control changes
         tracks_[0].controls = cc_sum
         # tracks_[0].controls = sum((t.controls for t in tracks_), [])
@@ -88,12 +85,12 @@ def merge_scores(scores: Sequence[Score]) -> Score:
         score.ticks_per_quarter == scores[0].ticks_per_quarter for score in scores
     ):
         msg = (
-            "Some `Score`s have different time divisions (`tpq`). They must be all"
+            "Some `Score`s have different time divisions (`ticks_per_quarter`). They must be all"
             "identical in order to merge the `Scores`s."
         )
         raise ValueError(msg)
 
-    score = Score(scores[0].ticks_per_quarter)
+    score = Score(ticks_per_quarter=scores[0].ticks_per_quarter)
     for score_split in scores:
         score.tracks.extend(score_split.tracks)
         score.tempos.extend(score_split.tempos)
@@ -129,14 +126,14 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
         raise ValueError(err)
 
     # Create the concatenated Score with empty tracks
-    score_concat = Score(scores[0].ticks_per_quarter)
+    score_concat = Score(ticks_per_quarter=scores[0].ticks_per_quarter)
     score_concat.tracks = scores[0].tracks.copy()
 
     for mi in range(len(scores)):
         # Shift the Score
         score = scores[mi].copy()
         if mi > 0:
-            score = score.shift_time(end_ticks[mi - 1])
+            score.shift_time(end_ticks[mi - 1])
 
         # Concatenate global messages
         score_concat.tempos.extend(score.tempos)
@@ -151,7 +148,6 @@ def concat_scores(scores: Sequence[Score], end_ticks: Sequence[int]) -> Score:
             score_concat.tracks[ti].notes.extend(track.notes)
             score_concat.tracks[ti].controls.extend(track.controls)
             score_concat.tracks[ti].pitch_bends.extend(track.pitch_bends)
-            score_concat.tracks[ti].pedals.extend(track.pedals)
             score_concat.tracks[ti].lyrics.extend(track.lyrics)
 
     return score_concat

@@ -8,6 +8,13 @@
 
 namespace symusic {
 
+enum class InvalidDataBytes { Raise, Clamp };
+
+struct MidiReadOptions {
+    InvalidDataBytes invalid_data_bytes = InvalidDataBytes::Raise;
+};
+
+
 template<TType T, typename S = ValueStorage>
 struct Score {
     using ttype        = T;
@@ -17,7 +24,7 @@ struct Score {
     using track_type   = Track<T, S>;
     using track_handle = typename S::template TrackHandle<track_type>;
 
-    i32                                         ticks_per_quarter = 0;
+    i32                                         ticks_per_quarter = 960;
     typename S::template Tracks<track_type>     tracks = S::adopt_tracks(vec<track_handle>{});
     typename S::template List<TimeSignature<T>> time_signatures = S::adopt(vec<TimeSignature<T>>{});
     typename S::template List<KeySignature<T>>  key_signatures  = S::adopt(vec<KeySignature<T>>{});
@@ -25,51 +32,40 @@ struct Score {
     typename S::template List<TextMeta<T>>      markers         = S::adopt(vec<TextMeta<T>>{});
 
     Score() = default;
-    explicit Score(i32 tpq) : ticks_per_quarter(tpq) {
-        if (tpq <= 0) {
+    explicit Score(i64 resolution) { set_ticks_per_quarter(resolution); }
+
+    void set_ticks_per_quarter(i64 resolution) {
+        if (resolution <= 0 || !std::in_range<i32>(resolution)) {
             throw std::invalid_argument(
-                "ticks_per_quarter must be positive, got " + std::to_string(tpq)
+                "ticks_per_quarter must be in 1..2147483647, got " + std::to_string(resolution)
             );
         }
+        ticks_per_quarter = static_cast<i32>(resolution);
     }
+
     Score(
-        i32                                         tpq,
+        i32                                         ticks_per_quarter,
         typename S::template Tracks<track_type>     tracks,
         typename S::template List<TimeSignature<T>> time_signatures,
         typename S::template List<KeySignature<T>>  key_signatures,
         typename S::template List<Tempo<T>>         tempos,
         typename S::template List<TextMeta<T>>      markers
     ) :
-        ticks_per_quarter(tpq), tracks(std::move(tracks)),
+        ticks_per_quarter(ticks_per_quarter), tracks(std::move(tracks)),
         time_signatures(std::move(time_signatures)), key_signatures(std::move(key_signatures)),
         tempos(std::move(tempos)), markers(std::move(markers)) {}
 
-    [[nodiscard]] Score copy() const { return *this; }
-    [[nodiscard]] Score deepcopy() const;
+    [[nodiscard]] Score copy() const;
     bool                operator==(const Score& other) const;
 
-    template<DataFormat F>
-        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
-    [[nodiscard]] static Score parse(std::span<const u8> bytes) {
-        if constexpr (F == DataFormat::MIDI)
-            return parse_midi_bytes(bytes, false);
-        else
-            return parse_zpp_bytes(bytes);
-    }
+    // Read Standard MIDI File bytes, with optional recovery of out-of-range data bytes.
+    [[nodiscard]] static Score from_midi(std::span<const u8> bytes, MidiReadOptions options = {});
 
-    template<DataFormat F>
-        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
-    [[nodiscard]] vec<u8> dumps() const {
-        if constexpr (F == DataFormat::MIDI)
-            return dump_midi_bytes();
-        else
-            return dump_zpp_bytes();
-    }
+    // Encode the score as a Standard MIDI File.
+    [[nodiscard]] vec<u8> to_midi() const;
 
-    [[nodiscard]] static Score parse_midi_bytes(std::span<const u8> bytes, bool sanitize_data);
-    [[nodiscard]] vec<u8>      dump_midi_bytes() const;
-    [[nodiscard]] static Score parse_zpp_bytes(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8>      dump_zpp_bytes() const;
+    [[nodiscard]] static Score deserialize(std::span<const u8> bytes);
+    [[nodiscard]] vec<u8>      serialize() const;
 
     // return the start time of the score
     [[nodiscard]] unit start() const;
@@ -78,7 +74,7 @@ struct Score {
     [[nodiscard]] unit end() const;
 
     // return the number of notes in the score
-    [[nodiscard]] size_t note_num() const;
+    [[nodiscard]] size_t note_count() const;
 
     // return the number of tracks in the score
     [[nodiscard]] size_t track_num() const;
@@ -98,15 +94,10 @@ struct Score {
     // summary info of the score
     [[nodiscard]] std::string summary() const;
 
-    // non-inplace sort, return a new score
-    [[nodiscard]] Score sort(bool reverse = false) const;
+    void sort(bool reverse = false);
 
-    void sort_inplace(bool reverse = false);
-
-    // Clip all the events in the score, non-inplace, return a new Score
     // For events with duration, clip_end is used to determine whether to clip based on end time.
     [[nodiscard]] Score clip(unit start, unit end, bool clip_end = false) const;
-    void                clip_inplace(unit start, unit end, bool clip_end = false);
 
     [[nodiscard]] Score trim(
         unit               start,
@@ -115,28 +106,12 @@ struct Score {
         const std::string& start_mode  = "remove",
         const std::string& end_mode    = "remove"
     ) const;
-    void trim_inplace(
-        unit               start,
-        unit               end,
-        unit               min_overlap = 0,
-        const std::string& start_mode  = "remove",
-        const std::string& end_mode    = "remove"
-    );
 
-    // shift the time of all the events in the score, non-inplace, return a new Score
-    [[nodiscard]] Score shift_time(unit offset) const;
+    void shift_time(unit offset);
 
-    void shift_time_inplace(unit offset);
+    void shift_pitch(i32 offset);
 
-    // shift the pitch of all notes in the score, non-inplace, return a new Score
-    [[nodiscard]] Score shift_pitch(i8 offset) const;
-
-    void shift_pitch_inplace(i8 offset);
-
-    // shift the velocity of all notes in the score, non-inplace, return a new Score
-    [[nodiscard]] Score shift_velocity(i8 offset) const;
-
-    void shift_velocity_inplace(i8 offset);
+    void shift_velocity(i32 offset);
 };
 
 extern template struct Score<Tick>;

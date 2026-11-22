@@ -39,20 +39,27 @@ constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Memb
 }
 
 template<TimeEvent E>
-    requires(std::is_trivially_copyable_v<E> && !std::is_const_v<E>)
+    requires (std::is_trivially_copyable_v<E> && !std::is_const_v<E>)
 constexpr auto serialize(auto& archive, E& data) {
-    return archive(zpp::bits::as_bytes(data));
+    auto result = archive(zpp::bits::as_bytes(data));
+    if constexpr (std::same_as<decltype(result), zpp::bits::errc> && requires { data.minor; }) {
+        // Inspect the byte representation before using the deserialized bool.
+        if (!zpp::bits::failure(result)) {
+            u8 mode{};
+            static_assert(sizeof(data.minor) == sizeof(mode));
+            std::memcpy(&mode, &data.minor, sizeof(mode));
+            if (mode > 1) return decltype(result){std::errc::invalid_argument};
+        }
+    }
+    return result;
 }
 
 template<TimeEvent E>
     requires std::is_trivially_copyable_v<E>
 constexpr auto serialize(auto& archive, const E& data) {
-    return std::apply(
-        [&](const auto&... fields) {
-            return serialize_zeroed_padding(archive, data, (data.*fields.second)...);
-        },
-        detail::event_fields<E>
-    );
+    return std::apply([&](const auto&... fields) {
+        return serialize_zeroed_padding(archive, data, (data.*fields.second)...);
+    }, detail::event_fields<E>);
 }
 
 // Arithmetic event members occupy the leading bytes of each wire image.
@@ -62,10 +69,9 @@ inline constexpr size_t padded_payload = 0;
 template<TimeEvent E>
     requires std::is_trivially_copyable_v<E>
 inline constexpr size_t padded_payload<E> = [] {
-    const auto payload = std::apply(
-        [](const auto&... fields) { return (sizeof(std::declval<E>().*fields.second) + ...); },
-        detail::event_fields<E>
-    );
+    const auto payload = std::apply([](const auto&... fields) {
+        return (sizeof(std::declval<E>().*fields.second) + ...);
+    }, detail::event_fields<E>);
     return payload == sizeof(E) ? 0 : payload;
 }();
 
@@ -84,7 +90,7 @@ inline constexpr size_t min_zpp_size = sizeof(E);
 template<TType T>
 inline constexpr size_t min_zpp_size<TextMeta<T>> = sizeof(typename T::unit) + sizeof(ZppSize);
 template<TType T>
-inline constexpr size_t min_zpp_size<Track<T>> = 2 * sizeof(u8) + 6 * sizeof(ZppSize);
+inline constexpr size_t min_zpp_size<Track<T>> = 2 * sizeof(u8) + 5 * sizeof(ZppSize);
 template<TType T>
 inline constexpr size_t min_zpp_size<Score<T>> = sizeof(i32) + 5 * sizeof(ZppSize);
 
@@ -95,7 +101,7 @@ struct ZppContainer {
 
 template<class Container>
 constexpr zpp::bits::errc serialize(auto& archive, const ZppContainer<Container>& wrapped) {
-    using E      = typename Container::value_type;
+    using E = typename Container::value_type;
     auto& values = wrapped.values;
     if constexpr (std::is_const_v<Container>) {
         const auto count = checked_zpp_size(values.size());
@@ -146,22 +152,17 @@ constexpr decltype(auto) zpp_field(Member& value) {
 template<typename E>
     requires TimeEvent<std::remove_cv_t<E>> && (!std::is_trivially_copyable_v<E>)
 constexpr auto serialize(auto& archive, E& data) {
-    return std::apply(
-        [&](const auto&... fields) { return archive(zpp_field(data.*fields.second)...); },
-        detail::event_fields<std::remove_cv_t<E>>
-    );
+    return std::apply([&](const auto&... fields) {
+        return archive(zpp_field(data.*fields.second)...);
+    }, detail::event_fields<std::remove_cv_t<E>>);
 }
 
 template<typename S, typename Track>
 constexpr auto serialize_track(auto& archive, Track& data, auto& drum_flag) {
     return archive(
-        ZppContainer{data.name},
-        data.program,
-        drum_flag,
-        ZppContainer{S::get(data.notes)},
-        ZppContainer{S::get(data.controls)},
+        ZppContainer{data.name}, data.program, drum_flag,
+        ZppContainer{S::get(data.notes)}, ZppContainer{S::get(data.controls)},
         ZppContainer{S::get(data.pitch_bends)},
-        ZppContainer{S::get(data.pedals)},
         ZppContainer{S::get(data.lyrics)}
     );
 }
@@ -174,7 +175,7 @@ constexpr auto serialize(auto& archive, const Track<T, S>& data) {
 
 template<TType T>
 constexpr zpp::bits::errc serialize(auto& archive, Track<T>& data) {
-    u8   drum_flag{};
+    u8 drum_flag{};
     auto result = serialize_track<ValueStorage>(archive, data, drum_flag);
     if (zpp::bits::failure(result)) return result;
     if (drum_flag > 1) return std::errc::invalid_argument;
@@ -202,24 +203,17 @@ template<TType T, typename S>
 constexpr auto serialize(auto& archive, const Score<T, S>& data) {
     using Range = std::remove_cvref_t<decltype(S::get(data.tracks))>;
     return archive(
-        data.ticks_per_quarter,
-        ZppTrackRange<S, Range>{S::get(data.tracks)},
-        ZppContainer{S::get(data.time_signatures)},
-        ZppContainer{S::get(data.key_signatures)},
-        ZppContainer{S::get(data.tempos)},
-        ZppContainer{S::get(data.markers)}
+        data.ticks_per_quarter, ZppTrackRange<S, Range>{S::get(data.tracks)},
+        ZppContainer{S::get(data.time_signatures)}, ZppContainer{S::get(data.key_signatures)},
+        ZppContainer{S::get(data.tempos)}, ZppContainer{S::get(data.markers)}
     );
 }
 
 template<TType T>
 constexpr auto serialize(auto& archive, Score<T>& data) {
     return archive(
-        data.ticks_per_quarter,
-        ZppContainer{data.tracks},
-        ZppContainer{data.time_signatures},
-        ZppContainer{data.key_signatures},
-        ZppContainer{data.tempos},
-        ZppContainer{data.markers}
+        data.ticks_per_quarter, ZppContainer{data.tracks}, ZppContainer{data.time_signatures},
+        ZppContainer{data.key_signatures}, ZppContainer{data.tempos}, ZppContainer{data.markers}
     );
 }
 
@@ -230,7 +224,7 @@ namespace symusic {
 namespace detail {
 
 inline constexpr std::array<u8, 4> kZppMagic{'S', 'Y', 'M', 'Z'};
-inline constexpr u8                kZppVersion = 1;
+inline constexpr u8 kZppVersion = 2;
 
 template<class T>
 auto archive_zpp_state(auto& archive, T& data) {
@@ -244,7 +238,7 @@ auto archive_zpp_state(auto& archive, T& data) {
 template<class T>
 vec<u8> serialize_zpp(const T& data) {
     vec<u8> buffer;
-    auto    out = zpp::bits::out(buffer);
+    auto out = zpp::bits::out(buffer);
     out(kZppMagic, kZppVersion).or_throw();
     archive_zpp_state(out, data).or_throw();
     return buffer;
@@ -252,9 +246,9 @@ vec<u8> serialize_zpp(const T& data) {
 
 template<class T>
 T deserialize_zpp(std::span<const u8> buffer) {
-    auto                             in = zpp::bits::in(buffer);
+    auto in = zpp::bits::in(buffer);
     std::array<u8, kZppMagic.size()> magic{};
-    u8                               version{};
+    u8 version{};
     if (zpp::bits::failure(in(magic, version)) || magic != kZppMagic) {
         throw std::invalid_argument(
             "Invalid ZPP pickle header (unversioned or malformed, expected version "
@@ -277,22 +271,22 @@ T deserialize_zpp(std::span<const u8> buffer) {
 }   // namespace detail
 
 template<TType T, typename S>
-vec<u8> Track<T, S>::dump_zpp_bytes() const {
+vec<u8> Track<T, S>::serialize() const {
     return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
-Track<T, S> Track<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
+Track<T, S> Track<T, S>::deserialize(std::span<const u8> bytes) {
     return detail::adopt_storage<S>(detail::deserialize_zpp<Track<T>>(bytes));
 }
 
 template<TType T, typename S>
-vec<u8> Score<T, S>::dump_zpp_bytes() const {
+vec<u8> Score<T, S>::serialize() const {
     return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
-Score<T, S> Score<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
+Score<T, S> Score<T, S>::deserialize(std::span<const u8> bytes) {
     return detail::adopt_storage<S>(detail::deserialize_zpp<Score<T>>(bytes));
 }
 
@@ -304,6 +298,6 @@ vec<u8> dump_track_list(const typename S::template Tracks<Track<T, S>>& tracks) 
     return detail::serialize_zpp(ZppTrackRange<S, Range>{S::get(tracks)});
 }
 
-}   // namespace detail
+}  // namespace detail
 
-}   // namespace symusic
+}  // namespace symusic

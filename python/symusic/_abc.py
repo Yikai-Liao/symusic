@@ -299,8 +299,8 @@ def parse_abc(
     return score
 
 
-def write_abc(midi: bytes, warn: bool) -> str:
-    """Transcribe MIDI to ABC text, optionally warning about converter diagnostics."""
+def write_abc(midi: bytes) -> str:
+    """Transcribe MIDI to ABC text."""
     with tempfile.TemporaryDirectory(prefix=_TEMP_PREFIX) as directory:
         input_path = Path(directory) / "input.mid"
         input_path.write_bytes(midi)
@@ -317,18 +317,12 @@ def write_abc(midi: bytes, warn: bool) -> str:
     # stdout. Its default second line names our staged input, not the score.
     stdout = result.stdout.replace(b"\r\n", b"\n")
     header = b"X: 1\n"
-    prefix, separator, body = stdout.partition(header)
+    _, separator, body = stdout.partition(header)
     if not separator:
         raise _conversion_error(result, "did not produce ABC output")
     body = body.removeprefix(b"T: from input.mid\n")
-    diagnostics = _diagnostics(
-        prefix.removeprefix(b"calling midi2abc\n"),
-        result.stderr,
-    )
     try:
         abc = (header + body).decode("utf-8")
     except UnicodeDecodeError as exc:
         raise _conversion_error(result, "produced ABC that is not UTF-8") from exc
-    if warn and diagnostics:
-        warnings.warn(diagnostics, ABCConversionWarning, stacklevel=3)
     return abc

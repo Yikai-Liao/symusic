@@ -1,7 +1,9 @@
 #pragma once
 
 #include <bit>
+#include <deque>
 #include <limits>
+#include <optional>
 #include <string_view>
 
 #ifdef _MSC_VER
@@ -35,10 +37,10 @@ class MidiTrackSink {
     ScoreBuilder<T, MidiTrackKey>& builder;
     size_t                         message_count;
     std::string                    name;
-    // Pending program segments retain arrival order when a note promotes them.
-    std::array<vec<Track<T>>, 16> pending_tracks;
-    std::array<u8, 16>            programs{};
-    std::array<unit, 16>          pedal_start;
+    // Pending segments keep arrival order and stable sustain owners.
+    std::array<std::deque<Track<T>>, 16> pending_tracks;
+    std::array<u8, 16> programs{};
+    std::array<Track<T>*, 16> sustain_tracks{};
 
     static void append_pending(Track<T>& target, Track<T>& source) {
         const auto append = [](auto& dest, auto& events) {
@@ -50,7 +52,6 @@ class MidiTrackSink {
         };
         append(target.controls, source.controls);
         append(target.pitch_bends, source.pitch_bends);
-        append(target.pedals, source.pedals);
     }
 
     Track<T>& track(u8 channel, bool promote) {
@@ -66,7 +67,11 @@ class MidiTrackSink {
 
         auto& result = builder.create_track(key, Track<T>("", key.program, channel == 9));
         result.notes.reserve(message_count / 2 + 1);
-        for (auto& segment : pending) append_pending(result, segment);
+        auto& sustain = sustain_tracks[channel];
+        for (auto& segment : pending) {
+            append_pending(result, segment);
+            if (sustain == &segment) sustain = &result;
+        }
         pending.clear();
         return result;
     }
@@ -75,9 +80,7 @@ public:
     using NoteHandle = typename ScoreBuilder<T, MidiTrackKey>::NoteHandle;
 
     MidiTrackSink(ScoreBuilder<T, MidiTrackKey>& builder, size_t message_count) :
-        builder(builder), message_count(message_count) {
-        pedal_start.fill(-1);
-    }
+        builder(builder), message_count(message_count) {}
 
     void set_program(u8 channel, u8 program) { programs[channel] = program; }
     void set_name(std::string value) { name = std::move(value); }
@@ -92,17 +95,11 @@ public:
     void end_note(NoteHandle handle, unit time) { builder.end_note(handle, time); }
 
     void add_control(u8 channel, unit time, u8 number, u8 value) {
-        auto& target = track(channel, false);
+        auto& sustain = sustain_tracks[channel];
+        // Sustain is channel-wide, including across program changes.
+        auto& target = number == 64 && sustain ? *sustain : track(channel, false);
+        if (number == 64) sustain = value >= 64 ? &target : nullptr;
         target.controls.push_back(make_event<ControlChange<T>>(time, number, value));
-        if (number != 64) return;
-
-        auto& start = pedal_start[channel];
-        if (value >= 64) {
-            if (start < 0) start = time;
-        } else if (start >= 0) {
-            target.pedals.push_back(make_event<Pedal<T>>(start, detail::sub_time(time, start)));
-            start = -1;
-        }
     }
 
     void add_pitch_bend(u8 channel, unit time, i32 value) {
@@ -141,12 +138,12 @@ public:
 
 template<TType T, typename S, typename Convert, typename Container>
 [[nodiscard]] Score<T, S> parse_midi(
-    const minimidi::MidiFileView<Container>& midi, Convert tick_to_unit, bool sanitize_data
+    const minimidi::MidiFileView<Container>& midi, Convert tick_to_unit, MidiReadOptions options
 ) {
     ScoreBuilder<T, MidiTrackKey> builder(midi.ticks_per_quarter());
     for (const auto& track : midi) {
         MidiTrackSink<T> sink(builder, track.size / 3 + 100);
-        decode_midi_track<T>(track, tick_to_unit, sanitize_data, sink);
+        decode_midi_track<T>(track, tick_to_unit, options.invalid_data_bytes, sink);
         sink.finish();
     }
     return adopt_storage<S>(std::move(builder).finish());
@@ -173,7 +170,6 @@ void validate_midi_times(const Score<T, S>& score) {
         validate(track.pitch_bends, "pitch bend");
         validate(track.lyrics, "lyric");
         validate(track.notes, "note");
-        validate(track.pedals, "pedal");
     }
 }
 
@@ -211,42 +207,35 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     minimidi::Messages<> init_msgs{};
     {   // add meta messages
         auto&        msgs        = init_msgs;
-        const size_t message_num = S::get(score.time_signatures).size()
-                                   + S::get(score.key_signatures).size()
+        const size_t message_num = S::get(score.time_signatures).size() + S::get(score.key_signatures).size()
                                    + S::get(score.tempos).size() + S::get(score.markers).size();
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : S::get(score.time_signatures)) {
             if (!std::has_single_bit(time_signature.denominator)) {
-                throw std::invalid_argument(
-                    fmt::format(
-                        "MIDI time signature denominator must be a power of two, got {}",
-                        time_signature.denominator
-                    )
-                );
+                throw std::invalid_argument(fmt::format(
+                    "MIDI time signature denominator must be a power of two, got {}",
+                    time_signature.denominator
+                ));
             }
-            msgs.emplace_back(
-                minimidi::TimeSignature(
-                    time_signature.time, time_signature.numerator, time_signature.denominator
-                )
-            );
+            msgs.emplace_back(minimidi::TimeSignature(
+                time_signature.time, time_signature.numerator, time_signature.denominator
+            ));
         }
         // add key signatures
         for (const auto& key_signature : S::get(score.key_signatures)) {
-            msgs.emplace_back(
-                minimidi::KeySignature(
-                    key_signature.time, key_signature.key, key_signature.tonality
-                )
-            );
+            msgs.emplace_back(minimidi::KeySignature(
+                key_signature.time, key_signature.key, key_signature.minor
+            ));
         }
         // add tempos
         for (const auto& tempo : S::get(score.tempos)) {
-            if (tempo.mspq < 0 || tempo.mspq > 0xFFFFFF) {
+            if (tempo.microseconds_per_quarter < 0 || tempo.microseconds_per_quarter > 0xFFFFFF) {
                 throw std::invalid_argument(
-                    fmt::format("MIDI tempo mspq must fit in 24 bits, got {}", tempo.mspq)
+                    fmt::format("MIDI tempo microseconds_per_quarter must fit in 24 bits, got {}", tempo.microseconds_per_quarter)
                 );
             }
-            msgs.emplace_back(minimidi::SetTempo(tempo.time, tempo.mspq));
+            msgs.emplace_back(minimidi::SetTempo(tempo.time, tempo.microseconds_per_quarter));
         }
         // add markers
         for (const auto& marker : S::get(score.markers)) {
@@ -257,7 +246,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& handle : S::get(score.tracks)) {
-        const auto&          track = S::get(handle);
+        const auto& track = S::get(handle);
         minimidi::Messages<> msgs;
         if (!init_msgs.empty()) {
             msgs      = std::move(init_msgs);
@@ -265,8 +254,8 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         } else {
             msgs = {};
             msgs.reserve(
-                S::get(track.controls).size() + S::get(track.pitch_bends).size()
-                + S::get(track.lyrics).size() + 10
+                S::get(track.controls).size()
+                + S::get(track.pitch_bends).size() + S::get(track.lyrics).size() + 10
             );
         }
         const u8 channel = track.is_drum ? 9 : valid_channel[idx % 15];
@@ -342,40 +331,29 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
 }
 
 /**
- * Parse raw MIDI bytes to a score, optionally sanitizing payloads before decoding.
+ * Parse raw MIDI bytes to a score, validating channel messages during score construction.
  *
  * @param bytes Raw MIDI bytes to parse.
- * @param sanitize_data Clamp payload bytes to the 7-bit MIDI range.
+ * @param options Clamp payload bytes to the 7-bit MIDI range.
  */
 template<TType T, typename S>
-Score<T, S> parse_midi(const std::span<const u8> bytes, bool sanitize_data = false) {
+Score<T, S> parse_midi(const std::span<const u8> bytes, MidiReadOptions options) {
     const auto parse_view = [&](const auto& midi_view) -> Score<T, S> {
         if constexpr (std::is_same_v<T, Tick>) {
-            return parse_midi<Tick, S>(
-                midi_view, [](const Tick::unit x) { return x; }, sanitize_data
-            );
+            return parse_midi<Tick, S>(midi_view, [](const Tick::unit x) { return x; }, options);
         } else if constexpr (std::is_same_v<T, Quarter>) {
-            const auto tpq = static_cast<float>(midi_view.ticks_per_quarter());
+            const auto ticks_per_quarter = static_cast<float>(midi_view.ticks_per_quarter());
             return parse_midi<Quarter, S>(
                 midi_view,
-                [tpq](const Tick::unit x) { return static_cast<float>(x) / tpq; },
-                sanitize_data
+                [ticks_per_quarter](const Tick::unit x) { return static_cast<float>(x) / ticks_per_quarter; },
+                options
             );
         } else {
-            return convert<Second>(
-                parse_midi<Tick, S>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data)
-            );
+            return convert<Second>(parse_midi<Tick, S>(
+                midi_view, [](const Tick::unit x) { return x; }, options
+            ));
         }
     };
-
-    if (sanitize_data) {
-        const minimidi::MidiFileView<minimidi::container::SmallBytes> midi{
-            bytes.data(),
-            bytes.size(),
-            true   // sanitize data payloads to enforce strict MIDI range
-        };
-        return parse_view(midi);
-    }
 
     const minimidi::MidiFileView<std::span<const uint8_t>> midi{bytes.data(), bytes.size()};
     return parse_view(midi);
@@ -383,12 +361,12 @@ Score<T, S> parse_midi(const std::span<const u8> bytes, bool sanitize_data = fal
 }   // namespace detail
 
 template<TType T, typename S>
-Score<T, S> Score<T, S>::parse_midi_bytes(std::span<const u8> bytes, bool sanitize_data) {
-    return detail::parse_midi<T, S>(bytes, sanitize_data);
+Score<T, S> Score<T, S>::from_midi(std::span<const u8> bytes, MidiReadOptions options) {
+    return detail::parse_midi<T, S>(bytes, options);
 }
 
 template<TType T, typename S>
-vec<u8> Score<T, S>::dump_midi_bytes() const {
+vec<u8> Score<T, S>::to_midi() const {
     const auto division = detail::midi_division(ticks_per_quarter);
     if constexpr (std::same_as<T, Tick>) {
         return detail::to_midi(*this, division).to_bytes_sorted();
@@ -398,4 +376,4 @@ vec<u8> Score<T, S>::dump_midi_bytes() const {
     }
 }
 
-}   // namespace symusic
+}  // namespace symusic

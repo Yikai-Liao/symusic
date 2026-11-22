@@ -108,8 +108,8 @@ TrackPianoroll TrackPianoroll::from_track(
                 pianoroll.fill_unchecked(
                     mode_index,
                     note.pitch - pitch_range.first,
-                    modes[mode_index] != PianorollMode::offset ? note_start : note_end,
-                    modes[mode_index] == PianorollMode::frame ? note_end - note_start : 1,
+                    modes[mode_index] != PianorollMode::Offset ? note_start : note_end,
+                    modes[mode_index] == PianorollMode::Frame ? note_end - note_start : 1,
                     detail::encode_velocity(note.velocity, encode_note_velocity)
                 );
             }
@@ -149,8 +149,8 @@ ScorePianoroll ScorePianoroll::from_score(
                         mode_index,
                         track_index,
                         note.pitch - pitch_range.first,
-                        modes[mode_index] != PianorollMode::offset ? note_start : note_end,
-                        modes[mode_index] == PianorollMode::frame ? note_end - note_start : 1,
+                        modes[mode_index] != PianorollMode::Offset ? note_start : note_end,
+                        modes[mode_index] == PianorollMode::Frame ? note_end - note_start : 1,
                         detail::encode_velocity(note.velocity, encode_note_velocity)
                     );
                 }
