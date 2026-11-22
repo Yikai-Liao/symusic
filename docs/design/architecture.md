@@ -53,7 +53,7 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 
 | Path | Implementation |
 |---|---|
-| MIDI read | `minimidi` parses bytes; `src/io/midi.cpp` builds `ScoreNative<Tick>` and converts to shared. Other units convert after parsing |
+| MIDI read | `minimidi` parses bytes. `src/io/midi_notes.h` decodes the messages into a sink that supplies track keys to `src/io/score_builder.h`. The resulting score is converted to the requested storage and time unit |
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
 | ABC read/write | `symusic._abc` runs the bundled `abc2midi` and `midi2abc` with one temporary directory per call and captures their diagnostics. The Python score methods exchange MIDI bytes with the binding. Recovered imports must produce complete MIDI before the converter's messages become warnings |
 | Pickle | `zpp_bits` over the native representation (`src/io/zpp.cpp`) |
