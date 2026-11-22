@@ -30,6 +30,15 @@ _TEMP_PREFIX = "symusic-abc-"
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(rb"(?:^|(?<=[\r\n]))([ \t]*%%MIDI[ \t]+ptstress[ \t]+)([^\r\n]+)")
 
+# parseabc.c accepts spaces and tabs before and around the field delimiter.
+_TUNE_LINE = re.compile(
+    rb"(?:^|(?<=[\r\n]))(?:"
+    rb"(?P<header>[ \t]*X[ \t]*:(?![:|])[ \t]*(?P<reference>[0-9]*))"
+    rb"|(?P<off>(?i:%%MidiOff)|%%beginps(?=[\r\n]|$)|[^\r\n]*?%%begintext)"
+    rb"|(?P<on>(?i:%%MidiOn)|%%endps(?=[\r\n]|$)|[^\r\n]*?%%endtext))"
+)
+_INCLUDE_LINE = re.compile(_INCLUDE.pattern + rb"[^\r\n]*(?:\r\n|\n\r|\r|\n)")
+
 
 def _diagnostics(stdout: bytes, stderr: bytes) -> str:
     return b"\n".join(part.strip() for part in (stdout, stderr) if part.strip()).decode(
@@ -71,7 +80,7 @@ def _complete_midi(data: bytes) -> bool:
     return track_count > 0 and offset == len(data)
 
 
-def _stage_input_files(data: bytes, workdir: Path) -> bytes:
+def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
     # Resolve paths in the caller's cwd and use short ASCII names in the converter's cwd.
     includes: dict[bytes, bytes] = {}
     stress_files: dict[bytes, bytes] = {}
@@ -101,7 +110,41 @@ def _stage_input_files(data: bytes, workdir: Path) -> bytes:
             includes[original] = name.encode("ascii")
         return b"%%abc-include " + includes[original]
 
-    return _INCLUDE.sub(stage_include, _STRESS.sub(stage_stress, data))
+    data = _INCLUDE.sub(stage_include, _STRESS.sub(stage_stress, data))
+    return data, set(includes.values())
+
+
+def _isolate_tune(data: bytes, tune: int, workdir: Path, includes: set[bytes]) -> bytes:
+    # Expand staged includes once so a tune can begin or continue within one.
+    def expand_include(match: re.Match[bytes]) -> bytes:
+        if match[1] not in includes:
+            return match[0]
+        content = (workdir / match[1].decode("ascii")).read_bytes()
+        return content if content.endswith((b"\r", b"\n")) else content + b"\n"
+
+    if includes:
+        data = _INCLUDE_LINE.sub(expand_include, data)
+    reference = str(tune).encode("ascii")
+    ignored = False
+    first = selected = None
+    for line in _TUNE_LINE.finditer(data):
+        if line["off"] is not None:
+            ignored = True
+        elif line["on"] is not None:
+            ignored = False
+        elif not ignored:
+            if first is None:
+                first = line.start()
+            if selected is not None:
+                return data[:first] + data[selected : line.start()]
+            digits = line["reference"]
+            if digits and (digits.lstrip(b"0") or b"0") == reference:
+                selected = line.start()
+
+    if selected is not None:
+        return data[:first] + data[selected:]
+    msg = f"ABC tune X:{tune} was not found"
+    raise ValueError(msg)
 
 
 def _read_abc(
@@ -119,19 +162,17 @@ def _read_abc(
 
     with tempfile.TemporaryDirectory(prefix=_TEMP_PREFIX) as directory:
         workdir = Path(directory)
+        data, includes = _stage_input_files(data, workdir)
         args = [_ABC2MIDI, "stdin"]
-        output = workdir / "output.mid"
-        # abc2midi treats 0 as a sentinel. In multi-output mode the filename
-        # identifies X:0 without conflating it with the first tune.
+        # The converter treats 0 as a sentinel. Select the actual tune before
+        # passing it as the first and only tune in the input.
         if tune == 0:
-            output = workdir / "stdin0.mid"
-        else:
-            if tune is not None:
-                args.append(str(tune))
-            args.extend(("-o", output.name))
-        args.append("-silent")
+            data = _isolate_tune(data, tune, workdir, includes)
+        elif tune is not None:
+            args.append(str(tune))
+        output = workdir / "output.mid"
+        args.extend(("-o", output.name, "-silent"))
 
-        data = _stage_input_files(data, workdir)
         if _INCLUDE.search(data):
             # The parser seeks back to its input after consuming an include.
             input_path = workdir / "input.abc"

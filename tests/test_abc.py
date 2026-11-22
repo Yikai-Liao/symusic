@@ -134,6 +134,37 @@ def test_abc_tune_selection(tmp_path: Path, ttype):
         Score.from_abc(first, ttype, tune=0)
 
 
+def test_abc_tune_zero_skips_broken_tune():
+    broken = "X:1\n%%MIDI drumon\nK:C\nC|\n\n"
+    selected = "X:0\nM:1/4\nL:1/4\nK:C\nA|\n"
+    score = Score.from_abc(broken + selected, tune=0)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+
+def test_abc_tune_zero_ignores_text_blocks():
+    text = (
+        "%%begintext\nX:0\n%%endtext\n"
+        "X:1\nM:1/4\nL:1/4\nK:C\nC|\n\n"
+        "X:0\nM:1/4\nL:1/4\nK:C\nA|\n"
+    )
+    score = Score.from_abc(text, tune=0)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+
+def test_abc_tune_zero_in_include(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("tune.abc").write_bytes(b"X:000\rM:1/4\rL:1/4\rK:C\rA|")
+    abc = "X:1\nK:C\nC|\n\n%%abc-include tune.abc\n\nX:2\nK:C\nB|\n"
+    score = Score.from_abc(abc, tune=0)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+
+def test_abc_tune_zero_missing_with_broken_tune():
+    broken = "X:1\nK:C\n@C|\n"
+    with pytest.raises(ValueError, match="X:0"):
+        Score.from_abc(broken, tune=0)
+
+
 @pytest.mark.usefixtures("isolated_symusic_temp_root")
 def test_abc_include_resolves_from_caller(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
