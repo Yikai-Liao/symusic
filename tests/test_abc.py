@@ -738,6 +738,18 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     assert reloaded.note_num() > 0, "reloaded Score has no notes"
 
 
+def test_converter_layout():
+    package = Path(symusic.__file__).resolve().parent
+    assert not (package / "bin").exists()
+    vendor = package / "_vendor" / "abcmidi"
+    suffix = ".exe" if sys.platform == "win32" else ""
+    assert {path.name for path in vendor.iterdir()} == {
+        f"abc2midi{suffix}",
+        f"midi2abc{suffix}",
+        "LICENSE.txt",
+    }
+
+
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires a POSIX FIFO")
 def test_abc_file_rejects_named_pipe(tmp_path):
     path = tmp_path / "input.abc"
@@ -803,15 +815,3 @@ for unit in (Tick, Quarter, Second):
         raise AssertionError("MIDI constructor accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
-
-
-def test_converter_layout():
-    package = Path(symusic.__file__).resolve().parent
-    assert not (package / "bin").exists()
-    vendor = package / "_vendor" / "abcmidi"
-    suffix = ".exe" if sys.platform == "win32" else ""
-    assert {path.name for path in vendor.iterdir()} == {
-        f"abc2midi{suffix}",
-        f"midi2abc{suffix}",
-        "LICENSE.txt",
-    }
