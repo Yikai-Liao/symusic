@@ -596,7 +596,12 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
             idx += 1;
         }
     }
-    if (!init_msgs.empty()) { midi.tracks.emplace_back(std::move(init_msgs)); }
+    if (!init_msgs.empty()) {
+        gfx::timsort(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
+            return a.time < b.time;
+        });
+        midi.tracks.emplace_back(std::move(init_msgs));
+    }
     for (const auto& track : midi.tracks) {
         u32 previous_time = 0;
         u64 payload_size = 4;  // End-of-track event.

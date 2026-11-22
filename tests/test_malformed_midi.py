@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 import pytest
-from symusic import Score
+from symusic import Score, Tempo, TimeSignature
 
 from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
@@ -200,6 +200,14 @@ def test_midi_moving_lyrics_preserves_channel_events():
     ]
     assert [(pedal.time, pedal.duration) for pedal in channel_track.pedals] == [(0, 3)]
     assert [(bend.time, bend.value) for bend in channel_track.pitch_bends] == [(2, 1)]
+
+
+def test_midi_round_trips_global_events_without_tracks():
+    score = Score(480)
+    score.time_signatures.append(TimeSignature(480, 3, 4))
+    score.tempos.append(Tempo(0, 120))
+
+    assert Score.from_midi(score.dumps_midi()) == score
 
 
 def test_midi_rejects_unrepresentable_denominator():
