@@ -103,7 +103,9 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume control
 
         vec<PitchBend<Tick>> pitch_bends;
-        pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(50, 0));   // Center value pitch bend
+        pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(50, 0)
+        );   // Center value pitch bend
 
         controls.push_back(detail::make_event<ControlChange<Tick>>(0, 64, 127));
         controls.push_back(detail::make_event<ControlChange<Tick>>(200, 64, 0));
@@ -202,7 +204,7 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         Track<Tick> deep_copied = track.copy();
         REQUIRE(deep_copied == track);
         REQUIRE(deep_copied.notes.data() != track.notes.data());
-        REQUIRE(deep_copied.notes == track.notes);             // Same content
+        REQUIRE(deep_copied.notes == track.notes);   // Same content
     }
 
     SECTION("equality operators") {
@@ -289,9 +291,9 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     SECTION("shift_pitch() methods") {
         // Test non-inplace pitch shift
         Track<Tick> pitched = track;
-        pitched.shift_pitch(12);   // Up one octave
-        REQUIRE(pitched.notes.at(0).pitch == 72);     // C4 -> C5
-        REQUIRE(pitched.notes.at(1).pitch == 74);     // D4 -> D5
+        pitched.shift_pitch(12);                    // Up one octave
+        REQUIRE(pitched.notes.at(0).pitch == 72);   // C4 -> C5
+        REQUIRE(pitched.notes.at(1).pitch == 74);   // D4 -> D5
 
         // Test inplace pitch shift
         track.shift_pitch(12);

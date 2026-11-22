@@ -72,8 +72,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify meta events were preserved
         REQUIRE(read_score.tempos.size() == 3);
@@ -159,8 +158,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify pitch bend events were preserved
         REQUIRE(read_score.tracks.at(0).pitch_bends.size() == 8);
@@ -218,8 +216,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify control change events were preserved
         REQUIRE(read_score.tracks.at(0).controls.size() == 4);
@@ -281,8 +278,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         REQUIRE(std::abs(quarter_score.tracks.at(0).notes.at(1).duration - 2.0f) < 1e-6f);
 
         // Read as Second time type
-        Score<Second> second_score
-            = Score<Second>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Second> second_score = Score<Second>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify time values in seconds
         REQUIRE(second_score.tracks.at(0).notes.size() == 2);

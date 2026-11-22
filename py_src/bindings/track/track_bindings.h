@@ -5,27 +5,26 @@
 
 namespace symusic::py {
 
-constexpr const char* kTrackCopyCtorDoc   = R"pbdoc(Create a deep copy of *other*.)pbdoc";
-constexpr const char* kTrackClipDoc       = R"pbdoc(
+constexpr const char* kTrackCopyCtorDoc      = R"pbdoc(Create a deep copy of *other*.)pbdoc";
+constexpr const char* kTrackClipDoc          = R"pbdoc(
 Keep the events that start in ``[start, end)``; with *clip_end*, notes must also end by
 *end*. Times are not shifted. Returns a deep copy.
 )pbdoc";
-constexpr const char* kTrackTrimDoc       = R"pbdoc(
+constexpr const char* kTrackTrimDoc          = R"pbdoc(
 Keep notes that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
 keeps them whole. Other events are clipped by time. Invalid modes and negative *min_overlap*
 raise ``ValueError``. Returns a deep copy.
 )pbdoc";
-constexpr const char* kTrackSortDoc       = R"pbdoc(
+constexpr const char* kTrackSortDoc          = R"pbdoc(
 Sort every event list by its default sort key.
 )pbdoc";
-constexpr const char* kTrackAdjustTimeDoc = R"pbdoc(
+constexpr const char* kTrackAdjustTimeDoc    = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
 lists must be the same length and have at least two anchors. Original times must be strictly
 increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 )pbdoc";
-constexpr const char* kTrackShiftTimeDoc
-    = R"pbdoc(Add *offset* to every time.)pbdoc";
+constexpr const char* kTrackShiftTimeDoc     = R"pbdoc(Add *offset* to every time.)pbdoc";
 constexpr const char* kTrackShiftPitchDoc    = R"pbdoc(
 Add *offset* to every note's pitch. Raises
 ``ValueError`` when a result leaves 0..127.
@@ -51,7 +50,8 @@ inline void bind_track(nb::module_& module) {
     auto type = unit_class<TrackValue>(
         module,
         "Track",
-        "Track(name='', program=0, is_drum=False, notes=None, controls=None, pitch_bends=None, *, ttype=Tick)\n\nA musical part."
+        "Track(name='', program=0, is_drum=False, notes=None, controls=None, pitch_bends=None, *, "
+        "ttype=Tick)\n\nA musical part."
     );
     auto list = unit_class<TrackList>(
         module,
@@ -70,8 +70,10 @@ inline void bind_track(nb::module_& module) {
                nb::handle         pitch_bends,
                nb::handle         marker) {
                 new (self) TrackValue(with_unit(marker, [&](auto unit) {
-                    using T           = decltype(unit);
-                    auto       result = std::make_shared<Track<T>>(name, read_integer(program, "program"), is_drum);
+                    using T     = decltype(unit);
+                    auto result = std::make_shared<Track<T>>(
+                        name, read_integer(program, "program"), is_drum
+                    );
                     const auto read =
                         [&]<template<class> class E>(shared<pyvec<E<T>>>& field, nb::handle input) {
                             if (input.is_none()) return;
@@ -102,9 +104,7 @@ inline void bind_track(nb::module_& module) {
             "__init__",
             [](TrackValue* self, const TrackValue& other) {
                 new (self) TrackValue(other.visit([](const auto& ptr) {
-                    return TrackValue(
-                        std::make_shared<Track<UnitOf<decltype(ptr)>>>(ptr->copy())
-                    );
+                    return TrackValue(std::make_shared<Track<UnitOf<decltype(ptr)>>>(ptr->copy()));
                 }));
             },
             "other"_a,
@@ -116,12 +116,17 @@ inline void bind_track(nb::module_& module) {
     bind_scalar_property(
         type, "name", [](auto& track) -> auto& { return track.name; }, "Track name."
     );
-    type.def_prop_rw("program", [](const TrackValue& self) {
-        return self.visit([](const auto& ptr) { return ptr->program; });
-    }, [](const TrackValue& self, nb::handle value) {
-        const auto program = read_integer(value, "program");
-        self.visit([&](const auto& ptr) { ptr->set_program(program); });
-    }, "General MIDI program in 0..127.");
+    type.def_prop_rw(
+        "program",
+        [](const TrackValue& self) {
+            return self.visit([](const auto& ptr) { return ptr->program; });
+        },
+        [](const TrackValue& self, nb::handle value) {
+            const auto program = read_integer(value, "program");
+            self.visit([&](const auto& ptr) { ptr->set_program(program); });
+        },
+        "General MIDI program in 0..127."
+    );
     bind_scalar_property(
         type,
         "is_drum",
@@ -142,18 +147,22 @@ inline void bind_track(nb::module_& module) {
     bind_events.template operator()<PitchBend>(
         "pitch_bends", [](auto& track) -> auto& { return track.pitch_bends; }, "The pitch bends."
     );
-    type.def("pedals", [](const TrackValue& self) {
-        return self.visit([](const auto& ptr) {
-            return nb::tuple(nb::cast([&] {
-                using E = Pedal<UnitOf<decltype(ptr)>>;
-                vec<UnitValue<Pedal>> result;
-                for (const auto& pedal : ptr->pedals()) {
-                    result.emplace_back(std::make_shared<E>(pedal));
-                }
-                return result;
-            }()));
-        });
-    }, "Return a tuple of detached sustain regions derived from control change 64.");
+    type.def(
+        "pedals",
+        [](const TrackValue& self) {
+            return self.visit([](const auto& ptr) {
+                return nb::tuple(nb::cast([&] {
+                    using E = Pedal<UnitOf<decltype(ptr)>>;
+                    vec<UnitValue<Pedal>> result;
+                    for (const auto& pedal : ptr->pedals()) {
+                        result.emplace_back(std::make_shared<E>(pedal));
+                    }
+                    return result;
+                }()));
+            });
+        },
+        "Return a tuple of detached sustain regions derived from control change 64."
+    );
     bind_events.template operator()<TextMeta>(
         "lyrics", [](auto& track) -> auto& { return track.lyrics; }, "The lyric events."
     );
@@ -169,33 +178,33 @@ inline void bind_track(nb::module_& module) {
         kTrackShiftVelocityDoc
     );
     type.def(
-            "trim",
-            [](const TrackValue&  self,
-               nb::handle         start,
-               nb::handle         end,
-               nb::handle         min_overlap,
-               const std::string& start_mode,
-               const std::string& end_mode) {
-                return self.visit([&](const auto& ptr) {
-                    using T = UnitOf<decltype(ptr)>;
-                    return TrackValue(
-                        std::make_shared<Track<T>>(ptr->trim(
-                            read_time<T>(start),
-                            read_time<T>(end),
-                            read_time<T>(min_overlap),
-                            start_mode,
-                            end_mode
-                        ))
-                    );
-                });
-            },
-            "start"_a,
-            "end"_a,
-            "min_overlap"_a = 0,
-            "start_mode"_a  = "remove",
-            "end_mode"_a    = "remove",
-            kTrackTrimDoc
-        );
+        "trim",
+        [](const TrackValue&  self,
+           nb::handle         start,
+           nb::handle         end,
+           nb::handle         min_overlap,
+           const std::string& start_mode,
+           const std::string& end_mode) {
+            return self.visit([&](const auto& ptr) {
+                using T = UnitOf<decltype(ptr)>;
+                return TrackValue(
+                    std::make_shared<Track<T>>(ptr->trim(
+                        read_time<T>(start),
+                        read_time<T>(end),
+                        read_time<T>(min_overlap),
+                        start_mode,
+                        end_mode
+                    ))
+                );
+            });
+        },
+        "start"_a,
+        "end"_a,
+        "min_overlap"_a = 0,
+        "start_mode"_a  = "remove",
+        "end_mode"_a    = "remove",
+        kTrackTrimDoc
+    );
     bind_pianoroll<TrackPianoroll>(type, kTrackPianorollDoc);
 
     bind_list_ops<TrackSequence, TrackValue>(list);

@@ -35,7 +35,9 @@ TEST_CASE("Test Note Formatting (Tick)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
-    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);   // microseconds_per_quarter = 500000 corresponds to 120 qpm
+    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(
+        150, 500000
+    );   // microseconds_per_quarter = 500000 corresponds to 120 qpm
 
     SECTION("Default/Short Format") {
         // Fix: Adjust expected QPM format based on previous failure (120 instead of 120.00)
@@ -46,7 +48,8 @@ TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
     SECTION("Detailed Format") {
         // Fix: Adjust expected QPM format
         REQUIRE(
-            fmt::format("{:d}", tempo) == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')"
+            fmt::format("{:d}", tempo)
+            == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')"
         );
     }
 
@@ -54,7 +57,9 @@ TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
         std::stringstream ss;
         ss << tempo;
         // Fix: Adjust expected QPM format and assume detailed format for stream op
-        REQUIRE(ss.str() == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')");
+        REQUIRE(
+            ss.str() == "Tempo(time=150, qpm=120, microseconds_per_quarter=500000, ttype='Tick')"
+        );
     }
 }
 
@@ -101,7 +106,10 @@ TEST_CASE("Test Tempo Formatting (Quarter)", "[repr][tempo]") {
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << tempo;
-        REQUIRE(ss.str() == "Tempo(time=150.75, qpm=120, microseconds_per_quarter=500000, ttype='Quarter')");
+        REQUIRE(
+            ss.str()
+            == "Tempo(time=150.75, qpm=120, microseconds_per_quarter=500000, ttype='Quarter')"
+        );
     }
 }
 
@@ -140,14 +148,17 @@ TEST_CASE("Test Tempo Formatting (Second)", "[repr][tempo]") {
 
     SECTION("Detailed Format") {
         REQUIRE(
-            fmt::format("{:d}", tempo) == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')"
+            fmt::format("{:d}", tempo)
+            == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')"
         );
     }
 
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << tempo;
-        REQUIRE(ss.str() == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')");
+        REQUIRE(
+            ss.str() == "Tempo(time=2.25, qpm=120, microseconds_per_quarter=500000, ttype='Second')"
+        );
     }
 }
 
@@ -174,7 +185,8 @@ TEST_CASE("Test Pedal Formatting (Tick)", "[repr][pedal]") {
 
 // Add tests for ControlChange type (Tick only for now)
 TEST_CASE("Test ControlChange Formatting (Tick)", "[repr][control]") {
-    ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(75, 64, 127);   // CC 64 (Sustain) ON
+    ControlChange<Tick> cc
+        = detail::make_event<ControlChange<Tick>>(75, 64, 127);   // CC 64 (Sustain) ON
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", cc) == "ControlChange(75, 64, 127, 'Tick')");
@@ -310,7 +322,7 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 // Add tests for Score summary/to_string (Tick only)
 TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     Score<Tick> score(480);   // ticks_per_quarter
-    auto& track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
+    auto&       track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
     track1.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
     auto& track2 = score.tracks.emplace_back(Track<Tick>("Track 2", 1, false));
     track2.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 62, 90));
@@ -321,7 +333,8 @@ TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     REQUIRE(score.end() == 960);   // end time is start + duration
 
     std::string expected_summary = fmt::format(
-        "Score(ttype='Tick', ticks_per_quarter=480, begin=0, end=960, tracks=2, notes=2, time_sig=1, key_sig=1, "
+        "Score(ttype='Tick', ticks_per_quarter=480, begin=0, end=960, tracks=2, notes=2, "
+        "time_sig=1, key_sig=1, "
         "markers=0)"
     );
 

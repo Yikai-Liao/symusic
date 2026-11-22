@@ -20,18 +20,24 @@ void bind_controller_family_types(nb::module_& m) {
                        nb::handle         microseconds_per_quarter,
                        nb::handle         marker) {
                         new (self) UnitValue<Tempo>(with_unit(marker, [&](auto unit) {
-                            using T    = decltype(unit);
-                            using E = Tempo<T>;
+                            using T          = decltype(unit);
+                            using E          = Tempo<T>;
                             const auto start = event_input<E, 0>(time);
                             if (!qpm && microseconds_per_quarter.is_none())
-                                throw std::invalid_argument("qpm or microseconds_per_quarter must be specified");
-                            auto event = std::make_shared<E>(qpm ? E::from_qpm(start, *qpm)
-                                : detail::make_event<E>(start, event_input<E, 1>(microseconds_per_quarter)));
+                                throw std::invalid_argument(
+                                    "qpm or microseconds_per_quarter must be specified"
+                                );
+                            auto event = std::make_shared<E>(
+                                qpm ? E::from_qpm(start, *qpm) :
+                                      detail::make_event<E>(
+                                          start, event_input<E, 1>(microseconds_per_quarter)
+                                      )
+                            );
                             return UnitValue<Tempo>(std::move(event));
                         }));
                     },
                     "time"_a,
-                    "qpm"_a  = nb::none(),
+                    "qpm"_a                      = nb::none(),
                     "microseconds_per_quarter"_a = nb::none(),
                     nb::kw_only(),
                     "ttype"_a = nb::type<Tick>(),

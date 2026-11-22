@@ -78,9 +78,7 @@ void bind_transformations(
     type.def(
             "sort",
             [](const Value& self, bool reverse) {
-                self.visit([&](const auto& ptr) {
-                    ptr->sort(reverse);
-                });
+                self.visit([&](const auto& ptr) { ptr->sort(reverse); });
             },
             "reverse"_a = false,
             nb::sig("def sort(self, reverse: bool = False) -> None"),
@@ -91,28 +89,30 @@ void bind_transformations(
             [](const Value& self, nb::handle start, nb::handle end, bool clip_end) {
                 return self.visit([&](const auto& ptr) {
                     using T = UnitOf<decltype(ptr)>;
-                    return Value(std::make_shared<typename std::remove_cvref_t<decltype(ptr)>::element_type>(
-                        ptr->clip(read_time<T>(start), read_time<T>(end), clip_end)));
+                    return Value(
+                        std::make_shared<typename std::remove_cvref_t<decltype(ptr)>::element_type>(
+                            ptr->clip(read_time<T>(start), read_time<T>(end), clip_end)
+                        )
+                    );
                 });
             },
             "start"_a,
             "end"_a,
             "clip_end"_a = false,
             nb::sig(
-                "def clip(self, start: int | float, end: int | float, clip_end: bool = False) -> typing.Self"
+                "def clip(self, start: int | float, end: int | float, clip_end: bool = False) -> "
+                "typing.Self"
             ),
             clip_doc
         )
         .def(
             "adjust_time",
-            [](const Value&       self,
+            [](const Value&        self,
                const nb::iterable& original_times,
                const nb::iterable& new_times) {
                 self.visit([&](const auto& ptr) {
                     using T = UnitOf<decltype(ptr)>;
-                    ops::adjust_time(
-                        *ptr, read_times<T>(original_times), read_times<T>(new_times)
-                    );
+                    ops::adjust_time(*ptr, read_times<T>(original_times), read_times<T>(new_times));
                 });
             },
             "original_times"_a,
@@ -131,9 +131,7 @@ void bind_transformations(
                 });
             },
             "offset"_a,
-            nb::sig(
-                "def shift_time(self, offset: int | float) -> None"
-            ),
+            nb::sig("def shift_time(self, offset: int | float) -> None"),
             time_doc
         )
         .def(
@@ -162,10 +160,7 @@ void bind_transformations(
 
 template<class Value>
 void bind_queries(
-    nb::class_<Value>& type,
-    const char*        start_doc,
-    const char*        end_doc,
-    const char*        empty_doc
+    nb::class_<Value>& type, const char* start_doc, const char* end_doc, const char* empty_doc
 ) {
     type.def(
             "start",

@@ -369,7 +369,7 @@ TEST_CASE("Pianoroll rejects invalid input", "[symusic][pianoroll][bounds]") {
     }
 
     SECTION("Negative note duration") {
-        auto track = track_with(detail::make_event<Note<Tick>>(20, 5, 61, 80));
+        auto track                  = track_with(detail::make_event<Note<Tick>>(20, 5, 61, 80));
         track.notes.back().duration = -5;
         REQUIRE_THROWS_AS(
             TrackPianoroll::from_track(track, modes, range, true), std::invalid_argument

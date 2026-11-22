@@ -482,29 +482,69 @@ vec<TextMeta<Second>> deserialize<vec<TextMeta<Second>>>(std::span<const u8> byt
     return detail::deserialize_zpp<vec<TextMeta<Second>>>(bytes);
 }
 
-template vec<u8> Track<Tick, ValueStorage>::serialize() const;
-template Track<Tick, ValueStorage> Track<Tick, ValueStorage>::deserialize(std::span<const u8>);
-template vec<u8> Track<Quarter, ValueStorage>::serialize() const;
-template Track<Quarter, ValueStorage> Track<Quarter, ValueStorage>::deserialize(std::span<const u8>);
-template vec<u8> Track<Second, ValueStorage>::serialize() const;
-template Track<Second, ValueStorage> Track<Second, ValueStorage>::deserialize(std::span<const u8>);
-template vec<u8> Score<Tick, ValueStorage>::serialize() const;
-template Score<Tick, ValueStorage> Score<Tick, ValueStorage>::deserialize(std::span<const u8>);
-template vec<u8> Score<Quarter, ValueStorage>::serialize() const;
-template Score<Quarter, ValueStorage> Score<Quarter, ValueStorage>::deserialize(std::span<const u8>);
-template vec<u8> Score<Second, ValueStorage>::serialize() const;
+template vec<u8>                      Track<Tick, ValueStorage>::serialize() const;
+template Track<Tick, ValueStorage>    Track<Tick, ValueStorage>::deserialize(std::span<const u8>);
+template vec<u8>                      Track<Quarter, ValueStorage>::serialize() const;
+template Track<Quarter, ValueStorage> Track<Quarter, ValueStorage>::deserialize(
+    std::span<const u8>
+);
+template vec<u8>                      Track<Second, ValueStorage>::serialize() const;
+template Track<Second, ValueStorage>  Track<Second, ValueStorage>::deserialize(std::span<const u8>);
+template vec<u8>                      Score<Tick, ValueStorage>::serialize() const;
+template Score<Tick, ValueStorage>    Score<Tick, ValueStorage>::deserialize(std::span<const u8>);
+template vec<u8>                      Score<Quarter, ValueStorage>::serialize() const;
+template Score<Quarter, ValueStorage> Score<Quarter, ValueStorage>::deserialize(
+    std::span<const u8>
+);
+template vec<u8>                     Score<Second, ValueStorage>::serialize() const;
 template Score<Second, ValueStorage> Score<Second, ValueStorage>::deserialize(std::span<const u8>);
-template<> vec<u8> serialize(const vec<Track<Tick>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Tick>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Tick>>>(data); }
-template<> vec<u8> serialize(const vec<Score<Tick>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Tick>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Tick>>>(data); }
-template<> vec<u8> serialize(const vec<Track<Quarter>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Quarter>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Quarter>>>(data); }
-template<> vec<u8> serialize(const vec<Score<Quarter>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Quarter>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Quarter>>>(data); }
-template<> vec<u8> serialize(const vec<Track<Second>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Second>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Second>>>(data); }
-template<> vec<u8> serialize(const vec<Score<Second>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Second>> deserialize(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Second>>>(data); }
+template<>
+vec<u8> serialize(const vec<Track<Tick>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Tick>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Tick>>>(data);
+}
+template<>
+vec<u8> serialize(const vec<Score<Tick>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Tick>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Tick>>>(data);
+}
+template<>
+vec<u8> serialize(const vec<Track<Quarter>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Quarter>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Quarter>>>(data);
+}
+template<>
+vec<u8> serialize(const vec<Score<Quarter>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Quarter>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Quarter>>>(data);
+}
+template<>
+vec<u8> serialize(const vec<Track<Second>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Second>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Second>>>(data);
+}
+template<>
+vec<u8> serialize(const vec<Score<Second>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Second>> deserialize(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Second>>>(data);
+}
 
-}  // namespace symusic
+}   // namespace symusic

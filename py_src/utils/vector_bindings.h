@@ -505,8 +505,9 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
     nb::module_::import_("collections.abc").attr("MutableSequence").attr("register")(type);
     type.attr("__hash__") = nb::none();
 
-    type.def("copy", [copy](const List& self) { return copy(self, true); })
-        .def("__copy__", [copy](const List& self) { return copy(self, false); });
+    type.def(
+            "copy", [copy](const List& self) { return copy(self, true); }
+    ).def("__copy__", [copy](const List& self) { return copy(self, false); });
 }
 
 template<class List, class Item>
@@ -543,9 +544,7 @@ void bind_list_algorithms(nb::class_<List>& type) {
     type.def(
             "sort",
             [order](const List& self, const nb::object& key, bool reverse) {
-                self.visit( [&](const auto& ptr) {
-                    order(*ptr, key, reverse, true);
-                });
+                self.visit([&](const auto& ptr) { order(*ptr, key, reverse, true); });
             },
             "key"_a     = nb::none(),
             "reverse"_a = false,
@@ -573,7 +572,7 @@ void bind_list_algorithms(nb::class_<List>& type) {
         .def(
             "filter",
             [](const List& self, const nb::callable& function) {
-                self.visit( [&](const auto& ptr) {
+                self.visit([&](const auto& ptr) {
                     const auto keep
                         = [&](const auto& item) { return nb::cast<bool>(function(Item(item))); };
                     using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
@@ -584,25 +583,21 @@ void bind_list_algorithms(nb::class_<List>& type) {
                 });
             },
             "function"_a,
-            nb::sig(
-                "def filter(self, function: collections.abc.Callable) -> None"
-            ),
+            nb::sig("def filter(self, function: collections.abc.Callable) -> None"),
             "Keep the items for which the function returns true."
         )
         .def(
             "adjust_time",
-            [](const List&        self,
+            [](const List&         self,
                const nb::iterable& original_times,
                const nb::iterable& new_times) {
-                self.visit( [&](const auto& ptr) {
+                self.visit([&](const auto& ptr) {
                     using T                = UnitOf<decltype(ptr)>;
                     const auto original    = read_times<T>(original_times);
                     const auto replacement = read_times<T>(new_times);
                     using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
                     if constexpr (is_event_sequence<Vector>) {
-                        ops::adjust_time<SharedStorage>(
-                            *ptr, original, replacement
-                        );
+                        ops::adjust_time<SharedStorage>(*ptr, original, replacement);
                     } else {
                         detail::adjust_track_times(*ptr, original, replacement);
                     }

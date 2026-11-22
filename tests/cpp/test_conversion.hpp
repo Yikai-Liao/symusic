@@ -29,8 +29,8 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
     SECTION("Quarter to Second Conversion") {
         // Test conversion from Quarter to Second
         // Using a tempo of 120 BPM (500000 microseconds per quarter)
-        Quarter::unit quarter_val = 2.0;      // 2 quarters
-        int           microseconds_per_quarter        = 500000;   // microseconds per quarter (120 BPM)
+        Quarter::unit quarter_val              = 2.0;      // 2 quarters
+        int           microseconds_per_quarter = 500000;   // microseconds per quarter (120 BPM)
 
         // Test direct conversion
         Second::unit second_val = quarter_to_second(quarter_val, microseconds_per_quarter);
@@ -39,7 +39,8 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
         );   // 2 quarters at 120BPM = 1 second
 
         // Test reverse conversion
-        Quarter::unit quarter_val_round_trip = second_to_quarter(second_val, microseconds_per_quarter);
+        Quarter::unit quarter_val_round_trip
+            = second_to_quarter(second_val, microseconds_per_quarter);
         REQUIRE_THAT(
             double(quarter_val_round_trip), Catch::Matchers::WithinRel(double(quarter_val), 0.0001)
         );
@@ -48,18 +49,20 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][conversion]") {
     SECTION("Tick to Second Conversion") {
         // Test conversion from Tick directly to Second
         // Using a tempo of 120 BPM (500000 microseconds per quarter) and 480 ticks per quarter
-        Tick::unit tick_val = 960;   // 2 quarters
-        int        ticks_per_quarter      = 480;
-        int        microseconds_per_quarter     = 500000;   // microseconds per quarter (120 BPM)
+        Tick::unit tick_val                 = 960;   // 2 quarters
+        int        ticks_per_quarter        = 480;
+        int        microseconds_per_quarter = 500000;   // microseconds per quarter (120 BPM)
 
         // Test direct conversion
-        Second::unit second_val = tick_to_second(tick_val, ticks_per_quarter, microseconds_per_quarter);
+        Second::unit second_val
+            = tick_to_second(tick_val, ticks_per_quarter, microseconds_per_quarter);
         REQUIRE_THAT(
             double(second_val), Catch::Matchers::WithinRel(1.0, 0.0001)
         );   // 960 ticks at 480 ticks_per_quarter and 120BPM = 1 second
 
         // Test reverse conversion
-        Tick::unit tick_val_round_trip = second_to_tick(second_val, ticks_per_quarter, microseconds_per_quarter);
+        Tick::unit tick_val_round_trip
+            = second_to_tick(second_val, ticks_per_quarter, microseconds_per_quarter);
         REQUIRE(tick_val_round_trip == tick_val);
     }
 }
@@ -123,8 +126,8 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
 
     SECTION("Tick to Second with Tempo Change") {
         // Create a sequence of tempo changes
-        int                      ticks_per_quarter    = 480;
-        std::vector<Tempo<Tick>> tempos = {
+        int                      ticks_per_quarter = 480;
+        std::vector<Tempo<Tick>> tempos            = {
             detail::make_event<Tempo<Tick>>(0, 500000),   // 120 BPM at time 0
             detail::make_event<Tempo<Tick>>(
                 1920, 1000000
@@ -138,17 +141,20 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
 
         // Before first tempo change - 120 BPM
         REQUIRE_THAT(
-            double(tick_to_second(960, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(1.0, 0.0001)
+            double(tick_to_second(960, ticks_per_quarter, tempos)),
+            Catch::Matchers::WithinRel(1.0, 0.0001)
         );
 
         // Between first and second tempo changes - 60 BPM
         REQUIRE_THAT(
-            double(tick_to_second(2880, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(4.0, 0.0001)
+            double(tick_to_second(2880, ticks_per_quarter, tempos)),
+            Catch::Matchers::WithinRel(4.0, 0.0001)
         );
 
         // After all tempo changes - 240 BPM
         REQUIRE_THAT(
-            double(tick_to_second(4800, ticks_per_quarter, tempos)), Catch::Matchers::WithinRel(6.5, 0.0001)
+            double(tick_to_second(4800, ticks_per_quarter, tempos)),
+            Catch::Matchers::WithinRel(6.5, 0.0001)
         );   // Corrected to 6.5 based on actual test results
     }
 }

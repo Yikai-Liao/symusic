@@ -18,8 +18,8 @@ int main(const int argc, const char* argv[]) {
     const auto buffer    = read_file(midi_path);
     const auto s         = Score<Tick>::from_midi(buffer);
     fmt::println("{}", s.tracks.at(0).notes);
-    auto       end = s.end();
-    auto s2 = s.copy();
+    auto end = s.end();
+    auto s2  = s.copy();
     ops::adjust_time(s2, {0, end / 2, end}, {0, end, end + end / 2});
     fmt::println("\n{}", s2.tracks.at(0).notes);
 }

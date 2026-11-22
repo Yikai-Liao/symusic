@@ -40,7 +40,9 @@ struct SimpleTimeConverter {
     [[nodiscard]] vec<Event<To>> time_vec(const Range& data) const {
         vec<Event<To>> converted;
         converted.reserve(data.size());
-        for (const auto& event : data) { converted.push_back(detail::retime_event<Event<To>>(time_value(event.time), event)); }
+        for (const auto& event : data) {
+            converted.push_back(detail::retime_event<Event<To>>(time_value(event.time), event));
+        }
         return converted;
     }
 
@@ -54,9 +56,13 @@ struct SimpleTimeConverter {
         vec<Event<To>> converted;
         converted.reserve(data.size());
         for (const auto& event : data) {
-            converted.push_back(detail::retime_event<Event<To>>(
-                time_value(event.time), std::max(min_duration, time_value(event.duration)), event
-            ));
+            converted.push_back(
+                detail::retime_event<Event<To>>(
+                    time_value(event.time),
+                    std::max(min_duration, time_value(event.duration)),
+                    event
+                )
+            );
         }
         return converted;
     }
@@ -82,25 +88,31 @@ struct SecondTimeConverter {
     template<typename S>
     explicit SecondTimeConverter(const Score<From, S>& score) :
         ticks_per_quarter(static_cast<f64>(score.ticks_per_quarter)) {
-        constexpr i32 default_mspq = 500000;
-        const auto& source_tempos = S::get(score.tempos);
+        constexpr i32    default_mspq  = 500000;
+        const auto&      source_tempos = S::get(score.tempos);
         vec<Tempo<From>> tempos(source_tempos.begin(), source_tempos.end());
         std::stable_sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
             return lhs.time < rhs.time;
         });
         const auto zero = std::lower_bound(
-            tempos.begin(), tempos.end(), from_unit{0},
-            [](const auto& tempo, const auto time) { return tempo.time < time; }
+            tempos.begin(), tempos.end(), from_unit{0}, [](const auto& tempo, const auto time) {
+                return tempo.time < time;
+            }
         );
         const auto origin = zero - tempos.begin();
         if (zero == tempos.end() || zero->time != from_unit{0}) {
             // Carry an active negative-time tempo across the origin.
-            const auto microseconds_per_quarter = zero == tempos.begin() ? default_mspq : std::prev(zero)->microseconds_per_quarter;
-            tempos.insert(zero, detail::make_event<Tempo<From>>(from_unit{0}, microseconds_per_quarter));
+            const auto microseconds_per_quarter
+                = zero == tempos.begin() ? default_mspq : std::prev(zero)->microseconds_per_quarter;
+            tempos.insert(
+                zero, detail::make_event<Tempo<From>>(from_unit{0}, microseconds_per_quarter)
+            );
         }
 
         const auto self = static_cast<const Converter*>(this);
-        default_factor = self->get_factor(symusic::detail::make_event<Tempo<From>>(from_unit{0}, default_mspq));
+        default_factor  = self->get_factor(
+            symusic::detail::make_event<Tempo<From>>(from_unit{0}, default_mspq)
+        );
         to_times.resize(tempos.size());
         from_times.reserve(tempos.size() + 1);
         factors.reserve(tempos.size());
@@ -126,7 +138,7 @@ struct SecondTimeConverter {
     }
 
     [[nodiscard]] to_unit time_value(const from_unit time) const {
-        const auto self  = static_cast<const Converter*>(this);
+        const auto self = static_cast<const Converter*>(this);
         if (time < from_times.front()) {
             return self->get_time(time, to_times.front(), from_times.front(), default_factor);
         }
@@ -161,9 +173,12 @@ struct SecondTimeConverter {
         auto       state = initial_state();
         for (const auto& event : data) {
             update_state(state, event.time);
-            converted.push_back(detail::retime_event<Event<To>>(
-                self->get_time(event.time, state.pivot_to, state.range.first, state.factor), event
-            ));
+            converted.push_back(
+                detail::retime_event<Event<To>>(
+                    self->get_time(event.time, state.pivot_to, state.range.first, state.factor),
+                    event
+                )
+            );
         }
         return converted;
     }
@@ -190,7 +205,11 @@ struct SecondTimeConverter {
             update_state(state, end_time);
             const auto end
                 = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
-            converted.push_back(retime_event<Event<To>>(start, std::max(min_duration, sub_time<to_unit>(end, start)), event));
+            converted.push_back(
+                retime_event<Event<To>>(
+                    start, std::max(min_duration, sub_time<to_unit>(end, start)), event
+                )
+            );
         }
         return converted;
     }
@@ -213,9 +232,8 @@ private:
         if (time < state.range.first || time >= state.range.second) {
             if (time < from_times.front()) {
                 // Use an empty cached range with its pivot at the first boundary.
-                state = {
-                    {from_times.front(), from_times.front()}, to_times.front(), default_factor
-                };
+                state
+                    = {{from_times.front(), from_times.front()}, to_times.front(), default_factor};
                 return;
             }
             const auto index = range_index(time);

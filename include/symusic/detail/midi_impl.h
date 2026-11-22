@@ -39,8 +39,8 @@ class MidiTrackSink {
     std::string                    name;
     // Pending segments keep arrival order and stable sustain owners.
     std::array<std::deque<Track<T>>, 16> pending_tracks;
-    std::array<u8, 16> programs{};
-    std::array<Track<T>*, 16> sustain_tracks{};
+    std::array<u8, 16>                   programs{};
+    std::array<Track<T>*, 16>            sustain_tracks{};
 
     static void append_pending(Track<T>& target, Track<T>& source) {
         const auto append = [](auto& dest, auto& events) {
@@ -207,32 +207,40 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     minimidi::Messages<> init_msgs{};
     {   // add meta messages
         auto&        msgs        = init_msgs;
-        const size_t message_num = S::get(score.time_signatures).size() + S::get(score.key_signatures).size()
+        const size_t message_num = S::get(score.time_signatures).size()
+                                   + S::get(score.key_signatures).size()
                                    + S::get(score.tempos).size() + S::get(score.markers).size();
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : S::get(score.time_signatures)) {
             if (!std::has_single_bit(time_signature.denominator)) {
-                throw std::invalid_argument(fmt::format(
-                    "MIDI time signature denominator must be a power of two, got {}",
-                    time_signature.denominator
-                ));
+                throw std::invalid_argument(
+                    fmt::format(
+                        "MIDI time signature denominator must be a power of two, got {}",
+                        time_signature.denominator
+                    )
+                );
             }
-            msgs.emplace_back(minimidi::TimeSignature(
-                time_signature.time, time_signature.numerator, time_signature.denominator
-            ));
+            msgs.emplace_back(
+                minimidi::TimeSignature(
+                    time_signature.time, time_signature.numerator, time_signature.denominator
+                )
+            );
         }
         // add key signatures
         for (const auto& key_signature : S::get(score.key_signatures)) {
-            msgs.emplace_back(minimidi::KeySignature(
-                key_signature.time, key_signature.key, key_signature.minor
-            ));
+            msgs.emplace_back(
+                minimidi::KeySignature(key_signature.time, key_signature.key, key_signature.minor)
+            );
         }
         // add tempos
         for (const auto& tempo : S::get(score.tempos)) {
             if (tempo.microseconds_per_quarter < 0 || tempo.microseconds_per_quarter > 0xFFFFFF) {
                 throw std::invalid_argument(
-                    fmt::format("MIDI tempo microseconds_per_quarter must fit in 24 bits, got {}", tempo.microseconds_per_quarter)
+                    fmt::format(
+                        "MIDI tempo microseconds_per_quarter must fit in 24 bits, got {}",
+                        tempo.microseconds_per_quarter
+                    )
                 );
             }
             msgs.emplace_back(minimidi::SetTempo(tempo.time, tempo.microseconds_per_quarter));
@@ -246,7 +254,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& handle : S::get(score.tracks)) {
-        const auto& track = S::get(handle);
+        const auto&          track = S::get(handle);
         minimidi::Messages<> msgs;
         if (!init_msgs.empty()) {
             msgs      = std::move(init_msgs);
@@ -254,8 +262,8 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         } else {
             msgs = {};
             msgs.reserve(
-                S::get(track.controls).size()
-                + S::get(track.pitch_bends).size() + S::get(track.lyrics).size() + 10
+                S::get(track.controls).size() + S::get(track.pitch_bends).size()
+                + S::get(track.lyrics).size() + 10
             );
         }
         const u8 channel = track.is_drum ? 9 : valid_channel[idx % 15];
@@ -345,13 +353,15 @@ Score<T, S> parse_midi(const std::span<const u8> bytes, MidiReadOptions options)
             const auto ticks_per_quarter = static_cast<float>(midi_view.ticks_per_quarter());
             return parse_midi<Quarter, S>(
                 midi_view,
-                [ticks_per_quarter](const Tick::unit x) { return static_cast<float>(x) / ticks_per_quarter; },
+                [ticks_per_quarter](const Tick::unit x) {
+                    return static_cast<float>(x) / ticks_per_quarter;
+                },
                 options
             );
         } else {
-            return convert<Second>(parse_midi<Tick, S>(
-                midi_view, [](const Tick::unit x) { return x; }, options
-            ));
+            return convert<Second>(
+                parse_midi<Tick, S>(midi_view, [](const Tick::unit x) { return x; }, options)
+            );
         }
     };
 
@@ -376,4 +386,4 @@ vec<u8> Score<T, S>::to_midi() const {
     }
 }
 
-}  // namespace symusic
+}   // namespace symusic

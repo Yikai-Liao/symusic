@@ -48,8 +48,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.ticks_per_quarter == 480);
@@ -107,8 +106,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.tracks.size() == 3);
@@ -175,8 +173,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the controller events were preserved
         REQUIRE(read_score.tracks.at(0).controls.size() == 6);

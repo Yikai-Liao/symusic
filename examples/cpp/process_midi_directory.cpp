@@ -29,9 +29,7 @@ std::vector<uint8_t> read_file_to_bytes(const fs::path& path) {
 // Function to count notes in a score
 size_t count_notes(const symusic::Score<symusic::Tick>& score) {
     size_t note_count = 0;
-    for (const auto& track : score.tracks) {
-        note_count += track.notes.size();
-    }
+    for (const auto& track : score.tracks) { note_count += track.notes.size(); }
     return note_count;
 }
 
@@ -203,11 +201,9 @@ int main(int argc, char** argv) {
             // Use the generic parse function
             // Assuming DataFormat is symusic::DataFormat or symusic::io::DataFormat
             // Assuming parse is symusic::parse or symusic::io::parse
-            const symusic::Score<symusic::Tick> score
-                = symusic::Score<symusic::Tick>::from_midi(
-                    data_span,
-                    {symusic::InvalidDataBytes::Clamp}
-                );
+            const symusic::Score<symusic::Tick> score = symusic::Score<symusic::Tick>::from_midi(
+                data_span, {symusic::InvalidDataBytes::Clamp}
+            );
 
             size_t notes = count_notes(score);
             csv_file << "\"" << absolute_path_str << "\",\"" << relative_path_str << "\",\""

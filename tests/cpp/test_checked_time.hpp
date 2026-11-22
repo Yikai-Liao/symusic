@@ -166,8 +166,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
         Track<Tick> track("t", 0, false);
         track.notes.push_back(detail::make_event<Note<Tick>>(0, 1, 60, 80));
         REQUIRE_THROWS_AS(
-            ops::adjust_time(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
-            std::overflow_error
+            ops::adjust_time(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}), std::overflow_error
         );
 
         // Events ending past the last original time are dropped, not wrapped
@@ -217,10 +216,14 @@ TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
         REQUIRE(Tempo<Tick>::qpm_to_microseconds_per_quarter(120.0) == 500000);
         REQUIRE(Tempo<Tick>::qpm_to_microseconds_per_quarter(60000000.0) == 1);
         for (const f64 qpm : {0.0, -1.0, -kInf, kInf, kNan, 1.0e300, 1.0e9}) {
-            REQUIRE_THROWS_AS(Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::invalid_argument);
+            REQUIRE_THROWS_AS(
+                Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::invalid_argument
+            );
         }
         for (const f64 qpm : {1.0e-3, 1.0e-300, 5.0e-324}) {
-            REQUIRE_THROWS_AS(Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::overflow_error);
+            REQUIRE_THROWS_AS(
+                Tempo<Tick>::qpm_to_microseconds_per_quarter(qpm), std::overflow_error
+            );
         }
         Tempo<Second> tempo = detail::make_event<Tempo<Second>>(0.0f, 500000);
         REQUIRE_THROWS_AS(tempo.set_qpm(kNan), std::invalid_argument);
@@ -259,7 +262,7 @@ TEST_CASE("Float to tick narrowing", "[symusic][checked_time]") {
         Score<Second> score(480);
         score.tempos.emplace_back();
         score.tempos.back().microseconds_per_quarter = 0;
-        auto track = Track<Second>("t", 0, false);
+        auto track                                   = Track<Second>("t", 0, false);
         track.notes.push_back(detail::make_event<Note<Second>>(1.0f, 1.0f, 60, 80));
         score.tracks.push_back(track);
         REQUIRE_THROWS(convert<Tick>(score));

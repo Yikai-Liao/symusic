@@ -18,8 +18,8 @@ namespace symusic {
 template<TType T>
 struct TimeStamp {
     using ttype = T;
-    using unit = typename T::unit;
-    unit                     time = 0;
+    using unit  = typename T::unit;
+    unit time   = 0;
 
     bool operator==(const TimeStamp&) const = default;
 };
@@ -47,15 +47,15 @@ struct Note : TimeStamp<T> {
         pitch(detail::checked_event_field<Note, 2>(std::move(pitch))),
         velocity(detail::checked_event_field<Note, 3>(std::move(velocity))) {}
 
-    [[nodiscard]] Note copy() const { return *this; }
-    bool operator==(const Note&) const = default;
+    [[nodiscard]] Note        copy() const { return *this; }
+    bool                      operator==(const Note&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     [[nodiscard]] static Note deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>     serialize() const;
 
     typename T::unit duration{0};
-    i8   pitch{0}, velocity{0};
+    i8               pitch{0}, velocity{0};
 
     [[nodiscard]] typename T::unit start() const { return this->time; }
     [[nodiscard]] typename T::unit end() const { return detail::add_time(this->time, duration); }
@@ -76,12 +76,12 @@ struct Pedal : TimeStamp<T> {
         TimeStamp<T>{detail::checked_event_field<Pedal, 0>(time)},
         duration(detail::checked_event_field<Pedal, 1>(std::move(duration))) {}
 
-    [[nodiscard]] Pedal copy() const { return *this; }
-    bool operator==(const Pedal&) const = default;
+    [[nodiscard]] Pedal       copy() const { return *this; }
+    bool                      operator==(const Pedal&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     [[nodiscard]] static Pedal deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>      serialize() const;
 
     typename T::unit duration{};
 
@@ -100,11 +100,11 @@ struct ControlChange : TimeStamp<T> {
         value(detail::checked_event_field<ControlChange, 2>(std::move(value))) {}
 
     [[nodiscard]] ControlChange copy() const { return *this; }
-    bool operator==(const ControlChange&) const = default;
-    [[nodiscard]] std::string to_string() const;
+    bool                        operator==(const ControlChange&) const = default;
+    [[nodiscard]] std::string   to_string() const;
 
     [[nodiscard]] static ControlChange deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>              serialize() const;
 
     u8 number{0}, value{0};
 
@@ -120,11 +120,11 @@ struct TimeSignature : TimeStamp<T> {
         denominator(detail::checked_event_field<TimeSignature, 2>(std::move(denominator))) {}
 
     [[nodiscard]] TimeSignature copy() const { return *this; }
-    bool operator==(const TimeSignature&) const = default;
-    [[nodiscard]] std::string to_string() const;
+    bool                        operator==(const TimeSignature&) const = default;
+    [[nodiscard]] std::string   to_string() const;
 
     [[nodiscard]] static TimeSignature deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>              serialize() const;
 
     u8 numerator{4}, denominator{4};
 
@@ -140,13 +140,13 @@ struct KeySignature : TimeStamp<T> {
         minor(detail::checked_event_field<KeySignature, 2>(std::move(minor))) {}
 
     [[nodiscard]] KeySignature copy() const { return *this; }
-    bool operator==(const KeySignature&) const = default;
-    [[nodiscard]] std::string to_string() const;
+    bool                       operator==(const KeySignature&) const = default;
+    [[nodiscard]] std::string  to_string() const;
 
     [[nodiscard]] static KeySignature deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>             serialize() const;
 
-    i8 key{0};
+    i8   key{0};
     bool minor{false};
 
     [[nodiscard]] u8 degree() const {
@@ -163,28 +163,35 @@ struct Tempo : TimeStamp<T> {
     Tempo() = default;
     Tempo(auto time, auto microseconds_per_quarter) :
         TimeStamp<T>{detail::checked_event_field<Tempo, 0>(time)},
-        microseconds_per_quarter(detail::checked_event_field<Tempo, 1>(std::move(microseconds_per_quarter))) {}
+        microseconds_per_quarter(
+            detail::checked_event_field<Tempo, 1>(std::move(microseconds_per_quarter))
+        ) {}
 
-    [[nodiscard]] Tempo copy() const { return *this; }
-    bool operator==(const Tempo&) const = default;
+    [[nodiscard]] Tempo       copy() const { return *this; }
+    bool                      operator==(const Tempo&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     [[nodiscard]] static Tempo deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>      serialize() const;
     // store microseconds_per_quarter (i32) instead of qpm (f64) to avoid floating point error
     i32 microseconds_per_quarter{500000};   // microseconds per quarter note
 
-    // qpm must be positive and finite, and the rounded microseconds_per_quarter must be in [1, INT32_MAX].
+    // qpm must be positive and finite, and the rounded microseconds_per_quarter must be in [1,
+    // INT32_MAX].
     static i32 qpm_to_microseconds_per_quarter(const f64 qpm) {
         if (!(qpm > 0.) || std::isinf(qpm)) {
             throw std::invalid_argument("qpm must be positive and finite");
         }
         const i32 microseconds_per_quarter = detail::round_to_i32(60000000. / qpm);
-        if (microseconds_per_quarter < 1) { throw std::invalid_argument("qpm is too large: microseconds_per_quarter would be zero"); }
+        if (microseconds_per_quarter < 1) {
+            throw std::invalid_argument("qpm is too large: microseconds_per_quarter would be zero");
+        }
         return microseconds_per_quarter;
     }
 
-    static constexpr f64 microseconds_per_quarter_to_qpm(const i32 microseconds_per_quarter) { return 60000000. / static_cast<f64>(microseconds_per_quarter); }
+    static constexpr f64 microseconds_per_quarter_to_qpm(const i32 microseconds_per_quarter) {
+        return 60000000. / static_cast<f64>(microseconds_per_quarter);
+    }
 
     // create a tempo event from qpm
     [[nodiscard]] static Tempo from_qpm(const typename T::unit time, const f64 qpm) {
@@ -192,7 +199,9 @@ struct Tempo : TimeStamp<T> {
     }
 
     // return qpm based on microseconds_per_quarter
-    [[nodiscard]] f64 qpm() const { return microseconds_per_quarter_to_qpm(microseconds_per_quarter); }
+    [[nodiscard]] f64 qpm() const {
+        return microseconds_per_quarter_to_qpm(microseconds_per_quarter);
+    }
 
     // set microseconds_per_quarter based on qpm
     Tempo& set_qpm(const f64 t_qpm) {
@@ -210,12 +219,12 @@ struct PitchBend : TimeStamp<T> {
         TimeStamp<T>{detail::checked_event_field<PitchBend, 0>(time)},
         value(detail::checked_event_field<PitchBend, 1>(std::move(value))) {}
 
-    [[nodiscard]] PitchBend copy() const { return *this; }
-    bool operator==(const PitchBend&) const = default;
+    [[nodiscard]] PitchBend   copy() const { return *this; }
+    bool                      operator==(const PitchBend&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     [[nodiscard]] static PitchBend deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>          serialize() const;
 
     i32 value{0};
 
@@ -229,12 +238,12 @@ struct TextMeta : TimeStamp<T> {
         TimeStamp<T>{detail::checked_event_field<TextMeta, 0>(time)},
         text(detail::checked_event_field<TextMeta, 1>(std::move(text))) {}
 
-    [[nodiscard]] TextMeta copy() const { return *this; }
-    bool operator==(const TextMeta&) const = default;
+    [[nodiscard]] TextMeta    copy() const { return *this; }
+    bool                      operator==(const TextMeta&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     [[nodiscard]] static TextMeta deserialize(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> serialize() const;
+    [[nodiscard]] vec<u8>         serialize() const;
 
     std::string text{};
 
@@ -254,8 +263,8 @@ template<TimeEvent E, typename... Fields>
     return E(time, std::forward<Fields>(fields)...);
 }
 
-}  // namespace detail
+}   // namespace detail
 
-}  // namespace symusic
+}   // namespace symusic
 
 #include "symusic/detail/event_fields.h"

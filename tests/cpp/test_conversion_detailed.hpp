@@ -98,9 +98,15 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         Score<Quarter> quarter_score(120);   // 120 is sampling rate, not meaningful for Quarter
 
         auto q_track = Track<Quarter>("Quarter Track", 0, false);
-        q_track.notes.push_back(detail::make_event<Note<Quarter>>(0.0f, 1.0f, 60, 100));    // One beat
-        q_track.notes.push_back(detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 100));    // Half beat
-        q_track.notes.push_back(detail::make_event<Note<Quarter>>(1.5f, 0.25f, 64, 100));   // Quarter beat
+        q_track.notes.push_back(
+            detail::make_event<Note<Quarter>>(0.0f, 1.0f, 60, 100)
+        );   // One beat
+        q_track.notes.push_back(
+            detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 100)
+        );   // Half beat
+        q_track.notes.push_back(
+            detail::make_event<Note<Quarter>>(1.5f, 0.25f, 64, 100)
+        );   // Quarter beat
 
         quarter_score.tracks.push_back(q_track);
         quarter_score.tempos.push_back(Tempo<Quarter>::from_qpm(0.0f, 120.0f));   // 120 BPM
@@ -113,14 +119,10 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
 
         // Verify time units are correctly converted
         REQUIRE(new_tick_score.tracks.at(0).notes.at(0).time == 0);
-        REQUIRE(
-            new_tick_score.tracks.at(0).notes.at(0).duration == 480
-        );   // One beat = 480 ticks
+        REQUIRE(new_tick_score.tracks.at(0).notes.at(0).duration == 480);   // One beat = 480 ticks
 
         REQUIRE(new_tick_score.tracks.at(0).notes.at(1).time == 480);
-        REQUIRE(
-            new_tick_score.tracks.at(0).notes.at(1).duration == 240
-        );   // Half beat = 240 ticks
+        REQUIRE(new_tick_score.tracks.at(0).notes.at(1).duration == 240);   // Half beat = 240 ticks
 
         REQUIRE(new_tick_score.tracks.at(0).notes.at(2).time == 720);
         REQUIRE(
@@ -141,7 +143,9 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         // Create a Score with very short notes
         Score<Tick> very_short_note_score(480);
         auto        short_track = Track<Tick>("Short", 0, false);
-        short_track.notes.push_back(detail::make_event<Note<Tick>>(0, 24, 60, 100));   // 1/20 beat (24 ticks)
+        short_track.notes.push_back(
+            detail::make_event<Note<Tick>>(0, 24, 60, 100)
+        );   // 1/20 beat (24 ticks)
         very_short_note_score.tracks.push_back(short_track);
 
         // Convert and set minimum duration
@@ -183,7 +187,8 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
     SECTION("Time event conversion preserves payloads while remapping timestamps") {
         const auto quarter_time_signatures
             = convert_time_events<Quarter, TimeSignature>(tick_score.time_signatures, tick_score);
-        const auto second_tempos = convert_time_events<Second, Tempo>(tick_score.tempos, tick_score);
+        const auto second_tempos
+            = convert_time_events<Second, Tempo>(tick_score.tempos, tick_score);
 
         REQUIRE(quarter_time_signatures.size() == 2);
         REQUIRE(quarter_time_signatures[0].time == Catch::Approx(0.0f));
@@ -194,8 +199,14 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
         REQUIRE(second_tempos.size() == 2);
         REQUIRE(second_tempos[0].time == Catch::Approx(0.0f));
         REQUIRE(second_tempos[1].time == Catch::Approx(0.375f));
-        REQUIRE(second_tempos[0].microseconds_per_quarter == Tempo<Tick>::from_qpm(0, 120.0).microseconds_per_quarter);
-        REQUIRE(second_tempos[1].microseconds_per_quarter == Tempo<Tick>::from_qpm(0, 60.0).microseconds_per_quarter);
+        REQUIRE(
+            second_tempos[0].microseconds_per_quarter
+            == Tempo<Tick>::from_qpm(0, 120.0).microseconds_per_quarter
+        );
+        REQUIRE(
+            second_tempos[1].microseconds_per_quarter
+            == Tempo<Tick>::from_qpm(0, 60.0).microseconds_per_quarter
+        );
     }
 
     SECTION("Duration event conversion handles tempo crossings and minimum durations") {

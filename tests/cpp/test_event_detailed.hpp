@@ -33,8 +33,8 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         REQUIRE(copied_note.velocity == note.velocity);
 
         // Constructor from other time type
-        Note<Quarter> quarter_note = detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 90);
-        Note<Tick> converted_note = detail::retime_event<Note<Tick>>(50, 100, quarter_note);
+        Note<Quarter> quarter_note   = detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 90);
+        Note<Tick>    converted_note = detail::retime_event<Note<Tick>>(50, 100, quarter_note);
         REQUIRE(converted_note.time == 50);
         REQUIRE(converted_note.duration == 100);
         REQUIRE(converted_note.pitch == 62);
@@ -84,7 +84,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
 
     SECTION("Test default_key() method") {
         Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
-        auto       key = note.default_key();
+        auto       key  = note.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 200);
@@ -164,8 +164,8 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         REQUIRE(copied_pedal.duration == pedal.duration);
 
         // Constructor from other time type
-        Pedal<Quarter> quarter_pedal = detail::make_event<Pedal<Quarter>>(1.0f, 0.5f);
-        Pedal<Tick> converted_pedal = detail::retime_event<Pedal<Tick>>(50, 100, quarter_pedal);
+        Pedal<Quarter> quarter_pedal   = detail::make_event<Pedal<Quarter>>(1.0f, 0.5f);
+        Pedal<Tick>    converted_pedal = detail::retime_event<Pedal<Tick>>(50, 100, quarter_pedal);
         REQUIRE(converted_pedal.time == 50);
         REQUIRE(converted_pedal.duration == 100);
 
@@ -194,7 +194,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
 
     SECTION("Test default_key() method") {
         Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
-        auto        key = pedal.default_key();
+        auto        key   = pedal.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
         REQUIRE(std::get<1>(key) == 200);
@@ -235,7 +235,9 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(default_cc.value == 0);
 
         // Constructor with parameters
-        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);   // Volume controller set to maximum
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(
+            100, 7, 127
+        );   // Volume controller set to maximum
         REQUIRE(cc.time == 100);
         REQUIRE(cc.number == 7);
         REQUIRE(cc.value == 127);
@@ -247,8 +249,10 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(copied_cc.value == cc.value);
 
         // Constructor from other time type
-        ControlChange<Quarter> quarter_cc = detail::make_event<ControlChange<Quarter>>(1.0f, 10, 64);
-        ControlChange<Tick> converted_cc = detail::retime_event<ControlChange<Tick>>(50, quarter_cc);
+        ControlChange<Quarter> quarter_cc
+            = detail::make_event<ControlChange<Quarter>>(1.0f, 10, 64);
+        ControlChange<Tick> converted_cc
+            = detail::retime_event<ControlChange<Tick>>(50, quarter_cc);
         REQUIRE(converted_cc.time == 50);
         REQUIRE(converted_cc.number == 10);
         REQUIRE(converted_cc.value == 64);
@@ -264,14 +268,15 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
     SECTION("Test equality operators") {
         ControlChange<Tick> cc1 = detail::make_event<ControlChange<Tick>>(100, 7, 127);
         ControlChange<Tick> cc2 = detail::make_event<ControlChange<Tick>>(100, 7, 127);
-        ControlChange<Tick> cc3 = detail::make_event<ControlChange<Tick>>(100, 7, 64);   // Different value
+        ControlChange<Tick> cc3
+            = detail::make_event<ControlChange<Tick>>(100, 7, 64);   // Different value
 
         REQUIRE(cc1 == cc2);
         REQUIRE(cc1 != cc3);
     }
 
     SECTION("Test default_key() method") {
-        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
+        ControlChange<Tick> cc  = detail::make_event<ControlChange<Tick>>(100, 7, 127);
         auto                key = cc.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
@@ -327,7 +332,8 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
 
         // Constructor from other time type
         TimeSignature<Quarter> quarter_ts = detail::make_event<TimeSignature<Quarter>>(1.0f, 6, 8);
-        TimeSignature<Tick> converted_ts = detail::retime_event<TimeSignature<Tick>>(50, quarter_ts);
+        TimeSignature<Tick>    converted_ts
+            = detail::retime_event<TimeSignature<Tick>>(50, quarter_ts);
         REQUIRE(converted_ts.time == 50);
         REQUIRE(converted_ts.numerator == 6);
         REQUIRE(converted_ts.denominator == 8);
@@ -343,14 +349,15 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
     SECTION("Test equality operators") {
         TimeSignature<Tick> ts1 = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
         TimeSignature<Tick> ts2 = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
-        TimeSignature<Tick> ts3 = detail::make_event<TimeSignature<Tick>>(100, 4, 4);   // Different numerator
+        TimeSignature<Tick> ts3
+            = detail::make_event<TimeSignature<Tick>>(100, 4, 4);   // Different numerator
 
         REQUIRE(ts1 == ts2);
         REQUIRE(ts1 != ts3);
     }
 
     SECTION("Test default_key() method") {
-        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
+        TimeSignature<Tick> ts  = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
         auto                key = ts.default_key();
 
         REQUIRE(key == 100);   // Returns time
@@ -391,7 +398,8 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(default_ks.minor == 0);
 
         // Constructor with parameters
-        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);   // D major, 2 sharps
+        KeySignature<Tick> ks
+            = detail::make_event<KeySignature<Tick>>(100, 2, 0);   // D major, 2 sharps
         REQUIRE(ks.time == 100);
         REQUIRE(ks.key == 2);
         REQUIRE(ks.minor == 0);
@@ -403,7 +411,8 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(copied_ks.minor == ks.minor);
 
         // Constructor from other time type
-        KeySignature<Quarter> quarter_ks = detail::make_event<KeySignature<Quarter>>(1.0f, -3, 1);   // C minor, 3 flats
+        KeySignature<Quarter> quarter_ks
+            = detail::make_event<KeySignature<Quarter>>(1.0f, -3, 1);   // C minor, 3 flats
         KeySignature<Tick> converted_ks = detail::retime_event<KeySignature<Tick>>(50, quarter_ks);
         REQUIRE(converted_ks.time == 50);
         REQUIRE(converted_ks.key == -3);
@@ -423,7 +432,7 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(ks1.degree() == 0);
 
         KeySignature<Tick> ks2 = detail::make_event<KeySignature<Tick>>(0, 2, 0);   // D major
-        REQUIRE(ks2.degree() == 10);       // (2*5)%12
+        REQUIRE(ks2.degree() == 10);                                                // (2*5)%12
 
         KeySignature<Tick> ks3 = detail::make_event<KeySignature<Tick>>(0, -1, 1);   // A minor
         REQUIRE(ks3.degree() == 19);
@@ -433,14 +442,15 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
     SECTION("Test equality operators") {
         KeySignature<Tick> ks1 = detail::make_event<KeySignature<Tick>>(100, 2, 0);
         KeySignature<Tick> ks2 = detail::make_event<KeySignature<Tick>>(100, 2, 0);
-        KeySignature<Tick> ks3 = detail::make_event<KeySignature<Tick>>(100, 1, 0);   // Different key
+        KeySignature<Tick> ks3
+            = detail::make_event<KeySignature<Tick>>(100, 1, 0);   // Different key
 
         REQUIRE(ks1 == ks2);
         REQUIRE(ks1 != ks3);
     }
 
     SECTION("Test default_key() method") {
-        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
+        KeySignature<Tick> ks  = detail::make_event<KeySignature<Tick>>(100, 2, 0);
         auto               key = ks.default_key();
 
         REQUIRE(key == 100);   // Returns time
@@ -490,7 +500,8 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(copied_tempo.microseconds_per_quarter == tempo.microseconds_per_quarter);
 
         // Constructor from other time type
-        Tempo<Quarter> quarter_tempo = detail::make_event<Tempo<Quarter>>(1.0f, 400000);   // 150 BPM
+        Tempo<Quarter> quarter_tempo
+            = detail::make_event<Tempo<Quarter>>(1.0f, 400000);   // 150 BPM
         Tempo<Tick> converted_tempo = detail::retime_event<Tempo<Tick>>(50, quarter_tempo);
         REQUIRE(converted_tempo.time == 50);
         REQUIRE(converted_tempo.microseconds_per_quarter == 400000);
@@ -506,7 +517,9 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         // Test creating Tempo from QPM
         Tempo<Tick> tempo = Tempo<Tick>::from_qpm(100, 120.0);
         REQUIRE(tempo.time == 100);
-        REQUIRE(tempo.microseconds_per_quarter == 500000);   // 120 BPM = 500000 microseconds/quarter note
+        REQUIRE(
+            tempo.microseconds_per_quarter == 500000
+        );   // 120 BPM = 500000 microseconds/quarter note
 
         // Test reading QPM
         REQUIRE(tempo.qpm() == Catch::Approx(120.0));
@@ -517,7 +530,9 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
 
         // Change tempo to 80 BPM
         tempo.set_qpm(80.0);
-        REQUIRE(tempo.microseconds_per_quarter == 750000);   // 80 BPM = 750000 microseconds/quarter note
+        REQUIRE(
+            tempo.microseconds_per_quarter == 750000
+        );   // 80 BPM = 750000 microseconds/quarter note
         REQUIRE(tempo.qpm() == Catch::Approx(80.0));
     }
 
@@ -542,7 +557,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
 
     SECTION("Test default_key() method") {
         Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);
-        auto        key = tempo.default_key();
+        auto        key   = tempo.default_key();
 
         REQUIRE(std::get<0>(key) == 100);   // Returns time
     }
@@ -591,7 +606,8 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(copied_pb.value == pb.value);
 
         // Constructor from other time type
-        PitchBend<Quarter> quarter_pb = detail::make_event<PitchBend<Quarter>>(1.0f, 4096);   // Upward bend
+        PitchBend<Quarter> quarter_pb
+            = detail::make_event<PitchBend<Quarter>>(1.0f, 4096);   // Upward bend
         PitchBend<Tick> converted_pb = detail::retime_event<PitchBend<Tick>>(50, quarter_pb);
         REQUIRE(converted_pb.time == 50);
         REQUIRE(converted_pb.value == 4096);
@@ -613,7 +629,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
     }
 
     SECTION("Test default_key() method") {
-        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 0);
+        PitchBend<Tick> pb  = detail::make_event<PitchBend<Tick>>(100, 0);
         auto            key = pb.default_key();
 
         REQUIRE(key == 100);   // Returns time
@@ -663,7 +679,8 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
         REQUIRE(copied_text.text == text.text);
 
         // Constructor from other time type
-        TextMeta<Quarter> quarter_text = detail::make_event<TextMeta<Quarter>>(1.0f, "Quarter Text");
+        TextMeta<Quarter> quarter_text
+            = detail::make_event<TextMeta<Quarter>>(1.0f, "Quarter Text");
         TextMeta<Tick> converted_text = detail::retime_event<TextMeta<Tick>>(50, quarter_text);
         REQUIRE(converted_text.time == 50);
         REQUIRE(converted_text.text == "Quarter Text");
@@ -678,7 +695,8 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
     SECTION("Test equality operators") {
         TextMeta<Tick> text1 = detail::make_event<TextMeta<Tick>>(100, "Text A");
         TextMeta<Tick> text2 = detail::make_event<TextMeta<Tick>>(100, "Text A");
-        TextMeta<Tick> text3 = detail::make_event<TextMeta<Tick>>(100, "Text B");   // Different text
+        TextMeta<Tick> text3
+            = detail::make_event<TextMeta<Tick>>(100, "Text B");   // Different text
 
         REQUIRE(text1 == text2);
         REQUIRE(text1 != text3);
@@ -686,7 +704,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
 
     SECTION("Test default_key() method") {
         TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
-        auto           key = text.default_key();
+        auto           key  = text.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }

@@ -95,8 +95,7 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         const auto fixture_data = read_file(fixture_path);
         REQUIRE(fixture_data.size() > 14);
 
-        const Score<Tick> original_score
-            = read_score(fixture_path);
+        const Score<Tick> original_score = read_score(fixture_path);
         REQUIRE(original_score.ticks_per_quarter > 0);
         REQUIRE_FALSE(original_score.tracks.empty());
 

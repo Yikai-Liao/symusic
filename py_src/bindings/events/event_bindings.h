@@ -12,8 +12,7 @@
 
 namespace symusic::py {
 
-constexpr const char* kEventShiftTimeDoc
-    = R"pbdoc(Add *offset* to ``time``.)pbdoc";
+constexpr const char* kEventShiftTimeDoc = R"pbdoc(Add *offset* to ``time``.)pbdoc";
 constexpr const char* kEventVecNumpyDoc
     = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
 constexpr const char* kEventVecFromNumpyDoc
@@ -48,12 +47,13 @@ constexpr bool time_field = I == 0 || (HashDuration<E> && I == 1);
 
 template<template<class> class Event, size_t I>
 using EventArg = std::conditional_t<
-    std::same_as<detail::EventField<Event<Tick>, I>, std::string>, std::string, nb::handle
->;
+    std::same_as<detail::EventField<Event<Tick>, I>, std::string>,
+    std::string,
+    nb::handle>;
 
 template<TimeEvent E, size_t I>
 auto event_input(const auto& value) {
-    using F = detail::EventField<E, I>;
+    using F         = detail::EventField<E, I>;
     const auto name = std::get<I>(detail::event_fields<E>).first;
     if constexpr (std::same_as<F, bool>) {
         if (!PyBool_Check(value.ptr())) throw nb::type_error("minor must be a bool");
@@ -71,7 +71,7 @@ auto event_input(const auto& value) {
 
 template<TimeEvent E, size_t I>
 const std::string& event_field_doc() {
-    using F = detail::EventField<E, I>;
+    using F               = detail::EventField<E, I>;
     static const auto doc = [] {
         if constexpr (std::same_as<F, bool>) {
             return std::string("True for minor and False for major.");
@@ -84,8 +84,8 @@ const std::string& event_field_doc() {
         } else {
             const auto [low, high] = detail::field_range<E, I>();
             return std::string("Allowed values are ") + std::to_string(low) + ".."
-                + std::to_string(high) + (detail::power_of_two_field<E, I>
-                    ? ", restricted to powers of two." : ".");
+                   + std::to_string(high)
+                   + (detail::power_of_two_field<E, I> ? ", restricted to powers of two." : ".");
         }
     }();
     return doc;
@@ -121,8 +121,9 @@ struct NoteTimeField {
         }
         try {
             note->visit([&](const auto& ptr) {
-                using T                                                   = UnitOf<decltype(ptr)>;
-                (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second = event_input<Note<T>, I>(nb::handle(value));
+                using T = UnitOf<decltype(ptr)>;
+                (*ptr).*std::get<I>(detail::event_fields<Note<T>>).second
+                    = event_input<Note<T>, I>(nb::handle(value));
             });
             return 0;
         } catch (nb::python_error& error) {
@@ -163,7 +164,10 @@ constexpr PyGetSetDef note_time_field{
     std::get<I>(detail::event_fields<Note<Tick>>).first,
     NoteTimeField<I>::get,
     NoteTimeField<I>::set,
-    const_cast<char*>(I == 0 ? "Event time in the object's unit." : "Non-negative finite duration in the event's time unit."),
+    const_cast<char*>(
+        I == 0 ? "Event time in the object's unit." :
+                 "Non-negative finite duration in the event's time unit."
+    ),
     nullptr,
 };
 
@@ -187,8 +191,9 @@ void bind_event_field(
         },
         [](const Value& self, const EventArg<Event, I>& value) {
             self.visit([&](const auto& ptr) {
-                using T                                                    = UnitOf<decltype(ptr)>;
-                (*ptr).*std::get<I>(detail::event_fields<Event<T>>).second = event_input<Event<T>, I>(value);
+                using T = UnitOf<decltype(ptr)>;
+                (*ptr).*std::get<I>(detail::event_fields<Event<T>>).second
+                    = event_input<Event<T>, I>(value);
             });
         },
         event_field_doc<Event<Tick>, I>().c_str()
@@ -204,7 +209,9 @@ void bind_event_init(nb::class_<UnitValue<Event>>& type, std::index_sequence<I..
             new (self) Value(with_unit(marker, [&](auto unit) {
                 using T = decltype(unit);
                 using E = Event<T>;
-                return Value(std::make_shared<E>(detail::make_event<E>(event_input<E, I>(values)...)));
+                return Value(
+                    std::make_shared<E>(detail::make_event<E>(event_input<E, I>(values)...))
+                );
             }));
         },
         args...,
@@ -217,18 +224,15 @@ template<class Scalar>
 using Column = std::conditional_t<
     std::same_as<Scalar, bool>,
     nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>,
-    nb::ndarray<Scalar, nb::ndim<1>, nb::c_contig, nb::device::cpu>
->;
+    nb::ndarray<Scalar, nb::ndim<1>, nb::c_contig, nb::device::cpu>>;
 
 template<class Scalar>
 struct InputColumn {
     Column<Scalar> native;
-    vec<Scalar> converted;
+    vec<Scalar>    converted;
 
     size_t size() const { return native.is_valid() ? native.size() : converted.size(); }
-    Scalar operator()(size_t row) const {
-        return native.is_valid() ? native(row) : converted[row];
-    }
+    Scalar operator()(size_t row) const { return native.is_valid() ? native(row) : converted[row]; }
 };
 
 template<TimeEvent E, size_t I>
@@ -267,16 +271,17 @@ auto read_column(nb::handle input) {
 
 template<TimeEvent E, size_t... I>
 auto event_list_from_numpy(const auto& arrays, std::index_sequence<I...>) {
-    auto columns
-        = std::make_tuple(read_column<E, I>(std::get<I>(arrays))...);
-    const auto size = std::get<0>(columns).size();
+    auto       columns = std::make_tuple(read_column<E, I>(std::get<I>(arrays))...);
+    const auto size    = std::get<0>(columns).size();
     if (!((std::get<I>(columns).size() == size) && ...)) {
         throw std::invalid_argument("Event columns must have the same size");
     }
     vec<E> events;
     events.reserve(size);
     for (size_t row = 0; row < size; ++row) {
-        events.push_back(detail::make_event<E>(detail::checked_event_field<E, I>(std::get<I>(columns)(row))...));
+        events.push_back(
+            detail::make_event<E>(detail::checked_event_field<E, I>(std::get<I>(columns)(row))...)
+        );
     }
     return SharedStorage::adopt(std::move(events));
 }
@@ -350,8 +355,8 @@ auto bind_event(
     type.def(
         "shift_time",
         [](const Value& self, nb::handle offset) {
-            self.visit( [&](const auto& ptr) {
-                using T     = UnitOf<decltype(ptr)>;
+            self.visit([&](const auto& ptr) {
+                using T = UnitOf<decltype(ptr)>;
                 symusic::shift_time(*ptr, read_time<T>(offset));
             });
         },
@@ -368,7 +373,7 @@ auto bind_event(
             },
             [](const Value& self, nb::handle value) {
                 self.visit([&](const auto& ptr) {
-                    using E = Event<UnitOf<decltype(ptr)>>;
+                    using E       = Event<UnitOf<decltype(ptr)>>;
                     ptr->duration = detail::checked_event_field<E, 1>(
                         detail::sub_time(event_input<E, 0>(value), ptr->time)
                     );
@@ -390,7 +395,7 @@ auto bind_event(
                   type.def(
                       name,
                       [operation](const Value& self, nb::handle offset) {
-                          self.visit( [&](const auto& ptr) {
+                          self.visit([&](const auto& ptr) {
                               operation(*ptr, read_int32(offset, "offset"));
                           });
                       },
@@ -439,11 +444,12 @@ auto bind_event(
                                     typename std::remove_reference_t<decltype(column)>::value_type;
                                 static Scalar empty = 0;
                                 auto*         ptr   = column.empty() ? &empty : column.data();
-                                if constexpr (std::same_as<E, KeySignature<typename E::ttype>>
-                                              && std::same_as<Scalar, u8>) {
-                                    result[field] = nb::ndarray<nb::numpy, bool>(
-                                        ptr, {column.size()}, owner
-                                    );
+                                if constexpr (
+                                    std::same_as<E, KeySignature<typename E::ttype>>
+                                    && std::same_as<Scalar, u8>
+                                ) {
+                                    result[field]
+                                        = nb::ndarray<nb::numpy, bool>(ptr, {column.size()}, owner);
                                 } else {
                                     result[field] = nb::ndarray<nb::numpy, Scalar>(
                                         ptr, {column.size()}, owner

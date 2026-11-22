@@ -138,10 +138,10 @@ void write_file(const std::string& path, std::span<const u8> buffer) {
 
 void write_file(const std::filesystem::path& path, std::span<const u8> buffer) {
 #ifdef _WIN32
-    FILE* fp = nullptr;
+    FILE*      fp    = nullptr;
     const auto error = _wfopen_s(&fp, path.c_str(), L"wb");
 #else
-    FILE* fp = fopen(path.c_str(), "wb");
+    FILE*      fp    = fopen(path.c_str(), "wb");
     const auto error = errno;
 #endif
     if (!fp) {
@@ -149,8 +149,9 @@ void write_file(const std::filesystem::path& path, std::span<const u8> buffer) {
             "Cannot open file for writing", path, detail::write_open_error(path, error)
         );
     }
-    const bool complete = buffer.empty() || fwrite(buffer.data(), 1, buffer.size(), fp) == buffer.size();
-    const auto write_error = errno;
+    const bool complete
+        = buffer.empty() || fwrite(buffer.data(), 1, buffer.size(), fp) == buffer.size();
+    const auto write_error  = errno;
     const auto close_result = fclose(fp);
     if (!complete) throw_file_error("Cannot write the complete file", path, write_error);
     if (close_result != 0) throw_file_error("Cannot close file after writing", path, errno);

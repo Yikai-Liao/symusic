@@ -18,15 +18,15 @@ vec<Pedal<T>> Track<T, S>::pedals() const {
     std::stable_sort(sustain.begin(), sustain.end(), [](const auto* left, const auto* right) {
         return left->time < right->time;
     });
-    vec<Pedal<T>> result;
+    vec<Pedal<T>>       result;
     std::optional<unit> start;
     for (const auto* control : sustain) {
         if (control->value >= 64) {
             if (!start) start = control->time;
         } else if (start) {
-            result.push_back(detail::make_event<Pedal<T>>(
-                *start, detail::sub_time(control->time, *start)
-            ));
+            result.push_back(
+                detail::make_event<Pedal<T>>(*start, detail::sub_time(control->time, *start))
+            );
             start.reset();
         }
     }
@@ -119,33 +119,32 @@ void Track<T, S>::shift_velocity(const i32 offset) {
 template<TType T, typename S>
 bool Track<T, S>::operator==(const Track& other) const {
     return name == other.name && program == other.program && is_drum == other.is_drum
-        && S::get(notes) == S::get(other.notes)
-        && S::get(controls) == S::get(other.controls)
-        && S::get(pitch_bends) == S::get(other.pitch_bends)
-        && S::get(lyrics) == S::get(other.lyrics);
+           && S::get(notes) == S::get(other.notes) && S::get(controls) == S::get(other.controls)
+           && S::get(pitch_bends) == S::get(other.pitch_bends)
+           && S::get(lyrics) == S::get(other.lyrics);
 }
 
 template<TType T, typename S>
 Track<T, S> Track<T, S>::copy() const {
     const auto clone = [](const auto& field) {
         const auto& values = S::get(field);
-        using E = typename std::remove_cvref_t<decltype(values)>::value_type;
+        using E            = typename std::remove_cvref_t<decltype(values)>::value_type;
         return S::adopt(vec<E>(values.begin(), values.end()));
     };
-    return {name, program, is_drum, clone(notes), clone(controls), clone(pitch_bends),
-            clone(lyrics)};
+    return {
+        name, program, is_drum, clone(notes), clone(controls), clone(pitch_bends), clone(lyrics)
+    };
 }
 
 namespace detail {
 inline std::string quote_track_name(std::string_view name) {
     const auto escaped = fmt::format("{:?}", name);
-    if (name.find('\'') != std::string_view::npos
-        && name.find('"') == std::string_view::npos) {
+    if (name.find('\'') != std::string_view::npos && name.find('"') == std::string_view::npos) {
         return escaped;
     }
 
     // Reuse fmt's escaping, changing only escapes affected by the delimiter.
-    std::string quoted = "'";
+    std::string            quoted = "'";
     const std::string_view contents(escaped.data() + 1, escaped.size() - 2);
     for (size_t i = 0; i < contents.size(); ++i) {
         const char ch = contents[i];
@@ -161,13 +160,19 @@ inline std::string quote_track_name(std::string_view name) {
     quoted += '\'';
     return quoted;
 }
-}  // namespace detail
+}   // namespace detail
 
 template<TType T, typename S>
 std::string Track<T, S>::summary() const {
-    return fmt::format("Track(ttype='{}', program={}, is_drum={}, name={}, notes={}, lyrics={})",
-                       T(), program, is_drum ? "True" : "False", detail::quote_track_name(name),
-                       S::get(notes).size(), S::get(lyrics).size());
+    return fmt::format(
+        "Track(ttype='{}', program={}, is_drum={}, name={}, notes={}, lyrics={})",
+        T(),
+        program,
+        is_drum ? "True" : "False",
+        detail::quote_track_name(name),
+        S::get(notes).size(),
+        S::get(lyrics).size()
+    );
 }
 
 template<TType T, typename S>
@@ -175,4 +180,4 @@ std::string Track<T, S>::to_string() const {
     return summary();
 }
 
-}  // namespace symusic
+}   // namespace symusic

@@ -22,8 +22,8 @@ inline nb::bytes python_bytes(std::span<const u8> bytes) {
 inline i64 read_integer(nb::handle input, const char* field) {
     auto index = nb::steal<nb::object>(PyNumber_Index(input.ptr()));
     if (!index.is_valid()) nb::raise_python_error();
-    int overflow = 0;
-    const auto value = PyLong_AsLongLongAndOverflow(index.ptr(), &overflow);
+    int        overflow = 0;
+    const auto value    = PyLong_AsLongLongAndOverflow(index.ptr(), &overflow);
     if (PyErr_Occurred()) nb::raise_python_error();
     if (overflow) throw std::invalid_argument(std::string(field) + " is out of range");
     return value;
@@ -110,11 +110,7 @@ void bind_object_ops(nb::class_<Value>& type, DeepCopy deepcopy) {
     const auto deep = [deepcopy](const Value& self) {
         return self.visit([&](const auto& ptr) { return Value(deepcopy(*ptr)); });
     };
-    type.def(
-            "copy",
-            deep,
-            "Return an independent copy of this object and its contents."
-    )
+    type.def("copy", deep, "Return an independent copy of this object and its contents.")
         .def("__copy__", shallow)
         .def(
             "__deepcopy__",
