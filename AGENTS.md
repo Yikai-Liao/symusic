@@ -41,7 +41,7 @@ prek run --all-files                                   # needs clice on PATH
 
 ## Always preserve
 
-- The [contracts](docs/design/architecture.md#contracts): the same semantics for `Tick`, `Quarter` and `Second`; copy and in-place pairs; stable Python references into containers; MIDI and pickle round trips; explicit errors on invalid input.
+- The [contracts](docs/design/architecture.md#contracts): the same semantics for `Tick`, `Quarter` and `Second`; one form per operation; stable Python references into containers; MIDI and pickle round trips; explicit errors on invalid input.
 - Algorithms live in the C++ core. The binding adapts types and dispatches over time units.
 - Docstrings of compiled code live at the binding site in `py_src/bindings/`; Python modules such as `python/symusic/_score_io.py` carry their own. Reinstall to regenerate stubs; never edit generated `_core.pyi`.
 - Never edit `3rdparty/` submodules in place. Update the pinned commit, or fix upstream.

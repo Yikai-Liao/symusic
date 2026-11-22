@@ -26,7 +26,7 @@ in_quarters = Score("song.mid", ttype=Quarter)
 in_seconds = score.to(Second)
 ```
 
-A score holds global tempos, signatures and markers and a list of tracks; each track holds its notes, controls, pitch bends, pedals and lyrics. [data_model.md](data_model.md) describes every type:
+A score holds global tempos, signatures and markers and a list of tracks; each track holds its notes, controls, pitch bends and lyrics. [data_model.md](data_model.md) describes every type:
 
 ```python
 print(score)
@@ -36,18 +36,19 @@ note = track.notes[0]
 print(note.time, note.duration, note.pitch, note.velocity)
 ```
 
-Transformations return a new object unless you pass `inplace=True`:
+Editing methods mutate in place. Copy a score first to create a variant.
 
 ```python
-higher = score.shift_pitch(2)
-score.shift_time(480, inplace=True)
+higher = score.copy()
+higher.shift_pitch(2)
+score.shift_time(480)
 ```
 
 Event lists convert to NumPy arrays, and tick scores to piano rolls; see [arrays.md](arrays.md):
 
 ```python
-arrays = next(track for track in score.tracks if track.notes).notes.numpy()  # time, duration, pitch, velocity
-roll = score.resample(tpq=6, min_dur=1).pianoroll(modes=["frame"])
+arrays = track.notes.to_numpy()  # time, duration, pitch, velocity
+roll = score.resample(6, min_duration=1).pianoroll(modes=["frame"])
 ```
 
 Write MIDI or ABC, or pickle the score:
@@ -55,8 +56,8 @@ Write MIDI or ABC, or pickle the score:
 ```python
 import pickle
 
-score.dump_midi("out.mid")
-score.dump_abc("out.abc")
+score.dump("out.mid")
+score.dump("out.abc")
 restored = pickle.loads(pickle.dumps(score))
 ```
 
