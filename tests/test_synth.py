@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import math
 import struct
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 from symusic import ControlChange, Note, PitchBend, Score, Synthesizer, Track
+from symusic._vendor.fluidsynth import _library
 
 SAMPLE_RATE = 22050
 SAMPLE_COUNT = 22050
@@ -111,7 +111,6 @@ def soundfont(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="module")
 def synth(soundfont: Path) -> Synthesizer:
-    pytest.importorskip("symusic_fluidsynth")
     return Synthesizer(soundfont, sample_rate=SAMPLE_RATE)
 
 
@@ -140,7 +139,6 @@ def test_render_time_units(synth: Synthesizer, score: Score, unit: str) -> None:
 
 
 def test_sf3_render(score: Score, tmp_path: Path) -> None:
-    pytest.importorskip("symusic_fluidsynth")
     sf3 = tmp_path / "sine.sf3"
     write_test_soundfont(sf3)
     audio = Synthesizer(sf3, sample_rate=SAMPLE_RATE, tail_seconds=0).render(score)
@@ -222,7 +220,6 @@ def test_same_key_retrigger(synth: Synthesizer, score: Score) -> None:
 
 
 def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
-    pytest.importorskip("symusic_fluidsynth")
     seconds = score.to("second")
     seconds.tracks[0].notes[0].duration = 0.00001
     audio = Synthesizer(soundfont, sample_rate=SAMPLE_RATE, tail_seconds=0).render(
@@ -233,16 +230,34 @@ def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
 
 
 def test_empty_score_and_zero_tail(soundfont: Path) -> None:
-    pytest.importorskip("symusic_fluidsynth")
     audio = Synthesizer(soundfont, tail_seconds=0).render(Score(), stereo=False)
     assert audio.shape == (0, 1)
     assert audio.dtype == np.float32
 
 
-def test_companion_required(monkeypatch: pytest.MonkeyPatch, soundfont: Path) -> None:
-    monkeypatch.setitem(sys.modules, "symusic_fluidsynth", None)
-    with pytest.raises(ImportError, match=r"symusic\[fluidsynth\]"):
+@pytest.mark.parametrize("invalid_file", [False, True])
+def test_runtime_load_error(monkeypatch, soundfont, tmp_path, invalid_file):
+    library = tmp_path / _library.LIBRARY_NAME
+    if invalid_file:
+        library.write_text("invalid library", encoding="utf-8")
+    monkeypatch.setattr(_library, "library_path", lambda: library)
+    with pytest.raises(RuntimeError, match="Cannot load FluidSynth") as error:
         Synthesizer(soundfont)
+    assert str(library) in str(error.value)
+
+
+def test_runtime_layout():
+    runtime = _library.library_path().parent
+    files = {path.name for path in runtime.iterdir() if path.suffix != ".txt"}
+    assert files - {"__pycache__", "_library.py"} == {
+        _library.LIBRARY_NAME,
+        _library.SNDFILE_NAME,
+    }
+    for name in (_library.LIBRARY_NAME, _library.SNDFILE_NAME):
+        assert (runtime / name).is_file()
+        assert not (runtime / name).is_symlink()
+    for name in ("FluidSynth", "libsndfile", "libogg", "libvorbis", "GCEM"):
+        assert (runtime / f"{name}.txt").is_file()
 
 
 def test_soundfont_required() -> None:
@@ -251,6 +266,5 @@ def test_soundfont_required() -> None:
 
 
 def test_missing_soundfont(tmp_path: Path) -> None:
-    pytest.importorskip("symusic_fluidsynth")
     with pytest.raises(FileNotFoundError, match=r"missing.sf2"):
         Synthesizer(tmp_path / "missing.sf2")

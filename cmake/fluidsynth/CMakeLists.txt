@@ -1,14 +1,10 @@
-cmake_minimum_required(VERSION 3.26.1)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum supported macOS version")
-project(symusic_fluidsynth LANGUAGES C CXX)
-
-set(vendor "${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty")
+set(vendor "${PROJECT_SOURCE_DIR}/3rdparty")
 if(NOT EXISTS "${vendor}/fluidsynth/gcem/include/gcem.hpp")
     message(FATAL_ERROR "Initialize the git submodules recursively before building FluidSynth.")
 endif()
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_TESTING OFF)
+set(ENABLE_TESTING OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(INSTALL_DOCS OFF)
 set(INSTALL_CMAKE_PACKAGE_MODULE OFF)
@@ -59,38 +55,57 @@ foreach(feature IN ITEMS
         alsa aufile coreaudio coremidi dart dbus dsound framework ipv6 jack kai ladspa
         midishare native-dls network oboe openmp opensles oss pipewire portaudio pulseaudio
         readline sdl3 signalsmith systemd threads wasapi waveout winmidi)
-    set(enable-${feature} OFF CACHE BOOL "" FORCE)
+    set(enable-${feature} OFF)
 endforeach()
-set(enable-libsndfile ON CACHE BOOL "" FORCE)
-set(osal cpp11 CACHE STRING "" FORCE)
+set(enable-libsndfile ON)
+set(osal cpp11 CACHE INTERNAL "FluidSynth OS abstraction")
 set(CMAKE_DISABLE_FIND_PACKAGE_OpenMP ON)
 set(GCEM_INCLUDE_DIR "${vendor}/fluidsynth/gcem/include")
-add_subdirectory("${vendor}/fluidsynth" fluidsynth EXCLUDE_FROM_ALL)
-add_custom_target(companion_runtime ALL DEPENDS libfluidsynth sndfile)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+add_subdirectory("${vendor}/fluidsynth" upstream EXCLUDE_FROM_ALL)
+add_custom_target(symusic_fluidsynth_runtime ALL DEPENDS libfluidsynth sndfile)
+
+# Match each real filename to its ABI name so libsndfile can be found by that
+# name at runtime and installation needs neither a symlink nor a second copy.
+if(UNIX)
+    foreach(library IN ITEMS libfluidsynth sndfile)
+        get_target_property(abi_version ${library} SOVERSION)
+        set_target_properties(${library} PROPERTIES VERSION "${abi_version}")
+    endforeach()
+endif()
 
 if(APPLE)
+    set_target_properties(sndfile PROPERTIES INSTALL_NAME_DIR "@rpath")
     set_target_properties(libfluidsynth PROPERTIES INSTALL_RPATH "@loader_path")
 elseif(UNIX)
     set_target_properties(libfluidsynth PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 # Install just the runtime files. The vendored projects' install rules are
 # excluded so that headers, import libraries and CLI tools stay out of the wheel.
+set(destination symusic/_vendor/fluidsynth)
 install(TARGETS libfluidsynth sndfile
-    RUNTIME DESTINATION symusic_fluidsynth
-    LIBRARY DESTINATION symusic_fluidsynth NAMELINK_SKIP
+    RUNTIME DESTINATION "${destination}"
+    LIBRARY DESTINATION "${destination}" NAMELINK_SKIP
 )
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/_library.py"
-    CONTENT "LIBRARY_NAME = '$<TARGET_FILE_NAME:libfluidsynth>'\n")
+    CONTENT [=[from pathlib import Path
+
+LIBRARY_NAME = "$<TARGET_FILE_NAME:libfluidsynth>"
+SNDFILE_NAME = "$<TARGET_FILE_NAME:sndfile>"
+
+
+def library_path() -> Path:
+    return Path(__file__).resolve().with_name(LIBRARY_NAME)
+]=])
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/_library.py"
-    DESTINATION symusic_fluidsynth)
+    DESTINATION "${destination}")
 install(FILES "${vendor}/fluidsynth/LICENSE"
-    DESTINATION symusic_fluidsynth/licenses RENAME FluidSynth.txt)
+    DESTINATION "${destination}" RENAME FluidSynth.txt)
 install(FILES "${vendor}/libsndfile/COPYING"
-    DESTINATION symusic_fluidsynth/licenses RENAME libsndfile.txt)
+    DESTINATION "${destination}" RENAME libsndfile.txt)
 install(FILES "${vendor}/ogg/COPYING"
-    DESTINATION symusic_fluidsynth/licenses RENAME libogg.txt)
+    DESTINATION "${destination}" RENAME libogg.txt)
 install(FILES "${vendor}/vorbis/COPYING"
-    DESTINATION symusic_fluidsynth/licenses RENAME libvorbis.txt)
+    DESTINATION "${destination}" RENAME libvorbis.txt)
 install(FILES "${vendor}/fluidsynth/gcem/LICENSE"
-    DESTINATION symusic_fluidsynth/licenses RENAME GCEM.txt)
-install(FILES SOURCE.md DESTINATION symusic_fluidsynth/licenses)
+    DESTINATION "${destination}" RENAME GCEM.txt)

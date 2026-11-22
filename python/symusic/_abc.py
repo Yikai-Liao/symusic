@@ -21,7 +21,7 @@ class ABCConversionWarning(UserWarning):
     """Diagnostics from an ABC converter that produced a usable result."""
 
 
-_BIN = Path(__file__).resolve().parent / "bin"
+_BIN = Path(__file__).resolve().parent / "_vendor" / "abcmidi"
 _EXE_SUFFIX = ".exe" if os.name == "nt" else ""
 _ABC2MIDI = _BIN / f"abc2midi{_EXE_SUFFIX}"
 _MIDI2ABC = _BIN / f"midi2abc{_EXE_SUFFIX}"

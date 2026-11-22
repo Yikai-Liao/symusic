@@ -12,19 +12,8 @@ namespace symusic {
 namespace {
 
 std::filesystem::path fluid_library_path() {
-    nb::object companion;
-    try {
-        companion = nb::module_::import_("symusic_fluidsynth");
-    } catch (nb::python_error& error) {
-        if (error.matches(PyExc_ModuleNotFoundError)
-            && error.value().attr("name").equal(nb::str("symusic_fluidsynth"))) {
-            nb::raise_from(
-                error, PyExc_ImportError, "Install symusic[fluidsynth] to render audio."
-            );
-        }
-        throw;
-    }
-    return nb::cast<std::filesystem::path>(companion.attr("library_path")());
+    const auto runtime = nb::module_::import_("symusic._vendor.fluidsynth._library");
+    return nb::cast<std::filesystem::path>(runtime.attr("library_path")());
 }
 
 using AudioArray = nb::ndarray<nb::numpy, float, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
@@ -85,7 +74,7 @@ nb::module_& bind_synthesizer(nb::module_& m) {
             nb::arg("reverb")       = false,
             nb::arg("chorus")       = false,
             nb::arg("tail_seconds") = 1.0,
-            "Configure offline rendering. Install symusic[fluidsynth] to supply the runtime."
+            "Configure offline SoundFont rendering."
         )
         .def(
             "render",

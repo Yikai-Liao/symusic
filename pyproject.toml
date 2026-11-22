@@ -65,7 +65,6 @@ ninja.version = ">=1.11"
 # The extension uses the stable ABI from 3.12 on, so one cp312-abi3 wheel covers
 # every later CPython; older versions still get version-specific wheels.
 wheel.py-api = "cp312"
-sdist.exclude = ["packages/symusic-fluidsynth", "3rdparty/fluidsynth", "3rdparty/libsndfile", "3rdparty/ogg", "3rdparty/vorbis"]
 
 [[tool.scikit-build.overrides]]
 if.platform-system = "^win32$"
@@ -90,7 +89,6 @@ version.provider = "scikit_build_core.metadata.regex"
 version.input = "python/symusic/__init__.py"
 
 [project.optional-dependencies]
-fluidsynth = ["symusic-fluidsynth==0.6.0"]
 test = ["pytest-cov", "pytest-xdist[psutil]", "mypy", "pretty_midi"]
 
 [tool.pytest.ini_options]
@@ -115,11 +113,7 @@ manylinux-aarch64-image = "manylinux_2_28"
 musllinux-x86_64-image = "musllinux_1_2"
 musllinux-aarch64-image = "musllinux_1_2"
 test-extras = ["test"]
-test-command = [
-    "python -m pytest {project}/tests/test_synth.py -k companion_required -p no:cacheprovider",
-    "python -m pip install --no-index --find-links {project}/wheelhouse symusic-fluidsynth",
-    "cd {project} && pytest tests -n auto -p no:cacheprovider",
-]
+test-command = "cd {project} && pytest tests -n auto -p no:cacheprovider"
 # NumPy has no PyPy wheels, so testing would build it from source; the CI
 # python lane tests PyPy instead.
 test-skip = "pp*"
@@ -130,13 +124,10 @@ MACOSX_DEPLOYMENT_TARGET = "13.0"
 [tool.cibuildwheel.windows]
 environment = { CMAKE_GENERATOR = "Ninja" }
 # cmd's `cd` does not change drives without /d.
-test-command = [
-    "python -m pytest {project}/tests/test_synth.py -k companion_required -p no:cacheprovider",
-    "python -m pip install --no-index --find-links {project}/wheelhouse symusic-fluidsynth",
-    "cd /d {project} && pytest tests -n auto -p no:cacheprovider",
-]
-# The extension links no external DLLs; skip delvewheel.
-repair-wheel-command = ""
+test-command = "cd /d {project} && pytest tests -n auto -p no:cacheprovider"
+# Inspect the vendored DLLs for external dependencies, preserving DLLs
+# already inside the wheel at their installed paths.
+repair-wheel-command = "delvewheel repair --analyze-existing -w {dest_dir} {wheel}"
 
 [tool.ruff]
 target-version = "py310"

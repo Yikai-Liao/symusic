@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+import symusic
 from symusic import (
     ABCConversionWarning,
     Note,
@@ -497,3 +498,14 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     # --- roundtrip: reload the ABC and verify note count ---
     reloaded = Score(output_path, fmt="abc")
     assert reloaded.note_num() > 0, "reloaded Score has no notes"
+
+
+
+def test_converter_layout():
+    vendor = Path(symusic.__file__).resolve().parent / "_vendor" / "abcmidi"
+    suffix = ".exe" if sys.platform == "win32" else ""
+    assert {path.name for path in vendor.iterdir()} == {
+        f"abc2midi{suffix}",
+        f"midi2abc{suffix}",
+        "LICENSE.txt",
+    }

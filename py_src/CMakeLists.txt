@@ -55,7 +55,10 @@ else()
 endif()
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/cmake/abcmidi" "${PROJECT_BINARY_DIR}/abcmidi")
-install(TARGETS abc2midi midi2abc DESTINATION symusic/bin)
+install(TARGETS abc2midi midi2abc RUNTIME DESTINATION symusic/_vendor/abcmidi)
+install(FILES "${PROJECT_SOURCE_DIR}/3rdparty/abcmidi/doc/gpl.txt"
+    DESTINATION symusic/_vendor/abcmidi RENAME LICENSE.txt)
+add_subdirectory("${PROJECT_SOURCE_DIR}/cmake/fluidsynth" "${PROJECT_BINARY_DIR}/fluidsynth")
 
 # The agent skill, located at run time by symusic.skill.path().
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/skills/symusic" DESTINATION symusic/skills)
