@@ -336,22 +336,27 @@ struct Synthesizer::Backend {
         set("synth.reverb.active", config.reverb);
         set("synth.chorus.active", config.chorus);
 
-        // FluidSynth marks its global tables initialized before building them.
-        // The first SoundFont load also initializes a shared sample-cache mutex.
-        static std::mutex                                               setup_mutex;
-        std::unique_lock                                                setup_lock(setup_mutex);
-        const std::unique_ptr<FluidSynth, decltype(delete_fluid_synth)> synth(
-            new_fluid_synth(settings.get()), delete_fluid_synth
-        );
-        auto* state = synth.get();
-        if (!state) { throw std::runtime_error("Cannot initialize FluidSynth"); }
-        const int font_id = fluid_synth_sfload(state, path_as_utf8(soundfont).c_str(), 0);
-        setup_lock.unlock();
+        // Initialization uses shared tables. SoundFont teardown can free a cached
+        // sample before a concurrent load finishes acquiring its reference.
+        static std::mutex lifecycle_mutex;
+        const auto        destroy_synth = [this](FluidSynth* state) {
+            const std::lock_guard lock(lifecycle_mutex);
+            delete_fluid_synth(state);
+        };
+        std::unique_ptr<FluidSynth, decltype(destroy_synth)> synth(nullptr, destroy_synth);
+        int                                                  font_id;
+        {
+            const std::lock_guard lock(lifecycle_mutex);
+            synth.reset(new_fluid_synth(settings.get()));
+            if (!synth) { throw std::runtime_error("Cannot initialize FluidSynth"); }
+            font_id = fluid_synth_sfload(synth.get(), path_as_utf8(soundfont).c_str(), 0);
+        }
         if (font_id < 0) {
             throw std::runtime_error(
                 fmt::format("Cannot load SoundFont at {}", path_as_utf8(soundfont))
             );
         }
+        auto* state = synth.get();
         check(fluid_synth_set_interp_method(state, -1, 4), "set fourth-order interpolation");
         const int block_size = fluid_synth_get_internal_bufsize(state);
         if (block_size <= 0) {
