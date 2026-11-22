@@ -8,7 +8,7 @@ namespace {
 struct FluidSettings {};
 struct FluidSynth {};
 
-std::atomic_flag initializing = ATOMIC_FLAG_INIT;
+std::atomic_flag initializing            = ATOMIC_FLAG_INIT;
 std::atomic<int> sample_cache_operations = 0;
 
 }   // namespace

@@ -64,4 +64,4 @@ using Score = symusic::Score<T, SharedStorage>;
 template<TType T>
 using Track = symusic::Track<T, SharedStorage>;
 
-}  // namespace symusic::py
+}   // namespace symusic::py
