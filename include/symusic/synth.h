@@ -10,9 +10,9 @@ namespace symusic {
 
 struct AudioBuffer {
     vec<float> samples;
-    size_t     channels;
+    size_t     channels = 0;
 
-    [[nodiscard]] size_t frames() const { return samples.size() / channels; }
+    [[nodiscard]] size_t frames() const { return channels == 0 ? 0 : samples.size() / channels; }
 };
 
 struct SynthSettings {
