@@ -188,10 +188,11 @@ def test_abc_include_resolves_from_caller(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("include", [False, True])
-def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include):
+@pytest.mark.parametrize("prefix", ["%%MIDI", "I:MIDI", "I:\tMIDI"])
+def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include, prefix):
     monkeypatch.chdir(tmp_path)
     Path("stress.txt").write_text("4\n95 1\n80 1\n85 1\n80 1\n95 1\n")
-    directive = "%%MIDI ptstress stress.txt"
+    directive = f"{prefix} ptstress stress.txt"
     if include:
         Path("directives.abc").write_text(directive + "\n")
         directive = "%%abc-include directives.abc"

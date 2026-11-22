@@ -31,7 +31,10 @@ _REFERENCE_TRUNCATION_THRESHOLD = 214_748_363
 _MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 # parseabc.c reads a single whitespace-delimited path of up to 79 bytes.
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
-_STRESS = re.compile(rb"(?:^|(?<=[\r\n]))([ \t]*%%MIDI[ \t]+ptstress[ \t]+)([^\r\n]+)")
+_STRESS = re.compile(
+    rb"(?:^|(?<=[\r\n]))([ \t]*(?:%%MIDI|I[ \t]*:[ \t]*MIDI)"
+    rb"[ \t]+ptstress[ \t]+)([^\r\n]+)"
+)
 
 # parseabc.c accepts spaces and tabs before and around the field delimiter.
 _TUNE_LINE = re.compile(
