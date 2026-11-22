@@ -10,6 +10,21 @@
 
 using namespace symusic;
 
+template<symusic::DataFormat F>
+concept ScoreCanParse = requires { symusic::Score<symusic::Tick>::parse<F>({}); };
+
+template<symusic::DataFormat F>
+concept ScoreCanDump = requires(const symusic::Score<symusic::Tick>& score) {
+    score.template dumps<F>();
+};
+
+static_assert(ScoreCanParse<symusic::DataFormat::MIDI>);
+static_assert(ScoreCanParse<symusic::DataFormat::ZPP>);
+static_assert(!ScoreCanParse<symusic::DataFormat::ABC>);
+static_assert(ScoreCanDump<symusic::DataFormat::MIDI>);
+static_assert(ScoreCanDump<symusic::DataFormat::ZPP>);
+static_assert(!ScoreCanDump<symusic::DataFormat::ABC>);
+
 TEST_CASE("Test Score class functionality", "[score]") {
     // Create a Score for testing
     Score<Tick> score(480);
