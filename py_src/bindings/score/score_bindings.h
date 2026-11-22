@@ -43,8 +43,9 @@ to *start*. Returns a new score.
 constexpr const char* kScoreTrimDoc     = R"pbdoc(
 Keep notes that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
-keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
-*start* are kept there. Returns a new score with independent tracks and events.
+keeps them whole. Invalid modes and negative *min_overlap* raise ``ValueError``. Other events
+are clipped by time, and the tempo and signatures in effect at *start* are kept there. Returns
+a new score with independent tracks and events.
 )pbdoc";
 constexpr const char* kScoreShiftTimeDoc
     = R"pbdoc(Add *offset* to every time.)pbdoc";

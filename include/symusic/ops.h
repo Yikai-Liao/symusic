@@ -31,7 +31,12 @@ U trunc_time(const f64 value) {
         return static_cast<U>(value);
     }
 }
-inline void validate_trim_modes(const std::string& start_mode, const std::string& end_mode) {
+inline void validate_trim_options(
+    auto min_overlap, const std::string& start_mode, const std::string& end_mode
+) {
+    if (min_overlap < 0) {
+        throw std::invalid_argument("min_overlap must be non-negative");
+    }
     const auto validate = [](const std::string& mode, const char* name) {
         if (mode != "remove" && mode != "truncate" && mode != "retain") {
             throw std::invalid_argument(
@@ -86,7 +91,7 @@ void trim(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
-    detail::validate_trim_modes(start_mode, end_mode);
+    detail::validate_trim_options(min_overlap, start_mode, end_mode);
     if constexpr (HashDuration<T>) {
         using wide = detail::wide_t<T>;
         using unit = typename T::unit;

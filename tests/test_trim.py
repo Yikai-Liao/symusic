@@ -101,6 +101,18 @@ def test_score_trim_checks_contained_note_duration():
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
+@pytest.mark.parametrize("target", ["track", "score", "empty score"])
+def test_trim_rejects_negative_overlap(ttype, target):
+    track = Track(notes=[Note(0, 1, 60, 80, ttype=ttype)], ttype=ttype)
+    score = Score(ttype=ttype)
+    if target == "score":
+        score.tracks.append(track)
+    obj = track if target == "track" else score
+    with pytest.raises(ValueError, match="min_overlap"):
+        obj.trim(2, 4, min_overlap=-1, start_mode="truncate")
+
+
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_score_trim_rejects_inplace(ttype):
     with pytest.raises(TypeError, match="incompatible function arguments"):
         Score(ticks_per_quarter=480, ttype=ttype).trim(0, 1, inplace=True)

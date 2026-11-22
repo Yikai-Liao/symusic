@@ -272,7 +272,7 @@ Score<T, S> Score<T, S>::trim(
     if (!(start <= end)) {
         throw std::invalid_argument("Trim bounds must satisfy start <= end");
     }
-    detail::validate_trim_modes(start_mode, end_mode);
+    detail::validate_trim_options(min_overlap, start_mode, end_mode);
     auto result = detail::copy_score_with_tracks(*this, [&](const auto& track) {
         return track.trim(start, end, min_overlap, start_mode, end_mode);
     });

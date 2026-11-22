@@ -13,8 +13,8 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes must also
 constexpr const char* kTrackTrimDoc       = R"pbdoc(
 Keep notes that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
-keeps them whole. Other events are clipped by time. Invalid modes raise ``ValueError``. Returns a
-deep copy.
+keeps them whole. Other events are clipped by time. Invalid modes and negative *min_overlap*
+raise ``ValueError``. Returns a deep copy.
 )pbdoc";
 constexpr const char* kTrackSortDoc       = R"pbdoc(
 Sort every event list by its default sort key.
