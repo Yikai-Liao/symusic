@@ -116,7 +116,7 @@ def test_adjust_time_overflow():
 
 
 def test_adjust_time_anchors_at_tick_limits():
-    track = Track(notes=[Note(0, 0, 60, 80), Note(1, 0, 62, 80)])
+    track = Track(notes=[Note(0, 0, 60), Note(1, 0, 62)])
     adjusted = track.adjust_time([0, 1], [INT_MIN, INT_MAX])
     assert [(note.time, note.duration) for note in adjusted.notes] == [
         (INT_MIN, 0),

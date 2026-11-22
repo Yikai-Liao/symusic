@@ -74,7 +74,7 @@ def test_beats_and_downbeats_match_pretty_midi_on_real_midis(midi_path):
 
     if midi_path.name == "empty.mid":
         # Retained control changes extend this fixture past time zero.
-        assert score.note_num() == 0
+        assert score.note_count() == 0
         assert score.end() > 0
         np.testing.assert_array_equal(pm.get_beats(), [])
         np.testing.assert_array_equal(pm.get_downbeats(), [])
@@ -129,7 +129,7 @@ def test_beats_and_downbeats_are_consistent_across_ttypes_on_real_midis(midi_pat
 
 
 def test_mid_beat_tempo_change_preserves_remaining_beat_ratio_in_second_time():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
 
     lead = Track("Lead", 0, False)
     lead.notes.append(Note(0, 24 * 480, 60, 100))

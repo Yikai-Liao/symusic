@@ -14,11 +14,11 @@ ISSUE_104_PATH = (
 ABC_FIXTURE_PATH = TESTCASES_PATH / "abc_files" / "a_morning_in_summer.abc"
 
 
-def build_single_track_midi(track_bytes: bytes, tpq: int = 480) -> bytes:
+def build_single_track_midi(track_bytes: bytes, ticks_per_quarter: int = 480) -> bytes:
     header = b"MThd" + (6).to_bytes(4, "big")
     header += (0).to_bytes(2, "big")
     header += (1).to_bytes(2, "big")
-    header += tpq.to_bytes(2, "big")
+    header += ticks_per_quarter.to_bytes(2, "big")
     track = b"MTrk" + len(track_bytes).to_bytes(4, "big") + track_bytes
     return header + track
 
@@ -28,31 +28,24 @@ def test_malformed_midi_default_load_is_strict():
         Score(ISSUE_104_PATH)
 
 
-@pytest.mark.parametrize("sanitize_data", [False, True], ids=["strict", "sanitize"])
-def test_malformed_midi_raises_runtime_error(sanitize_data: bool):
+@pytest.mark.parametrize("policy", ["raise", "clamp"])
+def test_malformed_midi_raises_runtime_error(policy):
     with pytest.raises(RuntimeError):
-        Score(ISSUE_104_PATH, sanitize_data=sanitize_data)
-
-    with pytest.raises(RuntimeError):
-        Score.from_file(ISSUE_104_PATH, format="midi", sanitize_data=sanitize_data)
+        Score.from_midi(ISSUE_104_PATH.read_bytes(), invalid_data_bytes=policy)
 
 
-def test_valid_midi_path_loading_accepts_sanitize_data():
+def test_valid_midi_baseline_matches_clamped():
     midi_path = MIDI_PATHS_ALL[0]
-
-    default_score = Score(midi_path)
-    sanitized_score = Score(midi_path, sanitize_data=True)
-    sanitized_from_file = Score.from_file(midi_path, format="midi", sanitize_data=True)
-
-    assert sanitized_score.note_num() == default_score.note_num()
-    assert sanitized_from_file.note_num() == default_score.note_num()
-    assert sanitized_score.ticks_per_quarter == default_score.ticks_per_quarter
-    assert sanitized_from_file.ticks_per_quarter == default_score.ticks_per_quarter
+    assert Score.from_midi(midi_path.read_bytes(), invalid_data_bytes="clamp") == Score(
+        midi_path
+    )
 
 
-def test_abc_rejects_sanitize_data():
-    with pytest.raises(ValueError, match="sanitize_data"):
-        Score.from_file(ABC_FIXTURE_PATH, format="abc", sanitize_data=True)
+def test_format_options_are_memory_only():
+    with pytest.raises(TypeError):
+        Score(ABC_FIXTURE_PATH, invalid_data_bytes="clamp")
+    with pytest.raises(ValueError, match="invalid_data_bytes"):
+        Score.from_midi(b"", invalid_data_bytes="sanitize")
 
 
 @pytest.mark.parametrize(
@@ -121,7 +114,7 @@ def test_minimidi_vlq_cursor_regressions_parse_minimal_sequences(
     assert case_name
     assert score.ticks_per_quarter == 480
     assert len(score.tracks) == 1
-    assert score.note_num() == 1
+    assert score.note_count() == 1
 
 
 def test_minimidi_unknown_status_reports_status_byte():
@@ -198,17 +191,19 @@ def test_midi_moving_lyrics_preserves_channel_events():
         (0, 64, 127),
         (3, 64, 0),
     ]
-    assert [(pedal.time, pedal.duration) for pedal in channel_track.pedals] == [(0, 3)]
+    assert [(pedal.time, pedal.duration) for pedal in channel_track.pedals()] == [
+        (0, 3)
+    ]
     assert [(bend.time, bend.value) for bend in channel_track.pitch_bends] == [(2, 1)]
-    assert Score.from_midi(score.dumps_midi()) == score
+    assert Score.from_midi(score.to_midi()) == score
 
 
 def test_midi_round_trips_global_events_without_tracks():
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     score.time_signatures.append(TimeSignature(480, 3, 4))
     score.tempos.append(Tempo(0, 120))
 
-    assert Score.from_midi(score.dumps_midi()) == score
+    assert Score.from_midi(score.to_midi()) == score
 
 
 def test_midi_keeps_noteless_channel_tracks():
@@ -226,7 +221,7 @@ def test_midi_keeps_noteless_channel_tracks():
     assert not first.pitch_bends
     assert [(bend.time, bend.value) for bend in second.pitch_bends] == [(2, 1)]
     assert not second.controls
-    assert Score.from_midi(score.dumps_midi()) == score
+    assert Score.from_midi(score.to_midi()) == score
 
 
 def test_midi_rejects_unrepresentable_denominator():
@@ -241,9 +236,9 @@ def test_midi_rejects_non_seekable_file():
 from symusic import Score
 
 try:
-    Score.from_file("/dev/stdin", format="midi")
-except RuntimeError as error:
-    if "Cannot seek" in str(error):
+    Score("/dev/stdin", format="midi")
+except OSError as error:
+    if error.errno == 29:
         raise SystemExit(0)
     raise
 raise SystemExit(1)
@@ -307,3 +302,24 @@ def test_midi_lyric_does_not_merge_pending_programs_on_channel_15():
         (0, 1, [], ["a"]),
         (0, 0, [7], []),
     ]
+
+
+def test_midi_clamps_pitch_bend_bytes_before_combining():
+    body = bytes.fromhex("00 90 3c 40 00 e0 ff 01 01 80 3c 40 00 ff 2f 00")
+    data = build_single_track_midi(body)
+    with pytest.raises(RuntimeError, match="pitch_bend"):
+        Score.from_midi(data)
+    score = Score.from_midi(data, invalid_data_bytes="clamp")
+    assert score.tracks[0].pitch_bends[0].value == 255 - 8192
+
+
+def test_channel_sustain_release_stays_with_the_press_after_program_change():
+    body = bytes.fromhex(
+        "00 90 3c 40 00 b0 40 40 01 80 3c 40 "
+        "00 c0 01 00 90 3e 40 01 b0 40 3f 01 80 3e 40 00 ff 2f 00"
+    )
+    first, second = Score.from_midi(build_single_track_midi(body)).tracks
+    assert (first.program, second.program) == (0, 1)
+    assert [(cc.time, cc.value) for cc in first.controls] == [(0, 64), (2, 63)]
+    assert not second.controls
+    assert [(pedal.time, pedal.duration) for pedal in first.pedals()] == [(0, 2)]
