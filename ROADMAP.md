@@ -71,7 +71,6 @@ Workarounds and unsupported configurations with current toolchains.
 Found while checking the guide against the package. Each fix needs a test that fails without it.
 
 - **Lyrics on a separate track.** MIDI import files a lyric under `meta.channel()` (`src/io/midi.cpp`), which is 15 for every meta event, so lyrics land in a track of their own instead of the track with the notes, and a written track with notes and lyrics reads back as two tracks. Decide where lyrics belong (the MIDI track's first note channel, or a per-MIDI-track lyric list) and keep the round trip stable.
-- **`KeySignature.degree()` for flat keys.** `(key * 5) % 12` is negative for negative `key`, and the `u8` result wraps, so the repr shows `degree=251` for F major (`key=-1`). Use a non-negative modulo.
 - **`Score.trim`.** `trim` is bound for tracks only; the C++ score overload has no binding.
 - **`Note.ent_time`.** A misspelled duplicate of `end()` is bound in `py_src/bindings/events/event_bindings.h`. Deprecate and remove it.
 - **`to()` in the stubs.** `Score.to`, `Track.to` and the event `to` return `object` in `core.pyi`; type them by the target unit.

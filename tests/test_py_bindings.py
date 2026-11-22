@@ -368,3 +368,10 @@ def test_score_from_other_forwards_min_dur(ttype, min_dur):
 
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])
+
+
+def test_flat_key_degree():
+    from symusic import KeySignature
+
+    assert "degree=7" in repr(KeySignature(0, -1, 0))
+    assert "degree=19" in repr(KeySignature(0, -1, 1))
