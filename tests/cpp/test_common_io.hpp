@@ -2,11 +2,13 @@
 #ifndef SYMUSIC_TEST_COMMON_IO_HPP
 #define SYMUSIC_TEST_COMMON_IO_HPP
 
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 #include "symusic.h"
+#include "symusic/detail/file_error.h"
 #include "symusic/io/common.h"
 #include "catch2/catch_test_macros.hpp"
 using namespace symusic;
@@ -77,6 +79,13 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         REQUIRE(read_score_file(path) == data);
         REQUIRE_THROWS_AS(read_score_file(temp_dir / "missing.mid"), fs::filesystem_error);
         REQUIRE_THROWS_AS(read_score_file(temp_dir), fs::filesystem_error);
+    }
+
+    SECTION("Normalize a directory write-open error") {
+        REQUIRE(detail::write_open_error(temp_dir, EACCES) == std::errc::is_a_directory);
+        const auto missing = temp_dir / "missing" / "out.mid";
+        REQUIRE(detail::write_open_error(missing, ENOENT) == std::errc::no_such_file_or_directory);
+        REQUIRE(detail::write_open_error(missing, EACCES) == std::errc::permission_denied);
     }
 
     SECTION("Read and Roundtrip Fixture MIDI from Disk") {
