@@ -143,6 +143,19 @@ def test_abc_include_resolves_from_caller(tmp_path, monkeypatch):
     assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
 
 
+@pytest.mark.parametrize("include", [False, True])
+def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include):
+    monkeypatch.chdir(tmp_path)
+    Path("stress.txt").write_text("4\n95 1\n80 1\n85 1\n80 1\n95 1\n")
+    directive = "%%MIDI ptstress stress.txt"
+    if include:
+        Path("directives.abc").write_text(directive + "\n")
+        directive = "%%abc-include directives.abc"
+    abc = make_roundtrip_abc_text().replace("C D E F|", f"{directive}\nC D E F|")
+    score = Score.from_abc(abc)
+    assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
+
+
 def test_dump_abc_roundtrip(tmp_path: Path):
     score = make_roundtrip_score()
     output_dir = tmp_path / "abc output"
