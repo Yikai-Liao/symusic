@@ -18,7 +18,6 @@
 #include <dlfcn.h>
 #endif
 
-#include "symusic/conversion.h"
 
 namespace symusic {
 namespace {
@@ -442,17 +441,8 @@ Synthesizer::Synthesizer(
     backend = std::make_shared<Backend>(library_path);
 }
 
-template<TType T>
-AudioBuffer Synthesizer::render(const Score<T>& score, bool stereo) const {
-    if constexpr (std::is_same_v<T, Second>) {
-        return backend->render(score, soundfont, settings, stereo);
-    } else {
-        return backend->render(convert<Second>(score), soundfont, settings, stereo);
-    }
+AudioBuffer Synthesizer::render_seconds(const Score<Second>& score, bool stereo) const {
+    return backend->render(score, soundfont, settings, stereo);
 }
-
-template AudioBuffer Synthesizer::render(const Score<Tick>&, bool) const;
-template AudioBuffer Synthesizer::render(const Score<Quarter>&, bool) const;
-template AudioBuffer Synthesizer::render(const Score<Second>&, bool) const;
 
 }   // namespace symusic

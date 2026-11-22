@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from symusic import ControlChange, Note, PitchBend, Score, Synthesizer, Track
+from symusic import ControlChange, Note, Pedal, PitchBend, Score, Synthesizer, Tempo, Track
 from symusic._vendor.fluidsynth import _library
 
 SAMPLE_RATE = 22050
@@ -136,6 +136,21 @@ def test_render_shape_and_dtype(synth: Synthesizer, score: Score, stereo: bool) 
 @pytest.mark.parametrize("unit", ["tick", "quarter", "second"])
 def test_render_time_units(synth: Synthesizer, score: Score, unit: str) -> None:
     np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
+
+
+def test_render_ignores_pedals(synth, score):
+    expected = synth.render(score)
+    # Converting this unused pedal's end to seconds would overflow its tick time.
+    score.tracks[0].pedals.append(Pedal(2**31 - 1, 1))
+    np.testing.assert_array_equal(synth.render(score), expected)
+
+
+def test_render_tempo_changes(synth, score):
+    score.tempos.extend([Tempo(0, 120), Tempo(480, 60)])
+    score.tracks[0].notes[0].duration = 960
+    expected = math.ceil(1.5 * SAMPLE_RATE / 64) * 64 + SAMPLE_RATE
+    for unit in ("tick", "quarter", "second"):
+        assert synth.render(score.to(unit)).shape == (expected, 2)
 
 
 def test_sf3_render(score: Score, tmp_path: Path) -> None:
