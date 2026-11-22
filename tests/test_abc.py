@@ -500,7 +500,6 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     assert reloaded.note_num() > 0, "reloaded Score has no notes"
 
 
-
 def test_converter_layout():
     vendor = Path(symusic.__file__).resolve().parent / "_vendor" / "abcmidi"
     suffix = ".exe" if sys.platform == "win32" else ""

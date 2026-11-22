@@ -127,7 +127,7 @@ environment = { CMAKE_GENERATOR = "Ninja" }
 test-command = "cd /d {project} && pytest tests -n auto -p no:cacheprovider"
 # Inspect the vendored DLLs for external dependencies, preserving DLLs
 # already inside the wheel at their installed paths.
-repair-wheel-command = "delvewheel repair --analyze-existing -w {dest_dir} {wheel}"
+repair-wheel-command = "delvewheel repair --ignore-existing --analyze-existing -w {dest_dir} {wheel}"
 
 [tool.ruff]
 target-version = "py310"

@@ -58,10 +58,11 @@ foreach(feature IN ITEMS
     set(enable-${feature} OFF)
 endforeach()
 set(enable-libsndfile ON)
-set(osal cpp11 CACHE INTERNAL "FluidSynth OS abstraction")
+set(osal cpp11)
 set(CMAKE_DISABLE_FIND_PACKAGE_OpenMP ON)
 set(GCEM_INCLUDE_DIR "${vendor}/fluidsynth/gcem/include")
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 add_subdirectory("${vendor}/fluidsynth" upstream EXCLUDE_FROM_ALL)
 add_custom_target(symusic_fluidsynth_runtime ALL DEPENDS libfluidsynth sndfile)
 
