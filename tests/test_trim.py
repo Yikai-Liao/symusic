@@ -57,11 +57,10 @@ def test_score_trim(ttype):
     )
     assert trimmed.tempos[0].time == 2
     assert score.tracks[0].notes[0].start == 1
-    assert (
-        score.trim(2, 4, start_mode="truncate", end_mode="truncate", inplace=True)
-        is score
-    )
-    assert score == trimmed
+    updated = score.trim(2, 4, start_mode="truncate", end_mode="truncate", inplace=True)
+    assert updated == score == trimmed
+    updated.ticks_per_quarter = 960
+    assert score.ticks_per_quarter == 960
 
 
 def test_empty_score_rejects_unknown_trim_mode():
