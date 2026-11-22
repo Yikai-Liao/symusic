@@ -62,21 +62,12 @@ Workarounds and unsupported configurations with current toolchains.
 
 ## Memory safety
 
-- **Negative tick times in conversion and export.** `SecondTimeConverter` inserts a tempo at tick 0 in front of a tempo with a negative time, which leaves its boundary list unsorted, and `src/io/midi.cpp` passes `i32` times to `minimidi` as `uint32_t` without a sign check. Both come from reading the code; neither has a regression test.
-- **Integer narrowing outside tick arithmetic.** Tick arithmetic is checked; other integers are not. MIDI write casts `ticks_per_quarter` (`i32`) to `u16` (`src/io/midi.cpp`), so a value above 65535 wraps and one above 32767 sets the SMPTE bit of the MIDI division field. `KeySignature.degree()` wraps through `u8` (see [behavior defects](#behavior-defects)). Audit every subtraction on an unsigned type and every narrowing cast in `src/`, `include/` and `py_src/`, and apply the [integer rule](docs/development/conventions.md#integers-and-time).
-- **Pickles from another version.** Pickle state is raw `zpp_bits` output with no version marker (`src/io/zpp.cpp`). Bytes from another symusic version, such as between workers with different installs, fail only if they happen to overrun the buffer; a layout change of the same length loads as wrong values. Write a format version at the start of the state and raise `ValueError` naming the versions when it differs. Pickles are not compatible across versions; the check only makes the mismatch explicit.
 - **Python tests under ASan.** CI runs the C++ tests with ASan and UBSan, but not pytest. A sanitized extension needs `LD_PRELOAD` of `libasan` and `libubsan` even at install time, because the build runs nanobind's stub generator, which imports the extension (without it the install fails with "ASan runtime does not come first"). Preloading for the whole `uv pip install` process exhausted resources and was killed. Untried: build the extension with `SYMUSIC_BUILD_PYTHON=ON` and `SYMUSIC_PYTHON_STUB` pointing at a stub from a normal build to skip generation, then run pytest with the preload and `ASAN_OPTIONS=detect_leaks=0`.
 
 ## Behavior defects
 
 Found while checking the guide against the package. Each fix needs a test that fails without it.
 
-- **Lyrics on a separate track.** MIDI import files a lyric under `meta.channel()` (`src/io/midi.cpp`), which is 15 for every meta event, so lyrics land in a track of their own instead of the track with the notes, and a written track with notes and lyrics reads back as two tracks. Decide where lyrics belong (the MIDI track's first note channel, or a per-MIDI-track lyric list) and keep the round trip stable.
-- **`trim` modes.** `trim_inplace` (`include/symusic/ops.h`) compares `start_mode` and `end_mode` with `"remove"` and `"truncate"`; any other string keeps the events that cross that boundary without cutting them. Reject unknown modes with `ValueError`, or replace the strings with an enum.
-- **`adjust_time` with repeated anchors.** Equal consecutive values in `original_times` pass `check_times`; the segment between them gets an infinite or NaN scale factor (`adjust_time_inplace_inner` in `include/symusic/ops.h`), and casting the scaled time to an integer is undefined behavior. Require strictly increasing original times.
-- **`KeySignature.degree()` for flat keys.** `(key * 5) % 12` is negative for negative `key`, and the `u8` result wraps, so the repr shows `degree=251` for F major (`key=-1`). Use a non-negative modulo.
-- **`Score.trim`.** `trim` is bound for tracks only; the C++ score overload has no binding.
-- **`Note.ent_time`.** A misspelled duplicate of `end()` is bound in `py_src/bindings/events/event_bindings.h`. Deprecate and remove it.
 - **`to()` in the stubs.** `Score.to`, `Track.to` and the event `to` return `object` in `core.pyi`; type them by the target unit.
 - **ABC output.** `dumps_abc` prints "calling midi2abc" to stdout, and the `T:` line of the result names the temporary MIDI file. Silence the message and write the score's title, or none.
 - **SoundFont download error.** The `ConnectionError` raised by `Soundfont.download` formats the bound method `self.path` instead of the file path.
@@ -84,7 +75,6 @@ Found while checking the guide against the package. Each fix needs a test that f
 
 ## Test coverage
 
-- **Boundary inputs.** Malformed MIDI durations and negative tick times have no regression tests.
 - **Markdown in the guide.** Nothing rejects Sphinx or MyST syntax in `skills/symusic/`, which the [documentation rules](CONTRIBUTING.md#documentation) keep out of the shared pages. Extend `tests/test_docs_examples.py` to fail on directives, roles and `(label)=` targets in those pages.
 
 ## Architecture

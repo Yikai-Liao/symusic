@@ -109,6 +109,12 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
 to *start*. Returns a new score unless *inplace* is true.
 )pbdoc";
+constexpr const char* kTrimDoc = R"pbdoc(
+Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
+``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
+keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
+*start* are kept there. Returns a new score with independent tracks and events.
+)pbdoc";
 constexpr const char* kShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
 constexpr const char* kShiftPitchDoc    = R"pbdoc(
@@ -128,7 +134,8 @@ constexpr const char* kEmptyDoc
     = R"pbdoc(Return whether the score has no tracks and no global events.)pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+lists must be the same length and have at least two anchors. Original times must be strictly
+increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a new score unless *inplace* is true.
 )pbdoc";
 constexpr const char* kUseCountDoc
@@ -453,6 +460,15 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
+        .def("trim", [](const self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode) {
+            return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc,
+            nb::sig(fmt::format(
+                "def trim(self, start: {0}, end: {0}, min_overlap: {0} = {1}, "
+                "start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', "
+                "end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove') -> {2}",
+                flavor.scalar_label, std::is_same_v<T, Tick> ? "0" : "0.0", name
+            ).c_str()))
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);

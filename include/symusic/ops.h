@@ -8,6 +8,7 @@
 #include "pdqsort.h"
 #include "pyvec.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace symusic::ops {
@@ -32,6 +33,17 @@ U trunc_time(const f64 value) {
     } else {
         return static_cast<U>(value);
     }
+}
+inline void validate_trim_modes(const std::string& start_mode, const std::string& end_mode) {
+    const auto validate = [](const std::string& mode, const char* name) {
+        if (mode != "remove" && mode != "truncate" && mode != "retain") {
+            throw std::invalid_argument(
+                std::string(name) + " must be remove, truncate, or retain, got " + mode
+            );
+        }
+    };
+    validate(start_mode, "start_mode");
+    validate(end_mode, "end_mode");
 }
 }   // namespace details
 
@@ -124,29 +136,22 @@ void trim_inplace(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
+    details::validate_trim_modes(start_mode, end_mode);
     if constexpr (HashDuration<T>) {
         using wide = details::wide_t<T>;
         using unit = typename T::unit;
-        if (start_mode == std::string("remove") && end_mode == std::string("remove")) {
-            events.filter([start, end](const T& event) {
-                return (event.time >= start) && (details::wide_end(event) <= end);
-            });
-        } else if (start_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (event.time >= start)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        } else if (end_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                const wide event_end = details::wide_end(event);
-                return (event_end - start >= min_overlap) && (event_end <= end);
-            });
-        } else {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (details::wide_end(event) - start >= min_overlap)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        }
+        const bool remove_at_start = start_mode == "remove";
+        const bool remove_at_end = end_mode == "remove";
+        events.filter([=](const T& event) {
+            const wide event_start = event.time;
+            const wide event_end = details::wide_end(event);
+            if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
+                return false;
+            }
+            const wide overlap_start = std::max<wide>(event_start, start);
+            const wide overlap_end = std::min<wide>(event_end, end);
+            return overlap_end - overlap_start >= min_overlap;
+        });
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {
@@ -256,6 +261,7 @@ void adjust_time_inplace_inner(
     // return empty vector if events is empty
     if (events.empty()) return;
     auto get_factor = [&original_times, &new_times, diff](const size_t x) {
+        // Segment indices start at one, leaving a preceding anchor at x - 1.
         f64 factor
             = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
         return factor;
@@ -264,7 +270,9 @@ void adjust_time_inplace_inner(
     const auto range = std::make_pair(original_times.front(), original_times.back());
 
     auto valid = [get_end, range](const T& event) {
-        return (event.time >= range.first) & (get_end(event) <= range.second);
+        const auto end = get_end(event);
+        return event.time >= range.first && event.time <= range.second
+               && end >= range.first && end <= range.second;
     };
 
     auto cur_range  = std::make_pair(original_times[0], original_times[1]);
@@ -288,9 +296,8 @@ void adjust_time_inplace_inner(
             trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
         );
         if constexpr (has_dur) {
-            // `valid` guarantees original_end <= original_times.back(), so it fits in `unit`.
-            const auto original_end = static_cast<unit>(get_end(event));
-            if (original_end > cur_range.second) {
+            const auto original_end = symusic::details::narrow_time<unit>(get_end(event));
+            if (original_end < cur_range.first || original_end > cur_range.second) {
                 auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
                     - original_times.begin();
                 cur_factor = get_factor(idx);
@@ -324,8 +331,14 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
             "should have at least 2 elements"
         );
     }
-    if (!std::is_sorted(original_times.begin(), original_times.end())) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times should be sorted");
+    const auto invalid = std::adjacent_find(
+        original_times.begin(), original_times.end(),
+        [](const T left, const T right) { return !(left < right); }
+    );
+    if (invalid != original_times.end()) {
+        throw std::invalid_argument(
+            "symusic::ops::adjust_time: original_times must be strictly increasing"
+        );
     }
     if (!std::is_sorted(new_times.begin(), new_times.end())) {
         throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");

@@ -420,7 +420,8 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(ks2.degree() == 10);       // (2*5)%12
 
         KeySignature<Tick> ks3(0, -1, 1);   // A minor
-        REQUIRE(ks3.degree() == 7);         // (-1*5)%12 + 1*12 = 7
+        REQUIRE(ks3.degree() == 19);
+        REQUIRE(KeySignature<Tick>(0, -1, 0).degree() == 7);
     }
 
     SECTION("Test equality operators") {

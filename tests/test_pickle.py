@@ -149,3 +149,31 @@ def test_pickle_score_roundtrip(ttype: str):
     assert restored.time_signatures == score.time_signatures
     assert restored.key_signatures == score.key_signatures
     assert restored.markers == score.markers
+
+
+def _restore_state(obj, state):
+    cls = type(obj)
+    cls.__new__(cls).__setstate__(state)
+
+
+@pytest.mark.parametrize(
+    "build", [_build_score, _build_track, lambda t: _build_track(t).notes]
+)
+def test_pickle_rejects_other_format_version(ttype, build):
+    obj = build(ttype)
+    state = obj.__getstate__()
+    assert state.startswith(b"SYMZ\x01")
+    changed = state[:4] + b"\x02" + state[5:]
+    with pytest.raises(ValueError, match=r"version 2 .*version 1"):
+        _restore_state(obj, changed)
+
+
+def test_pickle_rejects_invalid_state(ttype):
+    obj = _build_score(ttype)
+    state = obj.__getstate__()
+    for cut in range(len(state)):
+        with pytest.raises(ValueError, match=r"Invalid ZPP pickle (header|payload)"):
+            _restore_state(obj, state[:cut])
+    for invalid in (b"garbage", state + b"extra"):
+        with pytest.raises(ValueError, match="Invalid ZPP pickle"):
+            _restore_state(obj, invalid)

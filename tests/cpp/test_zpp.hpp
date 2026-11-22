@@ -198,7 +198,7 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             auto first  = dumps_in_filled_storage<E>(0xAA, make, payload);
             auto second = dumps_in_filled_storage<E>(0x55, make, payload);
             REQUIRE(first == second);
-            REQUIRE(first.size() == sizeof(E));
+            REQUIRE(first.size() == 5 + sizeof(E));
             REQUIRE(E::template parse<DataFormat::ZPP>(first) == make());
         };
         check([] { return Note<Tick>(480, 240, 60, 80); }, 10);
@@ -251,18 +251,18 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
     SECTION("Padding bytes are zero and the layout is unchanged") {
         const auto bytes
             = dumps_in_filled_storage<Note<Tick>>(0xAA, [] { return Note<Tick>(1, 2, 3, 4); }, 10);
-        REQUIRE(bytes.size() == 12);
-        REQUIRE(bytes[8] == 3);
-        REQUIRE(bytes[9] == 4);
-        REQUIRE(bytes[10] == 0);
-        REQUIRE(bytes[11] == 0);
+        const auto image = std::span(bytes).last(sizeof(Note<Tick>));
+        REQUIRE(image[8] == 3);
+        REQUIRE(image[9] == 4);
+        REQUIRE(image[10] == 0);
+        REQUIRE(image[11] == 0);
     }
 
     SECTION("Images with nonzero padding still load") {
-        // Pickles written before padding was zeroed carry arbitrary padding bytes.
         auto bytes = Note<Tick>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
-        bytes[10]  = 0xAA;
-        bytes[11]  = 0x55;
+        auto image = std::span(bytes).last(sizeof(Note<Tick>));
+        image[10] = 0xAA;
+        image[11] = 0x55;
         REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == Note<Tick>(1, 2, 3, 4));
     }
 }

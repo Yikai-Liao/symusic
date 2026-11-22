@@ -50,10 +50,10 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kTrimDoc       = R"pbdoc(
-Keep the notes and pedals inside ``[start, end)``. *start_mode* and *end_mode* decide what happens to
-notes and pedals that cross a boundary: ``"remove"`` drops them, ``"truncate"`` cuts them at it if
-they still overlap the window by *min_overlap*. Other events are clipped by time. Returns a deep
-copy unless *inplace* is true.
+Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
+``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
+keeps them whole. Other events are clipped by time. Invalid modes raise ``ValueError``. Returns a
+deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kSortDoc       = R"pbdoc(
 Sort every event list by its default sort key. Works in place unless *inplace* is false, which
@@ -61,7 +61,8 @@ returns a deep copy.
 )pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+lists must be the same length and have at least two anchors. Original times must be strictly
+increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kShiftTimeDoc

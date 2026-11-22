@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 import pytest
-from symusic import Score
+from symusic import Score, Tempo, TimeSignature
 
 from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
@@ -151,3 +151,88 @@ raise SystemExit(1)
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
+
+
+def test_midi_lyrics_use_first_created_note_track():
+    body = bytes.fromhex(
+        "00 ff 05 01 61 "  # lyric before notes
+        "00 97 3c 40 01 87 3c 00 "  # channel 7 creates the first track
+        "00 90 3d 40 01 80 3d 00 "  # channel 0 sorts before it
+        "00 c7 01 00 97 3e 40 01 87 3e 00 "  # a new program on channel 7
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    assert len(score.tracks) == 3
+    assert [
+        (track.notes[0].pitch, track.lyrics[0].text)
+        for track in score.tracks
+        if track.lyrics
+    ] == [
+        (60, "a"),
+    ]
+
+
+def test_midi_without_notes_keeps_lyric_programs():
+    body = bytes.fromhex("00 ff 05 01 61 00 cf 01 00 ff 05 01 62 00 ff 2f 00")
+    score = Score.from_midi(build_single_track_midi(body))
+    assert [(track.program, track.lyrics[0].text) for track in score.tracks] == [
+        (0, "a"),
+        (1, "b"),
+    ]
+
+
+def test_midi_moving_lyrics_preserves_channel_events():
+    body = bytes.fromhex(
+        "00 ff 05 01 61 "  # lyric
+        "00 bf 40 7f "  # sustain on, channel 16
+        "00 90 3c 40 01 80 3c 00 "  # note, channel 1
+        "01 ef 01 40 "  # pitch bend, channel 16
+        "01 bf 40 00 "  # sustain off, channel 16
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    note_track, channel_track = score.tracks
+    assert [lyric.text for lyric in note_track.lyrics] == ["a"]
+    assert not channel_track.lyrics
+    assert [(cc.time, cc.number, cc.value) for cc in channel_track.controls] == [
+        (0, 64, 127),
+        (3, 64, 0),
+    ]
+    assert [(pedal.time, pedal.duration) for pedal in channel_track.pedals] == [(0, 3)]
+    assert [(bend.time, bend.value) for bend in channel_track.pitch_bends] == [(2, 1)]
+
+
+def test_midi_round_trips_global_events_without_tracks():
+    score = Score(480)
+    score.time_signatures.append(TimeSignature(480, 3, 4))
+    score.tempos.append(Tempo(0, 120))
+
+    assert Score.from_midi(score.dumps_midi()) == score
+
+
+def test_midi_rejects_unrepresentable_denominator():
+    body = bytes.fromhex("00 ff 58 04 04 08 18 08 00 ff 2f 00")
+    with pytest.raises(RuntimeError, match="time signature denominator"):
+        Score.from_midi(build_single_track_midi(body))
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/stdin")
+def test_midi_rejects_non_seekable_file():
+    script = """
+from symusic.core import ScoreTick
+
+try:
+    ScoreTick.from_file("/dev/stdin", format="midi")
+except RuntimeError as error:
+    if "Cannot seek" in str(error):
+        raise SystemExit(0)
+    raise
+raise SystemExit(1)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        input=b"MThd",
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
