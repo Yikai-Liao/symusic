@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 from . import core  # type: ignore
 from . import types as smt
+from ._score_io import install_score_file_methods
 from .soundfont import BuiltInSF3
 
 if TYPE_CHECKING:
@@ -45,6 +46,8 @@ if not _ABC2MIDI.exists():
 # The ABC bindings in symusic.core find the bundled converters through these variables.
 os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
 os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
+
+install_score_file_methods()
 
 # The public names Score, Note, ... are instances of the factory classes below. Calling one
 # dispatches on ``ttype`` to the class of that unit in symusic.core, such as ScoreTick, and

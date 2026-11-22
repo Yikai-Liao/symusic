@@ -46,11 +46,6 @@ constexpr const char* kTpqCtorDoc
     = R"pbdoc(Create an empty score with *tpq* ticks per quarter note.)pbdoc";
 constexpr const char* kPathCtorDoc
     = R"pbdoc(Read a MIDI file. ``symusic.Score(path)`` also reads ABC files.)pbdoc";
-constexpr const char* kFromFileDoc = R"pbdoc(
-Read a MIDI or ABC file. The extension selects the format (``.mid``, ``.midi``, ``.MID``, ``.MIDI``
-or ``.abc``) unless *format* names it (``"midi"`` or ``"abc"``). *sanitize_data* applies to MIDI
-only; see ``from_midi``.
-)pbdoc";
 constexpr const char* kFromMidiDoc = R"pbdoc(
 Read MIDI bytes. A channel message data byte above 127 raises ``RuntimeError``; with
 *sanitize_data* it is clamped to 127 instead.
@@ -256,13 +251,6 @@ std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
     return std::string(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
-inline std::string get_format(const std::filesystem::path& path) {
-    const auto ext = path.extension().string();
-    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") { return "midi"; }
-    if (ext == ".abc") { return "abc"; }
-    throw std::invalid_argument("Unknown file format");
-}
-
 template<TType T>
 shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
     const auto abc2midi_env = std::getenv("SYMUSIC_ABC2MIDI");
@@ -314,29 +302,6 @@ shared<Score<T>> from_abc(const std::string& abc) {
     const auto                    temp_abc_path = temp_dir.path() / "input.abc";
     write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
     return from_abc_file<T>(temp_abc_path);
-}
-
-template<TType T>
-shared<Score<T>> from_file(
-    const std::filesystem::path&      path,
-    const std::optional<std::string>& format,
-    const bool                        sanitize_data
-) {
-    std::string format_ = format.has_value() ? *format : "";
-    if (format_.empty()) {
-        format_ = get_format(path);
-    } else {
-        std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
-    }
-
-    if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path, sanitize_data); }
-    if (format_ == "abc") {
-        if (sanitize_data) {
-            throw std::invalid_argument("sanitize_data is only supported for MIDI input");
-        }
-        return from_abc_file<T>(path);
-    }
-    throw std::invalid_argument("Unknown file format");
 }
 
 template<typename Scalar>
@@ -415,7 +380,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             new (self) self_t(midi2score<T>(path));
         }, nb::arg("path"), score_docstrings::kPathCtorDoc,
            nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), nb::arg("sanitize_data") = false, score_docstrings::kFromFileDoc)
+        .def_static("_from_abc_file", &from_abc_file<T>, nb::arg("path"))
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
