@@ -8,7 +8,16 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from symusic import ControlChange, Note, Pedal, PitchBend, Score, Synthesizer, Tempo, Track
+from symusic import (
+    ControlChange,
+    Note,
+    Pedal,
+    PitchBend,
+    Score,
+    Synthesizer,
+    Tempo,
+    Track,
+)
 from symusic._vendor.fluidsynth import _library
 
 SAMPLE_RATE = 22050
@@ -300,5 +309,7 @@ def test_missing_soundfont(tmp_path: Path) -> None:
 def test_render_rejects_negative_duration(synth, score, unit):
     score = score.to(unit)
     score.tracks[0].notes[0].duration = -1
-    with pytest.raises(ValueError, match="Note duration must be finite and nonnegative"):
+    with pytest.raises(
+        ValueError, match="Note duration must be finite and nonnegative"
+    ):
         synth.render(score)
