@@ -531,3 +531,31 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
     # --- roundtrip: reload the ABC and verify note count ---
     reloaded = Score(output_path, fmt="abc")
     assert reloaded.note_num() > 0, "reloaded Score has no notes"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires a POSIX FIFO")
+def test_abc_file_rejects_named_pipe(tmp_path):
+    path = tmp_path / "input.abc"
+    os.mkfifo(path)
+    program = """
+import sys
+from symusic import Score
+from symusic.core import ScoreTick
+
+for read in (Score, Score.from_file):
+    try:
+        read(sys.argv[1])
+    except ValueError as error:
+        assert "is not a file" in str(error)
+    else:
+        raise AssertionError("Score accepted an ABC named pipe")
+
+for read in (ScoreTick.from_file, ScoreTick.from_abc_file, Score.from_abc_file):
+    try:
+        read(sys.argv[1])
+    except RuntimeError as error:
+        assert "Cannot seek" in str(error)
+    else:
+        raise AssertionError("ABC reader accepted a named pipe")
+"""
+    subprocess.run([sys.executable, "-c", program, str(path)], check=True, timeout=5)

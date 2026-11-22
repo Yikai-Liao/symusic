@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import stat
 from typing import TYPE_CHECKING
 
 from . import _abc, core
@@ -69,9 +70,12 @@ class _FileMethods:
         tune: int | None = None,
     ) -> typing_extensions.Self:
         """Read an ABC file, selecting an ``X:`` number or defaulting to the first tune."""
-        return _abc.parse_abc(
-            pathlib.Path(os.fsdecode(path)).read_bytes(), tune, cls.from_midi
-        )
+        path = pathlib.Path(os.fsdecode(path))
+        mode = path.stat().st_mode
+        if not stat.S_ISREG(mode) and not stat.S_ISDIR(mode):
+            msg = "Cannot seek to the end of the file"
+            raise RuntimeError(msg)
+        return _abc.parse_abc(path.read_bytes(), tune, cls.from_midi)
 
     def dump_abc(self, path: _FilePath, warn: bool = False) -> None:
         """Write ABC to a file. With ``warn=True``, report converter diagnostics."""
