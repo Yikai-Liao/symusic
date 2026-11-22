@@ -63,3 +63,15 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
                 print(f"{midi_attr} are not equals")
 
     assert midi_equals
+
+
+def test_midi_round_trip_with_lyrics():
+    from symusic import Note, TextMeta, Track
+
+    score = Score(480)
+    score.tracks.append(
+        Track(name="Voice", notes=[Note(0, 480, 60, 80)], lyrics=[TextMeta(0, "la")]),
+    )
+    restored = Score.from_midi(score.dumps_midi())
+    assert len(restored.tracks) == 1
+    assert restored.tracks[0] == score.tracks[0]

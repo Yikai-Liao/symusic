@@ -46,6 +46,7 @@ void sort_by_time(vec<T>& data) {
 template<typename T>
 struct TrackHandler {
     TrackNative<T> track;
+    bool           lyric_target = false;
 
     TrackHandler() = default;
     TrackHandler(const std::string& name, uint8_t program, bool is_drum) :
@@ -125,6 +126,8 @@ class TrackManager {
     // Used to manager multiple symusic Track corresponding to a single MIDI Track
     NoteManager<T>                      noteManager;
     std::map<TrackKey, TrackHandler<T>> formalTracks;
+    vec<TrackHandler<T>*> note_tracks;
+    vec<std::pair<TrackHandler<T>*, TextMeta<T>>> lyrics;
     // used to store events if a real track haven't been created
     std::array<TrackHandler<T>, 16> stragglers;
     // last track cache to accelerate track searching
@@ -175,8 +178,15 @@ public:
     void add_note(uint8_t channel, uint8_t pitch, typename T::unit time, int8_t velocity) {
         // Add a note placeholder with duration == -1
         // This strategy removes the need for sorting the notes
-        auto& track = get<true>(channel).track;
-        noteManager.add(channel, pitch, time, velocity, track.notes);
+        auto& handler = get<true>(channel);
+        if (handler.track.notes.empty()) { note_tracks.push_back(&handler); }
+        noteManager.add(channel, pitch, time, velocity, handler.track.notes);
+    }
+
+    void add_lyric(uint8_t channel, typename T::unit time, std::string text) {
+        auto& fallback = get<true>(channel);
+        fallback.lyric_target = true;
+        lyrics.emplace_back(&fallback, TextMeta<T>(time, std::move(text)));
     }
 
     bool end_note(uint8_t channel, uint8_t pitch, typename T::unit end_time) {
@@ -185,20 +195,22 @@ public:
     }
 
     void finalize(ScoreNative<T>& score, const std::string& name) {
-        // Remove invalid placeholder (duration == -1)
+        TrackHandler<T>* lyric_owner = nullptr;
+        for (auto* handler : note_tracks) {
+            auto& notes = handler->track.notes;
+            std::erase_if(notes, [](const Note<T>& note) { return note.duration < 0; });
+            if (!lyric_owner && !notes.empty()) { lyric_owner = handler; }
+        }
+        for (auto& [fallback, lyric] : lyrics) {
+            auto& owner = lyric_owner ? *lyric_owner : *fallback;
+            owner.track.lyrics.push_back(std::move(lyric));
+        }
         for (auto& [_, handler] : formalTracks) {
-            if (!handler.track.empty()) {
-                auto& notes = handler.track.notes;
-                notes.erase(
-                    std::remove_if(
-                        notes.begin(), notes.end(), [](const Note<T>& n) { return n.duration < 0; }
-                    ),
-                    notes.end()
-                );
-
-                handler.track.name = name;
-                score.tracks.push_back(std::move(handler.track));
-            }
+            // When lyrics found a note track, omit tracks created solely as lyric fallbacks.
+            if (lyric_owner && handler.lyric_target && handler.track.notes.empty()) continue;
+            if (handler.track.empty()) continue;
+            handler.track.name = name;
+            score.tracks.push_back(std::move(handler.track));
         }
     }
 };
@@ -342,12 +354,11 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                     break;
                 }
                 case (minimidi::MetaType::Lyric): {
-                    auto  data  = meta.meta_value();
-                    auto& track = trackManager.template get<true>(meta.channel()).track;
-                    auto  text  = strip_non_utf_8(std::string(data.begin(), data.end()));
-
-                    if (text.empty()) break;
-                    track.lyrics.emplace_back(cur_time, text);
+                    const auto data = meta.meta_value();
+                    auto       text = strip_non_utf_8(std::string(data.begin(), data.end()));
+                    if (!text.empty()) {
+                        trackManager.add_lyric(meta.channel(), cur_time, std::move(text));
+                    }
                     break;
                 }
                 case (minimidi::MetaType::Marker): {

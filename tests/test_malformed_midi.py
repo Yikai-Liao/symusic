@@ -151,3 +151,27 @@ raise SystemExit(1)
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
+
+
+def test_midi_lyrics_use_first_created_note_track():
+    body = bytes.fromhex(
+        "00 ff 05 01 61 "  # lyric before notes
+        "00 97 3c 40 01 87 3c 00 "  # channel 7 creates the first track
+        "00 90 3d 40 01 80 3d 00 "  # channel 0 sorts before it
+        "00 c7 01 00 97 3e 40 01 87 3e 00 "  # a new program on channel 7
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    assert len(score.tracks) == 3
+    assert [(track.notes[0].pitch, track.lyrics[0].text) for track in score.tracks if track.lyrics] == [
+        (60, "a"),
+    ]
+
+
+def test_midi_without_notes_keeps_lyric_programs():
+    body = bytes.fromhex("00 ff 05 01 61 00 cf 01 00 ff 05 01 62 00 ff 2f 00")
+    score = Score.from_midi(build_single_track_midi(body))
+    assert [(track.program, track.lyrics[0].text) for track in score.tracks] == [
+        (0, "a"),
+        (1, "b"),
+    ]
