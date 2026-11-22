@@ -165,6 +165,18 @@ def test_abc_tune_zero_missing_with_broken_tune():
         Score.from_abc(broken, tune=0)
 
 
+def test_abc_tune_reference_must_match_exactly():
+    with pytest.raises(ValueError, match="X:214748363"):
+        Score.from_abc("X:2147483639\nK:C\nC|\n", tune=214748363)
+
+
+def test_abc_tune_reference_prefers_exact_match():
+    text = "X:214748363\nK:C\nA|\n\nX:2147483639\nK:C\nC|\n"
+    with pytest.warns(ABCConversionWarning, match="Number too big"):
+        score = Score.from_abc(text, tune=214748363)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+
 @pytest.mark.usefixtures("isolated_symusic_temp_root")
 def test_abc_include_resolves_from_caller(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
