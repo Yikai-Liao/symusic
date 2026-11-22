@@ -292,18 +292,18 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 
     REQUIRE(
         track.summary()
-        == "Track(ttype=Tick, program=0, is_drum=false, name=Piano, notes=2, lyrics=0)"
+        == "Track(ttype='Tick', program=0, is_drum=False, name='Piano', notes=2, lyrics=0)"
     );
 
     REQUIRE(
         track.to_string()
-        == "Track(ttype=Tick, program=0, is_drum=false, name=Piano, notes=2, lyrics=0)"
+        == "Track(ttype='Tick', program=0, is_drum=False, name='Piano', notes=2, lyrics=0)"
     );
 
     std::stringstream ss;
     ss << track;
     REQUIRE(
-        ss.str() == "Track(ttype=Tick, program=0, is_drum=false, name=Piano, notes=2, lyrics=0)"
+        ss.str() == "Track(ttype='Tick', program=0, is_drum=False, name='Piano', notes=2, lyrics=0)"
     );
 }
 
@@ -321,7 +321,7 @@ TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     REQUIRE(score.end() == 960);   // end time is start + duration
 
     std::string expected_summary = fmt::format(
-        "Score(ttype=Tick, ticks_per_quarter=480, begin=0, end=960, tracks=2, notes=2, time_sig=1, key_sig=1, "
+        "Score(ttype='Tick', ticks_per_quarter=480, begin=0, end=960, tracks=2, notes=2, time_sig=1, key_sig=1, "
         "markers=0)"
     );
 
