@@ -111,9 +111,9 @@ Comments state invariants, units, ownership and the reason for a non-obvious cho
 
 ## Python API
 
-These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.md#07-api) changes.
+These rules define the Python surface of new APIs.
 
-- **One name per thing.** No aliases (`tpq` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`).
+- **One name per thing.** No aliases (`ticks_per_quarter` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`).
 - **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them. A list type implements `collections.abc.MutableSequence`. A mutable type that compares by value is unhashable.
 - **Closed sets are typed.** A parameter that takes one of a fixed set of values (a time unit, a mode, a format) is an enum or a `Literal` in the stubs, and an unknown value raises `ValueError`.
 - **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.

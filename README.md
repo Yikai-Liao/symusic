@@ -20,19 +20,20 @@ Wheels cover CPython 3.10 and newer on Linux, macOS and Windows, and PyPy 3.11 o
 
 ```python
 import pickle
-from symusic import Score
+from symusic import Score, Second
 
 score = Score("song.mid")  # format from the extension, time in ticks
 print(score)  # tracks and event counts
 
-shifted = score.shift_pitch(2)  # returns a new score
-score.shift_time(480, inplace=True)  # or mutates in place
+shifted = score.copy()
+shifted.shift_pitch(2)
+score.shift_time(480)
 
-seconds = score.to("second")  # "tick", "quarter" or "second"
-notes = seconds.tracks[0].notes.numpy()  # dict of NumPy arrays
+seconds = score.to(Second)
+notes = seconds.tracks[0].notes.to_numpy()  # dict of NumPy arrays
 roll = score.tracks[0].pianoroll(modes=["onset", "frame"], pitch_range=(0, 128))
 
-score.dump_midi("out.mid")
+score.dump("out.mid")
 restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 ```
 

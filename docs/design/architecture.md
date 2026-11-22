@@ -23,7 +23,7 @@ Every musical type is a template over a time unit `T` (the `TType` concept in `i
 | `Quarter` | `f32` | Quarter notes |
 | `Second` | `f32` | Wall-clock seconds, derived from the tempo map |
 
-Events derive from `TimeStamp<T>` (`include/symusic/event.h`): `Note`, `Pedal` (with duration), `ControlChange`, `PitchBend`, `TimeSignature`, `KeySignature`, `Tempo` and `TextMeta`. A `Track<T>` holds notes, controls, pitch bends, pedals and lyrics; a `Score<T>` holds `ticks_per_quarter`, tracks, time signatures, key signatures, tempos and markers.
+Events derive from `TimeStamp<T>` (`include/symusic/event.h`): `Note`, `Pedal` (with duration), `ControlChange`, `PitchBend`, `TimeSignature`, `KeySignature`, `Tempo` and `TextMeta`. A `Track<T>` holds notes, controls, pitch bends and lyrics; a `Score<T>` holds `ticks_per_quarter`, tracks, time signatures, key signatures, tempos and markers. Sustain regions are derived from CC64.
 
 A storage policy controls the event lists and tracks in `Track<T, S>` and `Score<T, S>`. The C++ default `ValueStorage` owns event vectors and tracks by value. The binding defines `symusic::py::SharedStorage` to share its event lists and individual tracks. A shallow Python copy shares the lists and a deep copy duplicates them.
 
@@ -54,7 +54,7 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 | MIDI write | Converts to ticks, then `minimidi` encodes (`src/io/midi.cpp`) |
 | ABC read/write | `symusic._abc` runs the bundled `abc2midi` and `midi2abc` from `symusic/_vendor/abcmidi/` with one temporary directory per call and captures their diagnostics. The Python score methods exchange MIDI bytes with the binding. Recovered imports must produce complete MIDI before the converter's messages become warnings |
 | Pickle | `zpp_bits` writes directly from either storage policy. Reads build value vectors and adopt them into the destination storage |
-| Time units | `convert<To>(score, min_dur)` and `resample(score, tpq, min_dur)` in `include/symusic/conversion.h`; the tempo map drives seconds |
+| Time units | `convert<To>(score, min_duration)` and `resample(score, ticks_per_quarter, min_duration)` in `include/symusic/conversion.h`; the tempo map drives seconds |
 | NumPy | Structure-of-arrays types in `include/symusic/soa.h`; `to_numpy`/`from_numpy` in the event bindings |
 | Piano roll | `src/pianoroll.cpp`, exposed as `Track.pianoroll` and `Score.pianoroll` |
 | Synthesis | FluidSynth is loaded dynamically to render a `Score<Second>` (`src/synth.cpp`); `symusic.soundfont` downloads SoundFonts |
@@ -68,7 +68,7 @@ The extension binds one generic Python class per concept. Each instance holds a 
 Refactors keep these behaviors unless a change is explicitly about them:
 
 - **Unit symmetry.** Every type and operation exists for `Tick`, `Quarter` and `Second` with the same semantics.
-- **Copy and in-place pairs.** C++ transformations come as `foo()` returning a new value and `foo_inplace()` mutating. Python methods take `inplace=False`; with `inplace=True` they mutate and return `self`. 0.7 replaces the pairs with [one form per operation](../development/conventions.md#design-rules) ([roadmap](../ROADMAP.md#07-api)).
+- **Transformation ownership.** Editing operations mutate and return nothing. Producing operations leave the source unchanged. See [one form per operation](../development/conventions.md#design-rules).
 - **Reference stability.** Python references to events, tracks and lists stay valid as described under [data model](#data-model).
 - **Round trips.** MIDI read/write and pickle preserve the shared data model. The round trip starts from a `Score`: reading a MIDI file and writing it again does not reproduce the file, because `Score` drops SysEx, unknown meta events, the file's track layout and the channel of each message ([MIDI message layer](../ROADMAP.md#features)). Pickle serves transfer between processes, such as `multiprocessing`, and is not a storage format: a pickle loads only in the symusic version that wrote it. Pickle bytes depend only on event values: struct padding is written as zeros.
 - **Explicit errors.** Invalid input raises (`TypeError` for the wrong kind of object, `ValueError` for invalid values such as NaN, `OverflowError` for a tick result outside `int32`) rather than coercing silently. Tick arithmetic and float-to-tick conversion go through the checked helpers in `include/symusic/utils.h`; the [code conventions](../development/conventions.md#errors) map C++ exceptions to Python ones. Malformed MIDI raises instead of crashing; `tests/testcases/MIDIs_corrupted/` holds regressions.
