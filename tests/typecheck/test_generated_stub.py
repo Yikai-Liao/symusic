@@ -155,3 +155,15 @@ def test_stubgen_patterns_match_without_shadowing():
             f"line {lineno}: pattern {expr!r} is completely shadowed by an earlier rule"
         )
         claimed |= active
+
+
+def test_event_list_copy_has_no_options():
+    stub = Path(_core.__file__).with_name("_core.pyi")
+    for node in ast.parse(stub.read_text()).body:
+        if isinstance(node, ast.ClassDef) and node.name.endswith("List"):
+            copy_method = next(
+                method
+                for method in node.body
+                if isinstance(method, ast.FunctionDef) and method.name == "__copy__"
+            )
+            assert ast.unparse(copy_method.args) in {"self", "self, /"}, node.name
