@@ -106,6 +106,16 @@ def test_checked_python_inputs(tmp_path):
         Score(tmp_path, format="midi")
 
 
+def test_score_checks_format_before_reading(tmp_path):
+    path = tmp_path / "missing.unknown"
+    with pytest.raises(ValueError, match="format"):
+        Score(path)
+    with pytest.raises(ValueError, match="format"):
+        Score(path, format="unknown")
+    with pytest.raises(FileNotFoundError):
+        Score(path, format="midi")
+
+
 @pytest.mark.skipif(
     os.name == "nt", reason="chmod does not revoke read access on Windows"
 )

@@ -16,10 +16,9 @@ template<TType T = Tick, typename S = ValueStorage>
     std::optional<DataFormat> format = std::nullopt,
     std::function<Score<T, S>(std::span<const u8>)> decode_abc = {}
 ) {
-    const auto data = read_score_file(path);
     switch (format ? *format : score_file_format(path)) {
-    case DataFormat::MIDI: return Score<T, S>::from_midi(data);
-    case DataFormat::ABC: if (decode_abc) return decode_abc(data); break;
+    case DataFormat::MIDI: return Score<T, S>::from_midi(read_score_file(path));
+    case DataFormat::ABC: if (decode_abc) return decode_abc(read_score_file(path)); break;
     default: throw std::invalid_argument("Unknown score format");
     }
     throw std::invalid_argument("An ABC decoder is required to read an ABC score");
