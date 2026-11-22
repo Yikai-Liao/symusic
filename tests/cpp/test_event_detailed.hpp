@@ -19,7 +19,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         REQUIRE(default_note.velocity == 0);
 
         // Constructor with parameters
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
         REQUIRE(note.time == 100);
         REQUIRE(note.duration == 200);
         REQUIRE(note.pitch == 60);
@@ -33,8 +33,8 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
         REQUIRE(copied_note.velocity == note.velocity);
 
         // Constructor from other time type
-        Note<Quarter> quarter_note(1.0f, 0.5f, 62, 90);
-        Note<Tick>    converted_note(50, 100, quarter_note);
+        Note<Quarter> quarter_note = detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 90);
+        Note<Tick> converted_note = detail::retime_event<Note<Tick>>(50, 100, quarter_note);
         REQUIRE(converted_note.time == 50);
         REQUIRE(converted_note.duration == 100);
         REQUIRE(converted_note.pitch == 62);
@@ -50,40 +50,40 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
     }
 
     SECTION("Test time-related methods") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         REQUIRE(note.start() == 100);
         REQUIRE(note.end() == 300);   // 100 + 200
     }
 
     SECTION("Test empty() method") {
-        Note<Tick> note1(100, 200, 60, 80);
+        Note<Tick> note1 = detail::make_event<Note<Tick>>(100, 200, 60, 80);
         REQUIRE_FALSE(note1.empty());
 
         // Note with zero duration should be empty
-        Note<Tick> note2(100, 0, 60, 80);
+        Note<Tick> note2 = detail::make_event<Note<Tick>>(100, 0, 60, 80);
         REQUIRE(note2.empty());
 
         // Note with zero velocity should be empty
-        Note<Tick> note3(100, 200, 60, 0);
+        Note<Tick> note3 = detail::make_event<Note<Tick>>(100, 200, 60, 0);
         REQUIRE(note3.empty());
 
         // Note with both zero duration and velocity should be empty
-        Note<Tick> note4(100, 0, 60, 0);
+        Note<Tick> note4 = detail::make_event<Note<Tick>>(100, 0, 60, 0);
         REQUIRE(note4.empty());
     }
 
     SECTION("Test equality operators") {
-        Note<Tick> note1(100, 200, 60, 80);
-        Note<Tick> note2(100, 200, 60, 80);
-        Note<Tick> note3(100, 200, 62, 80);   // Different pitch
+        Note<Tick> note1 = detail::make_event<Note<Tick>>(100, 200, 60, 80);
+        Note<Tick> note2 = detail::make_event<Note<Tick>>(100, 200, 60, 80);
+        Note<Tick> note3 = detail::make_event<Note<Tick>>(100, 200, 62, 80);   // Different pitch
 
         REQUIRE(note1 == note2);
         REQUIRE(note1 != note3);
     }
 
     SECTION("Test default_key() method") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
         auto       key = note.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
@@ -93,20 +93,21 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace time shift
-        Note<Tick> shifted = note.shift_time(50);
+        Note<Tick> shifted = note;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(note.time == 100);   // Original note not modified
 
         // Test inplace time shift
-        note.shift_time_inplace(50);
+        shift_time(note, 50);
         REQUIRE(note.time == 150);
     }
 
     SECTION("Test shift_pitch() and shift_pitch_inplace() methods") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace pitch shift
         Note<Tick> pitched = note.shift_pitch(12);   // Up one octave
@@ -119,7 +120,7 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
     }
 
     SECTION("Test shift_velocity() and shift_velocity_inplace() methods") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
         // Test non-inplace velocity shift
         Note<Tick> velocitied = note.shift_velocity(10);
@@ -132,12 +133,12 @@ TEST_CASE("Test Note class comprehensive functionality", "[event][note]") {
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        Note<Tick> note(100, 200, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
 
-        Note<Tick> copied = note.copy();
+        Note<Tick> copied = note;
         REQUIRE(copied == note);
 
-        Note<Tick> deep_copied = note.deepcopy();
+        Note<Tick> deep_copied = note;
         REQUIRE(deep_copied == note);
     }
 }
@@ -151,7 +152,7 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         // The default duration is implementation-dependent, so we don't test its exact value
 
         // Constructor with parameters
-        Pedal<Tick> pedal(100, 200);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
         REQUIRE(pedal.time == 100);
         REQUIRE(pedal.duration == 200);
 
@@ -161,8 +162,8 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
         REQUIRE(copied_pedal.duration == pedal.duration);
 
         // Constructor from other time type
-        Pedal<Quarter> quarter_pedal(1.0f, 0.5f);
-        Pedal<Tick>    converted_pedal(50, 100, quarter_pedal);
+        Pedal<Quarter> quarter_pedal = detail::make_event<Pedal<Quarter>>(1.0f, 0.5f);
+        Pedal<Tick> converted_pedal = detail::retime_event<Pedal<Tick>>(50, 100, quarter_pedal);
         REQUIRE(converted_pedal.time == 50);
         REQUIRE(converted_pedal.duration == 100);
 
@@ -174,23 +175,23 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
     }
 
     SECTION("Test time-related methods") {
-        Pedal<Tick> pedal(100, 200);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
 
         REQUIRE(pedal.start() == 100);
         REQUIRE(pedal.end() == 300);   // 100 + 200
     }
 
     SECTION("Test equality operators") {
-        Pedal<Tick> pedal1(100, 200);
-        Pedal<Tick> pedal2(100, 200);
-        Pedal<Tick> pedal3(100, 300);   // Different duration
+        Pedal<Tick> pedal1 = detail::make_event<Pedal<Tick>>(100, 200);
+        Pedal<Tick> pedal2 = detail::make_event<Pedal<Tick>>(100, 200);
+        Pedal<Tick> pedal3 = detail::make_event<Pedal<Tick>>(100, 300);   // Different duration
 
         REQUIRE(pedal1 == pedal2);
         REQUIRE(pedal1 != pedal3);
     }
 
     SECTION("Test default_key() method") {
-        Pedal<Tick> pedal(100, 200);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
         auto        key = pedal.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
@@ -198,25 +199,26 @@ TEST_CASE("Test Pedal class comprehensive functionality", "[event][pedal]") {
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        Pedal<Tick> pedal(100, 200);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
 
         // Test non-inplace time shift
-        Pedal<Tick> shifted = pedal.shift_time(50);
+        Pedal<Tick> shifted = pedal;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(pedal.time == 100);   // Original pedal not modified
 
         // Test inplace time shift
-        pedal.shift_time_inplace(50);
+        shift_time(pedal, 50);
         REQUIRE(pedal.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        Pedal<Tick> pedal(100, 200);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
 
-        Pedal<Tick> copied = pedal.copy();
+        Pedal<Tick> copied = pedal;
         REQUIRE(copied == pedal);
 
-        Pedal<Tick> deep_copied = pedal.deepcopy();
+        Pedal<Tick> deep_copied = pedal;
         REQUIRE(deep_copied == pedal);
     }
 }
@@ -231,7 +233,7 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(default_cc.value == 0);
 
         // Constructor with parameters
-        ControlChange<Tick> cc(100, 7, 127);   // Volume controller set to maximum
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);   // Volume controller set to maximum
         REQUIRE(cc.time == 100);
         REQUIRE(cc.number == 7);
         REQUIRE(cc.value == 127);
@@ -243,8 +245,8 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
         REQUIRE(copied_cc.value == cc.value);
 
         // Constructor from other time type
-        ControlChange<Quarter> quarter_cc(1.0f, 10, 64);
-        ControlChange<Tick>    converted_cc(50, quarter_cc);
+        ControlChange<Quarter> quarter_cc = detail::make_event<ControlChange<Quarter>>(1.0f, 10, 64);
+        ControlChange<Tick> converted_cc = detail::retime_event<ControlChange<Tick>>(50, quarter_cc);
         REQUIRE(converted_cc.time == 50);
         REQUIRE(converted_cc.number == 10);
         REQUIRE(converted_cc.value == 64);
@@ -258,16 +260,16 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
     }
 
     SECTION("Test equality operators") {
-        ControlChange<Tick> cc1(100, 7, 127);
-        ControlChange<Tick> cc2(100, 7, 127);
-        ControlChange<Tick> cc3(100, 7, 64);   // Different value
+        ControlChange<Tick> cc1 = detail::make_event<ControlChange<Tick>>(100, 7, 127);
+        ControlChange<Tick> cc2 = detail::make_event<ControlChange<Tick>>(100, 7, 127);
+        ControlChange<Tick> cc3 = detail::make_event<ControlChange<Tick>>(100, 7, 64);   // Different value
 
         REQUIRE(cc1 == cc2);
         REQUIRE(cc1 != cc3);
     }
 
     SECTION("Test default_key() method") {
-        ControlChange<Tick> cc(100, 7, 127);
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
         auto                key = cc.default_key();
 
         REQUIRE(std::get<0>(key) == 100);
@@ -276,25 +278,26 @@ TEST_CASE("Test ControlChange class comprehensive functionality", "[event][contr
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        ControlChange<Tick> cc(100, 7, 127);
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
 
         // Test non-inplace time shift
-        ControlChange<Tick> shifted = cc.shift_time(50);
+        ControlChange<Tick> shifted = cc;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(cc.time == 100);   // Original controller not modified
 
         // Test inplace time shift
-        cc.shift_time_inplace(50);
+        shift_time(cc, 50);
         REQUIRE(cc.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        ControlChange<Tick> cc(100, 7, 127);
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
 
-        ControlChange<Tick> copied = cc.copy();
+        ControlChange<Tick> copied = cc;
         REQUIRE(copied == cc);
 
-        ControlChange<Tick> deep_copied = cc.deepcopy();
+        ControlChange<Tick> deep_copied = cc;
         REQUIRE(deep_copied == cc);
     }
 }
@@ -309,7 +312,7 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
         REQUIRE(default_ts.denominator == 4);
 
         // Constructor with parameters
-        TimeSignature<Tick> ts(100, 3, 4);   // 3/4 time
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);   // 3/4 time
         REQUIRE(ts.time == 100);
         REQUIRE(ts.numerator == 3);
         REQUIRE(ts.denominator == 4);
@@ -321,8 +324,8 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
         REQUIRE(copied_ts.denominator == ts.denominator);
 
         // Constructor from other time type
-        TimeSignature<Quarter> quarter_ts(1.0f, 6, 8);
-        TimeSignature<Tick>    converted_ts(50, quarter_ts);
+        TimeSignature<Quarter> quarter_ts = detail::make_event<TimeSignature<Quarter>>(1.0f, 6, 8);
+        TimeSignature<Tick> converted_ts = detail::retime_event<TimeSignature<Tick>>(50, quarter_ts);
         REQUIRE(converted_ts.time == 50);
         REQUIRE(converted_ts.numerator == 6);
         REQUIRE(converted_ts.denominator == 8);
@@ -336,41 +339,42 @@ TEST_CASE("Test TimeSignature class comprehensive functionality", "[event][times
     }
 
     SECTION("Test equality operators") {
-        TimeSignature<Tick> ts1(100, 3, 4);
-        TimeSignature<Tick> ts2(100, 3, 4);
-        TimeSignature<Tick> ts3(100, 4, 4);   // Different numerator
+        TimeSignature<Tick> ts1 = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
+        TimeSignature<Tick> ts2 = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
+        TimeSignature<Tick> ts3 = detail::make_event<TimeSignature<Tick>>(100, 4, 4);   // Different numerator
 
         REQUIRE(ts1 == ts2);
         REQUIRE(ts1 != ts3);
     }
 
     SECTION("Test default_key() method") {
-        TimeSignature<Tick> ts(100, 3, 4);
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
         auto                key = ts.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        TimeSignature<Tick> ts(100, 3, 4);
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
 
         // Test non-inplace time shift
-        TimeSignature<Tick> shifted = ts.shift_time(50);
+        TimeSignature<Tick> shifted = ts;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(ts.time == 100);   // Original time signature not modified
 
         // Test inplace time shift
-        ts.shift_time_inplace(50);
+        shift_time(ts, 50);
         REQUIRE(ts.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        TimeSignature<Tick> ts(100, 3, 4);
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
 
-        TimeSignature<Tick> copied = ts.copy();
+        TimeSignature<Tick> copied = ts;
         REQUIRE(copied == ts);
 
-        TimeSignature<Tick> deep_copied = ts.deepcopy();
+        TimeSignature<Tick> deep_copied = ts;
         REQUIRE(deep_copied == ts);
     }
 }
@@ -385,7 +389,7 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(default_ks.tonality == 0);
 
         // Constructor with parameters
-        KeySignature<Tick> ks(100, 2, 0);   // D major, 2 sharps
+        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);   // D major, 2 sharps
         REQUIRE(ks.time == 100);
         REQUIRE(ks.key == 2);
         REQUIRE(ks.tonality == 0);
@@ -397,8 +401,8 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
         REQUIRE(copied_ks.tonality == ks.tonality);
 
         // Constructor from other time type
-        KeySignature<Quarter> quarter_ks(1.0f, -3, 1);   // C minor, 3 flats
-        KeySignature<Tick>    converted_ks(50, quarter_ks);
+        KeySignature<Quarter> quarter_ks = detail::make_event<KeySignature<Quarter>>(1.0f, -3, 1);   // C minor, 3 flats
+        KeySignature<Tick> converted_ks = detail::retime_event<KeySignature<Tick>>(50, quarter_ks);
         REQUIRE(converted_ks.time == 50);
         REQUIRE(converted_ks.key == -3);
         REQUIRE(converted_ks.tonality == 1);
@@ -413,53 +417,54 @@ TEST_CASE("Test KeySignature class comprehensive functionality", "[event][keysig
 
     SECTION("Test degree() method") {
         // Test degree() results for different key signatures
-        KeySignature<Tick> ks1(0, 0, 0);   // C major
+        KeySignature<Tick> ks1 = detail::make_event<KeySignature<Tick>>(0, 0, 0);   // C major
         REQUIRE(ks1.degree() == 0);
 
-        KeySignature<Tick> ks2(0, 2, 0);   // D major
+        KeySignature<Tick> ks2 = detail::make_event<KeySignature<Tick>>(0, 2, 0);   // D major
         REQUIRE(ks2.degree() == 10);       // (2*5)%12
 
-        KeySignature<Tick> ks3(0, -1, 1);   // A minor
+        KeySignature<Tick> ks3 = detail::make_event<KeySignature<Tick>>(0, -1, 1);   // A minor
         REQUIRE(ks3.degree() == 19);
-        REQUIRE(KeySignature<Tick>(0, -1, 0).degree() == 7);
+        REQUIRE(detail::make_event<KeySignature<Tick>>(0, -1, 0).degree() == 7);
     }
 
     SECTION("Test equality operators") {
-        KeySignature<Tick> ks1(100, 2, 0);
-        KeySignature<Tick> ks2(100, 2, 0);
-        KeySignature<Tick> ks3(100, 1, 0);   // Different key
+        KeySignature<Tick> ks1 = detail::make_event<KeySignature<Tick>>(100, 2, 0);
+        KeySignature<Tick> ks2 = detail::make_event<KeySignature<Tick>>(100, 2, 0);
+        KeySignature<Tick> ks3 = detail::make_event<KeySignature<Tick>>(100, 1, 0);   // Different key
 
         REQUIRE(ks1 == ks2);
         REQUIRE(ks1 != ks3);
     }
 
     SECTION("Test default_key() method") {
-        KeySignature<Tick> ks(100, 2, 0);
+        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
         auto               key = ks.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        KeySignature<Tick> ks(100, 2, 0);
+        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
 
         // Test non-inplace time shift
-        KeySignature<Tick> shifted = ks.shift_time(50);
+        KeySignature<Tick> shifted = ks;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(ks.time == 100);   // Original key signature not modified
 
         // Test inplace time shift
-        ks.shift_time_inplace(50);
+        shift_time(ks, 50);
         REQUIRE(ks.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        KeySignature<Tick> ks(100, 2, 0);
+        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
 
-        KeySignature<Tick> copied = ks.copy();
+        KeySignature<Tick> copied = ks;
         REQUIRE(copied == ks);
 
-        KeySignature<Tick> deep_copied = ks.deepcopy();
+        KeySignature<Tick> deep_copied = ks;
         REQUIRE(deep_copied == ks);
     }
 }
@@ -473,7 +478,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(default_tempo.mspq == 0);
 
         // Constructor with parameters
-        Tempo<Tick> tempo(100, 500000);   // 120 BPM
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);   // 120 BPM
         REQUIRE(tempo.time == 100);
         REQUIRE(tempo.mspq == 500000);
 
@@ -483,8 +488,8 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
         REQUIRE(copied_tempo.mspq == tempo.mspq);
 
         // Constructor from other time type
-        Tempo<Quarter> quarter_tempo(1.0f, 400000);   // 150 BPM
-        Tempo<Tick>    converted_tempo(50, quarter_tempo);
+        Tempo<Quarter> quarter_tempo = detail::make_event<Tempo<Quarter>>(1.0f, 400000);   // 150 BPM
+        Tempo<Tick> converted_tempo = detail::retime_event<Tempo<Tick>>(50, quarter_tempo);
         REQUIRE(converted_tempo.time == 50);
         REQUIRE(converted_tempo.mspq == 400000);
 
@@ -506,7 +511,7 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
     }
 
     SECTION("Test set_qpm() method") {
-        Tempo<Tick> tempo(100, 500000);   // 120 BPM
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);   // 120 BPM
 
         // Change tempo to 80 BPM
         tempo.set_qpm(80.0);
@@ -525,41 +530,42 @@ TEST_CASE("Test Tempo class comprehensive functionality", "[event][tempo]") {
     }
 
     SECTION("Test equality operators") {
-        Tempo<Tick> tempo1(100, 500000);
-        Tempo<Tick> tempo2(100, 500000);
-        Tempo<Tick> tempo3(100, 400000);   // Different tempo
+        Tempo<Tick> tempo1 = detail::make_event<Tempo<Tick>>(100, 500000);
+        Tempo<Tick> tempo2 = detail::make_event<Tempo<Tick>>(100, 500000);
+        Tempo<Tick> tempo3 = detail::make_event<Tempo<Tick>>(100, 400000);   // Different tempo
 
         REQUIRE(tempo1 == tempo2);
         REQUIRE(tempo1 != tempo3);
     }
 
     SECTION("Test default_key() method") {
-        Tempo<Tick> tempo(100, 500000);
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);
         auto        key = tempo.default_key();
 
         REQUIRE(std::get<0>(key) == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        Tempo<Tick> tempo(100, 500000);
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);
 
         // Test non-inplace time shift
-        Tempo<Tick> shifted = tempo.shift_time(50);
+        Tempo<Tick> shifted = tempo;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(tempo.time == 100);   // Original tempo not modified
 
         // Test inplace time shift
-        tempo.shift_time_inplace(50);
+        shift_time(tempo, 50);
         REQUIRE(tempo.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        Tempo<Tick> tempo(100, 500000);
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);
 
-        Tempo<Tick> copied = tempo.copy();
+        Tempo<Tick> copied = tempo;
         REQUIRE(copied == tempo);
 
-        Tempo<Tick> deep_copied = tempo.deepcopy();
+        Tempo<Tick> deep_copied = tempo;
         REQUIRE(deep_copied == tempo);
     }
 }
@@ -573,7 +579,7 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(default_pb.value == 0);
 
         // Constructor with parameters
-        PitchBend<Tick> pb(100, 8192);   // Center value
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);   // Center value
         REQUIRE(pb.time == 100);
         REQUIRE(pb.value == 8192);
 
@@ -583,8 +589,8 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
         REQUIRE(copied_pb.value == pb.value);
 
         // Constructor from other time type
-        PitchBend<Quarter> quarter_pb(1.0f, 12288);   // Upward bend
-        PitchBend<Tick>    converted_pb(50, quarter_pb);
+        PitchBend<Quarter> quarter_pb = detail::make_event<PitchBend<Quarter>>(1.0f, 12288);   // Upward bend
+        PitchBend<Tick> converted_pb = detail::retime_event<PitchBend<Tick>>(50, quarter_pb);
         REQUIRE(converted_pb.time == 50);
         REQUIRE(converted_pb.value == 12288);
 
@@ -596,41 +602,42 @@ TEST_CASE("Test PitchBend class comprehensive functionality", "[event][pitchbend
     }
 
     SECTION("Test equality operators") {
-        PitchBend<Tick> pb1(100, 8192);
-        PitchBend<Tick> pb2(100, 8192);
-        PitchBend<Tick> pb3(100, 10000);   // Different value
+        PitchBend<Tick> pb1 = detail::make_event<PitchBend<Tick>>(100, 8192);
+        PitchBend<Tick> pb2 = detail::make_event<PitchBend<Tick>>(100, 8192);
+        PitchBend<Tick> pb3 = detail::make_event<PitchBend<Tick>>(100, 10000);   // Different value
 
         REQUIRE(pb1 == pb2);
         REQUIRE(pb1 != pb3);
     }
 
     SECTION("Test default_key() method") {
-        PitchBend<Tick> pb(100, 8192);
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
         auto            key = pb.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        PitchBend<Tick> pb(100, 8192);
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
 
         // Test non-inplace time shift
-        PitchBend<Tick> shifted = pb.shift_time(50);
+        PitchBend<Tick> shifted = pb;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(pb.time == 100);   // Original pitch bend not modified
 
         // Test inplace time shift
-        pb.shift_time_inplace(50);
+        shift_time(pb, 50);
         REQUIRE(pb.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        PitchBend<Tick> pb(100, 8192);
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
 
-        PitchBend<Tick> copied = pb.copy();
+        PitchBend<Tick> copied = pb;
         REQUIRE(copied == pb);
 
-        PitchBend<Tick> deep_copied = pb.deepcopy();
+        PitchBend<Tick> deep_copied = pb;
         REQUIRE(deep_copied == pb);
     }
 }
@@ -644,7 +651,7 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
         REQUIRE(default_text.text == "");
 
         // Constructor with parameters
-        TextMeta<Tick> text(100, "Test Text");
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
         REQUIRE(text.time == 100);
         REQUIRE(text.text == "Test Text");
 
@@ -654,8 +661,8 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
         REQUIRE(copied_text.text == text.text);
 
         // Constructor from other time type
-        TextMeta<Quarter> quarter_text(1.0f, "Quarter Text");
-        TextMeta<Tick>    converted_text(50, quarter_text);
+        TextMeta<Quarter> quarter_text = detail::make_event<TextMeta<Quarter>>(1.0f, "Quarter Text");
+        TextMeta<Tick> converted_text = detail::retime_event<TextMeta<Tick>>(50, quarter_text);
         REQUIRE(converted_text.time == 50);
         REQUIRE(converted_text.text == "Quarter Text");
 
@@ -667,41 +674,42 @@ TEST_CASE("Test TextMeta class comprehensive functionality", "[event][text]") {
     }
 
     SECTION("Test equality operators") {
-        TextMeta<Tick> text1(100, "Text A");
-        TextMeta<Tick> text2(100, "Text A");
-        TextMeta<Tick> text3(100, "Text B");   // Different text
+        TextMeta<Tick> text1 = detail::make_event<TextMeta<Tick>>(100, "Text A");
+        TextMeta<Tick> text2 = detail::make_event<TextMeta<Tick>>(100, "Text A");
+        TextMeta<Tick> text3 = detail::make_event<TextMeta<Tick>>(100, "Text B");   // Different text
 
         REQUIRE(text1 == text2);
         REQUIRE(text1 != text3);
     }
 
     SECTION("Test default_key() method") {
-        TextMeta<Tick> text(100, "Test Text");
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
         auto           key = text.default_key();
 
         REQUIRE(key == 100);   // Returns time
     }
 
     SECTION("Test shift_time() and shift_time_inplace() methods") {
-        TextMeta<Tick> text(100, "Test Text");
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
 
         // Test non-inplace time shift
-        TextMeta<Tick> shifted = text.shift_time(50);
+        TextMeta<Tick> shifted = text;
+        shift_time(shifted, 50);
         REQUIRE(shifted.time == 150);
         REQUIRE(text.time == 100);   // Original text not modified
 
         // Test inplace time shift
-        text.shift_time_inplace(50);
+        shift_time(text, 50);
         REQUIRE(text.time == 150);
     }
 
     SECTION("Test copy() and deepcopy() methods") {
-        TextMeta<Tick> text(100, "Test Text");
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
 
-        TextMeta<Tick> copied = text.copy();
+        TextMeta<Tick> copied = text;
         REQUIRE(copied == text);
 
-        TextMeta<Tick> deep_copied = text.deepcopy();
+        TextMeta<Tick> deep_copied = text;
         REQUIRE(deep_copied == text);
     }
 }

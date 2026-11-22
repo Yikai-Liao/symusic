@@ -15,7 +15,7 @@ Score<To, S> convert(
 
 template<TType To, TType From, typename S>
 [[nodiscard]] typename To::unit convert_time(typename From::unit time, const Score<From, S>& context) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.time_value(time);
 }
 
@@ -23,13 +23,13 @@ template<TType To, TType From, typename S>
 [[nodiscard]] vec<typename To::unit> convert_times(
     std::span<const typename From::unit> times, const Score<From, S>& context
 ) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.time_values(times);
 }
 
 template<TType To, template<class> class Event, TType From, typename S, typename Range>
 [[nodiscard]] vec<Event<To>> convert_time_events(const Range& data, const Score<From, S>& context) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.template time_vec<Event>(data);
 }
 
@@ -37,7 +37,7 @@ template<TType To, template<class> class Event, TType From, typename S, typename
 [[nodiscard]] vec<Event<To>> convert_duration_events(
     const Range& data, const Score<From, S>& context, typename To::unit min_dur = 0
 ) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.template duration_vec<Event>(data, min_dur);
 }
 

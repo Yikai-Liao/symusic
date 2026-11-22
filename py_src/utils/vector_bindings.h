@@ -12,7 +12,7 @@
 #include <memory>
 #include <pyvec.hpp>
 
-namespace pyutils {
+namespace symusic::py {
 
 // Convert one item of a Python iterable into the shared event or track held by the
 // containers below. nanobind rejects `None` for typed arguments such as `append`, but
@@ -555,7 +555,6 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
                       "Check whether the vector is nonempty"
                   )
 
-
                   .def(
                       "__iter__",
                       [](self_t& v) {
@@ -669,14 +668,12 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
 
         .def("__use_count", [](const self_t& v) { return v.use_count(); });
 
-
-
     if constexpr (nanobind::detail::is_equality_comparable_v<T>) {
         auto eq_list = [](const self_t& v, const list& other) {
             if (v->size() != len(other)) return false;
             for (size_t i = 0; i < v->size(); i++) {
                 ValueRef item;
-                if (!try_cast_element(other[i], item) || *v->operator[](i) != *item) return false;
+                if (!try_cast_element(other[i], item) || v->operator[](i) != *item) return false;
             }
             return true;
         };
@@ -715,4 +712,4 @@ nanobind::class_<std::shared_ptr<pycontainer::pyvec<T>>> bind_shared_pyvec(
     return cl;
 }
 
-}   // namespace pyutils
+}   // namespace symusic::py

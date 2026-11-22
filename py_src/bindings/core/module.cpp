@@ -17,17 +17,13 @@
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
-using namespace pyutils;
-
-namespace time_unit_docstrings {
-constexpr const char* kTickDoc
+constexpr const char* kTime_UnitTickDoc
     = R"pbdoc(MIDI ticks, as ``int``; ``ticks_per_quarter`` ticks make a quarter note.)pbdoc";
-constexpr const char* kQuarterDoc = R"pbdoc(Quarter notes, as a 32-bit ``float``.)pbdoc";
-constexpr const char* kSecondDoc
+constexpr const char* kTime_UnitQuarterDoc = R"pbdoc(Quarter notes, as a 32-bit ``float``.)pbdoc";
+constexpr const char* kTime_UnitSecondDoc
     = R"pbdoc(Seconds, as a 32-bit ``float``; conversion follows the tempo map.)pbdoc";
-}   // namespace time_unit_docstrings
 
 namespace typing_detail {
 struct ScoreTypingPlaceholder {};
@@ -103,7 +99,7 @@ NB_MODULE(core, m) {
     define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
     define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
 
-    auto tick = nb::class_<Tick>(m, "Tick", time_unit_docstrings::kTickDoc)
+    auto tick = nb::class_<Tick>(m, "Tick", kTime_UnitTickDoc)
                     .def(nb::init<>())
                     .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
                     .def("is_time_unit", [](const Tick&) { return true; })
@@ -111,7 +107,7 @@ NB_MODULE(core, m) {
                     .def("__setstate__", [](Tick& self, const nb::bytes&) { new (&self) Tick(); });
 
     auto quarter
-        = nb::class_<Quarter>(m, "Quarter", time_unit_docstrings::kQuarterDoc)
+        = nb::class_<Quarter>(m, "Quarter", kTime_UnitQuarterDoc)
               .def(nb::init<>())
               .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
               .def("is_time_unit", [](const Quarter&) { return true; })
@@ -119,7 +115,7 @@ NB_MODULE(core, m) {
               .def("__setstate__", [](Quarter& self, const nb::bytes&) { new (&self) Quarter(); });
 
     auto second
-        = nb::class_<Second>(m, "Second", time_unit_docstrings::kSecondDoc)
+        = nb::class_<Second>(m, "Second", kTime_UnitSecondDoc)
               .def(nb::init<>())
               .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
               .def("is_time_unit", [](const Second&) { return true; })
@@ -142,4 +138,4 @@ NB_MODULE(core, m) {
     bind_synthesizer(m);
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

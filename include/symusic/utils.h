@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_UTILS_H
-#define LIBSYMUSIC_UTILS_H
-
 #include <cmath>
 #include <concepts>
 #include <string>
@@ -10,7 +7,7 @@
 
 #include "symusic/mtype.h"
 
-namespace symusic::details {
+namespace symusic::detail {
 std::string strip_non_utf_8(const std::string& str);
 
 // Checked time arithmetic. Only integer time (Tick) can overflow; the float helpers below are
@@ -103,6 +100,4 @@ inline U narrow_time(const wide_time_t<U> value) {
         return value;
     }
 }
-}   // namespace symusic::details
-
-#endif   // LIBSYMUSIC_UTILS_H
+}   // namespace symusic::detail

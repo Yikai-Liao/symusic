@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_TIME_UNIT_H
-#define LIBSYMUSIC_TIME_UNIT_H
-
 #include "symusic/mtype.h"
 
 namespace symusic {
@@ -10,7 +7,7 @@ namespace symusic {
 template<typename T>
     requires std::is_arithmetic_v<T>
 struct TimeUnit {
-    typedef T unit;
+    using unit = T;
 };
 
 // Specific Time Units
@@ -24,5 +21,3 @@ template<typename T>
 concept TType = std::is_base_of_v<TimeUnit<typename T::unit>, T>;
 
 }   // namespace symusic
-
-#endif   // LIBSYMUSIC_TIME_UNIT_H

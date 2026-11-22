@@ -24,14 +24,14 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Add a track with some notes
         auto track = Track<Tick>("Piano", 0, false);
-        track.notes.push_back(Note<Tick>{480, 240, 60, 80});
-        track.notes.push_back(Note<Tick>{720, 240, 64, 80});
-        track.notes.push_back(Note<Tick>{960, 240, 67, 80});
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
+        track.notes.push_back(detail::make_event<Note<Tick>>(720, 240, 64, 80));
+        track.notes.push_back(detail::make_event<Note<Tick>>(960, 240, 67, 80));
         score.tracks.push_back(track);
 
         // Add tempo and time signature
-        score.tempos.push_back(Tempo<Tick>{0, 500000});   // 120 BPM
-        score.time_signatures.push_back(TimeSignature<Tick>{0, 4, 4});
+        score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 BPM
+        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_midi.mid";
@@ -69,26 +69,26 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Track 1: Piano
         auto piano_track = Track<Tick>("Piano", 0, false);
-        piano_track.notes.push_back(Note<Tick>{480, 240, 60, 80});
-        piano_track.notes.push_back(Note<Tick>{720, 240, 64, 80});
+        piano_track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
+        piano_track.notes.push_back(detail::make_event<Note<Tick>>(720, 240, 64, 80));
         score.tracks.push_back(piano_track);
 
         // Track 2: Bass
         auto bass_track = Track<Tick>("Bass", 32, false);
-        bass_track.notes.push_back(Note<Tick>{480, 480, 36, 100});
-        bass_track.notes.push_back(Note<Tick>{960, 480, 43, 100});
+        bass_track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 36, 100));
+        bass_track.notes.push_back(detail::make_event<Note<Tick>>(960, 480, 43, 100));
         score.tracks.push_back(bass_track);
 
         // Track 3: Drums
         auto drum_track = Track<Tick>("Drums", 0, true);
-        drum_track.notes.push_back(Note<Tick>{480, 120, 36, 100});   // Bass drum
-        drum_track.notes.push_back(Note<Tick>{600, 120, 38, 80});    // Snare
-        drum_track.notes.push_back(Note<Tick>{720, 120, 42, 60});    // Hi-hat
+        drum_track.notes.push_back(detail::make_event<Note<Tick>>(480, 120, 36, 100));   // Bass drum
+        drum_track.notes.push_back(detail::make_event<Note<Tick>>(600, 120, 38, 80));    // Snare
+        drum_track.notes.push_back(detail::make_event<Note<Tick>>(720, 120, 42, 60));    // Hi-hat
         score.tracks.push_back(drum_track);
 
         // Add tempo and time signature
-        score.tempos.push_back(Tempo<Tick>{0, 500000});
-        score.time_signatures.push_back(TimeSignature<Tick>{0, 4, 4});
+        score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));
+        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_multitrack.mid";
@@ -132,17 +132,17 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Add a track with notes and controller events
         auto track = Track<Tick>("Piano", 0, false);
-        track.notes.push_back(Note<Tick>{480, 240, 60, 80});
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
 
         // Add volume controller (CC 7)
-        track.controls.push_back(ControlChange<Tick>{0, 7, 100});     // Initial volume
-        track.controls.push_back(ControlChange<Tick>{480, 7, 80});    // Reduce volume
-        track.controls.push_back(ControlChange<Tick>{720, 7, 120});   // Increase volume
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));     // Initial volume
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 7, 80));    // Reduce volume
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(720, 7, 120));   // Increase volume
 
         // Add pan controller (CC 10)
-        track.controls.push_back(ControlChange<Tick>{0, 10, 64});      // Center pan
-        track.controls.push_back(ControlChange<Tick>{480, 10, 100});   // Pan right
-        track.controls.push_back(ControlChange<Tick>{720, 10, 30});    // Pan left
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 10, 64));      // Center pan
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 10, 100));   // Pan right
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(720, 10, 30));    // Pan left
 
         score.tracks.push_back(track);
 

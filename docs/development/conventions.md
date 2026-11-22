@@ -95,7 +95,7 @@ The code is C++20. A feature may be used when every compiler of the supported fl
 
 A macro is acceptable only for compiler and platform conditionals, such as an attribute that MSVC spells differently. These macros carry the `SYMUSIC_` prefix and are defined in `include/symusic/utils.h`; add them there rather than next to their first use.
 
-Code generation by macro (`REPEAT_ON` from `3rdparty/MetaMacro.h`, class-body macros such as `BASIC_TIMESTAMP_METHODS`, X-macros) is being removed; do not add uses. Write explicit instantiations out ([namespaces and headers](#namespaces-and-headers)), repeat other code over time units with a template or a fold over a type list, derive per-field code from the event descriptions once [one field list per event](../ROADMAP.md#architecture) exists, and give a closed set a `constexpr` table of names and values.
+Write explicit instantiations out. Use templates and type lists to share implementations across time units. Repr, NumPy columns and pickle use the member pointers in `include/symusic/detail/event_fields.h`.
 
 ### Comments
 

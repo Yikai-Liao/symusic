@@ -21,18 +21,14 @@
 #include "../core/binding_common.h"
 #include "../docstring_helpers.h"
 
-namespace symusic {
-
-using py::pyvec;
+namespace symusic::py {
 
 namespace nb = nanobind;
-
-namespace track_docstrings {
 
 template<TType T>
 const char* doc() {
     static const std::string rendered = [] {
-        constexpr auto flavor = docstring_helpers::time_flavor<T>();
+        constexpr auto flavor = time_flavor<T>();
         return fmt::format(
             "A part: notes, control changes, pitch bends, pedals and lyrics, with a name, a "
             "General "
@@ -44,72 +40,71 @@ const char* doc() {
     return rendered.c_str();
 }
 
-constexpr const char* kCopyCtorDoc   = R"pbdoc(Create a deep copy of *other*.)pbdoc";
-constexpr const char* kCopyDoc       = R"pbdoc(
+constexpr const char* kTrackCopyCtorDoc   = R"pbdoc(Create a deep copy of *other*.)pbdoc";
+constexpr const char* kTrackCopyDoc       = R"pbdoc(
 Return a deep copy, or with ``deep=False`` a new track that shares the event lists.
 )pbdoc";
-constexpr const char* kClipDoc       = R"pbdoc(
+constexpr const char* kTrackClipDoc       = R"pbdoc(
 Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedals must also end by
 *end*. Times are not shifted. Returns a deep copy unless *inplace* is true.
 )pbdoc";
-constexpr const char* kTrimDoc       = R"pbdoc(
+constexpr const char* kTrackTrimDoc       = R"pbdoc(
 Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
 keeps them whole. Other events are clipped by time. Invalid modes and negative *min_overlap* raise ``ValueError``. Returns a
 deep copy unless *inplace* is true.
 )pbdoc";
-constexpr const char* kSortDoc       = R"pbdoc(
+constexpr const char* kTrackSortDoc       = R"pbdoc(
 Sort every event list by its default sort key. Works in place unless *inplace* is false, which
 returns a deep copy.
 )pbdoc";
-constexpr const char* kAdjustTimeDoc = R"pbdoc(
+constexpr const char* kTrackAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
 lists must be the same length and have at least two anchors. Original times must be strictly
 increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a deep copy unless *inplace* is true.
 )pbdoc";
-constexpr const char* kShiftTimeDoc
+constexpr const char* kTrackShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a deep copy unless *inplace* is true.)pbdoc";
-constexpr const char* kShiftPitchDoc    = R"pbdoc(
+constexpr const char* kTrackShiftPitchDoc    = R"pbdoc(
 Add *offset* to every note's pitch. Returns a deep copy unless *inplace* is true. Raises
 ``ValueError`` when a result leaves -128..127.
 )pbdoc";
-constexpr const char* kShiftVelocityDoc = R"pbdoc(
+constexpr const char* kTrackShiftVelocityDoc = R"pbdoc(
 Add *offset* to every note's velocity. Returns a deep copy unless *inplace* is true. Raises
 ``ValueError`` when a result leaves -128..127.
 )pbdoc";
-constexpr const char* kStartDoc
+constexpr const char* kTrackStartDoc
     = R"pbdoc(Return the earliest event time, or 0 when the track has no events.)pbdoc";
-constexpr const char* kEndDoc
+constexpr const char* kTrackEndDoc
     = R"pbdoc(Return the latest event end, or 0 when the track has no events.)pbdoc";
-constexpr const char* kNoteNumDoc   = R"pbdoc(Return the number of notes.)pbdoc";
-constexpr const char* kEmptyDoc     = R"pbdoc(Return whether the track has no events.)pbdoc";
-constexpr const char* kPianorollDoc = R"pbdoc(
+constexpr const char* kTrackNoteNumDoc   = R"pbdoc(Return the number of notes.)pbdoc";
+constexpr const char* kTrackEmptyDoc     = R"pbdoc(Return whether the track has no events.)pbdoc";
+constexpr const char* kTrackPianorollDoc = R"pbdoc(
 Return a ``uint8`` array of shape ``(modes, pitches, time)`` with one column per tick. *modes*
 lists ``"frame"``, ``"onset"`` or ``"offset"``; *pitch_range* is the pitch interval ``[low,
 high)``; *encode_velocity* writes velocities instead of 1. Raises ``ValueError`` for a note with
 negative time or duration, or when the track ends before tick 0.
 )pbdoc";
-constexpr const char* kUseCountDoc
+constexpr const char* kTrackUseCountDoc
     = R"pbdoc(Return the number of references to the track, for debugging.)pbdoc";
 
-constexpr const char* kVecFilterDoc = R"pbdoc(
+constexpr const char* kTrackVecFilterDoc = R"pbdoc(
 Keep the tracks for which *function* returns true. Works in place unless *inplace* is false; the
 returned list shares the tracks.
 )pbdoc";
-constexpr const char* kVecSortDoc   = R"pbdoc(
+constexpr const char* kTrackVecSortDoc   = R"pbdoc(
 Sort by *key*, or by ``(is_drum, program, name, number of notes)``. Works in place unless *inplace*
 is false; the returned list shares the tracks.
 )pbdoc";
-constexpr const char* kVecIsSortedDoc
+constexpr const char* kTrackVecIsSortedDoc
     = R"pbdoc(Return whether the list is sorted by *key*, or by the default sort key.)pbdoc";
-constexpr const char* kVecAdjustDoc = R"pbdoc(
+constexpr const char* kTrackVecAdjustDoc = R"pbdoc(
 Apply ``adjust_time`` to every track. Returns deep copies of the tracks unless *inplace* is true.
 )pbdoc";
-constexpr const char* kVecCopyDoc   = R"pbdoc(
+constexpr const char* kTrackVecCopyDoc   = R"pbdoc(
 Return a list of deep copies of the tracks, or with ``deep=False`` a list that shares them.
 )pbdoc";
-}   // namespace track_docstrings
 
 /// Return a list of deep copies of the tracks.
 template<typename T>
@@ -125,33 +120,33 @@ shared<vec<shared<T>>> clone_track_vector(const shared<vec<shared<T>>>& self) {
 template<TType T>
 auto bind_track(nb::module_& m, const std::string& name_) {
     using unit    = typename T::unit;
-    using self_t  = shared<py::Track<T>>;
-    using track_t = py::Track<T>;
+    using self_t  = shared<Track<T>>;
+    using track_t = Track<T>;
     using vec_t   = shared<vec<self_t>>;
 
     const auto     name      = "Track" + name_;
     const auto     track_sig = fmt::format("class {}(Track[{}])", name, name_);
-    constexpr auto flavor    = docstring_helpers::time_flavor<T>();
+    constexpr auto flavor    = time_flavor<T>();
 
     auto copy_func = [](const self_t& self) { return std::make_shared<track_t>(*self); };
     auto deepcopy_func
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<py::Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_docstrings::doc<T>())
-        .def("__init__", &pyutils::pyinit<py::Track<T>>,
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), doc<T>())
+        .def("__init__", &pyinit<Track<T>>,
              nb::sig("def __init__(self, /) -> None"))
-        .def("__init__", &pyutils::pyinit<py::Track<T>, std::string, u8, const bool>,
+        .def("__init__", &pyinit<Track<T>, std::string, u8, const bool>,
              nb::arg("name"), nb::arg("program") = 0, nb::arg("is_drum") = false,
              nb::sig("def __init__(self, name: str = '', program: int = 0, is_drum: bool = False, /) -> None"))
         .def("__init__", [](self_t *self, const self_t& other) {
             new (self) std::shared_ptr<track_t>(std::make_shared<track_t>(other->deepcopy()));
-        }, nb::arg("other"), track_docstrings::kCopyCtorDoc,
+        }, nb::arg("other"), kTrackCopyCtorDoc,
            nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str()))
         .def("copy", [&](const self_t &self, const bool deep) {
             if (deep) return deepcopy_func(self);
             return copy_func(self);
-        }, nb::arg("deep") = true, nb::rv_policy::copy, track_docstrings::kCopyDoc,
+        }, nb::arg("deep") = true, nb::rv_policy::copy, kTrackCopyDoc,
            nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str()))
         .def("__copy__", copy_func, nb::rv_policy::copy,
            nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
@@ -168,12 +163,12 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         .def("__setstate__", [](self_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-            auto ans = symusic::parse<symusic::DataFormat::ZPP, py::Track<T>>(span);
-            new (&self) self_t(std::make_shared<py::Track<T>>(std::move(ans)));
+            auto ans = symusic::parse<symusic::DataFormat::ZPP, Track<T>>(span);
+            new (&self) self_t(std::make_shared<Track<T>>(std::move(ans)));
         }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
         .def_prop_ro("ttype", [](const self_t&) { return T(); }, "The time unit.",
-            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<T>().suffix).c_str())))
-        .def("__use_count", [](const self_t& self) { return self.use_count(); }, track_docstrings::kUseCountDoc,
+            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", time_flavor<T>().suffix).c_str())))
+        .def("__use_count", [](const self_t& self) { return self.use_count(); }, kTrackUseCountDoc,
             nb::sig("def __use_count(self, /) -> int"))
         .def_prop_rw(RW_COPY(shared<pyvec<Note<T>>>, "notes", notes), "The ``Note`` events.",
             nb::for_getter(nb::sig(fmt::format("def notes(self, /) -> symusic.core.Note{}List", flavor.suffix).c_str())),
@@ -207,57 +202,57 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             nb::sig(fmt::format("def __ne__(self, other: {}, /) -> bool", name).c_str()))
         .def("__ne__", [](const self_t&, nb::object) { return true; },
             nb::sig("def __ne__(self, other: object, /) -> bool"))
-        .def("end", [](const self_t& self) { return self->end(); }, track_docstrings::kEndDoc,
+        .def("end", [](const self_t& self) { return self->end(); }, kTrackEndDoc,
             nb::sig(fmt::format("def end(self, /) -> {}", flavor.scalar_label).c_str()))
-        .def("start", [](const self_t& self) { return self->start(); }, track_docstrings::kStartDoc,
+        .def("start", [](const self_t& self) { return self->start(); }, kTrackStartDoc,
             nb::sig(fmt::format("def start(self, /) -> {}", flavor.scalar_label).c_str()))
-        .def("note_num", [](const self_t& self) { return self->note_num(); }, track_docstrings::kNoteNumDoc,
+        .def("note_num", [](const self_t& self) { return self->note_num(); }, kTrackNoteNumDoc,
             nb::sig("def note_num(self, /) -> int"))
-        .def("empty", [](const self_t& self) { return self->empty(); }, track_docstrings::kEmptyDoc,
+        .def("empty", [](const self_t& self) { return self->empty(); }, kTrackEmptyDoc,
             nb::sig("def empty(self, /) -> bool"))
         .def("clip", [](self_t& self, const unit start, const unit end, const bool clip_end, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->clip_inplace(start, end, clip_end);
             return ans;
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false,
-            track_docstrings::kClipDoc,
+            kTrackClipDoc,
             nb::sig(fmt::format("def clip(self, start: {}, end: {}, clip_end: bool = False, inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("trim", [](self_t& self, const unit start, const unit end, const unit min_overlap, const std::string &start_mode, const std::string &end_mode, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->trim_inplace(start, end, min_overlap, start_mode, end_mode);
             return ans;
         }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = 0, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false,
-            track_docstrings::kTrimDoc,
+            kTrackTrimDoc,
             nb::sig(fmt::format("def trim(self, start: {}, end: {}, min_overlap: {} = 0, start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->sort_inplace(reverse);
             return ans;
-        }, nb::arg("reverse") = false, nb::arg("inplace") = true, track_docstrings::kSortDoc,
+        }, nb::arg("reverse") = false, nb::arg("inplace") = true, kTrackSortDoc,
             nb::sig(fmt::format("def sort(self, reverse: bool = False, inplace: bool = True) -> {}", name).c_str()))
         .def("adjust_time", [](self_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ops::adjust_time_inplace(*ans, original_times, new_times);
             return ans;
-        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, track_docstrings::kAdjustTimeDoc,
+        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, kTrackAdjustTimeDoc,
             nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->shift_time_inplace(offset);
             return ans;
-        }, nb::arg("offset"), nb::arg("inplace") = false, track_docstrings::kShiftTimeDoc,
+        }, nb::arg("offset"), nb::arg("inplace") = false, kTrackShiftTimeDoc,
             nb::sig(fmt::format("def shift_time(self, offset: {}, inplace: bool = False) -> {}", flavor.scalar_label, name).c_str()))
         .def("shift_pitch", [](self_t& self, const i8 offset, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->shift_pitch_inplace(offset);
             return ans;
-        }, nb::arg("offset"), nb::arg("inplace") = false, track_docstrings::kShiftPitchDoc,
+        }, nb::arg("offset"), nb::arg("inplace") = false, kTrackShiftPitchDoc,
             nb::sig(fmt::format("def shift_pitch(self, offset: int, inplace: bool = False) -> {}", name).c_str()))
         .def("shift_velocity", [](self_t& self, const i8 offset, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->shift_velocity_inplace(offset);
             return ans;
-        }, nb::arg("offset"), nb::arg("inplace") = false, track_docstrings::kShiftVelocityDoc,
+        }, nb::arg("offset"), nb::arg("inplace") = false, kTrackShiftVelocityDoc,
             nb::sig(fmt::format("def shift_velocity(self, offset: int, inplace: bool = False) -> {}", name).c_str()))
     ;
 
@@ -285,15 +280,15 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             nb::arg("modes")           = vec<std::string>{"frame", "onset"},
             nb::arg("pitch_range")     = std::pair<i64, i64>(0, 128),
             nb::arg("encode_velocity") = false,
-            track_docstrings::kPianorollDoc,
+            kTrackPianorollDoc,
             nb::sig("def pianoroll(self, modes: typing.Iterable[str] = ('frame','onset'), pitch_range: typing.Tuple[int,int] = (0, 128), encode_velocity: bool = False) -> numpy.ndarray"));
     }
 
     const auto list_name = name + "List";
     const auto vec_sig = fmt::format("class {}(typing.List[symusic.core.{}])", list_name, name);
-    auto track_vec = pyutils::bind_shared_vector_copy<vec<self_t>>(m, (name + "List").c_str(), nb::sig(vec_sig.c_str()))
+    auto track_vec = bind_shared_vector_copy<vec<self_t>>(m, (name + "List").c_str(), nb::sig(vec_sig.c_str()))
         .def_prop_ro("ttype", [](const vec_t&) { return T(); }, "The time unit.",
-            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<T>().suffix).c_str())))
+            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", time_flavor<T>().suffix).c_str())))
         .def("filter", [](const vec_t& self, const nb::object & func, const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             auto it = std::remove_if(ans->begin(), ans->end(), [&](const self_t& t) {
@@ -301,7 +296,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             });
             ans->erase(it, ans->end());
             return ans;
-        }, nb::arg("function"), nb::arg("inplace") = true, track_docstrings::kVecFilterDoc,
+        }, nb::arg("function"), nb::arg("inplace") = true, kTrackVecFilterDoc,
            nb::sig(fmt::format("def filter(self, function: typing.Callable, inplace: bool = True) -> {}", list_name).c_str()))
         .def("sort", [](vec_t& self, const nb::object& key, const bool reverse,  const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
@@ -315,7 +310,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
                 if (reverse) gfx::timsort(ans->rbegin(), ans->rend(), cmp);
                 else gfx::timsort(ans->begin(), ans->end(), cmp);
             }   return ans;
-        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true, track_docstrings::kVecSortDoc,
+        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true, kTrackVecSortDoc,
            nb::sig(fmt::format("def sort(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, inplace: bool = True) -> {}", list_name).c_str()))
         .def("is_sorted", [](const vec_t& self, const nb::object& key, const bool reverse) {
             if(key.is_none()) {
@@ -328,17 +323,17 @@ auto bind_track(nb::module_& m, const std::string& name_) {
                 if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
                 else return std::is_sorted(self->begin(), self->end(), cmp);
             }
-        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, track_docstrings::kVecIsSortedDoc,
+        }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, kTrackVecIsSortedDoc,
            nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, /) -> bool"))
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : clone_track_vector(self);
             ops::details::adjust_track_times(*ans, original_times, new_times);
             return ans;
-        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, track_docstrings::kVecAdjustDoc,
+        }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, kTrackVecAdjustDoc,
            nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str()))
         .def("copy",          [&](const vec_t& self, const bool deep) {
             return deep?clone_track_vector(self):std::make_shared<vec<self_t>>(self->begin(), self->end());
-        }, nb::arg("deep") = true, nb::rv_policy::copy, track_docstrings::kVecCopyDoc,
+        }, nb::arg("deep") = true, nb::rv_policy::copy, kTrackVecCopyDoc,
            nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", list_name).c_str()))
         .def("__copy__",      [](const vec_t& self) { return std::make_shared<vec<self_t>>(self->begin(), self->end()); },
             nb::sig(fmt::format("def __copy__(self, /) -> {}", list_name).c_str()))
@@ -346,16 +341,16 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             nb::arg("memo")=nb::none(), nb::arg("_nil")=nb::none(), nb::rv_policy::move,
             nb::sig(fmt::format("def __deepcopy__(self, memo: object, _nil: object, /) -> {}", list_name).c_str()))
         .def("__getstate__",  [](const vec_t& self) {
-            const auto data = detail::dump_track_list<T, py::SharedStorage>(self);
+            const auto data = detail::dump_track_list<T, SharedStorage>(self);
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
         }, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__",  [](vec_t& self, const nb::bytes& bytes) {
             const auto      data = std::string_view(bytes.c_str(), bytes.size());
             const std::span span(reinterpret_cast<const unsigned char*>(data.data()), data.size());
-            auto ans = symusic::parse<symusic::DataFormat::ZPP, vec<Track<T>>>(span);
+            auto ans = symusic::parse<symusic::DataFormat::ZPP, vec<symusic::Track<T>>>(span);
             auto tracks = std::make_shared<vec<self_t>>();
             tracks->reserve(ans.size());
-            for (auto& item : ans) { tracks->emplace_back(std::make_shared<py::Track<T>>(detail::adopt_storage<py::SharedStorage>(std::move(item)))); }
+            for (auto& item : ans) { tracks->emplace_back(std::make_shared<Track<T>>(detail::adopt_storage<SharedStorage>(std::move(item)))); }
             new (&self) vec_t(std::move(tracks));
         }, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", list_name).c_str()))
     ;
@@ -364,4 +359,4 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     return std::make_tuple(track, track_vec);
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

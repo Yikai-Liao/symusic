@@ -1,64 +1,77 @@
-#include "fmt/core.h"
-
-#include "symusic/event.h"
-#include "symusic/track.h"
-#include "symusic/score.h"
 #include "symusic/repr.h"
 
 namespace symusic {
 
-// Implement to_string for simple events using std::format
-// And explicitly instantiate them
-#define EVENT_TO_STRING(__COUNT, NAME)                     \
-    template<TType T>                                      \
-    std::string NAME<T>::to_string() const {               \
-        return fmt::format("{:d}", *this);                 \
-    }                                                      \
-    template std::string NAME<Tick>::to_string() const;    \
-    template std::string NAME<Quarter>::to_string() const; \
-    template std::string NAME<Second>::to_string() const;
+template<TType T>
+std::string Note<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
 
-REPEAT_ON(
-    EVENT_TO_STRING,
-    Note,
-    Pedal,
-    ControlChange,
-    TimeSignature,
-    KeySignature,
-    Tempo,
-    PitchBend,
-    TextMeta
-)
+template std::string Note<Tick>::to_string() const;
+template std::string Note<Quarter>::to_string() const;
+template std::string Note<Second>::to_string() const;
 
-}   // namespace symusic
+template<TType T>
+std::string Pedal<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
 
-// Implement ostream operator for all the classes and corresponding vectors
-// And explicitly instantiate them
-#define OSTREAMEABLE(__COUNT, STRUCT_NAME)                                            \
-    template<symusic::TType T>                                                        \
-    std::ostream& operator<<(std::ostream& os, const symusic::STRUCT_NAME<T>& data) { \
-        return os << data.to_string();                                                \
-    }                                                                                 \
-    template std::ostream& operator<< <symusic::Tick>(                                \
-        std::ostream & os, const symusic::STRUCT_NAME<symusic::Tick>& data            \
-    );                                                                                \
-    template std::ostream& operator<< <symusic::Quarter>(                             \
-        std::ostream & os, const symusic::STRUCT_NAME<symusic::Quarter>& data         \
-    );                                                                                \
-    template std::ostream& operator<< <symusic::Second>(                              \
-        std::ostream & os, const symusic::STRUCT_NAME<symusic::Second>& data          \
-    );
+template std::string Pedal<Tick>::to_string() const;
+template std::string Pedal<Quarter>::to_string() const;
+template std::string Pedal<Second>::to_string() const;
 
-REPEAT_ON(
-    OSTREAMEABLE,
-    Note,
-    Pedal,
-    ControlChange,
-    TimeSignature,
-    KeySignature,
-    Tempo,
-    PitchBend,
-    TextMeta,
-    Track,
-    Score
-)
+template<TType T>
+std::string ControlChange<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string ControlChange<Tick>::to_string() const;
+template std::string ControlChange<Quarter>::to_string() const;
+template std::string ControlChange<Second>::to_string() const;
+
+template<TType T>
+std::string TimeSignature<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string TimeSignature<Tick>::to_string() const;
+template std::string TimeSignature<Quarter>::to_string() const;
+template std::string TimeSignature<Second>::to_string() const;
+
+template<TType T>
+std::string KeySignature<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string KeySignature<Tick>::to_string() const;
+template std::string KeySignature<Quarter>::to_string() const;
+template std::string KeySignature<Second>::to_string() const;
+
+template<TType T>
+std::string Tempo<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string Tempo<Tick>::to_string() const;
+template std::string Tempo<Quarter>::to_string() const;
+template std::string Tempo<Second>::to_string() const;
+
+template<TType T>
+std::string PitchBend<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string PitchBend<Tick>::to_string() const;
+template std::string PitchBend<Quarter>::to_string() const;
+template std::string PitchBend<Second>::to_string() const;
+
+template<TType T>
+std::string TextMeta<T>::to_string() const {
+    return fmt::format("{:d}", *this);
+}
+
+template std::string TextMeta<Tick>::to_string() const;
+template std::string TextMeta<Quarter>::to_string() const;
+template std::string TextMeta<Second>::to_string() const;
+
+}  // namespace symusic

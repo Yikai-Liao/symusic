@@ -3,7 +3,7 @@
 
 #include <stdexcept>
 
-namespace symusic::details {
+namespace symusic::detail {
 
 std::string strip_non_utf_8(const std::string& str) {
     std::string ans;
@@ -24,4 +24,4 @@ void throw_f64_not_i32(const f64 value) {
     );
 }
 
-}   // namespace symusic::details
+}   // namespace symusic::detail

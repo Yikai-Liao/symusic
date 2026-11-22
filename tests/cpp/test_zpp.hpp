@@ -22,7 +22,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("Simple Event Serialization") {
         // Create a note event
-        Note<Tick> note(480, 240, 60, 80);
+        Note<Tick> note = detail::make_event<Note<Tick>>(480, 240, 60, 80);
 
         // Serialize the note
         std::vector<uint8_t> serialized = note.dumps<DataFormat::ZPP>();
@@ -39,7 +39,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("Control Change Serialization") {
         // Create a control change event
-        ControlChange<Tick> cc(240, 7, 100);   // CC 7 = volume
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(240, 7, 100);   // CC 7 = volume
 
         // Serialize
         std::vector<uint8_t> serialized = cc.dumps<DataFormat::ZPP>();
@@ -55,7 +55,7 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
     SECTION("TextMeta Serialization") {
         // Create a text meta event
-        TextMeta<Tick> text(300, "Test Text");
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(300, "Test Text");
 
         // Serialize
         std::vector<uint8_t> serialized = text.dumps<DataFormat::ZPP>();
@@ -74,9 +74,9 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
-        track.notes.push_back(Note<Tick>(480, 240, 60, 80));
-        track.notes.push_back(Note<Tick>(720, 240, 64, 80));
-        track.controls.push_back(ControlChange<Tick>(240, 7, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
+        track.notes.push_back(detail::make_event<Note<Tick>>(720, 240, 64, 80));
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(240, 7, 100));
 
         // Serialize
         std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(track);
@@ -105,12 +105,12 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
         track.name    = "Test Track";
         track.program = 0;
         track.is_drum = false;
-        track.notes.push_back(Note<Tick>(480, 240, 60, 80));
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
         score.tracks.push_back(track);
 
         // Add tempo and time signature
-        score.tempos.push_back(Tempo<Tick>(0, 500000));
-        score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
+        score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));
+        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Serialize
         std::vector<uint8_t> serialized = dumps<DataFormat::ZPP>(score);
@@ -135,12 +135,12 @@ TEST_CASE("Test ZPP Serialization", "[symusic][io][zpp]") {
 
         // Add a track with notes
         auto track = Track<Tick>("Test Track", 0, false);
-        track.notes.push_back(Note<Tick>(480, 240, 60, 80));
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
         score.tracks.push_back(track);
 
         // Add tempo and time signature
-        score.tempos.push_back(Tempo<Tick>(0, 500000));
-        score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
+        score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));
+        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Serialize
         std::vector<uint8_t> serialized = score.dumps<DataFormat::ZPP>();
@@ -204,19 +204,19 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             REQUIRE(first.size() == 5 + sizeof(E));
             REQUIRE(E::template parse<DataFormat::ZPP>(first) == make());
         };
-        check([] { return Note<Tick>(480, 240, 60, 80); }, 10);
-        check([] { return Note<Quarter>(1.5f, 0.5f, 60, 80); }, 10);
-        check([] { return Note<Second>(1.5f, 0.5f, 60, 80); }, 10);
-        check([] { return ControlChange<Tick>(240, 7, 100); }, 6);
-        check([] { return ControlChange<Second>(0.5f, 7, 100); }, 6);
-        check([] { return TimeSignature<Tick>(0, 3, 4); }, 6);
-        check([] { return TimeSignature<Quarter>(0.f, 3, 4); }, 6);
-        check([] { return KeySignature<Tick>(0, -2, 1); }, 6);
-        check([] { return KeySignature<Second>(0.f, -2, 1); }, 6);
+        check([] { return detail::make_event<Note<Tick>>(480, 240, 60, 80); }, 10);
+        check([] { return detail::make_event<Note<Quarter>>(1.5f, 0.5f, 60, 80); }, 10);
+        check([] { return detail::make_event<Note<Second>>(1.5f, 0.5f, 60, 80); }, 10);
+        check([] { return detail::make_event<ControlChange<Tick>>(240, 7, 100); }, 6);
+        check([] { return detail::make_event<ControlChange<Second>>(0.5f, 7, 100); }, 6);
+        check([] { return detail::make_event<TimeSignature<Tick>>(0, 3, 4); }, 6);
+        check([] { return detail::make_event<TimeSignature<Quarter>>(0.f, 3, 4); }, 6);
+        check([] { return detail::make_event<KeySignature<Tick>>(0, -2, 1); }, 6);
+        check([] { return detail::make_event<KeySignature<Second>>(0.f, -2, 1); }, 6);
     }
 
     SECTION("Padded events in a vector") {
-        const auto make = [](int i) { return Note<Tick>(i * 10, 5, 60 + i, 80); };
+        const auto make = [](int i) { return detail::make_event<Note<Tick>>(i * 10, 5, 60 + i, 80); };
         REQUIRE(
             dumps_vec_in_filled_storage<Note<Tick>>(0xAA, make, 10)
             == dumps_vec_in_filled_storage<Note<Tick>>(0x55, make, 10)
@@ -227,11 +227,11 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
         const auto build = [](unsigned char fill) {
             Score<Tick> score;
             score.ticks_per_quarter = 480;
-            score.time_signatures.emplace_back(0, 3, 4);
-            score.key_signatures.emplace_back(0, -2, 1);
+            score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 3, 4));
+            score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(0, -2, 1));
             auto track = Track<Tick>();
-            for (int i = 0; i < 3; ++i) track.notes.emplace_back(i * 10, 5, 60 + i, 80);
-            track.controls.emplace_back(0, 7, 100);
+            for (int i = 0; i < 3; ++i) track.notes.push_back(detail::make_event<Note<Tick>>(i * 10, 5, 60 + i, 80));
+            track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));
             const auto dirty = [fill](auto& events, size_t payload) {
                 for (auto& e : events) {
                     auto* raw = reinterpret_cast<unsigned char*>(&e);
@@ -253,7 +253,7 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
 
     SECTION("Padding bytes are zero and the layout is unchanged") {
         const auto bytes
-            = dumps_in_filled_storage<Note<Tick>>(0xAA, [] { return Note<Tick>(1, 2, 3, 4); }, 10);
+            = dumps_in_filled_storage<Note<Tick>>(0xAA, [] { return detail::make_event<Note<Tick>>(1, 2, 3, 4); }, 10);
         const auto image = std::span(bytes).last(sizeof(Note<Tick>));
         REQUIRE(image[8] == 3);
         REQUIRE(image[9] == 4);
@@ -262,11 +262,11 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
     }
 
     SECTION("Images with nonzero padding still load") {
-        auto bytes = Note<Tick>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
+        auto bytes = detail::make_event<Note<Tick>>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
         auto image = std::span(bytes).last(sizeof(Note<Tick>));
-        image[10]  = 0xAA;
-        image[11]  = 0x55;
-        REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == Note<Tick>(1, 2, 3, 4));
+        image[10] = 0xAA;
+        image[11] = 0x55;
+        REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == detail::make_event<Note<Tick>>(1, 2, 3, 4));
     }
 }
 

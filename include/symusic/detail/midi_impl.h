@@ -94,20 +94,20 @@ public:
 
     void add_control(u8 channel, unit time, u8 number, u8 value) {
         auto& target = track(channel, false);
-        target.controls.emplace_back(time, number, value);
+        target.controls.push_back(make_event<ControlChange<T>>(time, number, value));
         if (number != 64) return;
 
         auto& start = pedal_start[channel];
         if (value >= 64) {
             if (start < 0) start = time;
         } else if (start >= 0) {
-            target.pedals.emplace_back(start, detail::sub_time(time, start));
+            target.pedals.push_back(make_event<Pedal<T>>(start, detail::sub_time(time, start)));
             start = -1;
         }
     }
 
     void add_pitch_bend(u8 channel, unit time, i32 value) {
-        track(channel, false).pitch_bends.emplace_back(time, value);
+        track(channel, false).pitch_bends.push_back(make_event<PitchBend<T>>(time, value));
     }
 
     void add_lyric(u8 channel, unit time, std::string text) {
@@ -116,7 +116,7 @@ public:
             MidiTrackKey{channel, program},
             program,
             channel == 9,
-            TextMeta<T>(time, std::move(text))
+            symusic::detail::make_event<TextMeta<T>>(time, std::move(text))
         );
     }
 

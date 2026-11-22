@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_IO_COMMON_H
-#define LIBSYMUSIC_IO_COMMON_H
-
 #include <string>
 #include <filesystem>
 #include <span>
@@ -20,5 +17,3 @@ void write_file(const std::filesystem::path& path, std::span<const u8> buffer);
 void write_file(const std::string& path, std::span<const u8> buffer);
 
 }   // namespace symusic
-
-#endif   // LIBSYMUSIC_IO_COMMON_H

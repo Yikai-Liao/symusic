@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_BATCH_OPS_H
-#define LIBSYMUSIC_BATCH_OPS_H
-
 #include "symusic/event.h"
 #include "symusic/score.h"
 #include "fmt/core.h"
@@ -14,14 +11,12 @@
 #include <stdexcept>
 #include <unordered_set>
 
-namespace symusic::ops {
-
-namespace details {
+namespace symusic::detail {
 // Comparisons on event ends use a wide intermediate (i64 for Tick) so that an event whose end
 // exceeds the tick range compares correctly instead of throwing or overflowing. Only values
 // written back to an event go through narrow_time.
 template<TimeEvent T>
-using wide_t = symusic::details::wide_time_t<typename T::unit>;
+using wide_t = symusic::detail::wide_time_t<typename T::unit>;
 
 template<TimeEvent T>
 wide_t<T> wide_end(const T& event) {
@@ -55,7 +50,9 @@ inline void validate_trim_options(
     validate(start_mode, "start_mode");
     validate(end_mode, "end_mode");
 }
-}   // namespace details
+}   // namespace symusic::detail
+
+namespace symusic::ops {
 
 template<TType T, typename S = ValueStorage>
 void sort_tracks(typename S::template Tracks<Track<T, S>>& tracks, bool reverse = false) {
@@ -80,7 +77,7 @@ void clip_inplace(
     if constexpr (HashDuration<T>) {
         if (clip_end) {
             S::erase_if(events, [start, end](const T& event) {
-                return !(event.time >= start && details::wide_end(event) <= end);
+                return !(event.time >= start && detail::wide_end(event) <= end);
             });
             return;
         }
@@ -99,15 +96,15 @@ void trim_inplace(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
-    details::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
+    detail::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
     if constexpr (HashDuration<T>) {
-        using wide                 = details::wide_t<T>;
+        using wide                 = detail::wide_t<T>;
         using unit                 = typename T::unit;
         const bool remove_at_start = start_mode == "remove";
         const bool remove_at_end   = end_mode == "remove";
         S::erase_if(events, [=](const T& event) {
             const wide event_start = event.time;
-            const wide event_end   = details::wide_end(event);
+            const wide event_end   = detail::wide_end(event);
             if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
                 return true;
             }
@@ -118,15 +115,15 @@ void trim_inplace(
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {
-                event.duration = symusic::details::narrow_time<unit>(
-                    details::wide_end(event) - static_cast<wide>(start)
+                event.duration = symusic::detail::narrow_time<unit>(
+                    detail::wide_end(event) - static_cast<wide>(start)
                 );
                 event.time = start;
             }
-            if (end_mode == "truncate" && details::wide_end(event) > end) {
-                event.duration = symusic::details::narrow_time<unit>(
+            if (end_mode == "truncate" && detail::wide_end(event) > end) {
+                event.duration = symusic::detail::narrow_time<unit>(
                     static_cast<wide>(event.duration)
-                    - (details::wide_end(event) - static_cast<wide>(end))
+                    - (detail::wide_end(event) - static_cast<wide>(end))
                 );
             }
         }
@@ -156,8 +153,9 @@ void clip_with_sentinel_inplace(Range& events, typename T::unit start, typename 
     }
 }
 
+}   // namespace symusic::ops
 
-namespace details {
+namespace symusic::detail {
 template<std::floating_point U>
 U checked_adjusted_time(f64 value, const char* field) {
     if (!(value >= std::numeric_limits<U>::lowest() && value <= std::numeric_limits<U>::max())) {
@@ -213,7 +211,7 @@ void plan_time_adjustment(
         if constexpr (std::integral<unit>) {
             // Compute in f64 before narrowing so a valid target across a >INT32_MAX span does not
             // falsely overflow on the intermediate offset.
-            return symusic::details::f64_to_i32(
+            return symusic::detail::f64_to_i32(
                 static_cast<f64>(new_times[left]) + std::trunc(offset)
             );
         } else {
@@ -230,9 +228,9 @@ void plan_time_adjustment(
             const auto start    = map_time(event.time);
             unit       duration = 0;
             if constexpr (HashDuration<E>) {
-                const auto mapped_end = map_time(symusic::details::narrow_time<unit>(end));
+                const auto mapped_end = map_time(symusic::detail::narrow_time<unit>(end));
                 if constexpr (std::integral<unit>) {
-                    duration = symusic::details::sub_time(mapped_end, start);
+                    duration = symusic::detail::sub_time(mapped_end, start);
                 } else {
                     duration = checked_adjusted_time<unit>(diff(mapped_end, start), "duration");
                 }
@@ -347,7 +345,9 @@ void plan_time_adjustment(
     plan_time_adjustment<S>(S::get(score.markers), original_times, new_times, plan);
 }
 
-}   // namespace details
+}   // namespace symusic::detail
+
+namespace symusic::ops {
 
 template<
     bool check_times = true,
@@ -359,9 +359,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
-    details::TimeAdjustments plan;
-    details::plan_time_adjustment<S>(events, original_times, new_times, plan);
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
+    detail::TimeAdjustments plan;
+    detail::plan_time_adjustment<S>(events, original_times, new_times, plan);
     plan.apply();
 }
 
@@ -371,9 +371,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
-    details::TimeAdjustments plan;
-    details::plan_time_adjustment(track, original_times, new_times, plan);
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
+    detail::TimeAdjustments plan;
+    detail::plan_time_adjustment(track, original_times, new_times, plan);
     plan.apply();
 }
 
@@ -383,9 +383,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
-    details::TimeAdjustments plan;
-    details::plan_time_adjustment(score, original_times, new_times, plan);
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
+    detail::TimeAdjustments plan;
+    detail::plan_time_adjustment(score, original_times, new_times, plan);
     plan.apply();
 }
 
@@ -395,7 +395,7 @@ T adjust_time(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    details::check_times(original_times, new_times);
+    detail::check_times(original_times, new_times);
     T new_data = data.deepcopy();
     adjust_time_inplace<false>(new_data, original_times, new_times);
     return new_data;
@@ -424,5 +424,3 @@ inline typename T::unit end(const Range& events) {
 }
 
 }   // namespace symusic::ops
-
-#endif   // LIBSYMUSIC_BATCH_OPS_H

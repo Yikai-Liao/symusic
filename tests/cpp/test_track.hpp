@@ -36,7 +36,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         track.name    = "Test Track";
         track.program = 10;
         track.is_drum = true;
-        track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
 
         // Test copy
         Track<Tick> copied_track(track);
@@ -51,7 +51,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         // Prepare data to be moved
         track.name    = "Move Test";
         track.program = 20;
-        track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
 
         // Record original data
         std::string orig_name       = track.name;
@@ -67,20 +67,20 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
     SECTION("Constructor with vectors of events") {
         // Create event vectors
         vec<Note<Tick>> notes;
-        notes.push_back(Note<Tick>(0, 100, 60, 100));
-        notes.push_back(Note<Tick>(100, 100, 62, 100));
+        notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
+        notes.push_back(detail::make_event<Note<Tick>>(100, 100, 62, 100));
 
         vec<ControlChange<Tick>> controls;
-        controls.push_back(ControlChange<Tick>(0, 7, 100));   // Volume control
+        controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume control
 
         vec<PitchBend<Tick>> pitch_bends;
-        pitch_bends.push_back(PitchBend<Tick>(50, 8192));   // Center value pitch bend
+        pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(50, 8192));   // Center value pitch bend
 
         vec<Pedal<Tick>> pedals;
-        pedals.push_back(Pedal<Tick>(0, 200));   // Hold pedal for 200 ticks
+        pedals.push_back(detail::make_event<Pedal<Tick>>(0, 200));   // Hold pedal for 200 ticks
 
         vec<TextMeta<Tick>> lyrics;
-        lyrics.push_back(TextMeta<Tick>(0, "La"));
+        lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "La"));
 
         // Construct Track with vectors
         Track<Tick> event_track(
@@ -107,7 +107,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         // Prepare data
         track.name    = "Original";
         track.program = 30;
-        track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
 
         // Create new Track and use assignment
         Track<Tick> assigned;
@@ -123,7 +123,7 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         // Prepare data
         track.name    = "Move Assign";
         track.program = 40;
-        track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
 
         // Record original values
         std::string orig_name    = track.name;
@@ -144,24 +144,24 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     Track<Tick> track("Test Track", 0, false);
 
     // Add notes
-    track.notes.push_back(Note<Tick>(0, 100, 60, 100));     // C4
-    track.notes.push_back(Note<Tick>(100, 100, 62, 100));   // D4
-    track.notes.push_back(Note<Tick>(200, 100, 64, 100));   // E4
+    track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));     // C4
+    track.notes.push_back(detail::make_event<Note<Tick>>(100, 100, 62, 100));   // D4
+    track.notes.push_back(detail::make_event<Note<Tick>>(200, 100, 64, 100));   // E4
 
     // Add controllers
-    track.controls.push_back(ControlChange<Tick>(0, 7, 100));     // Volume
-    track.controls.push_back(ControlChange<Tick>(100, 10, 64));   // Pan
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));     // Volume
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(100, 10, 64));   // Pan
 
     // Add pitch bends
-    track.pitch_bends.push_back(PitchBend<Tick>(150, 8192 + 4096));   // 1/3 up bend
+    track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(150, 8192 + 4096));   // 1/3 up bend
 
     // Add pedals
-    track.pedals.push_back(Pedal<Tick>(0, 300));   // Pedal pressed for 300 ticks
+    track.pedals.push_back(detail::make_event<Pedal<Tick>>(0, 300));   // Pedal pressed for 300 ticks
 
     // Add lyrics
-    track.lyrics.push_back(TextMeta<Tick>(0, "Do"));
-    track.lyrics.push_back(TextMeta<Tick>(100, "Re"));
-    track.lyrics.push_back(TextMeta<Tick>(200, "Mi"));
+    track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "Do"));
+    track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(100, "Re"));
+    track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(200, "Mi"));
 
     SECTION("default_key() method") {
         auto key = track.default_key();
@@ -222,9 +222,9 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     SECTION("sort() and sort_inplace() methods") {
         // Create a Track that needs sorting
         Track<Tick> unsorted("Unsorted", 0, false);
-        unsorted.notes.push_back(Note<Tick>(200, 100, 60, 100));
-        unsorted.notes.push_back(Note<Tick>(0, 100, 62, 100));
-        unsorted.notes.push_back(Note<Tick>(100, 100, 64, 100));
+        unsorted.notes.push_back(detail::make_event<Note<Tick>>(200, 100, 60, 100));
+        unsorted.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 62, 100));
+        unsorted.notes.push_back(detail::make_event<Note<Tick>>(100, 100, 64, 100));
 
         // Test non-inplace sort
         Track<Tick> sorted = unsorted.sort();

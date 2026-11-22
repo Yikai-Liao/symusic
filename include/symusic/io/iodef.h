@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_IO_IODEF_H
-#define LIBSYMUSIC_IO_IODEF_H
-
 #include <span>
 
 #include "symusic/mtype.h"
@@ -46,5 +43,3 @@ template<DataFormat F, typename T>
 [[nodiscard]] vec<u8> dumps(const T& data) { return data.template dumps<F>(); }
 
 }   // namespace symusic
-
-#endif   // LIBSYMUSIC_IO_IODEF_H

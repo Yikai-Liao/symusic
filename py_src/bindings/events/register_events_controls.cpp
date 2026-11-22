@@ -3,28 +3,27 @@
 //
 #include "../core/binding_prelude.h"
 
-#include "MetaMacro.h"
+#include "../core/binding_common.h"
 #include "event_bindings.h"
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
 void bind_controller_family_types(nb::module_& m) {
-#define BIND_EVENT(__COUNT, BIND_FUNC) \
-    BIND_FUNC<Tick>(m, "Tick");        \
-    BIND_FUNC<Quarter>(m, "Quarter");  \
-    BIND_FUNC<Second>(m, "Second");
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_tempo<T>(module, name);
+    });
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_controlchange<T>(module, name);
+    });
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_pedal<T>(module, name);
+    });
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_pitchbend<T>(module, name);
+    });
 
-    REPEAT_ON(
-        BIND_EVENT,
-        pyutils::bind_tempo,
-        pyutils::bind_controlchange,
-        pyutils::bind_pedal,
-        pyutils::bind_pitchbend
-    )
-
-#undef BIND_EVENT
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

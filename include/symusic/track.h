@@ -54,7 +54,6 @@ struct Track {
     [[nodiscard]] static Track parse_zpp_bytes(std::span<const u8> bytes);
     [[nodiscard]] vec<u8> dump_zpp_bytes() const;
 
-
     // return the start time of the track
     [[nodiscard]] unit start() const;
 

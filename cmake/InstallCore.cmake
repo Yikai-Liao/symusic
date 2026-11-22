@@ -22,7 +22,7 @@ install(DIRECTORY
     3rdparty/prestosynth/3rdparty/eigen/Eigen
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-install(FILES 3rdparty/pdqsort/pdqsort.h 3rdparty/MetaMacro.h
+install(FILES 3rdparty/pdqsort/pdqsort.h
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 install(EXPORT symusicTargets NAMESPACE symusic:: DESTINATION "${symusic_package_dir}")

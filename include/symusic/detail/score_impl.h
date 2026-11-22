@@ -12,7 +12,7 @@
 
 namespace symusic {
 
-namespace details {
+namespace detail {
 
 struct BeatTimelineQuarter {
     Quarter::unit               end_time;
@@ -124,7 +124,7 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
         return lhs.time < rhs.time;
     });
     if (time_signatures.empty() || time_signatures.front().time > start_time) {
-        time_signatures.insert(time_signatures.begin(), TimeSignature<Quarter>(start_time, 4, 4));
+        time_signatures.insert(time_signatures.begin(), symusic::detail::make_event<TimeSignature<Quarter>>(start_time, 4, 4));
     }
 
     vec<Quarter::unit> downbeats;
@@ -151,7 +151,7 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
     return downbeats;
 }
 
-}   // namespace details
+}   // namespace detail
 
 template<TType T, typename S>
 typename T::unit Score<T, S>::start() const {
@@ -198,10 +198,10 @@ size_t Score<T, S>::track_num() const {
 
 template<TType T, typename S>
 vec<typename T::unit> Score<T, S>::get_beats(const unit start_time) const {
-    const auto timeline              = details::make_beat_timeline_quarter(*this);
-    const auto quarter_tempo_context = details::make_quarter_tempo_context(*this);
+    const auto timeline              = detail::make_beat_timeline_quarter(*this);
+    const auto quarter_tempo_context = detail::make_quarter_tempo_context(*this);
     const auto quarter_start         = convert_time<Quarter>(start_time, *this);
-    const auto quarter_beats         = details::compute_beats_quarter(timeline, quarter_start);
+    const auto quarter_beats         = detail::compute_beats_quarter(timeline, quarter_start);
     return convert_times<T, Quarter>(
         std::span<const Quarter::unit>(quarter_beats), quarter_tempo_context
     );
@@ -209,10 +209,10 @@ vec<typename T::unit> Score<T, S>::get_beats(const unit start_time) const {
 
 template<TType T, typename S>
 vec<typename T::unit> Score<T, S>::get_downbeats(const unit start_time) const {
-    const auto timeline              = details::make_beat_timeline_quarter(*this);
-    const auto quarter_tempo_context = details::make_quarter_tempo_context(*this);
+    const auto timeline              = detail::make_beat_timeline_quarter(*this);
+    const auto quarter_tempo_context = detail::make_quarter_tempo_context(*this);
     const auto quarter_start         = convert_time<Quarter>(start_time, *this);
-    const auto quarter_downbeats     = details::compute_downbeats_quarter(timeline, quarter_start);
+    const auto quarter_downbeats     = detail::compute_downbeats_quarter(timeline, quarter_start);
     return convert_times<T, Quarter>(
         std::span<const Quarter::unit>(quarter_downbeats), quarter_tempo_context
     );
@@ -245,7 +245,6 @@ void Score<T, S>::clip_inplace(unit start, unit end, bool clip_end) {
     ops::clip_inplace<S>(S::get(markers), start, end);
 }
 
-
 template<TType T, typename S>
 Score<T, S> Score<T, S>::clip(unit start, unit end, bool clip_end) const {
     auto ans = deepcopy();
@@ -261,7 +260,7 @@ void Score<T, S>::trim_inplace(
     const std::string& start_mode,
     const std::string& end_mode
 ) {
-    ops::details::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
+    detail::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
     for (auto& track : S::get(tracks)) S::get(track).trim_inplace(start, end, min_overlap, start_mode, end_mode);
     ops::clip_with_sentinel_inplace<S>(S::get(time_signatures), start, end);
     ops::clip_with_sentinel_inplace<S>(S::get(key_signatures), start, end);
@@ -286,10 +285,10 @@ Score<T, S> Score<T, S>::trim(
 template<TType T, typename S>
 void Score<T, S>::shift_time_inplace(const unit offset) {
     for (auto& track : S::get(tracks)) S::get(track).shift_time_inplace(offset);
-    for (auto& time_signature : S::get(time_signatures)) time_signature->shift_time_inplace(offset);
-    for (auto& key_signature : S::get(key_signatures)) key_signature->shift_time_inplace(offset);
-    for (auto& tempo : S::get(tempos)) tempo->shift_time_inplace(offset);
-    for (auto& marker : S::get(markers)) marker->shift_time_inplace(offset);
+    for (auto& time_signature : S::get(time_signatures)) symusic::shift_time(time_signature, offset);
+    for (auto& key_signature : S::get(key_signatures)) symusic::shift_time(key_signature, offset);
+    for (auto& tempo : S::get(tempos)) symusic::shift_time(tempo, offset);
+    for (auto& marker : S::get(markers)) symusic::shift_time(marker, offset);
 }
 
 template<TType T, typename S>
