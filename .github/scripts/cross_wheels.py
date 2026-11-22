@@ -147,6 +147,8 @@ def check_stubs() -> None:
             ROOT / "3rdparty/nanobind/src/stubgen.py",
             "-m",
             "symusic.core",
+            "-p",
+            ROOT / "scripts/core_stubgen.pattern",
             "-o",
             raw,
         )

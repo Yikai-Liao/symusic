@@ -30,6 +30,10 @@ POSITIVE_SAMPLE = """
     tick_track_copy: core.Track[core.Tick] = tick_track.copy()
     tick_note_copy: core.Note[core.Tick] = tick_note.copy()
     tick_pitch: int = tick_note.pitch
+    abc_score: core.ScoreQuarter = core.ScoreQuarter.from_abc("X:1", tune=1)
+    abc_file: core.Score[core.Tick] = tick_score.from_abc_file("score.abc")
+    abc_text: str = abc_score.dumps_abc(warn=True)
+    tick_score.dump_abc("out.abc")
 
     second_score: core.Score[core.Second] = core.ScoreSecond(480)
     second_track: core.Track[core.Second] = second_score.tracks[0]
