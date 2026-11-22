@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 from pathlib import Path
 
@@ -318,6 +319,42 @@ def test_soundfont_required() -> None:
 def test_missing_soundfont(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match=r"missing.sf2"):
         Synthesizer(tmp_path / "missing.sf2")
+
+
+def test_render_missing_soundfont(soundfont, score, tmp_path):
+    path = tmp_path / "removed.sf2"
+    path.write_bytes(soundfont.read_bytes())
+    synth = Synthesizer(path)
+    path.unlink()
+    with pytest.raises(FileNotFoundError) as error:
+        synth.render(score)
+    assert error.value.filename == str(path)
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="chmod does not revoke read access on Windows"
+)
+def test_render_unreadable_soundfont(soundfont, score, tmp_path):
+    path = tmp_path / "unreadable.sf2"
+    path.write_bytes(soundfont.read_bytes())
+    synth = Synthesizer(path)
+    path.chmod(0)
+    try:
+        if os.access(path, os.R_OK):
+            pytest.skip("the test process can read files without read permission")
+        with pytest.raises(PermissionError) as error:
+            synth.render(score)
+        assert error.value.filename == str(path)
+    finally:
+        path.chmod(0o600)
+
+
+def test_render_malformed_soundfont(score, tmp_path):
+    path = tmp_path / "malformed.sf2"
+    path.write_bytes(b"invalid SoundFont")
+    with pytest.raises(RuntimeError, match="Cannot load SoundFont") as error:
+        Synthesizer(path).render(score)
+    assert str(path) in str(error.value)
 
 
 @pytest.mark.parametrize("unit", ["tick", "quarter", "second"])

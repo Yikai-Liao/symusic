@@ -9,6 +9,7 @@
 #include <fmt/format.h>
 #include <nanobind/typing.h>
 
+#include "../../utils/filesystem_error.h"
 #include "../../utils/python_helpers.h"
 #include "binding_registration.h"
 #include "../synth/synthesizer_bindings.h"
@@ -55,6 +56,7 @@ void define_time_generic(nb::module_& m, const char* name) {
         .def("__init__", [msg](Placeholder*) { throw nb::type_error(msg.c_str()); });
 }
 NB_MODULE(core, m) {
+    register_filesystem_error_translator();
 #ifndef MEM_LEAK_WARNING
     nb::set_leak_warnings(false);
     m.attr("_nanobind_mem_leak_warning") = false;

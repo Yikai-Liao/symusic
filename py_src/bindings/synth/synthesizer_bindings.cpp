@@ -54,19 +54,9 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                bool                         chorus,
                double                       tail_seconds) {
                 const auto library_path = fluid_library_path();
-                try {
-                    new (self) Synthesizer(
-                        library_path,
-                        soundfont,
-                        {sample_rate, polyphony, reverb, chorus, tail_seconds}
-                    );
-                } catch (const std::filesystem::filesystem_error& error) {
-                    const auto type = error.code() == std::errc::no_such_file_or_directory ?
-                                          PyExc_FileNotFoundError :
-                                          PyExc_OSError;
-                    PyErr_SetString(type, error.what());
-                    throw nb::python_error();
-                }
+                new (self) Synthesizer(
+                    library_path, soundfont, {sample_rate, polyphony, reverb, chorus, tail_seconds}
+                );
             },
             nb::arg("soundfont"),
             nb::kw_only(),

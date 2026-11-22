@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <mutex>
 #include <tuple>
@@ -25,6 +27,33 @@ namespace {
 std::string path_as_utf8(const std::filesystem::path& path) {
     const auto utf8 = path.u8string();
     return {reinterpret_cast<const char*>(utf8.data()), utf8.size()};
+}
+
+[[noreturn]] void throw_soundfont_load_error(const std::filesystem::path& path) {
+    // FluidSynth reports one status for both file access and format errors.
+#ifdef _WIN32
+    std::FILE* file       = nullptr;
+    const int  open_error = _wfopen_s(&file, path.c_str(), L"rb");
+#else
+    auto*     file       = std::fopen(path.c_str(), "rb");
+    const int open_error = file ? 0 : errno;
+#endif
+    if (!file) {
+        throw std::filesystem::filesystem_error(
+            "Cannot open SoundFont", path, std::error_code(open_error, std::generic_category())
+        );
+    }
+    errno = 0;
+    std::fgetc(file);
+    const bool read_failed = std::ferror(file);
+    const int  read_error  = errno;
+    std::fclose(file);
+    if (read_failed) {
+        const auto code = read_error ? std::error_code(read_error, std::generic_category()) :
+                                       std::make_error_code(std::errc::io_error);
+        throw std::filesystem::filesystem_error("Cannot read SoundFont", path, code);
+    }
+    throw std::runtime_error(fmt::format("Cannot load SoundFont at {}", path_as_utf8(path)));
 }
 
 class SharedLibrary {
@@ -359,11 +388,7 @@ struct Synthesizer::Backend {
             if (!synth) { throw std::runtime_error("Cannot initialize FluidSynth"); }
             font_id = fluid_synth_sfload(synth.get(), path_as_utf8(soundfont).c_str(), 0);
         }
-        if (font_id < 0) {
-            throw std::runtime_error(
-                fmt::format("Cannot load SoundFont at {}", path_as_utf8(soundfont))
-            );
-        }
+        if (font_id < 0) { throw_soundfont_load_error(soundfont); }
         auto* state = synth.get();
         check(fluid_synth_set_interp_method(state, -1, 4), "set fourth-order interpolation");
         const int block_size = fluid_synth_get_internal_bufsize(state);
