@@ -52,7 +52,6 @@ Workarounds and unsupported configurations with current toolchains.
 - **nanobind `<cstdio>` workaround.** `py_src/CMakeLists.txt` force-includes `<cstdio>` because nanobind v3.1.0 omits it, which breaks limited-API builds with libc++. Remove the workaround once nanobind tags a release containing upstream commit `942e75d`.
 - **Cross-compiled release wheels.** Building release wheels by cross-compiling on Linux with [xclang](https://github.com/clice-io/xclang) is the planned packaging path. The [experimental wheel path](docs/development/ci.md#cross-compilation-experiment) is opt-in. Integrate verified targets into `release.yml`, retain native builders for interpreter/platform combinations the experiment does not cover, and extend that coverage before retiring those builders.
 - **Sphinx 9.** `docs/requirements.txt` pins `sphinx==7.4.7` and `docutils<0.21`; Sphinx 9.2 supports Docutils 0.23. Check that myst-parser and Furo support the new versions, then raise the pins and keep the `-W` build passing.
-- **Deprecated CMake option names.** `cmake/BuildOptions.cmake` still maps the pre-0.6.1 names (`BUILD_SYMUSIC_PY`, `ENABLE_LTO`, ...) to the `SYMUSIC_` options with a deprecation warning. Remove the aliases in the next minor release.
 
 ## Static analysis
 
@@ -79,9 +78,7 @@ Found while checking the guide against the package. Each fix needs a test that f
 
 Changes that reduce the number of places one change must touch.
 
-- **Example-only headers.** `include/argparse.h` (about 2,200 lines, excluded from `clice lint`) sits in the core's public include directory but only `examples/cpp/` uses it. Move it under `examples/` or replace it with a pinned release.
 - **MIDI semantics in minimidi.** Move the note layer in `include/symusic/detail/midi_notes.h` into minimidi with its own recording-sink tests, tag a release and pin it. Then introduce a source concept for writing and move the corresponding note encoding there. Symusic owns the split by channel and program, pedals and construction of its score model.
-- **minimidi branch.** `.gitmodules` names branch `template-container` for `3rdparty/minimidi`, but the pinned commit is on `main`. Make the declared branch match the pin.
 
 ## Code cleanup
 
