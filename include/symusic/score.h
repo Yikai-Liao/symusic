@@ -38,15 +38,17 @@ struct Score {
     bool operator==(const Score& other) const;
 
     template<DataFormat F>
+        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
     [[nodiscard]] static Score parse(std::span<const u8> bytes) {
         if constexpr (F == DataFormat::MIDI) return parse_midi_bytes(bytes, false);
-        if constexpr (F == DataFormat::ZPP) return parse_zpp_bytes(bytes);
+        else return parse_zpp_bytes(bytes);
     }
 
     template<DataFormat F>
+        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
     [[nodiscard]] vec<u8> dumps() const {
         if constexpr (F == DataFormat::MIDI) return dump_midi_bytes();
-        if constexpr (F == DataFormat::ZPP) return dump_zpp_bytes();
+        else return dump_zpp_bytes();
     }
 
     [[nodiscard]] static Score parse_midi_bytes(std::span<const u8> bytes, bool sanitize_data);
