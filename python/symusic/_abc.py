@@ -26,6 +26,9 @@ _EXE_SUFFIX = ".exe" if os.name == "nt" else ""
 _ABC2MIDI = _BIN / f"abc2midi{_EXE_SUFFIX}"
 _MIDI2ABC = _BIN / f"midi2abc{_EXE_SUFFIX}"
 _TEMP_PREFIX = "symusic-abc-"
+# readnumf in parseabc.c stops consuming digits once it reaches this value.
+_REFERENCE_TRUNCATION_THRESHOLD = 214_748_363
+_MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 # parseabc.c reads a single whitespace-delimited path of up to 79 bytes.
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(rb"(?:^|(?<=[\r\n]))([ \t]*%%MIDI[ \t]+ptstress[ \t]+)([^\r\n]+)")
@@ -155,8 +158,7 @@ def _read_abc(
         if not isinstance(tune, int) or isinstance(tune, bool):
             msg = "tune must be an integer or None"
             raise TypeError(msg)
-        # Larger decimal references are truncated by readnumf in parseabc.c.
-        if not 0 <= tune <= 2_147_483_629:
+        if not 0 <= tune <= _MAX_REFERENCE:
             msg = f"ABC tune X:{tune} was not found"
             raise ValueError(msg)
 
@@ -164,12 +166,13 @@ def _read_abc(
         workdir = Path(directory)
         data, includes = _stage_input_files(data, workdir)
         args = [_ABC2MIDI, "stdin"]
-        # The converter treats 0 as a sentinel. Select the actual tune before
-        # passing it as the first and only tune in the input.
-        if tune == 0:
-            data = _isolate_tune(data, tune, workdir, includes)
-        elif tune is not None:
-            args.append(str(tune))
+        if tune is not None:
+            # The converter uses 0 as a sentinel and large references can
+            # alias longer numbers. Isolate these by their full decimal value.
+            if 0 < tune < _REFERENCE_TRUNCATION_THRESHOLD:
+                args.append(str(tune))
+            else:
+                data = _isolate_tune(data, tune, workdir, includes)
         output = workdir / "output.mid"
         args.extend(("-o", output.name, "-silent"))
 
