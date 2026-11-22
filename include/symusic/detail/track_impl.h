@@ -64,7 +64,7 @@ template<TType T, typename S>
 void Track<T, S>::sort(const bool reverse) {
     auto key = [](const auto& event) { return event.default_key(); };
     S::sort(S::get(notes), key, reverse);
-    S::sort(S::get(controls), key, reverse);
+    S::stable_sort(S::get(controls), key, reverse);
     S::sort(S::get(pitch_bends), key, reverse);
     S::sort(S::get(lyrics), key, reverse);
 }
