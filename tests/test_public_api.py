@@ -233,12 +233,17 @@ def test_score_binary_file_and_explicit_format(tmp_path, format_name):
 def test_score_file_write_errors(tmp_path):
     with pytest.raises(FileNotFoundError):
         Score().dump(tmp_path / "missing" / "out.mid")
-    directory = tmp_path / "directory.mid"
-    directory.mkdir()
-    with pytest.raises(IsADirectoryError):
-        Score().dump(directory)
     with pytest.raises(ValueError, match="format"):
         Score().dump(tmp_path / "out.mid", format="unknown")
+
+
+def test_score_dump_to_directory(tmp_path):
+    directory = tmp_path / "directory.mid"
+    directory.mkdir()
+    with pytest.raises(IsADirectoryError) as exc:
+        Score().dump(directory)
+    assert exc.value.errno == errno.EISDIR
+    assert exc.value.filename == str(directory)
 
 
 def test_copy_protocol_and_hashes():

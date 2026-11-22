@@ -9,6 +9,7 @@
 
 #include "fmt/core.h"
 
+#include "symusic/detail/file_error.h"
 #include "symusic/io/common.h"
 
 #ifdef _MSC_VER
@@ -148,7 +149,11 @@ void write_file(const std::filesystem::path& path, std::span<const u8> buffer) {
     FILE* fp = fopen(path.c_str(), "wb");
     const auto error = errno;
 #endif
-    if (!fp) throw_file_error("Cannot open file for writing", path, error);
+    if (!fp) {
+        throw std::filesystem::filesystem_error(
+            "Cannot open file for writing", path, detail::write_open_error(path, error)
+        );
+    }
     const bool complete = buffer.empty() || fwrite(buffer.data(), 1, buffer.size(), fp) == buffer.size();
     const auto write_error = errno;
     const auto close_result = fclose(fp);
