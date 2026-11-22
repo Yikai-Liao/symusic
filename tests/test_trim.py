@@ -56,11 +56,9 @@ def test_score_trim(ttype):
         2, 4, start_mode="truncate", end_mode="truncate"
     )
     assert trimmed.tempos[0].time == 2
-    assert score.tracks[0].notes[0].start == 1
-    updated = score.trim(2, 4, start_mode="truncate", end_mode="truncate", inplace=True)
-    assert updated == score == trimmed
-    updated.ticks_per_quarter = 960
-    assert score.ticks_per_quarter == 960
+    trimmed.tracks[0].notes[0].time = 3
+    assert score.tracks[0].notes[0].time == 1
+    assert score.tempos[0].time == 0
 
 
 @pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
@@ -91,6 +89,12 @@ def test_score_trim_checks_contained_note_duration():
     trimmed = score.trim(10, 20, min_overlap=2)
 
     assert [note.pitch for note in trimmed.tracks[0].notes] == [61]
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_score_trim_rejects_inplace(ttype):
+    with pytest.raises(TypeError, match="incompatible function arguments"):
+        Score(480, ttype=ttype).trim(0, 1, inplace=True)
 
 
 def test_empty_score_rejects_unknown_trim_mode():

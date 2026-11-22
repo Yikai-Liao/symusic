@@ -113,7 +113,7 @@ constexpr const char* kTrimDoc = R"pbdoc(
 Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
 ``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
 keeps them whole. Invalid modes raise ``ValueError``. Other events are clipped by time, and the tempo and signatures in effect at
-*start* are kept there. Returns a deep copy unless *inplace* is true.
+*start* are kept there. Returns a new score with independent tracks and events.
 )pbdoc";
 constexpr const char* kShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
@@ -460,13 +460,9 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
-        .def("trim", [](self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode, const bool inplace) {
-            if (inplace) {
-                self->trim_inplace(start, end, min_overlap, start_mode, end_mode);
-                return self;
-            }
+        .def("trim", [](const self_t& self, const unit start, const unit end, const unit min_overlap, const std::string& start_mode, const std::string& end_mode) {
             return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
-        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false, score_docstrings::kTrimDoc)
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = unit{0}, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc)
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);

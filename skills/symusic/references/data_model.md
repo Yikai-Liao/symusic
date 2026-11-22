@@ -109,7 +109,7 @@ Copies differ in depth:
 
 ## Transformations
 
-Score and track methods return a new object unless you pass `inplace=True`; with it they change the receiver, so existing references see the change. `sort` is the exception and works in place unless you pass `inplace=False`. `to` and `resample` always return a new score.
+Score and track methods with an `inplace` parameter default to returning a new object. Passing `inplace=True` changes the receiver, so existing references see the change. `sort` defaults to working in place. `Score.trim`, `Score.to` and `Score.resample` always return a new score.
 
 | Method | On | Effect |
 |---|---|---|
