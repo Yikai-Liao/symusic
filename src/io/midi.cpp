@@ -554,14 +554,21 @@ minimidi::MidiFile<> to_midi(const Score<Tick>& score, u16 division) {
         // add notes to messages
         msgs.resize(msgs.size() + note_size * 2);
         for (size_t i = note_begin; const auto& note : notes) {
+            if (note.pitch < 0 || note.velocity < 0) {
+                throw std::invalid_argument(fmt::format(
+                    "MIDI note pitch and velocity must be non-negative, got {} and {}",
+                    note.pitch, note.velocity
+                ));
+            }
+            // Non-negative i8 values fit in seven MIDI data bits.
+            const auto pitch = static_cast<u8>(note.pitch);
+            const auto velocity = static_cast<u8>(note.velocity);
             if (note.duration > 0) {
-                msgs[i] = minimidi::NoteOff(note.end(), channel, note.pitch, note.velocity);
-                msgs[i + note_size]
-                    = minimidi::NoteOn(note.time, channel, note.pitch, note.velocity);
+                msgs[i] = minimidi::NoteOff(note.end(), channel, pitch, velocity);
+                msgs[i + note_size] = minimidi::NoteOn(note.time, channel, pitch, velocity);
             } else {   // empty note
-                msgs[i + note_size]
-                    = minimidi::NoteOff(note.time, channel, note.pitch, note.velocity);
-                msgs[i] = minimidi::NoteOn(note.time, channel, note.pitch, note.velocity);
+                msgs[i + note_size] = minimidi::NoteOff(note.time, channel, pitch, velocity);
+                msgs[i] = minimidi::NoteOn(note.time, channel, pitch, velocity);
             }
             i += 1;
         }

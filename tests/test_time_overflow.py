@@ -283,3 +283,10 @@ def test_midi_rejects_unrepresentable_delta():
     score = tick_score(Note(1 << 28, 1, 60, 80))
     with pytest.raises(ValueError, match="event delta.*28 bits"):
         score.dumps_midi()
+
+
+@pytest.mark.parametrize(("pitch", "velocity"), [(-1, 80), (60, -1)])
+def test_midi_rejects_negative_note_data(pitch, velocity):
+    score = tick_score(Note(0, 1, pitch, velocity))
+    with pytest.raises(ValueError, match="note pitch and velocity.*-1"):
+        score.dumps_midi()

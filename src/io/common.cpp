@@ -44,7 +44,8 @@ namespace symusic {
 
 namespace {
 vec<u8> read_file_contents(FILE* file) {
-    const std::unique_ptr<FILE, decltype(&fclose)> handle(file, &fclose);
+    const auto close_file = [](FILE* stream) { fclose(stream); };
+    const std::unique_ptr<FILE, decltype(close_file)> handle(file, close_file);
     if (fseek(file, 0, SEEK_END) != 0) {
         throw std::runtime_error("Cannot seek to the end of the file");
     }

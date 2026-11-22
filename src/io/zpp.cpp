@@ -241,7 +241,10 @@ T deserialize_zpp(std::span<const u8> buffer) {
     std::array<u8, kZppMagic.size()> magic{};
     u8 version{};
     if (zpp::bits::failure(in(magic, version)) || magic != kZppMagic) {
-        throw std::invalid_argument("Invalid ZPP pickle header");
+        throw std::invalid_argument(
+            "Invalid ZPP pickle header (unversioned or malformed, expected version "
+            + std::to_string(kZppVersion) + ")"
+        );
     }
     if (version != kZppVersion) {
         throw std::invalid_argument(
