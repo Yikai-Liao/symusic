@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <exception>
 #include <limits>
 #include <optional>
 
@@ -90,20 +91,36 @@ inline pycontainer::slice event_slice(
 
 template<class List, class Item>
 struct ListIterator {
-    List   list;
-    Py_ssize_t index = 0;
-    bool       reverse = false;
+    List            list;
+    nb::type_object item_type;
+    Py_ssize_t      index = 0;
+    Py_ssize_t      step  = 1;
 
-    Item next() {
-        return list.visit([&](const auto& ptr) {
-            if (index < 0 || static_cast<size_t>(index) >= ptr->size()) {
-                index = -1;
-                throw nb::stop_iteration();
-            }
-            auto item = Item(list_item(*ptr, index));
-            index += reverse ? -1 : 1;
-            return item;
-        });
+    // The iterator slot consumes a new reference, or null at exhaustion.
+    static PyObject* next(PyObject* object) noexcept {
+        if (!nb::inst_ready(object)) {
+            PyErr_SetString(PyExc_TypeError, "List iterator is not initialized");
+            return nullptr;
+        }
+        auto& self = *nb::inst_ptr<ListIterator>(object);
+        try {
+            return self.list.visit([&](const auto& ptr) -> PyObject* {
+                if (self.index < 0 || static_cast<size_t>(self.index) >= ptr->size()) {
+                    self.index = -1;
+                    return nullptr;
+                }
+                // Construct directly in the Python instance to avoid a type lookup
+                // and a temporary wrapper for every item.
+                auto result = nb::inst_alloc(self.item_type);
+                new (nb::inst_ptr<Item>(result)) Item(list_item(*ptr, self.index));
+                nb::inst_mark_ready(result);
+                self.index += self.step;
+                return result.release().ptr();
+            });
+        } catch (nb::python_error& error) { error.restore(); } catch (const std::exception& error) {
+            PyErr_SetString(PyExc_RuntimeError, error.what());
+        }
+        return nullptr;
     }
 };
 
@@ -111,11 +128,12 @@ template<template<class> class Native, class Item>
 void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
     using List     = UnitValue<Native>;
     using Iterator = ListIterator<List, Item>;
-    nb::class_<Iterator>(type, "_Iterator")
-        .def(
-            "__iter__", [](Iterator& self) -> Iterator& { return self; }, nb::rv_policy::reference
-        )
-        .def("__next__", &Iterator::next);
+    PyType_Slot slots[] = {
+        {Py_tp_iter, reinterpret_cast<void*>(PyObject_SelfIter)},
+        {Py_tp_iternext, reinterpret_cast<void*>(Iterator::next)},
+        {0, nullptr},
+    };
+    nb::class_<Iterator>(type, "_Iterator", nb::is_final(), nb::type_slots(slots));
     const auto copy = [](const List& self, bool deep) {
         return self.visit([&](const auto& ptr) { return List(clone_list(*ptr, deep)); });
     };
@@ -213,12 +231,22 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 return self.visit([](const auto& ptr) { return !ptr->empty(); });
             }
         )
-        .def("__iter__", [](const List& self) { return Iterator{self}; })
+        .def(
+            "__iter__",
+            [](const List& self) {
+                return Iterator{self, nb::borrow<nb::type_object>(nb::type<Item>())};
+            }
+        )
         .def(
             "__reversed__",
             [](const List& self) {
                 return self.visit([&](const auto& ptr) {
-                    return Iterator{self, static_cast<Py_ssize_t>(ptr->size()) - 1, true};
+                    return Iterator{
+                        self,
+                        nb::borrow<nb::type_object>(nb::type<Item>()),
+                        static_cast<Py_ssize_t>(ptr->size()) - 1,
+                        -1
+                    };
                 });
             }
         )
