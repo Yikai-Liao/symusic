@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <tuple>
 
 #include <fmt/format.h>
@@ -336,12 +337,17 @@ struct Synthesizer::Backend {
         set("synth.reverb.active", config.reverb);
         set("synth.chorus.active", config.chorus);
 
+        // FluidSynth marks its global tables initialized before building them.
+        // The first SoundFont load also initializes a shared sample-cache mutex.
+        static std::mutex                                               setup_mutex;
+        std::unique_lock                                                setup_lock(setup_mutex);
         const std::unique_ptr<FluidSynth, decltype(delete_fluid_synth)> synth(
             new_fluid_synth(settings.get()), delete_fluid_synth
         );
         auto* state = synth.get();
         if (!state) { throw std::runtime_error("Cannot initialize FluidSynth"); }
         const int font_id = fluid_synth_sfload(state, path_as_utf8(soundfont).c_str(), 0);
+        setup_lock.unlock();
         if (font_id < 0) {
             throw std::runtime_error(
                 fmt::format("Cannot load SoundFont at {}", path_as_utf8(soundfont))

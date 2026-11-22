@@ -33,7 +33,11 @@ target_include_directories(symusic
     PUBLIC include 3rdparty 3rdparty/pdqsort
     PRIVATE 3rdparty/zpp_bits
 )
-target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi pyvec PRIVATE ${CMAKE_DL_LIBS})
+find_package(Threads REQUIRED)
+target_link_libraries(symusic
+    PUBLIC fmt::fmt-header-only minimidi pyvec
+    PRIVATE Threads::Threads ${CMAKE_DL_LIBS}
+)
 set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION ${SYMUSIC_CORE_LTO})
 if(SYMUSIC_CORE_LTO)
     # Consumers must link the core's LTO objects, without enabling IPO on
