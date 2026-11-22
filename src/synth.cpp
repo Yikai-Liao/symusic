@@ -96,6 +96,8 @@ constexpr int kMaxChannels     = 256;
 constexpr int kMidiKeys        = 128;
 constexpr int kDrumBank        = 128;
 constexpr int kPitchBendCenter = 8192;
+constexpr int kAllNotesOff     = 123;
+constexpr int kOmniOff         = 124;
 
 enum class EventKind { Control, PitchBend, NoteOff, NoteOn };
 
@@ -280,7 +282,13 @@ struct Synthesizer::Backend {
                 channel.bank_lsb = parameter;
                 channel.has_lsb  = true;
             }
-            check(fluid_synth_cc(synth, index, value, parameter), "send a control change");
+            // Omni and Mono/Poly mode messages also release notes. Keep that
+            // effect local and leave FluidSynth's channel groups untouched.
+            if (value >= kOmniOff) {
+                check(fluid_synth_cc(synth, index, kAllNotesOff, 0), "release notes");
+            } else {
+                check(fluid_synth_cc(synth, index, value, parameter), "send a control change");
+            }
             break;
         case EventKind::PitchBend:
             check(fluid_synth_pitch_bend(synth, index, value), "send a pitch bend");
