@@ -113,7 +113,9 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                         ptr->begin(),
                         ptr->end(),
                         (*match)->begin(),
-                        [](const auto& left, const auto& right) { return *left == *right; }
+                        [](const auto& left, const auto& right) {
+                            return left == right || *left == *right;
+                        }
                     );
                 }
             });
@@ -127,7 +129,12 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 if (!nb::isinstance<Item>(object)) return false;
                 const auto& value = nb::cast<const Item&>(object);
                 const auto* match = value.template find<UnitOf<decltype(ptr)>>();
-                if (!match || *list_item(*ptr, i) != **match) return false;
+                if (!match) return false;
+                const auto item = list_item(*ptr, i);
+                if constexpr (!is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
+                    if (item == *match) continue;
+                }
+                if (*item != **match) return false;
             }
             return true;
         });
