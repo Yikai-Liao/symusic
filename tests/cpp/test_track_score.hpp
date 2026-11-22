@@ -170,6 +170,8 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         // Test TPQ constructor
         Score<Tick> score(480);
         REQUIRE(score.ticks_per_quarter == 480);
+        REQUIRE_THROWS_AS(Score<Tick>(0), std::invalid_argument);
+        REQUIRE_THROWS_AS(Score<Tick>(-1), std::invalid_argument);
     }
 
     SECTION("Score Copy and Equality") {
@@ -213,7 +215,9 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         REQUIRE(score.start() == 100);   // Now expect 100 after adding the track with the note
         REQUIRE(score.end() == 300);     // End time should be correct
 
-        score.tracks.front().notes.push_back(detail::make_event<Note<Tick>>(400, 100, 62, 80));   // ends at 500
+        score.tracks.front().notes.push_back(
+            detail::make_event<Note<Tick>>(400, 100, 62, 80)
+        );                               // ends at 500
         REQUIRE(score.start() == 100);   // Start time should still be the earliest
         REQUIRE(score.end() == 500);     // End time should update
 
