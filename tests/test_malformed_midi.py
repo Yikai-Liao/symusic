@@ -163,7 +163,11 @@ def test_midi_lyrics_use_first_created_note_track():
     )
     score = Score.from_midi(build_single_track_midi(body))
     assert len(score.tracks) == 3
-    assert [(track.notes[0].pitch, track.lyrics[0].text) for track in score.tracks if track.lyrics] == [
+    assert [
+        (track.notes[0].pitch, track.lyrics[0].text)
+        for track in score.tracks
+        if track.lyrics
+    ] == [
         (60, "a"),
     ]
 

@@ -1,5 +1,4 @@
 import pytest
-
 from symusic import Note, Score, Tempo, Track
 from symusic.core import NoteQuarterList
 
@@ -53,13 +52,18 @@ def test_score_trim(ttype):
     score.tempos.append(Tempo(0, 120, ttype=ttype))
 
     trimmed = score.trim(2, 4, start_mode="truncate", end_mode="truncate")
-    assert trimmed.tracks[0] == track.trim(2, 4, start_mode="truncate", end_mode="truncate")
+    assert trimmed.tracks[0] == track.trim(
+        2, 4, start_mode="truncate", end_mode="truncate"
+    )
     assert trimmed.tempos[0].time == 2
     assert score.tracks[0].notes[0].start == 1
-    assert score.trim(2, 4, start_mode="truncate", end_mode="truncate", inplace=True) is score
+    assert (
+        score.trim(2, 4, start_mode="truncate", end_mode="truncate", inplace=True)
+        is score
+    )
     assert score == trimmed
 
 
 def test_empty_score_rejects_unknown_trim_mode():
-    with pytest.raises(ValueError, match="end_mode.*unknown"):
+    with pytest.raises(ValueError, match=r"end_mode.*unknown"):
         Score(480).trim(0, 1, end_mode="unknown")

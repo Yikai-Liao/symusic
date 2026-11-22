@@ -156,7 +156,9 @@ def _restore_state(obj, state):
     cls.__new__(cls).__setstate__(state)
 
 
-@pytest.mark.parametrize("build", [_build_score, _build_track, lambda t: _build_track(t).notes])
+@pytest.mark.parametrize(
+    "build", [_build_score, _build_track, lambda t: _build_track(t).notes]
+)
 def test_pickle_rejects_other_format_version(ttype, build):
     obj = build(ttype)
     state = obj.__getstate__()

@@ -267,7 +267,7 @@ def test_midi_rejects_unrepresentable_pitch_bend(value):
 def test_midi_rejects_unrepresentable_tempo(mspq):
     score = Score(480)
     score.tempos.append(Tempo(0, mspq=mspq))
-    with pytest.raises(ValueError, match="mspq.*24 bits"):
+    with pytest.raises(ValueError, match=r"mspq.*24 bits"):
         score.dumps_midi()
 
 
@@ -275,18 +275,18 @@ def test_midi_rejects_unrepresentable_tempo(mspq):
 def test_midi_rejects_unrepresentable_denominator(denominator):
     score = Score(480)
     score.time_signatures.append(TimeSignature(0, 4, denominator))
-    with pytest.raises(ValueError, match="denominator.*power of two"):
+    with pytest.raises(ValueError, match=r"denominator.*power of two"):
         score.dumps_midi()
 
 
 def test_midi_rejects_unrepresentable_delta():
     score = tick_score(Note(1 << 28, 1, 60, 80))
-    with pytest.raises(ValueError, match="event delta.*28 bits"):
+    with pytest.raises(ValueError, match=r"event delta.*28 bits"):
         score.dumps_midi()
 
 
 @pytest.mark.parametrize(("pitch", "velocity"), [(-1, 80), (60, -1)])
 def test_midi_rejects_negative_note_data(pitch, velocity):
     score = tick_score(Note(0, 1, pitch, velocity))
-    with pytest.raises(ValueError, match="note pitch and velocity.*-1"):
+    with pytest.raises(ValueError, match=r"note pitch and velocity.*-1"):
         score.dumps_midi()

@@ -258,6 +258,6 @@ def test_pianoroll_rejects_negative_encoded_velocity():
     score = Score(480)
     score.tracks.append(track)
     for source in (track, score):
-        with pytest.raises(ValueError, match="velocity.*-1"):
+        with pytest.raises(ValueError, match=r"velocity.*-1"):
             source.pianoroll(encode_velocity=True)
         assert source.pianoroll(encode_velocity=False).any()
