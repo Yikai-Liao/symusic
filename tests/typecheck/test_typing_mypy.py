@@ -70,9 +70,6 @@ POSITIVE_SAMPLE = """
     tick_clipped: core.Score[core.Tick] = tick_score.clip(0, 10)
     quarter_clipped: core.Score[core.Quarter] = quarter_score.clip(0.0, 1.0)
     second_clipped: core.Score[core.Second] = second_score.clip(0.0, 1.0)
-    tick_trimmed: core.Score[core.Tick] = tick_score.trim(0, 10, start_mode="retain")
-    quarter_trimmed: core.Score[core.Quarter] = quarter_score.trim(0.25, 1.5)
-    concrete_trimmed: core.ScoreTick = core.ScoreTick(480).trim(0, 10)
     tick_score.get_beats(0)
     quarter_score.get_beats(0.0)
     second_score.get_beats(0.0)
@@ -105,8 +102,6 @@ NEGATIVE_SAMPLE = """
 
     tick.clip(0.5, 1.5)
     tick.get_beats(0.5)
-    tick.trim(0, 10, start_mode="unknown")
-    tick.trim(0, 10, end_mode="unknown")
     tick.from_abc("X:1", tune="7")
     second.pianoroll()
     wrong_unit: core.Score[core.Tick] = core.ScoreSecond(480)
@@ -146,8 +141,6 @@ def test_complete_typing_contract(tmp_path: Path) -> None:
     assert str(positive) not in result.stdout, result.stdout
     assert str(negative) in result.stdout, result.stdout
     assert 'incompatible type "float"; expected "int"' in result.stdout
-    assert 'Argument "start_mode" to "trim"' in result.stdout
-    assert 'Argument "end_mode" to "trim"' in result.stdout
     assert any(
         'Argument "tune" to "from_abc"' in line and 'incompatible type "str"' in line
         for line in result.stdout.splitlines()

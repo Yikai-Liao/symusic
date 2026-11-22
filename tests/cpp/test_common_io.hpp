@@ -65,6 +65,20 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         REQUIRE_THROWS_AS(read_file(non_existent_file), std::runtime_error);
     }
 
+    SECTION("Read score files") {
+        const auto    path = temp_dir / "test.MID";
+        const vec<u8> data{1, 2, 3};
+        write_file(path, data);
+
+        REQUIRE(score_file_format(path, "") == DataFormat::MIDI);
+        REQUIRE(score_file_format("test.abc", "") == DataFormat::ABC);
+        REQUIRE(score_file_format(path, "ABC") == DataFormat::ABC);
+        REQUIRE_THROWS_AS(score_file_format("test.bin", ""), std::invalid_argument);
+        REQUIRE(read_score_file(path) == data);
+        REQUIRE_THROWS_AS(read_score_file(temp_dir / "missing.mid"), fs::filesystem_error);
+        REQUIRE_THROWS_AS(read_score_file(temp_dir), fs::filesystem_error);
+    }
+
     SECTION("Read and Roundtrip Fixture MIDI from Disk") {
         const fs::path fixture_path = fs::path("testcases") / "One_track_MIDIs" / "Maestro_1.mid";
         REQUIRE(fs::exists(fixture_path));

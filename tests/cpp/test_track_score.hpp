@@ -170,6 +170,8 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
         // Test TPQ constructor
         Score<Tick> score(480);
         REQUIRE(score.ticks_per_quarter == 480);
+        REQUIRE_THROWS_AS(Score<Tick>(0), std::invalid_argument);
+        REQUIRE_THROWS_AS(Score<Tick>(-1), std::invalid_argument);
     }
 
     SECTION("Score Copy and Equality") {

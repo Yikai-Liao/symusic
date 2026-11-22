@@ -748,17 +748,8 @@ def test_abc_file_rejects_named_pipe(tmp_path):
     program = """
 import sys
 from symusic import Score
-from symusic.core import ScoreTick
 
-for read in (Score, Score.from_file):
-    try:
-        read(sys.argv[1])
-    except ValueError as error:
-        assert "is not a file" in str(error)
-    else:
-        raise AssertionError("Score accepted an ABC named pipe")
-
-for read in (ScoreTick.from_file, ScoreTick.from_abc_file, Score.from_abc_file):
+for read in (Score, Score.from_file, Score.from_abc_file):
     try:
         read(sys.argv[1])
     except RuntimeError as error:

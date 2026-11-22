@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cctype>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -61,6 +63,41 @@ vec<u8> read_file_contents(FILE* file) {
     return buffer;
 }
 }   // namespace
+
+DataFormat score_file_format(const std::filesystem::path& path, std::string format) {
+    if (format.empty()) {
+        const auto extension = path.extension();
+        if (extension == ".mid" || extension == ".midi" || extension == ".MID"
+            || extension == ".MIDI")
+            return DataFormat::MIDI;
+        if (extension == ".abc") return DataFormat::ABC;
+    } else {
+        std::transform(format.begin(), format.end(), format.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (format == "midi" || format == "mid") return DataFormat::MIDI;
+        if (format == "abc") return DataFormat::ABC;
+    }
+    throw std::invalid_argument("Unknown file format");
+}
+
+vec<u8> read_score_file(const std::filesystem::path& path) {
+    const auto status = std::filesystem::status(path);
+    if (!std::filesystem::exists(status)) {
+        throw std::filesystem::filesystem_error(
+            "Cannot read score", path, std::make_error_code(std::errc::no_such_file_or_directory)
+        );
+    }
+    if (std::filesystem::is_directory(status)) {
+        throw std::filesystem::filesystem_error(
+            "Cannot read score", path, std::make_error_code(std::errc::is_a_directory)
+        );
+    }
+    if (!std::filesystem::is_regular_file(status)) {
+        throw std::runtime_error("Cannot seek to the end of the file");
+    }
+    return read_file(path);
+}
 
 vec<u8> read_file(const std::string& path) {
 #ifndef _WIN32
