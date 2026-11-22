@@ -151,6 +151,13 @@ def test_abc_tune_zero_ignores_text_blocks():
     assert [note.pitch for note in score.tracks[0].notes] == [69]
 
 
+@pytest.mark.parametrize("markers", ["%%begintext %%endtext", "%%endtext %%begintext"])
+def test_abc_endtext_wins_on_same_line(markers):
+    abc = f"%%begintext\n% {markers}\nX:0\nM:1/4\nL:1/4\nK:C\nA|\n"
+    score = Score.from_abc(abc, tune=0)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+
 def test_abc_tune_zero_in_include(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("tune.abc").write_bytes(b"X:000\rM:1/4\rL:1/4\rK:C\rA|")
