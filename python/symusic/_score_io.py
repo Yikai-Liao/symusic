@@ -45,7 +45,11 @@ class _FileMethods:
             if tune is not None:
                 msg = "tune is only supported for ABC input"
                 raise ValueError(msg)
-            return cls.from_midi(path.read_bytes(), sanitize_data)
+            with path.open("rb") as midi_file:
+                if not midi_file.seekable():
+                    msg = "Cannot seek to the end of the file"
+                    raise RuntimeError(msg)
+                return cls.from_midi(midi_file.read(), sanitize_data)
         if file_format == "abc":
             if sanitize_data:
                 msg = "sanitize_data is only supported for MIDI input"
