@@ -176,7 +176,7 @@ std::vector<uint8_t> dumps_in_filled_storage(unsigned char fill, F make, size_t 
     std::memset(storage, fill, sizeof(storage));
     E* event = new (storage) E(make());
     std::memset(storage + payload, fill, sizeof(E) - payload);
-    auto bytes = event->template serialize();
+    auto bytes = event->serialize();
     event->~E();
     return bytes;
 }
