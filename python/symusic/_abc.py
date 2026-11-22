@@ -32,8 +32,9 @@ _MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 # parseabc.c reads a single whitespace-delimited path of up to 79 bytes.
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(
-    rb"(?:^|(?<=[\r\n]))([ \t]*(?:%%MIDI|I[ \t]*:[ \t]*MIDI)"
-    rb"[ \t]+ptstress[ \t]+)([^\r\n]+)"
+    rb"(?:^|(?<=[\r\n]))"
+    rb"(?P<prefix>[ \t]*(?:%%MIDI|(?P<instruction>I[ \t]*:[ \t]*MIDI))"
+    rb"[ \t]+ptstress[ \t]+)(?P<argument>[^\r\n]+)"
 )
 
 # parseabc.c accepts spaces and tabs before and around the field delimiter.
@@ -92,7 +93,12 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
     stress_files: dict[bytes, bytes] = {}
 
     def stage_stress(match: re.Match[bytes]) -> bytes:
-        original = match[2]
+        original = match["argument"]
+        comment = b""
+        if match["instruction"]:
+            # parsefield in parseabc.c splits I: fields at the first percent sign.
+            original, separator, suffix = original.partition(b"%")
+            comment = separator + suffix
         if original not in stress_files:
             name = f"stress-{len(stress_files)}.txt"
             try:
@@ -101,7 +107,7 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
                 # This may be an inline stress pattern or a missing file.
                 return match[0]
             stress_files[original] = name.encode("ascii")
-        return match[1] + stress_files[original]
+        return match["prefix"] + stress_files[original] + comment
 
     def stage_include(match: re.Match[bytes]) -> bytes:
         original = match[1][:79]

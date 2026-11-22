@@ -208,6 +208,24 @@ def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include, prefix)
     assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
 
 
+@pytest.mark.parametrize("absolute", [False, True])
+def test_abc_stress_instruction_comment(tmp_path, monkeypatch, absolute):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "stress pattern.txt"
+    path.write_text("4\n95 1\n80 1\n85 1\n80 1\n95 1\n")
+    filename = path if absolute else path.name
+    abc = make_roundtrip_abc_text()
+    expected = Score.from_abc(
+        abc.replace("C D E F|", f"I:MIDI ptstress {filename}\nC D E F|")
+    )
+    commented = abc.replace(
+        "C D E F|", f"I:MIDI ptstress {filename}% stress comment\nC D E F|"
+    )
+    assert Score.from_abc(commented) == expected
+    midi, _ = _abc._read_abc(commented.encode(), tune=None)
+    assert b" stress comment" in midi
+
+
 def test_dump_abc_roundtrip(tmp_path: Path):
     score = make_roundtrip_score()
     output_dir = tmp_path / "abc output"
