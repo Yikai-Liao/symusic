@@ -203,6 +203,21 @@ def test_track_controls_are_independent(synth: Synthesizer, score: Score) -> Non
     np.testing.assert_allclose(synth.render(score), plain, atol=1e-6)
 
 
+@pytest.mark.parametrize("control", [124, 125, 126, 127])
+@pytest.mark.parametrize("track_index", [0, 1])
+def test_channel_mode_is_track_local(synth, score, control, track_index):
+    other = Track()
+    other.notes.append(Note(0, 480, 76, 100))
+    score.tracks.append(other)
+    track = score.tracks[track_index]
+    track.notes[0].duration = 120
+    expected = synth.render(score)
+
+    track.notes[0].duration = 480
+    track.controls.append(ControlChange(120, control, 0))
+    np.testing.assert_allclose(synth.render(score), expected, atol=1e-6)
+
+
 @pytest.mark.parametrize(
     ("program", "is_drum", "controls", "semitones"),
     [
