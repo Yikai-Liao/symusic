@@ -175,9 +175,10 @@ void plan_time_adjustment(
     const auto diff = [](wide left, wide right) { return static_cast<f64>(left - right); };
     const auto map_time = [&](unit time) {
         const auto right = std::lower_bound(
-            original_times.begin() + 1, original_times.end(), time
+            original_times.begin(), original_times.end(), time
         );
         const auto index = static_cast<size_t>(right - original_times.begin());
+        if (*right == time) return new_times[index];
         const auto left = index - 1;
         const auto scale = diff(new_times[index], new_times[left])
             / diff(original_times[index], original_times[left]);

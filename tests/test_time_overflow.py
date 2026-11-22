@@ -107,9 +107,18 @@ def test_clip_trim_extreme():
 
 
 def test_adjust_time_overflow():
-    track = Track(notes=[Note(1, 0, 60, 80, ttype=Tick)], ttype=Tick)
+    track = Track(notes=[Note(0, 1, 60, 80, ttype=Tick)], ttype=Tick)
     with pytest.raises(OverflowError):
         track.adjust_time([0, 1], [INT_MIN, INT_MAX])
+
+
+def test_adjust_time_anchors_at_tick_limits():
+    track = Track(notes=[Note(0, 0, 60), Note(1, 0, 62)])
+    track.adjust_time([0, 1], [INT_MIN, INT_MAX])
+    assert [(note.time, note.duration) for note in track.notes] == [
+        (INT_MIN, 0),
+        (INT_MAX, 0),
+    ]
 
 
 def _spacer() -> bytes:
