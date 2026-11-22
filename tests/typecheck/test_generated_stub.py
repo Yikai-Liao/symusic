@@ -24,3 +24,15 @@ def test_stub_exposes_runtime_classes():
             ]
         elif name in {"Score", "Track", "Note", "Tempo"}:
             assert [ast.unparse(base) for base in node.bases] == ["Generic[_Unit]"]
+
+
+def test_event_list_copy_has_no_options():
+    stub = Path(_core.__file__).with_name("_core.pyi")
+    for node in ast.parse(stub.read_text()).body:
+        if isinstance(node, ast.ClassDef) and node.name.endswith("List"):
+            copy_method = next(
+                method
+                for method in node.body
+                if isinstance(method, ast.FunctionDef) and method.name == "__copy__"
+            )
+            assert ast.unparse(copy_method.args) in {"self", "self, /"}, node.name
