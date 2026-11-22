@@ -15,6 +15,8 @@ MYPY_SUPPORTED = platform.python_implementation() != "PyPy"
 MYPY_SKIP_REASON = "mypy checks run on the CPython CI jobs"
 
 POSITIVE_SAMPLE = """
+    from os import PathLike
+
     from symusic import Score
     import symusic.core as core
     import symusic.types as smt
@@ -34,6 +36,11 @@ POSITIVE_SAMPLE = """
     abc_file: core.Score[core.Tick] = tick_score.from_abc_file("score.abc")
     abc_text: str = abc_score.dumps_abc(warn=True)
     tick_score.dump_abc("out.abc")
+
+    def file_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
+        core.ScoreTick.from_file(text).dump_abc(binary)
+        core.ScoreTick.from_abc_file(binary).dump_abc(text)
+        core.ScoreTick.from_file(binary)
 
     second_score: core.Score[core.Second] = core.ScoreSecond(480)
     second_track: core.Track[core.Second] = second_score.tracks[0]
