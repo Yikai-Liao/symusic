@@ -59,4 +59,4 @@ template struct TextMeta<Tick>;
 template struct TextMeta<Quarter>;
 template struct TextMeta<Second>;
 
-}  // namespace symusic
+}   // namespace symusic

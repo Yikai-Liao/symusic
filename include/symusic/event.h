@@ -18,8 +18,8 @@ namespace symusic {
 template<TType T>
 struct TimeStamp {
     using ttype = T;
-    using unit = typename T::unit;
-    unit                     time = 0;
+    using unit  = typename T::unit;
+    unit time   = 0;
 
     bool operator==(const TimeStamp&) const = default;
 };
@@ -35,7 +35,7 @@ concept HashDuration = requires(T t) {
 
 template<TType T>
 struct Note : TimeStamp<T> {
-    bool operator==(const Note&) const = default;
+    bool                      operator==(const Note&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -44,7 +44,7 @@ struct Note : TimeStamp<T> {
     [[nodiscard]] vec<u8> dumps() const;
 
     typename T::unit duration{0};
-    i8   pitch{0}, velocity{0};
+    i8               pitch{0}, velocity{0};
 
     [[nodiscard]] typename T::unit start() const { return this->time; }
     [[nodiscard]] typename T::unit end() const { return detail::add_time(this->time, duration); }
@@ -62,7 +62,7 @@ struct Note : TimeStamp<T> {
 
 template<TType T>
 struct Pedal : TimeStamp<T> {
-    bool operator==(const Pedal&) const = default;
+    bool                      operator==(const Pedal&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -80,7 +80,7 @@ struct Pedal : TimeStamp<T> {
 
 template<TType T>
 struct ControlChange : TimeStamp<T> {
-    bool operator==(const ControlChange&) const = default;
+    bool                      operator==(const ControlChange&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -95,7 +95,7 @@ struct ControlChange : TimeStamp<T> {
 
 template<TType T>
 struct TimeSignature : TimeStamp<T> {
-    bool operator==(const TimeSignature&) const = default;
+    bool                      operator==(const TimeSignature&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -110,7 +110,7 @@ struct TimeSignature : TimeStamp<T> {
 
 template<TType T>
 struct KeySignature : TimeStamp<T> {
-    bool operator==(const KeySignature&) const = default;
+    bool                      operator==(const KeySignature&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -131,7 +131,7 @@ struct KeySignature : TimeStamp<T> {
 
 template<TType T>
 struct Tempo : TimeStamp<T> {
-    bool operator==(const Tempo&) const = default;
+    bool                      operator==(const Tempo&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -172,7 +172,7 @@ struct Tempo : TimeStamp<T> {
 
 template<TType T>
 struct PitchBend : TimeStamp<T> {
-    bool operator==(const PitchBend&) const = default;
+    bool                      operator==(const PitchBend&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -187,7 +187,7 @@ struct PitchBend : TimeStamp<T> {
 
 template<TType T>
 struct TextMeta : TimeStamp<T> {
-    bool operator==(const TextMeta&) const = default;
+    bool                      operator==(const TextMeta&) const = default;
     [[nodiscard]] std::string to_string() const;
 
     template<DataFormat F>
@@ -213,6 +213,6 @@ template<TimeEvent E, typename... Fields>
     return E(TimeStamp<typename E::ttype>{time}, std::forward<Fields>(fields)...);
 }
 
-}  // namespace detail
+}   // namespace detail
 
-}  // namespace symusic
+}   // namespace symusic

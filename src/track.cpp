@@ -6,4 +6,4 @@ template struct Track<Tick, ValueStorage>;
 template struct Track<Quarter, ValueStorage>;
 template struct Track<Second, ValueStorage>;
 
-}  // namespace symusic
+}   // namespace symusic

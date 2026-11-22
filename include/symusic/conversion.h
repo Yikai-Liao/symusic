@@ -14,7 +14,9 @@ Score<To, S> convert(
 );
 
 template<TType To, TType From, typename S>
-[[nodiscard]] typename To::unit convert_time(typename From::unit time, const Score<From, S>& context) {
+[[nodiscard]] typename To::unit convert_time(
+    typename From::unit time, const Score<From, S>& context
+) {
     const auto converter = detail::make_time_converter<To>(context);
     return converter.time_value(time);
 }
@@ -49,9 +51,13 @@ namespace detail {
 template<typename S, TType T>
 [[nodiscard]] Track<T, S> adopt_storage(Track<T>&& track) {
     return {
-        std::move(track.name), track.program, track.is_drum,
-        S::adopt(std::move(track.notes)), S::adopt(std::move(track.controls)),
-        S::adopt(std::move(track.pitch_bends)), S::adopt(std::move(track.pedals)),
+        std::move(track.name),
+        track.program,
+        track.is_drum,
+        S::adopt(std::move(track.notes)),
+        S::adopt(std::move(track.controls)),
+        S::adopt(std::move(track.pitch_bends)),
+        S::adopt(std::move(track.pedals)),
         S::adopt(std::move(track.lyrics))
     };
 }
@@ -67,12 +73,15 @@ template<typename S, TType T>
             tracks.push_back(S::adopt_track(adopt_storage<S>(std::move(track))));
         }
         return {
-            score.ticks_per_quarter, S::adopt_tracks(std::move(tracks)),
-            S::adopt(std::move(score.time_signatures)), S::adopt(std::move(score.key_signatures)),
-            S::adopt(std::move(score.tempos)), S::adopt(std::move(score.markers))
+            score.ticks_per_quarter,
+            S::adopt_tracks(std::move(tracks)),
+            S::adopt(std::move(score.time_signatures)),
+            S::adopt(std::move(score.key_signatures)),
+            S::adopt(std::move(score.tempos)),
+            S::adopt(std::move(score.markers))
         };
     }
 }
 
-}  // namespace detail
-}  // namespace symusic
+}   // namespace detail
+}   // namespace symusic

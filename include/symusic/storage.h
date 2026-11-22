@@ -24,13 +24,19 @@ struct ValueStorage {
     static decltype(auto) get(auto& field) { return (field); }
 
     template<typename E>
-    static vec<E> adopt(vec<E>&& values) { return std::move(values); }
+    static vec<E> adopt(vec<E>&& values) {
+        return std::move(values);
+    }
 
     template<typename Track>
-    static Track adopt_track(Track&& track) { return std::move(track); }
+    static Track adopt_track(Track&& track) {
+        return std::move(track);
+    }
 
     template<typename Track>
-    static vec<Track> adopt_tracks(vec<Track>&& tracks) { return std::move(tracks); }
+    static vec<Track> adopt_tracks(vec<Track>&& tracks) {
+        return std::move(tracks);
+    }
 
     static void erase_if(auto& events, auto predicate) { std::erase_if(events, predicate); }
 
@@ -47,4 +53,4 @@ struct ValueStorage {
     }
 };
 
-}  // namespace symusic
+}   // namespace symusic

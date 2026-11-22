@@ -38,8 +38,8 @@ class MidiTrackSink {
     std::string                    name;
     // Pending program segments retain arrival order when a note promotes them.
     std::array<vec<Track<T>>, 16> pending_tracks;
-    std::array<u8, 16>             programs{};
-    std::array<unit, 16>           pedal_start;
+    std::array<u8, 16>            programs{};
+    std::array<unit, 16>          pedal_start;
 
     static void append_pending(Track<T>& target, Track<T>& source) {
         const auto append = [](auto& dest, auto& events) {
@@ -212,26 +212,33 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     minimidi::Messages<> init_msgs{};
     {   // add meta messages
         auto&        msgs        = init_msgs;
-        const size_t message_num = S::get(score.time_signatures).size() + S::get(score.key_signatures).size()
+        const size_t message_num = S::get(score.time_signatures).size()
+                                   + S::get(score.key_signatures).size()
                                    + S::get(score.tempos).size() + S::get(score.markers).size();
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : S::get(score.time_signatures)) {
             if (!std::has_single_bit(time_signature->denominator)) {
-                throw std::invalid_argument(fmt::format(
-                    "MIDI time signature denominator must be a power of two, got {}",
-                    time_signature->denominator
-                ));
+                throw std::invalid_argument(
+                    fmt::format(
+                        "MIDI time signature denominator must be a power of two, got {}",
+                        time_signature->denominator
+                    )
+                );
             }
-            msgs.emplace_back(minimidi::TimeSignature(
-                time_signature->time, time_signature->numerator, time_signature->denominator
-            ));
+            msgs.emplace_back(
+                minimidi::TimeSignature(
+                    time_signature->time, time_signature->numerator, time_signature->denominator
+                )
+            );
         }
         // add key signatures
         for (const auto& key_signature : S::get(score.key_signatures)) {
-            msgs.emplace_back(minimidi::KeySignature(
-                key_signature->time, key_signature->key, key_signature->tonality
-            ));
+            msgs.emplace_back(
+                minimidi::KeySignature(
+                    key_signature->time, key_signature->key, key_signature->tonality
+                )
+            );
         }
         // add tempos
         for (const auto& tempo : S::get(score.tempos)) {
@@ -251,7 +258,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
     const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
 
     for (size_t idx = 0; const auto& handle : S::get(score.tracks)) {
-        const auto& track = S::get(handle);
+        const auto&          track = S::get(handle);
         minimidi::Messages<> msgs;
         if (!init_msgs.empty()) {
             msgs      = std::move(init_msgs);
@@ -259,8 +266,8 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         } else {
             msgs = {};
             msgs.reserve(
-                S::get(track.controls).size()
-                + S::get(track.pitch_bends).size() + S::get(track.lyrics).size() + 10
+                S::get(track.controls).size() + S::get(track.pitch_bends).size()
+                + S::get(track.lyrics).size() + 10
             );
         }
         const u8 channel = track.is_drum ? 9 : valid_channel[idx % 15];
@@ -345,7 +352,9 @@ template<TType T, typename S>
 Score<T, S> parse_midi(const std::span<const u8> bytes, bool sanitize_data = false) {
     const auto parse_view = [&](const auto& midi_view) -> Score<T, S> {
         if constexpr (std::is_same_v<T, Tick>) {
-            return parse_midi<Tick, S>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data);
+            return parse_midi<Tick, S>(
+                midi_view, [](const Tick::unit x) { return x; }, sanitize_data
+            );
         } else if constexpr (std::is_same_v<T, Quarter>) {
             const auto tpq = static_cast<float>(midi_view.ticks_per_quarter());
             return parse_midi<Quarter, S>(
@@ -354,9 +363,9 @@ Score<T, S> parse_midi(const std::span<const u8> bytes, bool sanitize_data = fal
                 sanitize_data
             );
         } else {
-            return convert<Second>(parse_midi<Tick, S>(
-                midi_view, [](const Tick::unit x) { return x; }, sanitize_data
-            ));
+            return convert<Second>(
+                parse_midi<Tick, S>(midi_view, [](const Tick::unit x) { return x; }, sanitize_data)
+            );
         }
     };
 
@@ -390,4 +399,4 @@ vec<u8> Score<T, S>::dump_midi_bytes() const {
     }
 }
 
-}  // namespace symusic
+}   // namespace symusic

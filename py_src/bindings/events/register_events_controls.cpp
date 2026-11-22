@@ -23,7 +23,6 @@ void bind_controller_family_types(nb::module_& m) {
     bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
         bind_pitchbend<T>(module, name);
     });
-
 }
 
 }   // namespace symusic::py

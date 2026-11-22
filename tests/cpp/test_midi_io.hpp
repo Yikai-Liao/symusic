@@ -39,13 +39,23 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         score.tempos.push_back(detail::make_event<Tempo<Tick>>(960, 600000));   // 100 BPM at beat 2
 
         // Add time signature changes
-        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));     // 4/4 at start
-        score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(960, 3, 4));   // 3/4 at beat 2
+        score.time_signatures.push_back(
+            detail::make_event<TimeSignature<Tick>>(0, 4, 4)
+        );   // 4/4 at start
+        score.time_signatures.push_back(
+            detail::make_event<TimeSignature<Tick>>(960, 3, 4)
+        );   // 3/4 at beat 2
 
         // Add key signatures
-        score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(0, 0, 0));      // C major at start
-        score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(480, 2, 0));    // D major at beat 1
-        score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(960, -3, 1));   // C minor at beat 2
+        score.key_signatures.push_back(
+            detail::make_event<KeySignature<Tick>>(0, 0, 0)
+        );   // C major at start
+        score.key_signatures.push_back(
+            detail::make_event<KeySignature<Tick>>(480, 2, 0)
+        );   // D major at beat 1
+        score.key_signatures.push_back(
+            detail::make_event<KeySignature<Tick>>(960, -3, 1)
+        );   // C minor at beat 2
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_meta_events.mid";
@@ -107,14 +117,30 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(0, 960, 60, 80));
 
         // Add pitch bend events (range: -8192 to 8191)
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(0, 0));         // Center (no bend)
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(120, 2048));    // Bend up slightly
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(240, 4096));    // Bend up more
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(360, 8191));    // Maximum bend up
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(480, 0));       // Return to center
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(600, -2048));   // Bend down slightly
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(720, -4096));   // Bend down more
-        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(840, -8192));   // Maximum bend down
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(0, 0)
+        );   // Center (no bend)
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(120, 2048)
+        );   // Bend up slightly
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(240, 4096)
+        );   // Bend up more
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(360, 8191)
+        );   // Maximum bend up
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(480, 0)
+        );   // Return to center
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(600, -2048)
+        );   // Bend down slightly
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(720, -4096)
+        );   // Bend down more
+        track.pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(840, -8192)
+        );   // Maximum bend down
 
         score.tracks.push_back(track);
 
@@ -164,10 +190,16 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
         // Add sustain pedal via control changes (CC 64)
         // Note: We test pedal functionality using control changes
         // instead of the dedicated pedal class
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 64, 127));     // Pedal down
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 64, 0));     // Pedal up
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(600, 64, 127));   // Pedal down again
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(960, 64, 0));     // Pedal up again
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(0, 64, 127)
+        );   // Pedal down
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 64, 0));   // Pedal up
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(600, 64, 127)
+        );   // Pedal down again
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(960, 64, 0)
+        );   // Pedal up again
 
         score.tracks.push_back(track);
 
@@ -216,7 +248,7 @@ TEST_CASE("Test Advanced MIDI File I/O", "[symusic][io][midi][advanced]") {
 
         // Add a track with some notes
         auto track = Track<Tick>("Test Track", 0, false);
-        track.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 80));     // Quarter note C4
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 80));   // Quarter note C4
         track.notes.push_back(detail::make_event<Note<Tick>>(480, 960, 64, 80));   // Half note E4
         tick_score.tracks.push_back(track);
 

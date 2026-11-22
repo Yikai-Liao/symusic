@@ -78,12 +78,15 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
     SECTION("end() of events with duration") {
         REQUIRE(detail::make_event<Note<Tick>>(kMax - 5, 5, 60, 80).end() == kMax);
-        REQUIRE_THROWS_AS(detail::make_event<Note<Tick>>(kMax - 5, 6, 60, 80).end(), std::overflow_error);
+        REQUIRE_THROWS_AS(
+            detail::make_event<Note<Tick>>(kMax - 5, 6, 60, 80).end(), std::overflow_error
+        );
         REQUIRE_THROWS_AS(detail::make_event<Pedal<Tick>>(kMax, 1).end(), std::overflow_error);
         REQUIRE_THROWS_AS(detail::make_event<Pedal<Tick>>(kMin, -1).end(), std::overflow_error);
         // Float units do not overflow
         REQUIRE(
-            detail::make_event<Note<Quarter>>(3.0e38f, 3.0e38f, 60, 80).end() == std::numeric_limits<f32>::infinity()
+            detail::make_event<Note<Quarter>>(3.0e38f, 3.0e38f, 60, 80).end()
+            == std::numeric_limits<f32>::infinity()
         );
     }
 
@@ -91,9 +94,27 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
         auto last_note = detail::make_event<Note<Tick>>(kMax - 1, 1, 60, 80);
         shift_time(last_note, 1);
         REQUIRE(last_note.time == kMax);
-        REQUIRE_THROWS_AS([&] { auto event = detail::make_event<Note<Tick>>(kMax, 1, 60, 80); shift_time(event, 1); }(), std::overflow_error);
-        REQUIRE_THROWS_AS([&] { auto event = detail::make_event<Pedal<Tick>>(kMin, 1); shift_time(event, -1); }(), std::overflow_error);
-        REQUIRE_THROWS_AS([&] { auto event = detail::make_event<Tempo<Tick>>(kMax, 500000); shift_time(event, kMax); }(), std::overflow_error);
+        REQUIRE_THROWS_AS(
+            [&] {
+                auto event = detail::make_event<Note<Tick>>(kMax, 1, 60, 80);
+                shift_time(event, 1);
+            }(),
+            std::overflow_error
+        );
+        REQUIRE_THROWS_AS(
+            [&] {
+                auto event = detail::make_event<Pedal<Tick>>(kMin, 1);
+                shift_time(event, -1);
+            }(),
+            std::overflow_error
+        );
+        REQUIRE_THROWS_AS(
+            [&] {
+                auto event = detail::make_event<Tempo<Tick>>(kMax, 500000);
+                shift_time(event, kMax);
+            }(),
+            std::overflow_error
+        );
         Note<Tick> note = detail::make_event<Note<Tick>>(kMax, 1, 60, 80);
         REQUIRE_THROWS_AS(shift_time(note, 1), std::overflow_error);
         REQUIRE(note.time == kMax);

@@ -81,9 +81,11 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Track 3: Drums
         auto drum_track = Track<Tick>("Drums", 0, true);
-        drum_track.notes.push_back(detail::make_event<Note<Tick>>(480, 120, 36, 100));   // Bass drum
-        drum_track.notes.push_back(detail::make_event<Note<Tick>>(600, 120, 38, 80));    // Snare
-        drum_track.notes.push_back(detail::make_event<Note<Tick>>(720, 120, 42, 60));    // Hi-hat
+        drum_track.notes.push_back(
+            detail::make_event<Note<Tick>>(480, 120, 36, 100)
+        );                                                                              // Bass drum
+        drum_track.notes.push_back(detail::make_event<Note<Tick>>(600, 120, 38, 80));   // Snare
+        drum_track.notes.push_back(detail::make_event<Note<Tick>>(720, 120, 42, 60));   // Hi-hat
         score.tracks.push_back(drum_track);
 
         // Add tempo and time signature
@@ -135,14 +137,26 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 60, 80));
 
         // Add volume controller (CC 7)
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));     // Initial volume
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 7, 80));    // Reduce volume
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(720, 7, 120));   // Increase volume
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(0, 7, 100)
+        );   // Initial volume
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(480, 7, 80)
+        );   // Reduce volume
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(720, 7, 120)
+        );   // Increase volume
 
         // Add pan controller (CC 10)
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 10, 64));      // Center pan
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(480, 10, 100));   // Pan right
-        track.controls.push_back(detail::make_event<ControlChange<Tick>>(720, 10, 30));    // Pan left
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(0, 10, 64)
+        );   // Center pan
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(480, 10, 100)
+        );   // Pan right
+        track.controls.push_back(
+            detail::make_event<ControlChange<Tick>>(720, 10, 30)
+        );   // Pan left
 
         score.tracks.push_back(track);
 

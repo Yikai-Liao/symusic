@@ -38,26 +38,29 @@ inline void ensure_valid_midi_data_byte(
 // The sink maps decoded events to its own tracks. A note handle remains valid
 // until the end of this MIDI track, even if its program changes.
 template<typename Sink, typename T>
-concept MidiNoteSink = TType<T> && requires(
-    Sink&                     sink,
-    typename Sink::NoteHandle handle,
-    typename T::unit          time,
-    u8                        channel,
-    u8                        data,
-    std::string               text
-) {
-    { sink.begin_note(channel, data, time, data) } -> std::same_as<typename Sink::NoteHandle>;
-    sink.end_note(handle, time);
-    sink.set_program(channel, data);
-    sink.add_control(channel, time, data, data);
-    sink.add_pitch_bend(channel, time, i32{});
-    sink.set_name(std::move(text));
-    sink.add_lyric(channel, time, std::move(text));
-    sink.add(TimeSignature<T>{});
-    sink.add(KeySignature<T>{});
-    sink.add(Tempo<T>{});
-    sink.add(TextMeta<T>{});
-};
+concept MidiNoteSink = TType<T>
+                       && requires(
+                           Sink&                     sink,
+                           typename Sink::NoteHandle handle,
+                           typename T::unit          time,
+                           u8                        channel,
+                           u8                        data,
+                           std::string               text
+                       ) {
+                              {
+                                  sink.begin_note(channel, data, time, data)
+                              } -> std::same_as<typename Sink::NoteHandle>;
+                              sink.end_note(handle, time);
+                              sink.set_program(channel, data);
+                              sink.add_control(channel, time, data, data);
+                              sink.add_pitch_bend(channel, time, i32{});
+                              sink.set_name(std::move(text));
+                              sink.add_lyric(channel, time, std::move(text));
+                              sink.add(TimeSignature<T>{});
+                              sink.add(KeySignature<T>{});
+                              sink.add(Tempo<T>{});
+                              sink.add(TextMeta<T>{});
+                          };
 
 template<TType T, MidiNoteSink<T> Sink>
 class PendingMidiNotes {
@@ -175,18 +178,30 @@ void decode_midi_track(
                     throw std::runtime_error("Invalid MIDI time signature denominator or size");
                 }
                 // The exponent is at most seven, so the power of two fits in u8.
-                sink.add(symusic::detail::make_event<TimeSignature<T>>(cur_time, data[0], static_cast<u8>(1u << data[1])));
+                sink.add(
+                    symusic::detail::make_event<TimeSignature<T>>(
+                        cur_time, data[0], static_cast<u8>(1u << data[1])
+                    )
+                );
                 break;
             }
             case (minimidi::MetaType::SetTempo): {
                 // store the raw tempo value(mspq) directly
                 // qpm is calculated when needed
-                sink.add(symusic::detail::make_event<Tempo<T>>(cur_time, meta.template cast<minimidi::SetTempo>().tempo()));
+                sink.add(
+                    symusic::detail::make_event<Tempo<T>>(
+                        cur_time, meta.template cast<minimidi::SetTempo>().tempo()
+                    )
+                );
                 break;
             }
             case (minimidi::MetaType::KeySignature): {
                 const auto& k_msg = meta.template cast<minimidi::KeySignature>();
-                sink.add(symusic::detail::make_event<KeySignature<T>>(cur_time, k_msg.key(), k_msg.tonality()));
+                sink.add(
+                    symusic::detail::make_event<KeySignature<T>>(
+                        cur_time, k_msg.key(), k_msg.tonality()
+                    )
+                );
                 break;
             }
             case (minimidi::MetaType::Lyric): {
@@ -236,17 +251,21 @@ minimidi::Messages<> merge_midi_notes(
     earlier_note_events.reserve(notes.size());
     for (const auto& note : notes) {
         if (note.pitch < 0 || note.velocity < 0) {
-            throw std::invalid_argument(fmt::format(
-                "MIDI note pitch and velocity must be non-negative, got {} and {}",
-                note.pitch,
-                note.velocity
-            ));
+            throw std::invalid_argument(
+                fmt::format(
+                    "MIDI note pitch and velocity must be non-negative, got {} and {}",
+                    note.pitch,
+                    note.velocity
+                )
+            );
         }
         // Non-negative i8 values fit in seven MIDI data bits.
         const auto pitch    = static_cast<u8>(note.pitch);
         const auto velocity = static_cast<u8>(note.velocity);
         if (note.duration > 0) {
-            earlier_note_events.emplace_back(minimidi::NoteOff(note.end(), channel, pitch, velocity));
+            earlier_note_events.emplace_back(
+                minimidi::NoteOff(note.end(), channel, pitch, velocity)
+            );
         } else {
             earlier_note_events.emplace_back(minimidi::NoteOn(note.time, channel, pitch, velocity));
         }
@@ -259,8 +278,8 @@ minimidi::Messages<> merge_midi_notes(
 
     minimidi::Messages<> output;
     output.reserve(messages.size() + notes.size() * 2);
-    auto message = messages.begin();
-    const auto emit = [&](auto&& event) {
+    auto       message = messages.begin();
+    const auto emit    = [&](auto&& event) {
         // Metadata comes first at the same tick.
         while (message != messages.end() && message->time <= event.time) {
             output.push_back(std::move(*message++));
@@ -271,11 +290,9 @@ minimidi::Messages<> merge_midi_notes(
     for (const auto& note : notes) {
         const auto tick = static_cast<u32>(note.time);
         // Note-offs for sustained notes and note-ons for empty notes come first.
-        while (end != earlier_note_events.end() && end->time <= tick) {
-            emit(std::move(*end++));
-        }
+        while (end != earlier_note_events.end() && end->time <= tick) { emit(std::move(*end++)); }
         // The first pass validated both data bytes and the caller checked note times.
-        const auto pitch = static_cast<u8>(note.pitch);
+        const auto pitch    = static_cast<u8>(note.pitch);
         const auto velocity = static_cast<u8>(note.velocity);
         if (note.duration > 0) {
             emit(minimidi::NoteOn(tick, channel, pitch, velocity));
@@ -283,9 +300,7 @@ minimidi::Messages<> merge_midi_notes(
             emit(minimidi::NoteOff(tick, channel, pitch, velocity));
         }
     }
-    for (; end != earlier_note_events.end(); ++end) {
-        emit(std::move(*end));
-    }
+    for (; end != earlier_note_events.end(); ++end) { emit(std::move(*end)); }
     output.insert(
         output.end(), std::make_move_iterator(message), std::make_move_iterator(messages.end())
     );

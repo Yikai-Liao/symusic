@@ -74,7 +74,9 @@ TEST_CASE("Test Track class basic functionality", "[track]") {
         controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume control
 
         vec<PitchBend<Tick>> pitch_bends;
-        pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(50, 8192));   // Center value pitch bend
+        pitch_bends.push_back(
+            detail::make_event<PitchBend<Tick>>(50, 8192)
+        );   // Center value pitch bend
 
         vec<Pedal<Tick>> pedals;
         pedals.push_back(detail::make_event<Pedal<Tick>>(0, 200));   // Hold pedal for 200 ticks
@@ -153,10 +155,14 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     track.controls.push_back(detail::make_event<ControlChange<Tick>>(100, 10, 64));   // Pan
 
     // Add pitch bends
-    track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(150, 8192 + 4096));   // 1/3 up bend
+    track.pitch_bends.push_back(
+        detail::make_event<PitchBend<Tick>>(150, 8192 + 4096)
+    );   // 1/3 up bend
 
     // Add pedals
-    track.pedals.push_back(detail::make_event<Pedal<Tick>>(0, 300));   // Pedal pressed for 300 ticks
+    track.pedals.push_back(
+        detail::make_event<Pedal<Tick>>(0, 300)
+    );   // Pedal pressed for 300 ticks
 
     // Add lyrics
     track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "Do"));
@@ -181,7 +187,7 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
         Track<Tick> deep_copied = track.deepcopy();
         REQUIRE(deep_copied == track);
         REQUIRE(deep_copied.notes.data() != track.notes.data());
-        REQUIRE(deep_copied.notes == track.notes);             // Same content
+        REQUIRE(deep_copied.notes == track.notes);   // Same content
     }
 
     SECTION("equality operators") {
@@ -266,8 +272,8 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     SECTION("shift_pitch() and shift_pitch_inplace() methods") {
         // Test non-inplace pitch shift
         Track<Tick> pitched = track.shift_pitch(12);   // Up one octave
-        REQUIRE(pitched.notes.at(0).pitch == 72);     // C4 -> C5
-        REQUIRE(pitched.notes.at(1).pitch == 74);     // D4 -> D5
+        REQUIRE(pitched.notes.at(0).pitch == 72);      // C4 -> C5
+        REQUIRE(pitched.notes.at(1).pitch == 74);      // D4 -> D5
 
         // Test inplace pitch shift
         track.shift_pitch_inplace(12);

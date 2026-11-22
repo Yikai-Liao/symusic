@@ -20,7 +20,9 @@ template<DataFormat F, typename T>
 
 template<DataFormat F, typename T>
     requires requires(std::span<const u8> bytes) { T::template parse<F>(bytes); }
-[[nodiscard]] T parse(std::span<const u8> bytes) { return T::template parse<F>(bytes); }
+[[nodiscard]] T parse(std::span<const u8> bytes) {
+    return T::template parse<F>(bytes);
+}
 
 /**
  * Parse raw input bytes, optionally sanitizing payload values to stay within the
@@ -40,6 +42,8 @@ template<DataFormat F, typename T>
 
 template<DataFormat F, typename T>
     requires requires(const T& data) { data.template dumps<F>(); }
-[[nodiscard]] vec<u8> dumps(const T& data) { return data.template dumps<F>(); }
+[[nodiscard]] vec<u8> dumps(const T& data) {
+    return data.template dumps<F>();
+}
 
 }   // namespace symusic

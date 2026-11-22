@@ -530,29 +530,73 @@ vec<TextMeta<Second>> parse<DataFormat::ZPP>(std::span<const u8> bytes) {
     return detail::deserialize_zpp<vec<TextMeta<Second>>>(bytes);
 }
 
-template vec<u8> Track<Tick, ValueStorage>::dump_zpp_bytes() const;
+template vec<u8>                   Track<Tick, ValueStorage>::dump_zpp_bytes() const;
 template Track<Tick, ValueStorage> Track<Tick, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template vec<u8> Track<Quarter, ValueStorage>::dump_zpp_bytes() const;
-template Track<Quarter, ValueStorage> Track<Quarter, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template vec<u8> Track<Second, ValueStorage>::dump_zpp_bytes() const;
-template Track<Second, ValueStorage> Track<Second, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template vec<u8> Score<Tick, ValueStorage>::dump_zpp_bytes() const;
+template vec<u8>                   Track<Quarter, ValueStorage>::dump_zpp_bytes() const;
+template Track<Quarter, ValueStorage> Track<Quarter, ValueStorage>::parse_zpp_bytes(
+    std::span<const u8>
+);
+template vec<u8>                     Track<Second, ValueStorage>::dump_zpp_bytes() const;
+template Track<Second, ValueStorage> Track<Second, ValueStorage>::parse_zpp_bytes(
+    std::span<const u8>
+);
+template vec<u8>                   Score<Tick, ValueStorage>::dump_zpp_bytes() const;
 template Score<Tick, ValueStorage> Score<Tick, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template vec<u8> Score<Quarter, ValueStorage>::dump_zpp_bytes() const;
-template Score<Quarter, ValueStorage> Score<Quarter, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template vec<u8> Score<Second, ValueStorage>::dump_zpp_bytes() const;
-template Score<Second, ValueStorage> Score<Second, ValueStorage>::parse_zpp_bytes(std::span<const u8>);
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Tick>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Tick>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Tick>>>(data); }
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Tick>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Tick>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Tick>>>(data); }
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Quarter>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Quarter>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Quarter>>>(data); }
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Quarter>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Quarter>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Quarter>>>(data); }
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Second>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Track<Second>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Track<Second>>>(data); }
-template<> vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Second>>& data) { return detail::serialize_zpp(data); }
-template<> vec<Score<Second>> parse<DataFormat::ZPP>(std::span<const u8> data) { return detail::deserialize_zpp<vec<Score<Second>>>(data); }
+template vec<u8>                   Score<Quarter, ValueStorage>::dump_zpp_bytes() const;
+template Score<Quarter, ValueStorage> Score<Quarter, ValueStorage>::parse_zpp_bytes(
+    std::span<const u8>
+);
+template vec<u8>                     Score<Second, ValueStorage>::dump_zpp_bytes() const;
+template Score<Second, ValueStorage> Score<Second, ValueStorage>::parse_zpp_bytes(
+    std::span<const u8>
+);
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Tick>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Tick>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Tick>>>(data);
+}
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Tick>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Tick>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Tick>>>(data);
+}
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Quarter>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Quarter>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Quarter>>>(data);
+}
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Quarter>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Quarter>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Quarter>>>(data);
+}
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Track<Second>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Track<Second>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Track<Second>>>(data);
+}
+template<>
+vec<u8> dumps<DataFormat::ZPP>(const vec<Score<Second>>& data) {
+    return detail::serialize_zpp(data);
+}
+template<>
+vec<Score<Second>> parse<DataFormat::ZPP>(std::span<const u8> data) {
+    return detail::deserialize_zpp<vec<Score<Second>>>(data);
+}
 
-}  // namespace symusic
+}   // namespace symusic

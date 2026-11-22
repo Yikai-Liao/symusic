@@ -10,51 +10,60 @@ namespace symusic {
 
 template<TType T, typename S = ValueStorage>
 struct Score {
-    using ttype = T;
-    using unit = typename T::unit;
+    using ttype        = T;
+    using unit         = typename T::unit;
     using storage_type = S;
 
-    using track_type = Track<T, S>;
+    using track_type   = Track<T, S>;
     using track_handle = typename S::template TrackHandle<track_type>;
 
-    i32 ticks_per_quarter = 0;
-    typename S::template Tracks<track_type> tracks = S::adopt_tracks(vec<track_handle>{});
+    i32                                         ticks_per_quarter = 0;
+    typename S::template Tracks<track_type>     tracks = S::adopt_tracks(vec<track_handle>{});
     typename S::template List<TimeSignature<T>> time_signatures = S::adopt(vec<TimeSignature<T>>{});
-    typename S::template List<KeySignature<T>> key_signatures = S::adopt(vec<KeySignature<T>>{});
-    typename S::template List<Tempo<T>> tempos = S::adopt(vec<Tempo<T>>{});
-    typename S::template List<TextMeta<T>> markers = S::adopt(vec<TextMeta<T>>{});
+    typename S::template List<KeySignature<T>>  key_signatures  = S::adopt(vec<KeySignature<T>>{});
+    typename S::template List<Tempo<T>>         tempos          = S::adopt(vec<Tempo<T>>{});
+    typename S::template List<TextMeta<T>>      markers         = S::adopt(vec<TextMeta<T>>{});
 
     Score() = default;
     explicit Score(i32 tpq) : ticks_per_quarter(tpq) {}
-    Score(i32 tpq, typename S::template Tracks<track_type> tracks,
-          typename S::template List<TimeSignature<T>> time_signatures,
-          typename S::template List<KeySignature<T>> key_signatures,
-          typename S::template List<Tempo<T>> tempos,
-          typename S::template List<TextMeta<T>> markers)
-        : ticks_per_quarter(tpq), tracks(std::move(tracks)), time_signatures(std::move(time_signatures)), key_signatures(std::move(key_signatures)), tempos(std::move(tempos)), markers(std::move(markers)) {}
+    Score(
+        i32                                         tpq,
+        typename S::template Tracks<track_type>     tracks,
+        typename S::template List<TimeSignature<T>> time_signatures,
+        typename S::template List<KeySignature<T>>  key_signatures,
+        typename S::template List<Tempo<T>>         tempos,
+        typename S::template List<TextMeta<T>>      markers
+    ) :
+        ticks_per_quarter(tpq), tracks(std::move(tracks)),
+        time_signatures(std::move(time_signatures)), key_signatures(std::move(key_signatures)),
+        tempos(std::move(tempos)), markers(std::move(markers)) {}
 
     [[nodiscard]] Score copy() const { return *this; }
     [[nodiscard]] Score deepcopy() const;
-    bool operator==(const Score& other) const;
+    bool                operator==(const Score& other) const;
 
     template<DataFormat F>
         requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
     [[nodiscard]] static Score parse(std::span<const u8> bytes) {
-        if constexpr (F == DataFormat::MIDI) return parse_midi_bytes(bytes, false);
-        else return parse_zpp_bytes(bytes);
+        if constexpr (F == DataFormat::MIDI)
+            return parse_midi_bytes(bytes, false);
+        else
+            return parse_zpp_bytes(bytes);
     }
 
     template<DataFormat F>
         requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
     [[nodiscard]] vec<u8> dumps() const {
-        if constexpr (F == DataFormat::MIDI) return dump_midi_bytes();
-        else return dump_zpp_bytes();
+        if constexpr (F == DataFormat::MIDI)
+            return dump_midi_bytes();
+        else
+            return dump_zpp_bytes();
     }
 
     [[nodiscard]] static Score parse_midi_bytes(std::span<const u8> bytes, bool sanitize_data);
-    [[nodiscard]] vec<u8> dump_midi_bytes() const;
+    [[nodiscard]] vec<u8>      dump_midi_bytes() const;
     [[nodiscard]] static Score parse_zpp_bytes(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> dump_zpp_bytes() const;
+    [[nodiscard]] vec<u8>      dump_zpp_bytes() const;
 
     // return the start time of the score
     [[nodiscard]] unit start() const;
@@ -128,9 +137,9 @@ extern template struct Score<Tick>;
 extern template struct Score<Quarter>;
 extern template struct Score<Second>;
 
-}  // namespace symusic
+}   // namespace symusic
 
 namespace symusic::detail {
 template<TType T, typename S>
 vec<u8> dump_track_list(const typename S::template Tracks<Track<T, S>>& tracks);
-}  // namespace symusic::detail
+}   // namespace symusic::detail

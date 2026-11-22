@@ -326,14 +326,14 @@ auto bind_time_stamp(
 
 template<TimeEvent E>
 nb::dict events_to_numpy(const shared<pyvec<E>>& events) {
-    auto columns = std::make_unique<EventColumns<E>>(*events);
-    auto* data = columns.get();
+    auto        columns = std::make_unique<EventColumns<E>>(*events);
+    auto*       data    = columns.get();
     nb::capsule owner(data, [](void* p) noexcept { delete static_cast<EventColumns<E>*>(p); });
     columns.release();
 
     nb::dict result;
     data->for_each([&](const char* name, auto& column) {
-        using Value = typename std::remove_reference_t<decltype(column)>::value_type;
+        using Value  = typename std::remove_reference_t<decltype(column)>::value_type;
         result[name] = nb::ndarray<nb::numpy, Value>(column.data(), {column.size()}, owner);
     });
     return result;
@@ -346,8 +346,7 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     using self_inner = Note<T>;
 
     const std::string name = "Note" + name_;
-    auto [note, note_vec]
-        = bind_time_stamp<Note<T>>(m, name, "Note", name_, note_doc<T>());
+    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name, "Note", name_, note_doc<T>());
 
     auto to_numpy = &events_to_numpy<self_inner>;
 
@@ -402,10 +401,9 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<KeySignature<T>>;
     using self_inner = KeySignature<T>;
 
-    const std::string name    = "KeySignature" + name_;
-    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(
-        m, name, "KeySignature", name_, key_signature_doc<T>()
-    );
+    const std::string name = "KeySignature" + name_;
+    auto [keysig, keysig_vec]
+        = bind_time_stamp<KeySignature<T>>(m, name, "KeySignature", name_, key_signature_doc<T>());
 
     auto to_numpy = &events_to_numpy<self_inner>;
 
@@ -487,9 +485,8 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Pedal<T>>;
     using self_inner = Pedal<T>;
 
-    const std::string name = "Pedal" + name_;
-    auto [pedal, pedal_vec]
-        = bind_time_stamp<Pedal<T>>(m, name, "Pedal", name_, pedal_doc<T>());
+    const std::string name  = "Pedal" + name_;
+    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name, "Pedal", name_, pedal_doc<T>());
 
     auto to_numpy = &events_to_numpy<self_inner>;
 
@@ -520,9 +517,8 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Tempo<T>>;
     using self_inner = Tempo<T>;
 
-    const std::string name = "Tempo" + name_;
-    auto [tempo, tempo_vec]
-        = bind_time_stamp<Tempo<T>>(m, name, "Tempo", name_, tempo_doc<T>());
+    const std::string name  = "Tempo" + name_;
+    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name, "Tempo", name_, tempo_doc<T>());
 
     auto to_numpy = &events_to_numpy<self_inner>;
 
@@ -568,10 +564,9 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     using self_t     = shared<PitchBend<T>>;
     using self_inner = PitchBend<T>;
 
-    const std::string name          = "PitchBend" + name_;
-    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(
-        m, name, "PitchBend", name_, pitch_bend_doc<T>()
-    );
+    const std::string name = "PitchBend" + name_;
+    auto [pitchbend, pitchbend_vec]
+        = bind_time_stamp<PitchBend<T>>(m, name, "PitchBend", name_, pitch_bend_doc<T>());
 
     auto to_numpy = &events_to_numpy<self_inner>;
 
@@ -595,10 +590,9 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     using unit   = typename T::unit;
     using self_t = shared<TextMeta<T>>;
 
-    const std::string name        = "TextMeta" + name_;
-    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(
-        m, name, "TextMeta", name_, text_meta_doc<T>()
-    );
+    const std::string name = "TextMeta" + name_;
+    auto [textmeta, textmeta_vec]
+        = bind_time_stamp<TextMeta<T>>(m, name, "TextMeta", name_, text_meta_doc<T>());
 
     // clang-format off
     textmeta

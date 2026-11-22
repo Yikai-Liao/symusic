@@ -9,35 +9,43 @@ namespace symusic {
 
 template<TType T, typename S = ValueStorage>
 struct Track {
-    using ttype = T;
-    using unit = typename T::unit;
+    using ttype        = T;
+    using unit         = typename T::unit;
     using storage_type = S;
 
-    std::string name;
-    u8 program = 0;
-    bool is_drum = false;
-    typename S::template List<Note<T>> notes = S::adopt(vec<Note<T>>{});
-    typename S::template List<ControlChange<T>> controls = S::adopt(vec<ControlChange<T>>{});
-    typename S::template List<PitchBend<T>> pitch_bends = S::adopt(vec<PitchBend<T>>{});
-    typename S::template List<Pedal<T>> pedals = S::adopt(vec<Pedal<T>>{});
-    typename S::template List<TextMeta<T>> lyrics = S::adopt(vec<TextMeta<T>>{});
+    std::string                                 name;
+    u8                                          program     = 0;
+    bool                                        is_drum     = false;
+    typename S::template List<Note<T>>          notes       = S::adopt(vec<Note<T>>{});
+    typename S::template List<ControlChange<T>> controls    = S::adopt(vec<ControlChange<T>>{});
+    typename S::template List<PitchBend<T>>     pitch_bends = S::adopt(vec<PitchBend<T>>{});
+    typename S::template List<Pedal<T>>         pedals      = S::adopt(vec<Pedal<T>>{});
+    typename S::template List<TextMeta<T>>      lyrics      = S::adopt(vec<TextMeta<T>>{});
 
     Track() = default;
-    Track(std::string name, u8 program, bool is_drum)
-        : name(std::move(name)), program(program), is_drum(is_drum) {}
-    Track(std::string name, u8 program, bool is_drum,
-          typename S::template List<Note<T>> notes,
-          typename S::template List<ControlChange<T>> controls,
-          typename S::template List<PitchBend<T>> pitch_bends,
-          typename S::template List<Pedal<T>> pedals,
-          typename S::template List<TextMeta<T>> lyrics)
-        : name(std::move(name)), program(program), is_drum(is_drum), notes(std::move(notes)), controls(std::move(controls)), pitch_bends(std::move(pitch_bends)), pedals(std::move(pedals)), lyrics(std::move(lyrics)) {}
+    Track(std::string name, u8 program, bool is_drum) :
+        name(std::move(name)), program(program), is_drum(is_drum) {}
+    Track(
+        std::string                                 name,
+        u8                                          program,
+        bool                                        is_drum,
+        typename S::template List<Note<T>>          notes,
+        typename S::template List<ControlChange<T>> controls,
+        typename S::template List<PitchBend<T>>     pitch_bends,
+        typename S::template List<Pedal<T>>         pedals,
+        typename S::template List<TextMeta<T>>      lyrics
+    ) :
+        name(std::move(name)), program(program), is_drum(is_drum), notes(std::move(notes)),
+        controls(std::move(controls)), pitch_bends(std::move(pitch_bends)),
+        pedals(std::move(pedals)), lyrics(std::move(lyrics)) {}
 
     [[nodiscard]] Track copy() const { return *this; }
     [[nodiscard]] Track deepcopy() const;
-    bool operator==(const Track& other) const;
+    bool                operator==(const Track& other) const;
 
-    auto default_key() const { return std::tuple(is_drum, program, std::string_view(name), note_num()); }
+    auto default_key() const {
+        return std::tuple(is_drum, program, std::string_view(name), note_num());
+    }
 
     template<DataFormat F>
     [[nodiscard]] static Track parse(std::span<const u8> bytes) {
@@ -52,7 +60,7 @@ struct Track {
     }
 
     [[nodiscard]] static Track parse_zpp_bytes(std::span<const u8> bytes);
-    [[nodiscard]] vec<u8> dump_zpp_bytes() const;
+    [[nodiscard]] vec<u8>      dump_zpp_bytes() const;
 
     // return the start time of the track
     [[nodiscard]] unit start() const;
@@ -119,4 +127,4 @@ extern template struct Track<Tick>;
 extern template struct Track<Quarter>;
 extern template struct Track<Second>;
 
-}  // namespace symusic
+}   // namespace symusic

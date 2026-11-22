@@ -54,7 +54,7 @@ public:
 
     template<typename S>
     static TrackPianoroll from_track(
-        const Track<Tick, S>&                track,
+        const Track<Tick, S>&             track,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitch_range,
         bool                              encode_note_velocity
@@ -98,7 +98,7 @@ public:
 
     template<typename S>
     static ScorePianoroll from_score(
-        const Score<Tick, S>&                score,
+        const Score<Tick, S>&             score,
         const std::vector<PianorollMode>& modes,
         std::pair<uint8_t, uint8_t>       pitch_range,
         bool                              encode_note_velocity

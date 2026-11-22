@@ -14,9 +14,8 @@ template<symusic::DataFormat F>
 concept ScoreCanParse = requires { symusic::Score<symusic::Tick>::parse<F>({}); };
 
 template<symusic::DataFormat F>
-concept ScoreCanDump = requires(const symusic::Score<symusic::Tick>& score) {
-    score.template dumps<F>();
-};
+concept ScoreCanDump
+    = requires(const symusic::Score<symusic::Tick>& score) { score.template dumps<F>(); };
 
 static_assert(ScoreCanParse<symusic::DataFormat::MIDI>);
 static_assert(ScoreCanParse<symusic::DataFormat::ZPP>);
@@ -117,9 +116,7 @@ TEST_CASE("Test Score class functionality", "[score]") {
         // Test non-inplace clip
         Score<Tick> clipped = score.clip(200, 400, false);
         REQUIRE(clipped.tracks.at(0).notes.size() == 1);   // Only one note left (240-480)
-        REQUIRE(
-            clipped.tracks.at(1).notes.size() == 0
-        );   // One note (0-480) clipped and removed
+        REQUIRE(clipped.tracks.at(1).notes.size() == 0);   // One note (0-480) clipped and removed
 
         // Test inplace clip
         score.clip_inplace(200, 400, false);
@@ -141,7 +138,7 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     SECTION("shift_pitch() and shift_pitch_inplace() methods") {
         // Test non-inplace pitch shift
-        Score<Tick> pitched = score.shift_pitch(12);                // Up one octave
+        Score<Tick> pitched = score.shift_pitch(12);             // Up one octave
         REQUIRE(pitched.tracks.at(0).notes.at(0).pitch == 72);   // C4 -> C5
         REQUIRE(pitched.tracks.at(0).notes.at(1).pitch == 74);   // D4 -> D5
 

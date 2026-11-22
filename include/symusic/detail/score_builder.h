@@ -57,8 +57,8 @@ public:
 
     Track<T>& create_track(const Key& key, Track<T>&& initial) {
         auto& result = tracks.try_emplace(key, std::move(initial)).first->second;
-        last_key   = key;
-        last_track = &result;
+        last_key     = key;
+        last_track   = &result;
         return result;
     }
 
@@ -89,11 +89,10 @@ public:
             if (!lyric_owner && !track->notes.empty()) lyric_owner = track;
         }
         for (auto& pending : lyrics) {
-            auto& owner
-                = lyric_owner ?
-                      *lyric_owner :
-                      tracks.try_emplace(pending.key, "", pending.program, pending.is_drum)
-                          .first->second;
+            auto& owner = lyric_owner ?
+                              *lyric_owner :
+                              tracks.try_emplace(pending.key, "", pending.program, pending.is_drum)
+                                  .first->second;
             owner.lyrics.push_back(std::move(pending.lyric));
         }
         for (auto& [key, track] : tracks) {

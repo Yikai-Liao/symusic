@@ -12,18 +12,16 @@ namespace detail {
 
 // The NumPy dtype of a MIDI key-signature tonality is unsigned.
 template<TimeEvent E, size_t I>
-using ColumnValue = std::conditional_t<
-    std::same_as<E, KeySignature<typename E::ttype>> && I == 2, u8, EventField<E, I>
->;
+using ColumnValue = std::
+    conditional_t<std::same_as<E, KeySignature<typename E::ttype>> && I == 2, u8, EventField<E, I>>;
 
-}  // namespace detail
+}   // namespace detail
 
 // Owns one contiguous array for every event field.
 template<TimeEvent E>
 class EventColumns {
-    static constexpr auto kIndices = std::make_index_sequence<
-        std::tuple_size_v<decltype(detail::event_fields<E>)>
-    >{};
+    static constexpr auto kIndices
+        = std::make_index_sequence<std::tuple_size_v<decltype(detail::event_fields<E>)>>{};
 
     template<size_t... I>
     static auto make_columns(std::index_sequence<I...>) {
@@ -37,9 +35,12 @@ public:
         std::apply([&](auto&... values) { (values.reserve(events.size()), ...); }, columns);
         for (const auto& event : events) {
             [&]<size_t... I>(std::index_sequence<I...>) {
-                (std::get<I>(columns).push_back(static_cast<detail::ColumnValue<E, I>>(
-                     event.*std::get<I>(detail::event_fields<E>).second
-                 )), ...);
+                (std::get<I>(columns).push_back(
+                     static_cast<detail::ColumnValue<E, I>>(
+                         event.*std::get<I>(detail::event_fields<E>).second
+                     )
+                 ),
+                 ...);
             }(kIndices);
         }
     }
@@ -51,4 +52,4 @@ public:
     }
 };
 
-}  // namespace symusic
+}   // namespace symusic

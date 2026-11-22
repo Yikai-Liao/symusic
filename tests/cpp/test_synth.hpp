@@ -35,10 +35,18 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
 
         // Add bank select controls
         // MSB (CC0) and LSB (CC32) for bank selection
-        track.controls.push_back(detail::make_event<ControlChange<Second>>(0.0, 0, 1));    // Bank MSB = 1
-        track.controls.push_back(detail::make_event<ControlChange<Second>>(0.0, 32, 2));   // Bank LSB = 2
-        track.controls.push_back(detail::make_event<ControlChange<Second>>(1.0, 0, 3));    // Bank MSB change to 3
-        track.controls.push_back(detail::make_event<ControlChange<Second>>(1.0, 32, 4));   // Bank LSB change to 4
+        track.controls.push_back(
+            detail::make_event<ControlChange<Second>>(0.0, 0, 1)
+        );   // Bank MSB = 1
+        track.controls.push_back(
+            detail::make_event<ControlChange<Second>>(0.0, 32, 2)
+        );   // Bank LSB = 2
+        track.controls.push_back(
+            detail::make_event<ControlChange<Second>>(1.0, 0, 3)
+        );   // Bank MSB change to 3
+        track.controls.push_back(
+            detail::make_event<ControlChange<Second>>(1.0, 32, 4)
+        );   // Bank LSB change to 4
 
         // Create score with this track
         Score<Second> score;
@@ -103,16 +111,22 @@ TEST_CASE("Test Synthesizer Behavior", "[symusic][synth]") {
         Score<Tick> tick_score(480);   // 480 ticks per quarter
 
         // Add tempo changes to make the conversion non-trivial
-        tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));      // 120 BPM
-        tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(960, 1000000));   // 60 BPM at tick 960
+        tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 BPM
+        tick_score.tempos.push_back(
+            detail::make_event<Tempo<Tick>>(960, 1000000)
+        );   // 60 BPM at tick 960
 
         // Add a track with notes
         auto track = Track<Tick>("Piano", 0, false);
-        track.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 80));   // Quarter note at start (120 BPM)
+        track.notes.push_back(
+            detail::make_event<Note<Tick>>(0, 480, 60, 80)
+        );   // Quarter note at start (120 BPM)
         track.notes.push_back(
             detail::make_event<Note<Tick>>(960, 480, 64, 80)
         );   // Quarter note at tempo change (60 BPM)
-        track.notes.push_back(detail::make_event<Note<Tick>>(1440, 480, 67, 80));   // Quarter note after tempo change
+        track.notes.push_back(
+            detail::make_event<Note<Tick>>(1440, 480, 67, 80)
+        );   // Quarter note after tempo change
         tick_score.tracks.push_back(track);
 
         // Convert to psynth::Sequence via Second

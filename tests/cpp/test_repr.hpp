@@ -35,7 +35,8 @@ TEST_CASE("Test Note Formatting (Tick)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
-    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);   // mspq = 500000 corresponds to 120 qpm
+    Tempo<Tick> tempo
+        = detail::make_event<Tempo<Tick>>(150, 500000);   // mspq = 500000 corresponds to 120 qpm
 
     SECTION("Default/Short Format") {
         // Fix: Adjust expected QPM format based on previous failure (120 instead of 120.00)
@@ -174,7 +175,8 @@ TEST_CASE("Test Pedal Formatting (Tick)", "[repr][pedal]") {
 
 // Add tests for ControlChange type (Tick only for now)
 TEST_CASE("Test ControlChange Formatting (Tick)", "[repr][control]") {
-    ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(75, 64, 127);   // CC 64 (Sustain) ON
+    ControlChange<Tick> cc
+        = detail::make_event<ControlChange<Tick>>(75, 64, 127);   // CC 64 (Sustain) ON
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", cc) == "ControlChange(75, 64, 127, 'Tick')");
@@ -310,7 +312,7 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 // Add tests for Score summary/to_string (Tick only)
 TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     Score<Tick> score(480);   // tpq
-    auto& track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
+    auto&       track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
     track1.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
     auto& track2 = score.tracks.emplace_back(Track<Tick>("Track 2", 1, false));
     track2.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 62, 90));

@@ -30,7 +30,8 @@ struct formatter<T> {
     template<typename FmtCtx>
     auto format(T, FmtCtx& ctx) const {
         if constexpr (std::same_as<T, symusic::Tick>) return fmt::format_to(ctx.out(), "Tick");
-        if constexpr (std::same_as<T, symusic::Quarter>) return fmt::format_to(ctx.out(), "Quarter");
+        if constexpr (std::same_as<T, symusic::Quarter>)
+            return fmt::format_to(ctx.out(), "Quarter");
         if constexpr (std::same_as<T, symusic::Second>) return fmt::format_to(ctx.out(), "Second");
     }
 };
@@ -71,11 +72,11 @@ template<symusic::TimeEvent E>
 struct formatter<E> : formatter<symusic::detail::BaseParser> {
     template<typename FmtCtx>
     auto format(const E& event, FmtCtx& ctx) const {
-        using T = typename E::ttype;
-        constexpr auto name = symusic::detail::event_name<E>;
-        auto out = fmt::format_to(ctx.out(), "{}(", name);
-        bool first = true;
-        auto field = [&](std::string_view label, const auto& value) {
+        using T              = typename E::ttype;
+        constexpr auto name  = symusic::detail::event_name<E>;
+        auto           out   = fmt::format_to(ctx.out(), "{}(", name);
+        bool           first = true;
+        auto           field = [&](std::string_view label, const auto& value) {
             if (!first) out = fmt::format_to(out, ", ");
             first = false;
             if (this->presentation == 'd') out = fmt::format_to(out, "{}=", label);
@@ -99,9 +100,8 @@ struct formatter<E> : formatter<symusic::detail::BaseParser> {
             field(label, event.*member);
         });
         if constexpr (std::same_as<E, symusic::KeySignature<T>>) field("degree", event.degree());
-        return this->presentation == 'd'
-            ? fmt::format_to(out, ", ttype='{}')", T{})
-            : fmt::format_to(out, ", '{}')", T{});
+        return this->presentation == 'd' ? fmt::format_to(out, ", ttype='{}')", T{}) :
+                                           fmt::format_to(out, ", '{}')", T{});
     }
 };
 

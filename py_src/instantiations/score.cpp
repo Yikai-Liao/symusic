@@ -7,4 +7,4 @@ template struct Score<Tick, py::SharedStorage>;
 template struct Score<Quarter, py::SharedStorage>;
 template struct Score<Second, py::SharedStorage>;
 
-}  // namespace symusic
+}   // namespace symusic

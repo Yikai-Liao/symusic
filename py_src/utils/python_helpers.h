@@ -31,9 +31,9 @@ namespace nb = nanobind;
 template<typename T, typename... Args>
 void pyinit(std::shared_ptr<T>* self, Args&&... args) {
     if constexpr (TimeEvent<T>) {
-        new (self) shared<T>(std::make_shared<T>(symusic::detail::make_event<T>(
-            std::forward<Args>(args)...
-        )));
+        new (self) shared<T>(
+            std::make_shared<T>(symusic::detail::make_event<T>(std::forward<Args>(args)...))
+        );
     } else {
         new (self) shared<T>(std::make_shared<T>(std::forward<Args>(args)...));
     }
@@ -88,7 +88,9 @@ auto note_from_numpy(
     vec<Note<T>> ans;
     ans.reserve(size);
     for (size_t i = 0; i < size; ++i) {
-        ans.push_back(symusic::detail::make_event<Note<T>>(time(i), duration(i), pitch(i), velocity(i)));
+        ans.push_back(
+            symusic::detail::make_event<Note<T>>(time(i), duration(i), pitch(i), velocity(i))
+        );
     }
     return to_shared_vec(std::move(ans));
 }
@@ -99,7 +101,9 @@ auto pedal_from_numpy(NDARR(unit, 1) time, NDARR(unit, 1) duration) {
     if (size != duration.size()) { throw std::invalid_argument("time, duration size mismatch"); }
     vec<Pedal<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<Pedal<T>>(time(i), duration(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<Pedal<T>>(time(i), duration(i)));
+    }
     return to_shared_vec(std::move(ans));
 }
 
@@ -111,7 +115,9 @@ auto controlchange_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8
     }
     vec<ControlChange<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<ControlChange<T>>(time(i), number(i), value(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<ControlChange<T>>(time(i), number(i), value(i)));
+    }
     return to_shared_vec(std::move(ans));
 }
 
@@ -123,7 +129,11 @@ auto timesig_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1
     }
     vec<TimeSignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<TimeSignature<T>>(time(i), numerator(i), denominator(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(
+            symusic::detail::make_event<TimeSignature<T>>(time(i), numerator(i), denominator(i))
+        );
+    }
     return to_shared_vec(std::move(ans));
 }
 
@@ -135,7 +145,9 @@ auto keysig_from_numpy(NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(u8, 1) tonal
     }
     vec<KeySignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<KeySignature<T>>(time(i), key(i), tonality(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<KeySignature<T>>(time(i), key(i), tonality(i)));
+    }
     return to_shared_vec(std::move(ans));
 }
 
@@ -145,7 +157,9 @@ auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
     if (size != mspq.size()) { throw std::invalid_argument("time, mspq must have the same size"); }
     vec<Tempo<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<Tempo<T>>(time(i), mspq(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<Tempo<T>>(time(i), mspq(i)));
+    }
     return to_shared_vec(std::move(ans));
 }
 
@@ -157,7 +171,9 @@ auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
     }
     vec<PitchBend<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.push_back(symusic::detail::make_event<PitchBend<T>>(time(i), value(i))); }
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<PitchBend<T>>(time(i), value(i)));
+    }
     return to_shared_vec(std::move(ans));
 }
 

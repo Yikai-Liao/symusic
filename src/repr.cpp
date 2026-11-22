@@ -74,4 +74,4 @@ template std::string TextMeta<Tick>::to_string() const;
 template std::string TextMeta<Quarter>::to_string() const;
 template std::string TextMeta<Second>::to_string() const;
 
-}  // namespace symusic
+}   // namespace symusic

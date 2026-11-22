@@ -6,4 +6,4 @@ template struct Score<Tick, ValueStorage>;
 template struct Score<Quarter, ValueStorage>;
 template struct Score<Second, ValueStorage>;
 
-}  // namespace symusic
+}   // namespace symusic

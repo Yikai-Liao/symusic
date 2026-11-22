@@ -51,8 +51,9 @@ nanobind::class_<Vector> bind_vector_copy(
 ) {
     using namespace nanobind;
 
-    using ValueRef = typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
-    using Value    = std::decay_t<ValueRef>;
+    using ValueRef =
+        typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
+    using Value = std::decay_t<ValueRef>;
 
     static_assert(
         !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
@@ -66,38 +67,41 @@ nanobind::class_<Vector> bind_vector_copy(
         return borrow<class_<Vector>>(cl_cur);
     }
 
-    auto cl
-        = class_<Vector>(scope, name, std::forward<Args>(args)...)
-              .def(init<>(), "Default constructor")
+    auto cl = class_<Vector>(scope, name, std::forward<Args>(args)...)
+                  .def(init<>(), "Default constructor")
 
-              .def("__len__", [](const Vector& v) { return v.size(); })
+                  .def("__len__", [](const Vector& v) { return v.size(); })
 
-              .def(
-                  "__bool__",
-                  [](const Vector& v) { return !v.empty(); },
-                  "Check whether the vector is nonempty"
-              )
+                  .def(
+                      "__bool__",
+                      [](const Vector& v) { return !v.empty(); },
+                      "Check whether the vector is nonempty"
+                  )
 
-              .def(
-                  "__repr__",
-                  [](handle_t<Vector> h) { return steal<str>(nanobind::detail::repr_list(h.ptr())); }
-              )
+                  .def(
+                      "__repr__",
+                      [](handle_t<Vector> h) {
+                          return steal<str>(nanobind::detail::repr_list(h.ptr()));
+                      }
+                  )
 
-              .def(
-                  "__iter__",
-                  [](Vector& v) {
-                      return make_iterator(type<Vector>(), "Iterator", v.begin(), v.end());
-                  },
-                  keep_alive<0, 1>()
-              )
+                  .def(
+                      "__iter__",
+                      [](Vector& v) {
+                          return make_iterator(type<Vector>(), "Iterator", v.begin(), v.end());
+                      },
+                      keep_alive<0, 1>()
+                  )
 
-              .def(
-                  "__getitem__",
-                  [](Vector& v, Py_ssize_t i) -> ValueRef { return v[nanobind::detail::wrap(i, v.size())]; },
-                  item_policy<Value>{}
-              )
+                  .def(
+                      "__getitem__",
+                      [](Vector& v, Py_ssize_t i) -> ValueRef {
+                          return v[nanobind::detail::wrap(i, v.size())];
+                      },
+                      item_policy<Value>{}
+                  )
 
-              .def("clear", [](Vector& v) { v.clear(); }, "Remove all items from list.");
+                  .def("clear", [](Vector& v) { v.clear(); }, "Remove all items from list.");
 
     if constexpr (nanobind::detail::is_copy_constructible_v<Value>) {
         cl.def(init<const Vector&>(), "Copy constructor");
@@ -158,7 +162,9 @@ nanobind::class_<Vector> bind_vector_copy(
 
             .def(
                 "__delitem__",
-                [](Vector& v, Py_ssize_t i) { v.erase(v.begin() + nanobind::detail::wrap(i, v.size())); }
+                [](Vector& v, Py_ssize_t i) {
+                    v.erase(v.begin() + nanobind::detail::wrap(i, v.size()));
+                }
             )
 
             .def(
@@ -264,9 +270,10 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 ) {
     using namespace nanobind;
 
-    using ValueRef = typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
-    using Value    = std::decay_t<ValueRef>;
-    using self_t   = std::shared_ptr<Vector>;
+    using ValueRef =
+        typename nanobind::detail::iterator_access<typename Vector::iterator>::result_type;
+    using Value  = std::decay_t<ValueRef>;
+    using self_t = std::shared_ptr<Vector>;
 
     static_assert(
         !nanobind::detail::is_base_caster_v<nanobind::detail::make_caster<Value>>
@@ -296,7 +303,9 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 
                   .def(
                       "__repr__",
-                      [](handle_t<self_t> h) { return steal<str>(nanobind::detail::repr_list(h.ptr())); }
+                      [](handle_t<self_t> h) {
+                          return steal<str>(nanobind::detail::repr_list(h.ptr()));
+                      }
                   )
 
                   .def(
@@ -382,7 +391,9 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
 
             .def(
                 "__delitem__",
-                [](self_t& v, Py_ssize_t i) { v->erase(v->begin() + nanobind::detail::wrap(i, v->size())); }
+                [](self_t& v, Py_ssize_t i) {
+                    v->erase(v->begin() + nanobind::detail::wrap(i, v->size()));
+                }
             )
 
             .def(

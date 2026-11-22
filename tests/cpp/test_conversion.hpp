@@ -125,9 +125,13 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
         // Create a sequence of tempo changes
         int                      tpq    = 480;
         std::vector<Tempo<Tick>> tempos = {
-            detail::make_event<Tempo<Tick>>(0, 500000),       // 120 BPM at time 0
-            detail::make_event<Tempo<Tick>>(1920, 1000000),   // 60 BPM at time 4 quarters (1920 ticks)
-            detail::make_event<Tempo<Tick>>(3840, 250000)     // 240 BPM at time 8 quarters (3840 ticks)
+            detail::make_event<Tempo<Tick>>(0, 500000),   // 120 BPM at time 0
+            detail::make_event<Tempo<Tick>>(
+                1920, 1000000
+            ),   // 60 BPM at time 4 quarters (1920 ticks)
+            detail::make_event<Tempo<Tick>>(
+                3840, 250000
+            )   // 240 BPM at time 8 quarters (3840 ticks)
         };
 
         // Test conversion at different points
@@ -192,8 +196,7 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         // Verify key signature conversion
         REQUIRE(quarter_score.key_signatures.size() == 1);
         REQUIRE_THAT(
-            double(quarter_score.key_signatures.at(0).time),
-            Catch::Matchers::WithinRel(0.5, 0.0001)
+            double(quarter_score.key_signatures.at(0).time), Catch::Matchers::WithinRel(0.5, 0.0001)
         );
         REQUIRE(quarter_score.key_signatures.at(0).key == 0);
         REQUIRE(quarter_score.key_signatures.at(0).tonality == true);
@@ -248,9 +251,15 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         Score<Quarter> quarter_score(480);   // 480 ticks per quarter
 
         // Add some test data
-        quarter_score.time_signatures.push_back(detail::make_event<TimeSignature<Quarter>>(0.0f, 4, 4));
-        quarter_score.key_signatures.push_back(detail::make_event<KeySignature<Quarter>>(0.5f, 0, true));
-        quarter_score.tempos.push_back(detail::make_event<Tempo<Quarter>>(0.0f, 500000));   // 120 BPM
+        quarter_score.time_signatures.push_back(
+            detail::make_event<TimeSignature<Quarter>>(0.0f, 4, 4)
+        );
+        quarter_score.key_signatures.push_back(
+            detail::make_event<KeySignature<Quarter>>(0.5f, 0, true)
+        );
+        quarter_score.tempos.push_back(
+            detail::make_event<Tempo<Quarter>>(0.0f, 500000)
+        );   // 120 BPM
         quarter_score.markers.push_back(detail::make_event<TextMeta<Quarter>>(1.0f, "Section A"));
 
         // Add a track with notes and other events
@@ -428,7 +437,9 @@ TEST_CASE("Test Score Resampling", "[symusic][conversion][resample]") {
 
         // Add a track with a note
         auto track = Track<Tick>("Piano", 0, false);
-        track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 60, 100));   // Quarter note C4
+        track.notes.push_back(
+            detail::make_event<Note<Tick>>(480, 480, 60, 100)
+        );   // Quarter note C4
         original_score.tracks.push_back(track);
 
         // Resample to 960 ticks per quarter (double the resolution)

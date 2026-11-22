@@ -83,11 +83,11 @@ inline void check_time_span(const size_t start, const size_t duration, const siz
     }
 }
 
-}  // namespace detail
+}   // namespace detail
 
 template<typename S>
 TrackPianoroll TrackPianoroll::from_track(
-    const Track<Tick, S>&                track,
+    const Track<Tick, S>&             track,
     const std::vector<PianorollMode>& modes,
     const std::pair<uint8_t, uint8_t> pitch_range,
     const bool                        encode_note_velocity
@@ -100,7 +100,8 @@ TrackPianoroll TrackPianoroll::from_track(
 
     for (const auto& note : S::get(track.notes)) {
         if (note.pitch >= pitch_range.first && note.pitch < pitch_range.second) {
-            const auto [note_start, note_end] = detail::checked_note_span(note.time, note.duration, time_dim);
+            const auto [note_start, note_end]
+                = detail::checked_note_span(note.time, note.duration, time_dim);
             for (size_t mode_index = 0; mode_index < modes.size(); ++mode_index) {
                 // Invariant: mode_index < modes.size(), the pitch offset is below the pitch range
                 // size, and checked_note_span proved the span lies inside the time axis.
@@ -120,7 +121,7 @@ TrackPianoroll TrackPianoroll::from_track(
 
 template<typename S>
 ScorePianoroll ScorePianoroll::from_score(
-    const Score<Tick, S>&                score,
+    const Score<Tick, S>&             score,
     const std::vector<PianorollMode>& modes,
     const std::pair<uint8_t, uint8_t> pitch_range,
     const bool                        encode_note_velocity
@@ -128,14 +129,15 @@ ScorePianoroll ScorePianoroll::from_score(
     if (pitch_range.second < pitch_range.first) {
         throw std::invalid_argument("Pianoroll pitch range is reversed.");
     }
-    const auto&    tracks  = S::get(score.tracks);
+    const auto&    tracks   = S::get(score.tracks);
     const size_t   time_dim = detail::time_dim_from_end(score.end());
     ScorePianoroll pianoroll(
         modes.size(), tracks.size(), pitch_range.second - pitch_range.first, time_dim
     );
 
     for (size_t track_index = 0; track_index < tracks.size(); ++track_index) {
-        for (const auto& track = S::get(tracks[track_index]); const auto& note : S::get(track.notes)) {
+        for (const auto& track = S::get(tracks[track_index]);
+             const auto& note : S::get(track.notes)) {
             if (note.pitch >= pitch_range.first && note.pitch < pitch_range.second) {
                 const auto [note_start, note_end]
                     = detail::checked_note_span(note.time, note.duration, time_dim);
@@ -159,4 +161,4 @@ ScorePianoroll ScorePianoroll::from_score(
     return pianoroll;
 }
 
-}  // namespace symusic
+}   // namespace symusic

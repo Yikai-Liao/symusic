@@ -50,8 +50,9 @@ inline size_t beats_per_bar_for(const TimeSignature<Quarter>& time_signature) {
 template<TType T, typename S>
 BeatTimelineQuarter make_beat_timeline_quarter(const Score<T, S>& score) {
     return {
-        .end_time        = convert_time<Quarter>(score.end(), score),
-        .time_signatures = convert_time_events<Quarter, TimeSignature>(S::get(score.time_signatures), score)
+        .end_time = convert_time<Quarter>(score.end(), score),
+        .time_signatures
+        = convert_time_events<Quarter, TimeSignature>(S::get(score.time_signatures), score)
     };
 }
 
@@ -124,7 +125,10 @@ inline vec<Quarter::unit> compute_downbeats_quarter(
         return lhs.time < rhs.time;
     });
     if (time_signatures.empty() || time_signatures.front().time > start_time) {
-        time_signatures.insert(time_signatures.begin(), symusic::detail::make_event<TimeSignature<Quarter>>(start_time, 4, 4));
+        time_signatures.insert(
+            time_signatures.begin(),
+            symusic::detail::make_event<TimeSignature<Quarter>>(start_time, 4, 4)
+        );
     }
 
     vec<Quarter::unit> downbeats;
@@ -187,8 +191,8 @@ size_t Score<T, S>::note_num() const {
 
 template<TType T, typename S>
 bool Score<T, S>::empty() const {
-    return S::get(tracks).empty() && S::get(time_signatures).empty() && S::get(key_signatures).empty() && S::get(tempos).empty()
-           && S::get(markers).empty();
+    return S::get(tracks).empty() && S::get(time_signatures).empty()
+           && S::get(key_signatures).empty() && S::get(tempos).empty() && S::get(markers).empty();
 }
 
 template<TType T, typename S>
@@ -261,7 +265,8 @@ void Score<T, S>::trim_inplace(
     const std::string& end_mode
 ) {
     detail::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
-    for (auto& track : S::get(tracks)) S::get(track).trim_inplace(start, end, min_overlap, start_mode, end_mode);
+    for (auto& track : S::get(tracks))
+        S::get(track).trim_inplace(start, end, min_overlap, start_mode, end_mode);
     ops::clip_with_sentinel_inplace<S>(S::get(time_signatures), start, end);
     ops::clip_with_sentinel_inplace<S>(S::get(key_signatures), start, end);
     ops::clip_with_sentinel_inplace<S>(S::get(tempos), start, end);
@@ -285,7 +290,8 @@ Score<T, S> Score<T, S>::trim(
 template<TType T, typename S>
 void Score<T, S>::shift_time_inplace(const unit offset) {
     for (auto& track : S::get(tracks)) S::get(track).shift_time_inplace(offset);
-    for (auto& time_signature : S::get(time_signatures)) symusic::shift_time(time_signature, offset);
+    for (auto& time_signature : S::get(time_signatures))
+        symusic::shift_time(time_signature, offset);
     for (auto& key_signature : S::get(key_signatures)) symusic::shift_time(key_signature, offset);
     for (auto& tempo : S::get(tempos)) symusic::shift_time(tempo, offset);
     for (auto& marker : S::get(markers)) symusic::shift_time(marker, offset);
@@ -330,19 +336,18 @@ bool Score<T, S>::operator==(const Score& other) const {
         return &S::get(a) == &S::get(b) || S::get(a) == S::get(b);
     };
     return ticks_per_quarter == other.ticks_per_quarter
-        && (&S::get(tracks) == &S::get(other.tracks)
-            || std::ranges::equal(S::get(tracks), S::get(other.tracks), equal_tracks))
-        && S::get(time_signatures) == S::get(other.time_signatures)
-        && S::get(key_signatures) == S::get(other.key_signatures)
-        && S::get(tempos) == S::get(other.tempos)
-        && S::get(markers) == S::get(other.markers);
+           && (&S::get(tracks) == &S::get(other.tracks)
+               || std::ranges::equal(S::get(tracks), S::get(other.tracks), equal_tracks))
+           && S::get(time_signatures) == S::get(other.time_signatures)
+           && S::get(key_signatures) == S::get(other.key_signatures)
+           && S::get(tempos) == S::get(other.tempos) && S::get(markers) == S::get(other.markers);
 }
 
 template<TType T, typename S>
 Score<T, S> Score<T, S>::deepcopy() const {
     const auto clone = [](const auto& field) {
         const auto& values = S::get(field);
-        using E = typename std::remove_cvref_t<decltype(values)>::value_type;
+        using E            = typename std::remove_cvref_t<decltype(values)>::value_type;
         return S::adopt(vec<E>(values.begin(), values.end()));
     };
     vec<track_handle> copied_tracks;
@@ -350,15 +355,31 @@ Score<T, S> Score<T, S>::deepcopy() const {
     for (const auto& track : S::get(tracks)) {
         copied_tracks.push_back(S::adopt_track(S::get(track).deepcopy()));
     }
-    return {ticks_per_quarter, S::adopt_tracks(std::move(copied_tracks)), clone(time_signatures),
-            clone(key_signatures), clone(tempos), clone(markers)};
+    return {
+        ticks_per_quarter,
+        S::adopt_tracks(std::move(copied_tracks)),
+        clone(time_signatures),
+        clone(key_signatures),
+        clone(tempos),
+        clone(markers)
+    };
 }
 
 template<TType T, typename S>
 std::string Score<T, S>::summary() const {
-    return fmt::format("Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, markers={})",
-                       T(), ticks_per_quarter, start(), end(), track_num(), note_num(),
-                       S::get(time_signatures).size(), S::get(key_signatures).size(), S::get(markers).size());
+    return fmt::format(
+        "Score(ttype={}, tpq={}, begin={}, end={}, tracks={}, notes={}, time_sig={}, key_sig={}, "
+        "markers={})",
+        T(),
+        ticks_per_quarter,
+        start(),
+        end(),
+        track_num(),
+        note_num(),
+        S::get(time_signatures).size(),
+        S::get(key_signatures).size(),
+        S::get(markers).size()
+    );
 }
 
 template<TType T, typename S>
@@ -366,4 +387,4 @@ std::string Score<T, S>::to_string() const {
     return summary();
 }
 
-}  // namespace symusic
+}   // namespace symusic

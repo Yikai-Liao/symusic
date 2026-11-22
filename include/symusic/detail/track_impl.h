@@ -37,8 +37,8 @@ size_t Track<T, S>::note_num() const {
 
 template<TType T, typename S>
 bool Track<T, S>::empty() const {
-    return S::get(notes).empty() && S::get(controls).empty() && S::get(pitch_bends).empty() && S::get(pedals).empty()
-           && S::get(lyrics).empty();
+    return S::get(notes).empty() && S::get(controls).empty() && S::get(pitch_bends).empty()
+           && S::get(pedals).empty() && S::get(lyrics).empty();
 }
 
 template<TType T, typename S>
@@ -145,28 +145,41 @@ Track<T, S> Track<T, S>::shift_velocity(const i8 offset) const {
 template<TType T, typename S>
 bool Track<T, S>::operator==(const Track& other) const {
     return name == other.name && program == other.program && is_drum == other.is_drum
-        && S::get(notes) == S::get(other.notes)
-        && S::get(controls) == S::get(other.controls)
-        && S::get(pitch_bends) == S::get(other.pitch_bends)
-        && S::get(pedals) == S::get(other.pedals)
-        && S::get(lyrics) == S::get(other.lyrics);
+           && S::get(notes) == S::get(other.notes) && S::get(controls) == S::get(other.controls)
+           && S::get(pitch_bends) == S::get(other.pitch_bends)
+           && S::get(pedals) == S::get(other.pedals) && S::get(lyrics) == S::get(other.lyrics);
 }
 
 template<TType T, typename S>
 Track<T, S> Track<T, S>::deepcopy() const {
     const auto clone = [](const auto& field) {
         const auto& values = S::get(field);
-        using E = typename std::remove_cvref_t<decltype(values)>::value_type;
+        using E            = typename std::remove_cvref_t<decltype(values)>::value_type;
         return S::adopt(vec<E>(values.begin(), values.end()));
     };
-    return {name, program, is_drum, clone(notes), clone(controls), clone(pitch_bends),
-            clone(pedals), clone(lyrics)};
+    return {
+        name,
+        program,
+        is_drum,
+        clone(notes),
+        clone(controls),
+        clone(pitch_bends),
+        clone(pedals),
+        clone(lyrics)
+    };
 }
 
 template<TType T, typename S>
 std::string Track<T, S>::summary() const {
-    return fmt::format("Track(ttype={}, program={}, is_drum={}, name={}, notes={}, lyrics={})",
-                       T(), program, is_drum, name, note_num(), S::get(lyrics).size());
+    return fmt::format(
+        "Track(ttype={}, program={}, is_drum={}, name={}, notes={}, lyrics={})",
+        T(),
+        program,
+        is_drum,
+        name,
+        note_num(),
+        S::get(lyrics).size()
+    );
 }
 
 template<TType T, typename S>
@@ -174,4 +187,4 @@ std::string Track<T, S>::to_string() const {
     return summary();
 }
 
-}  // namespace symusic
+}   // namespace symusic
