@@ -124,7 +124,7 @@ struct ZppContainer {
 
 template<class Container>
 constexpr zpp::bits::errc serialize(auto& archive, const ZppContainer<Container>& wrapped) {
-    using E = typename Container::value_type;
+    using E      = typename Container::value_type;
     auto& values = wrapped.values;
     if constexpr (std::is_const_v<Container>) {
         const auto count = checked_zpp_size(values.size());
@@ -168,9 +168,14 @@ constexpr auto serialize(auto& archive, TextMeta<T>& data) {
 template<class Track>
 constexpr auto serialize_track(auto& archive, Track& data, auto& drum_flag) {
     return archive(
-        ZppContainer{data.name}, data.program, drum_flag,
-        ZppContainer{data.notes}, ZppContainer{data.controls}, ZppContainer{data.pitch_bends},
-        ZppContainer{data.pedals}, ZppContainer{data.lyrics}
+        ZppContainer{data.name},
+        data.program,
+        drum_flag,
+        ZppContainer{data.notes},
+        ZppContainer{data.controls},
+        ZppContainer{data.pitch_bends},
+        ZppContainer{data.pedals},
+        ZppContainer{data.lyrics}
     );
 }
 
@@ -182,7 +187,7 @@ constexpr auto serialize(auto& archive, const TrackNative<T>& data) {
 
 template<TType T>
 constexpr zpp::bits::errc serialize(auto& archive, TrackNative<T>& data) {
-    u8 drum_flag{};
+    u8   drum_flag{};
     auto result = serialize_track(archive, data, drum_flag);
     if (zpp::bits::failure(result)) return result;
     if (drum_flag > 1) return std::errc::invalid_argument;
@@ -193,8 +198,12 @@ constexpr zpp::bits::errc serialize(auto& archive, TrackNative<T>& data) {
 template<class Score>
 constexpr auto serialize_score(auto& archive, Score& data) {
     return archive(
-        data.ticks_per_quarter, ZppContainer{data.tracks}, ZppContainer{data.time_signatures},
-        ZppContainer{data.key_signatures}, ZppContainer{data.tempos}, ZppContainer{data.markers}
+        data.ticks_per_quarter,
+        ZppContainer{data.tracks},
+        ZppContainer{data.time_signatures},
+        ZppContainer{data.key_signatures},
+        ZppContainer{data.tempos},
+        ZppContainer{data.markers}
     );
 }
 
@@ -215,7 +224,7 @@ namespace symusic {
 namespace details {
 
 constexpr std::array<u8, 4> kZppMagic{'S', 'Y', 'M', 'Z'};
-constexpr u8 kZppVersion = 1;
+constexpr u8                kZppVersion = 1;
 
 template<class T>
 auto archive_zpp_state(auto& archive, T& data) {
@@ -229,7 +238,7 @@ auto archive_zpp_state(auto& archive, T& data) {
 template<class T>
 vec<u8> serialize_zpp(const T& data) {
     vec<u8> buffer;
-    auto out = zpp::bits::out(buffer);
+    auto    out = zpp::bits::out(buffer);
     out(kZppMagic, kZppVersion).or_throw();
     archive_zpp_state(out, data).or_throw();
     return buffer;
@@ -237,9 +246,9 @@ vec<u8> serialize_zpp(const T& data) {
 
 template<class T>
 T deserialize_zpp(std::span<const u8> buffer) {
-    auto in = zpp::bits::in(buffer);
+    auto                             in = zpp::bits::in(buffer);
     std::array<u8, kZppMagic.size()> magic{};
-    u8 version{};
+    u8                               version{};
     if (zpp::bits::failure(in(magic, version)) || magic != kZppMagic) {
         throw std::invalid_argument(
             "Invalid ZPP pickle header (unversioned or malformed, expected version "

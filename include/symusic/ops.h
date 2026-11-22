@@ -37,9 +37,7 @@ U trunc_time(const f64 value) {
 inline void validate_trim_options(
     auto min_overlap, const std::string& start_mode, const std::string& end_mode
 ) {
-    if (min_overlap < 0) {
-        throw std::invalid_argument("min_overlap must be non-negative");
-    }
+    if (min_overlap < 0) { throw std::invalid_argument("min_overlap must be non-negative"); }
     const auto validate = [](const std::string& mode, const char* name) {
         if (mode != "remove" && mode != "truncate" && mode != "retain") {
             throw std::invalid_argument(
@@ -143,18 +141,18 @@ void trim_inplace(
 ) {
     details::validate_trim_options(min_overlap, start_mode, end_mode);
     if constexpr (HashDuration<T>) {
-        using wide = details::wide_t<T>;
-        using unit = typename T::unit;
+        using wide                 = details::wide_t<T>;
+        using unit                 = typename T::unit;
         const bool remove_at_start = start_mode == "remove";
-        const bool remove_at_end = end_mode == "remove";
+        const bool remove_at_end   = end_mode == "remove";
         events.filter([=](const T& event) {
             const wide event_start = event.time;
-            const wide event_end = details::wide_end(event);
+            const wide event_end   = details::wide_end(event);
             if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
                 return false;
             }
             const wide overlap_start = std::max<wide>(event_start, start);
-            const wide overlap_end = std::min<wide>(event_end, end);
+            const wide overlap_end   = std::min<wide>(event_end, end);
             return overlap_end - overlap_start >= min_overlap;
         });
 
@@ -276,8 +274,8 @@ void adjust_time_inplace_inner(
 
     auto valid = [get_end, range](const T& event) {
         const auto end = get_end(event);
-        return event.time >= range.first && event.time <= range.second
-               && end >= range.first && end <= range.second;
+        return event.time >= range.first && event.time <= range.second && end >= range.first
+               && end <= range.second;
     };
 
     auto cur_range  = std::make_pair(original_times[0], original_times[1]);
@@ -340,8 +338,9 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
         );
     }
     const auto invalid = std::adjacent_find(
-        original_times.begin(), original_times.end(),
-        [](const T left, const T right) { return !(left < right); }
+        original_times.begin(), original_times.end(), [](const T left, const T right) {
+            return !(left < right);
+        }
     );
     if (invalid != original_times.end()) {
         throw std::invalid_argument(

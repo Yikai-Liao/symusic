@@ -169,7 +169,8 @@ nanobind::class_<Vector> bind_vector_copy(
                     seq->reserve(length);
 
                     for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice normalization.
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
                         const auto index = start + static_cast<Py_ssize_t>(i) * step;
                         seq->push_back(v[index]);
                     }
@@ -190,9 +191,10 @@ nanobind::class_<Vector> bind_vector_copy(
                         );
 
                     for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice normalization.
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
                         const auto index = start + static_cast<Py_ssize_t>(i) * step;
-                        v[index] = value[i];
+                        v[index]         = value[i];
                     }
                 }
             )
@@ -391,7 +393,8 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                     seq->reserve(length);
 
                     for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice normalization.
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
                         const auto index = start + static_cast<Py_ssize_t>(i) * step;
                         seq->push_back(v->operator[](index));
                     }
@@ -412,8 +415,9 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                         );
 
                     for (size_t i = 0; i < length; ++i) {
-                        // Compute only selected indices, whose signed offsets fit by slice normalization.
-                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
+                        const auto index     = start + static_cast<Py_ssize_t>(i) * step;
                         v->operator[](index) = other->operator[](i);
                     }
                 }

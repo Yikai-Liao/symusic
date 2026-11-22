@@ -54,7 +54,7 @@ vec<u8> read_file_contents(FILE* file) {
         throw std::runtime_error("Cannot determine the file size");
     }
     const auto size = static_cast<size_t>(end);
-    vec<u8> buffer(size);
+    vec<u8>    buffer(size);
     if (size != 0 && fread(buffer.data(), 1, size, file) != size) {
         throw std::runtime_error("Cannot read the complete file");
     }

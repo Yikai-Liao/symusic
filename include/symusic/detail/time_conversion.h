@@ -82,14 +82,15 @@ struct SecondTimeConverter {
 
     explicit SecondTimeConverter(const Score<From>& score) :
         tpq(static_cast<f64>(score.ticks_per_quarter)) {
-        constexpr i32 default_mspq = 500000;
+        constexpr i32    default_mspq = 500000;
         vec<Tempo<From>> tempos(score.tempos->cbegin(), score.tempos->cend());
         std::stable_sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
             return lhs.time < rhs.time;
         });
         const auto zero = std::lower_bound(
-            tempos.begin(), tempos.end(), from_unit{0},
-            [](const auto& tempo, const auto time) { return tempo.time < time; }
+            tempos.begin(), tempos.end(), from_unit{0}, [](const auto& tempo, const auto time) {
+                return tempo.time < time;
+            }
         );
         const auto origin = zero - tempos.begin();
         if (zero == tempos.end() || zero->time != from_unit{0}) {
@@ -99,7 +100,7 @@ struct SecondTimeConverter {
         }
 
         const auto self = static_cast<const Converter*>(this);
-        default_factor = self->get_factor(Tempo<From>(from_unit{0}, default_mspq));
+        default_factor  = self->get_factor(Tempo<From>(from_unit{0}, default_mspq));
         to_times.resize(tempos.size());
         from_times.reserve(tempos.size() + 1);
         factors.reserve(tempos.size());
@@ -125,7 +126,7 @@ struct SecondTimeConverter {
     }
 
     [[nodiscard]] to_unit time_value(const from_unit time) const {
-        const auto self  = static_cast<const Converter*>(this);
+        const auto self = static_cast<const Converter*>(this);
         if (time < from_times.front()) {
             return self->get_time(time, to_times.front(), from_times.front(), default_factor);
         }
@@ -212,9 +213,8 @@ private:
         if (time < state.range.first || time >= state.range.second) {
             if (time < from_times.front()) {
                 // Use an empty cached range with its pivot at the first boundary.
-                state = {
-                    {from_times.front(), from_times.front()}, to_times.front(), default_factor
-                };
+                state
+                    = {{from_times.front(), from_times.front()}, to_times.front(), default_factor};
                 return;
             }
             const auto index = range_index(time);

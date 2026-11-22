@@ -261,8 +261,8 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
     SECTION("Images with nonzero padding still load") {
         auto bytes = Note<Tick>(1, 2, 3, 4).dumps<DataFormat::ZPP>();
         auto image = std::span(bytes).last(sizeof(Note<Tick>));
-        image[10] = 0xAA;
-        image[11] = 0x55;
+        image[10]  = 0xAA;
+        image[11]  = 0x55;
         REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == Note<Tick>(1, 2, 3, 4));
     }
 }
