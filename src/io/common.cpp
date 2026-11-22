@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 
 #include "fmt/core.h"
@@ -100,34 +102,27 @@ vec<u8> read_score_file(const std::filesystem::path& path) {
 }
 
 vec<u8> read_file(const std::string& path) {
-#ifndef _WIN32
-    FILE* fp = fopen(path.c_str(), "rb");
-    if (fp == nullptr) { throw std::runtime_error(fmt::format("File not found file: {}", path)); }
-#else   // deal with utf-8 path on windows
-    FILE*         fp    = nullptr;
-    const auto    wpath = to_utf16(path);
-    const errno_t err   = _wfopen_s(&fp, wpath.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
-    }
+#ifdef _WIN32
+    return read_file(std::filesystem::path(to_utf16(path)));
+#else
+    return read_file(std::filesystem::path(path));
 #endif
-    return read_file_contents(fp);
 }
 
 vec<u8> read_file(const std::filesystem::path& path) {
-#ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
-    return read_file(path.string());
+#ifdef _WIN32
+    FILE*      fp    = nullptr;
+    const auto error = _wfopen_s(&fp, path.c_str(), L"rb");
 #else
-    FILE*         fp  = nullptr;
-    const errno_t err = _wfopen_s(&fp, path.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(
-            fmt::format("File not found file (error:{}): {}", err, path_to_utf8(path))
+    FILE*      fp    = fopen(path.c_str(), "rb");
+    const auto error = errno;
+#endif
+    if (fp == nullptr) {
+        throw std::filesystem::filesystem_error(
+            "Cannot open file for reading", path, std::error_code(error, std::generic_category())
         );
     }
     return read_file_contents(fp);
-#endif
 }
 
 void write_file(const std::string& path, const std::span<const u8> buffer) {

@@ -1,3 +1,5 @@
+import errno
+import os
 import re
 from importlib.util import find_spec
 
@@ -100,6 +102,20 @@ def test_checked_python_inputs(tmp_path):
         Score(tmp_path / "missing.mid")
     with pytest.raises(IsADirectoryError):
         Score.from_file(tmp_path, format="midi")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="chmod does not revoke read access on Windows")
+def test_midi_file_preserves_permission_error(tmp_path):
+    path = tmp_path / "unreadable.mid"
+    path.touch()
+    path.chmod(0)
+    if os.access(path, os.R_OK):
+        pytest.skip("the test process can read files without read permission")
+    assert path.is_file()
+    with pytest.raises(PermissionError) as error:
+        Score.from_file(path)
+    assert error.value.errno == errno.EACCES
+    assert error.value.filename == str(path)
 
 
 def test_public_callable_signatures():
