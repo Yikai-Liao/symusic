@@ -203,3 +203,17 @@ def test_list_iterators_stay_exhausted():
         assert list(iterator) == list(items)
         items.append(value)
         assert next(iterator, None) is None
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+def test_track_list_equality_shares_tracks(ttype):
+    track = Track(notes=[Note(0, 1, 60, ttype=ttype)], ttype=ttype)
+    track.notes[0].time = float("nan")
+    score = Score(ttype=ttype)
+    other = Score(ttype=ttype)
+    score.tracks.append(track)
+    other.tracks.append(track)
+
+    assert score.tracks == other.tracks
+    assert score.tracks == [track]
+    assert score.tracks != score.tracks.copy(deep=True)
