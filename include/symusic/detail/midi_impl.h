@@ -220,7 +220,7 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         } else {
             msgs = {};
             msgs.reserve(
-                msgs.size() + track.note_num() * 2 + S::get(track.controls).size()
+                S::get(track.controls).size()
                 + S::get(track.pitch_bends).size() + S::get(track.lyrics).size() + 10
             );
         }
@@ -259,13 +259,8 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         std::stable_sort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {
             return (a.time) < (b.time);
         });
-        append_midi_notes(msgs, S::get(track.notes), channel);
-        // messages will be sorted by time in minimidi
-        if (!msgs.empty()) {
-            // sort msgs by time using timsort
-            midi.tracks.emplace_back(std::move(msgs));
-            idx += 1;
-        }
+        midi.tracks.emplace_back(merge_midi_notes(std::move(msgs), S::get(track.notes), channel));
+        ++idx;
     }
     if (!init_msgs.empty()) {
         std::stable_sort(init_msgs.begin(), init_msgs.end(), [](const auto& a, const auto& b) {
