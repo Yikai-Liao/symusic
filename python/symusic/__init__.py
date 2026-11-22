@@ -1,3 +1,4 @@
+from ._abc import ABCConversionWarning
 from .core import Synthesizer
 from .factory import (
     ControlChange,
@@ -21,6 +22,7 @@ from .soundfont import (
 __version__ = "0.6.0"
 
 __all__ = [
+    "ABCConversionWarning",
     "BuiltInSF2",
     "BuiltInSF3",
     "ControlChange",

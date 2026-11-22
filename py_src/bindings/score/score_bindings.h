@@ -5,11 +5,10 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdio>
-#include <cstdlib>
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -20,7 +19,6 @@
 #include <nanobind/stl/string.h>
 
 #include "../../utils/python_helpers.h"
-#include "../../utils/process_runner.h"
 #include "../core/binding_common.h"
 #include "../docstring_helpers.h"
 
@@ -44,19 +42,10 @@ const char* doc() {
 
 constexpr const char* kTpqCtorDoc
     = R"pbdoc(Create an empty score with *tpq* ticks per quarter note.)pbdoc";
-constexpr const char* kPathCtorDoc
-    = R"pbdoc(Read a MIDI file. ``symusic.Score(path)`` also reads ABC files.)pbdoc";
-constexpr const char* kFromFileDoc = R"pbdoc(
-Read a MIDI or ABC file. The extension selects the format (``.mid``, ``.midi``, ``.MID``, ``.MIDI``
-or ``.abc``) unless *format* names it (``"midi"`` or ``"abc"``). *sanitize_data* applies to MIDI
-only; see ``from_midi``.
-)pbdoc";
+constexpr const char* kPathCtorDoc = R"pbdoc(Read a MIDI file.)pbdoc";
 constexpr const char* kFromMidiDoc = R"pbdoc(
 Read MIDI bytes. A channel message data byte above 127 raises ``RuntimeError``; with
 *sanitize_data* it is clamped to 127 instead.
-)pbdoc";
-constexpr const char* kFromAbcDoc  = R"pbdoc(
-Read ABC text by converting it with the bundled ``abc2midi``. Only the first tune is read.
 )pbdoc";
 constexpr const char* kDumpMidiDoc = R"pbdoc(
 Write the score to a MIDI file. ``pedals`` are not written; the sustain pedal reaches the file
@@ -64,12 +53,6 @@ through control change 64 in ``controls``.
 )pbdoc";
 constexpr const char* kDumpsMidiDoc
     = R"pbdoc(Return the score as MIDI bytes, as ``dump_midi`` writes them.)pbdoc";
-constexpr const char* kDumpAbcDoc = R"pbdoc(
-Write the score as ABC by converting its MIDI form with the bundled ``midi2abc``. With *warn*, the
-converter's error output is shown.
-)pbdoc";
-constexpr const char* kDumpsAbcDoc
-    = R"pbdoc(Return the score as ABC text, as ``dump_abc`` writes it.)pbdoc";
 constexpr const char* kGetBeatsDoc     = R"pbdoc(
 Return the beat times from *start_time* to the end of the score as a NumPy array. As in
 pretty_midi, compound meters (numerator 6, 9, 12, ...) count one beat per three notes of the
@@ -109,6 +92,11 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
 to *start*. Returns a new score unless *inplace* is true.
 )pbdoc";
+constexpr const char* kTrimDoc     = R"pbdoc(
+Return a new score trimmed to the window. For notes and pedals that cross a boundary, "remove"
+drops them, "truncate" cuts them at the boundary, and "retain" keeps them whole. The tempo,
+time signature and key signature in effect at *start* move to *start*.
+)pbdoc";
 constexpr const char* kShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
 constexpr const char* kShiftPitchDoc    = R"pbdoc(
@@ -134,15 +122,6 @@ Returns a new score unless *inplace* is true.
 constexpr const char* kUseCountDoc
     = R"pbdoc(Return the number of references to the score, for debugging.)pbdoc";
 }   // namespace score_docstrings
-
-inline std::string path_to_utf8_string(const std::filesystem::path& path) {
-#ifdef _WIN32
-    const auto utf8 = path.u8string();
-    return std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size());
-#else
-    return path.string();
-#endif
-}
 
 template<TType T>
 typename T::unit cast_time(const nb::object& t) {
@@ -176,9 +155,9 @@ nb::object convert_score(
 }
 
 template<TType T>
-shared<Score<T>> midi2score(const std::filesystem::path& path, const bool sanitize_data = false) {
+shared<Score<T>> midi2score(const std::filesystem::path& path) {
     auto     data = read_file(path);
-    Score<T> s    = parse<DataFormat::MIDI, Score<T>>(data, sanitize_data);
+    Score<T> s    = parse<DataFormat::MIDI, Score<T>>(data, false);
     return std::make_shared<Score<T>>(std::move(s));
 }
 
@@ -186,149 +165,6 @@ template<TType T>
 void dump_midi(const shared<Score<T>>& self, const std::filesystem::path& path) {
     const auto data = self->template dumps<DataFormat::MIDI>();
     write_file(path, data);
-}
-
-template<TType T>
-void dump_abc_fs(const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn) {
-    const auto midi2abc_env = std::getenv("SYMUSIC_MIDI2ABC");
-    if (!midi2abc_env) {
-        throw std::runtime_error("SYMUSIC_MIDI2ABC environment variable not set");
-    }
-    const std::filesystem::path midi2abc = midi2abc_env;
-    if (midi2abc.empty()) { throw std::runtime_error("midi2abc path is empty"); }
-
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_midi_path = temp_dir.path() / "input.mid";
-#ifdef _WIN32
-    const auto  temp_abc_path         = temp_dir.path() / "output.abc";
-    const auto& converter_output_path = temp_abc_path;
-#else
-    const auto& converter_output_path = path;
-#endif
-
-    dump_midi(self, temp_midi_path);
-    process_runner::run_process_checked(
-        midi2abc, {temp_midi_path, std::filesystem::path("-o"), converter_output_path}, !warn
-    );
-
-    if (!std::filesystem::exists(converter_output_path)) {
-        throw std::runtime_error(
-            fmt::format("midi2abc did not create {}", path_to_utf8_string(path))
-        );
-    }
-
-#ifdef _WIN32
-    std::error_code error;
-    std::filesystem::copy_file(
-        converter_output_path, path, std::filesystem::copy_options::overwrite_existing, error
-    );
-    if (error) {
-        throw std::runtime_error(
-            fmt::format(
-                "Failed to copy ABC output to {}: {}", path_to_utf8_string(path), error.message()
-            )
-        );
-    }
-#endif
-}
-
-template<TType T>
-void dump_abc_path(
-    const shared<Score<T>>& self, const std::filesystem::path& path, const bool warn
-) {
-    dump_abc_fs<T>(self, path, warn);
-}
-
-template<TType T>
-std::string dumps_abc(const shared<Score<T>>& self, const bool warn) {
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_abc_path = temp_dir.path() / "output.abc";
-    dump_abc_fs(self, temp_abc_path, warn);
-    const auto data = read_file(temp_abc_path);
-    return std::string(reinterpret_cast<const char*>(data.data()), data.size());
-}
-
-inline std::string get_format(const std::filesystem::path& path) {
-    const auto ext = path.extension().string();
-    if (ext == ".mid" || ext == ".midi" || ext == ".MID" || ext == ".MIDI") { return "midi"; }
-    if (ext == ".abc") { return "abc"; }
-    throw std::invalid_argument("Unknown file format");
-}
-
-template<TType T>
-shared<Score<T>> from_abc_file(const std::filesystem::path& path) {
-    const auto abc2midi_env = std::getenv("SYMUSIC_ABC2MIDI");
-    if (!abc2midi_env) { throw std::runtime_error("abc2midi not found"); }
-    const std::filesystem::path abc2midi = abc2midi_env;
-    if (abc2midi.empty()) { throw std::runtime_error("abc2midi not found"); }
-
-    process_runner::ScopedTempDir temp_dir;
-#ifdef _WIN32
-    const auto      temp_abc_path = temp_dir.path() / "input.abc";
-    std::error_code copy_error;
-    std::filesystem::copy_file(
-        path, temp_abc_path, std::filesystem::copy_options::overwrite_existing, copy_error
-    );
-    if (copy_error) {
-        throw std::runtime_error(
-            fmt::format(
-                "Failed to stage ABC input {}: {}", path_to_utf8_string(path), copy_error.message()
-            )
-        );
-    }
-    const auto& converter_input_path = temp_abc_path;
-#else
-    const auto& converter_input_path = path;
-#endif
-    const auto midi_path = temp_dir.path() / "output.mid";
-    process_runner::run_process_checked(
-        abc2midi,
-        {
-            converter_input_path,
-            std::filesystem::path("-o"),
-            midi_path,
-            std::filesystem::path("-silent"),
-        },
-        false
-    );
-    if (!std::filesystem::exists(midi_path)) {
-        throw std::runtime_error(fmt::format("abc2midi did not create {}", midi_path.string()));
-    }
-
-    const auto data = read_file(midi_path);
-    auto       s    = Score<T>::template parse<DataFormat::MIDI>(data);
-    return std::make_shared<Score<T>>(std::move(s));
-}
-
-template<TType T>
-shared<Score<T>> from_abc(const std::string& abc) {
-    process_runner::ScopedTempDir temp_dir;
-    const auto                    temp_abc_path = temp_dir.path() / "input.abc";
-    write_file(temp_abc_path, std::span(reinterpret_cast<const u8*>(abc.data()), abc.size()));
-    return from_abc_file<T>(temp_abc_path);
-}
-
-template<TType T>
-shared<Score<T>> from_file(
-    const std::filesystem::path&      path,
-    const std::optional<std::string>& format,
-    const bool                        sanitize_data
-) {
-    std::string format_ = format.has_value() ? *format : "";
-    if (format_.empty()) {
-        format_ = get_format(path);
-    } else {
-        std::transform(format_.begin(), format_.end(), format_.begin(), ::tolower);
-    }
-
-    if (format_ == "midi" || format_ == "mid") { return midi2score<T>(path, sanitize_data); }
-    if (format_ == "abc") {
-        if (sanitize_data) {
-            throw std::invalid_argument("sanitize_data is only supported for MIDI input");
-        }
-        return from_abc_file<T>(path);
-    }
-    throw std::invalid_argument("Unknown file format");
 }
 
 template<typename Scalar>
@@ -407,7 +243,6 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             new (self) self_t(midi2score<T>(path));
         }, nb::arg("path"), score_docstrings::kPathCtorDoc,
            nb::sig("def __init__(self, path: pathlib.Path, /) -> None"))
-        .def_static("from_file", &from_file<T>, nb::arg("path"), nb::arg("format") = nb::none(), nb::arg("sanitize_data") = false, score_docstrings::kFromFileDoc)
         .def_static("from_midi", [](const nb::bytes& data, bool sanitize_data) {
             const auto str  = std::string_view(data.c_str(), data.size());
             const auto span = std::span(reinterpret_cast<const u8*>(str.data()), str.size());
@@ -417,14 +252,11 @@ auto bind_score(nb::module_& m, const std::string& name_) {
             nb::arg("sanitize_data") = false,
             score_docstrings::kFromMidiDoc
         )
-        .def_static("from_abc", &from_abc<T>, nb::arg("abc"), score_docstrings::kFromAbcDoc)
         .def("dump_midi", &dump_midi<T>, nb::arg("path"), score_docstrings::kDumpMidiDoc)
         .def("dumps_midi", [](const self_t& self) {
             auto data = self->template dumps<DataFormat::MIDI>();
             return nb::bytes(reinterpret_cast<const char*>(data.data()), data.size());
         }, score_docstrings::kDumpsMidiDoc)
-        .def("dump_abc", &dump_abc_path<T>, nb::arg("path"), nb::arg("warn") = false, score_docstrings::kDumpAbcDoc)
-        .def("dumps_abc", &dumps_abc<T>, nb::arg("warn") = false, score_docstrings::kDumpsAbcDoc)
         .def("get_beats", &get_beats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kGetBeatsDoc)
         .def("get_downbeats", &get_downbeats_array<T>, nb::arg("start_time") = static_cast<unit>(0), score_docstrings::kGetDownbeatsDoc)
         .def_prop_rw(RW_COPY(i32, "ticks_per_quarter", ticks_per_quarter), "Ticks per quarter note, the MIDI resolution.")
@@ -453,6 +285,22 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
+        .def("trim", [](const self_t& self, unit start, unit end, unit min_overlap,
+                         const std::string& start_mode, const std::string& end_mode) {
+            const auto valid_mode = [](const std::string& mode) {
+                return mode == "remove" || mode == "truncate" || mode == "retain";
+            };
+            if (!valid_mode(start_mode) || !valid_mode(end_mode)) {
+                throw std::invalid_argument("trim modes must be 'remove', 'truncate', or 'retain'");
+            }
+            return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = static_cast<unit>(0),
+           nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc,
+           nb::sig(fmt::format(
+               "def trim(self, start: {}, end: {}, min_overlap: {} = 0, "
+               "start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', "
+               "end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove') -> {}",
+               flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);

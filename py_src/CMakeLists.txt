@@ -26,7 +26,6 @@ endif()
 add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/FIcstdio,SHELL:-include cstdio>>")
 nanobind_add_module(core ${_symusic_nb_flags} NB_DOMAIN symusic
     bindings/core/module.cpp
-    utils/process_runner.cpp
     bindings/events/register_events.cpp
     bindings/events/register_events_notes.cpp
     bindings/events/register_events_controls.cpp
@@ -49,7 +48,8 @@ if(SYMUSIC_PYTHON_STUB)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION symusic)
 else()
     nanobind_add_stub(symusic_core_stub_raw INSTALL_TIME MODULE symusic.core
-        OUTPUT symusic/core.raw.pyi MARKER_FILE symusic/py.typed PYTHON_PATH ".")
+        OUTPUT symusic/core.raw.pyi MARKER_FILE symusic/py.typed PYTHON_PATH "."
+        PATTERN_FILE "${PROJECT_SOURCE_DIR}/scripts/core_stubgen.pattern")
     configure_file("${PROJECT_SOURCE_DIR}/cmake/LiftStubs.cmake.in" LiftStubs.cmake @ONLY)
     install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/LiftStubs.cmake")
 endif()
