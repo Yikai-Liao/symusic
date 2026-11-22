@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os.path
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
@@ -27,25 +26,6 @@ __all__ = [
     "TimeUnit",
     "Track",
 ]
-
-_HERE = Path(__file__).parent
-_BIN = _HERE / "bin"
-if os.name == "nt":
-    _MIDI2ABC = _BIN / "midi2abc.exe"
-    _ABC2MIDI = _BIN / "abc2midi.exe"
-else:
-    _MIDI2ABC = _BIN / "midi2abc"
-    _ABC2MIDI = _BIN / "abc2midi"
-
-if not _MIDI2ABC.exists():
-    msg_ = f"{_MIDI2ABC} does not exist"
-    raise FileNotFoundError(msg_)
-if not _ABC2MIDI.exists():
-    msg_ = f"{_ABC2MIDI} does not exist"
-    raise FileNotFoundError(msg_)
-# The ABC bindings in symusic.core find the bundled converters through these variables.
-os.environ["SYMUSIC_MIDI2ABC"] = str(_MIDI2ABC)
-os.environ["SYMUSIC_ABC2MIDI"] = str(_ABC2MIDI)
 
 install_score_file_methods()
 
@@ -497,6 +477,8 @@ class ScoreFactory:
         fmt: str | None = None,
         sanitize_data: bool = False,
         min_dur: float | None = None,
+        *,
+        tune: int | None = None,
     ) -> smt.Score:
         """Load or create a score in the unit ``ttype``.
 
@@ -505,7 +487,10 @@ class ScoreFactory:
         ``from_other``).
         """
         if isinstance(x, (str, Path)):
-            return self.from_file(x, ttype, fmt, sanitize_data=sanitize_data)
+            return self.from_file(x, ttype, fmt, sanitize_data=sanitize_data, tune=tune)
+        if tune is not None:
+            msg = "tune is only supported for ABC input"
+            raise ValueError(msg)
         if sanitize_data:
             msg = "sanitize_data is only supported when loading MIDI files from path"
             raise ValueError(msg)
@@ -523,12 +508,15 @@ class ScoreFactory:
         fmt: str | None = None,
         sanitize_data: bool = False,
         format: str | None = None,  # noqa: A002  public keyword argument
+        *,
+        tune: int | None = None,
     ) -> smt.Score:
         """Read a MIDI or ABC file.
 
         The extension selects the format (``.mid``, ``.midi``, ``.MID``, ``.MIDI``
         or ``.abc``) unless ``fmt`` or its alias ``format`` names it (``"midi"``
-        or ``"abc"``). ``sanitize_data`` applies to MIDI only; see ``from_midi``.
+        or ``"abc"``). ``sanitize_data`` applies to MIDI only. For ABC, ``tune``
+        selects an ``X:`` number and defaults to the first tune.
         """
         if format is not None:
             if fmt is not None and fmt != format:
@@ -539,7 +527,9 @@ class ScoreFactory:
             path = Path(path)
         if not path.is_file():
             raise ValueError(_ := f"{path} is not a file")
-        return self.__core_classes.dispatch(ttype).from_file(path, fmt, sanitize_data)
+        return self.__core_classes.dispatch(ttype).from_file(
+            path, fmt, sanitize_data, tune=tune
+        )
 
     def from_midi(
         self,
@@ -558,9 +548,21 @@ class ScoreFactory:
         self,
         abc: str,
         ttype: smt.GeneralTimeUnit = "tick",
+        *,
+        tune: int | None = None,
     ) -> smt.Score:
-        """Read ABC text with the bundled ``abc2midi``; only the first tune is read."""
-        return self.__core_classes.dispatch(ttype).from_abc(abc)
+        """Read ABC text. Select an ``X:`` number with ``tune``, or read the first tune."""
+        return self.__core_classes.dispatch(ttype).from_abc(abc, tune=tune)
+
+    def from_abc_file(
+        self,
+        path: str | Path,
+        ttype: smt.GeneralTimeUnit = "tick",
+        *,
+        tune: int | None = None,
+    ) -> smt.Score:
+        """Read an ABC file. Select an ``X:`` number with ``tune``, or read the first tune."""
+        return self.__core_classes.dispatch(ttype).from_abc_file(path, tune=tune)
 
     def from_tpq(
         self,
