@@ -50,7 +50,6 @@ void sort_by_time(vec<T>& data) {
 template<typename T>
 struct TrackHandler {
     TrackNative<T> track;
-    bool           lyric_target = false;
 
     TrackHandler() = default;
     TrackHandler(const std::string& name, uint8_t program, bool is_drum) :
@@ -191,7 +190,6 @@ public:
 
     void add_lyric(uint8_t channel, typename T::unit time, std::string text) {
         auto& fallback = get<true>(channel);
-        fallback.lyric_target = true;
         lyrics.emplace_back(&fallback, TextMeta<T>(time, std::move(text)));
     }
 
@@ -212,8 +210,6 @@ public:
             owner.track.lyrics.push_back(std::move(lyric));
         }
         for (auto& [_, handler] : formalTracks) {
-            // When lyrics found a note track, omit tracks created solely as lyric fallbacks.
-            if (lyric_owner && handler.lyric_target && handler.track.notes.empty()) continue;
             if (handler.track.empty()) continue;
             handler.track.name = name;
             score.tracks.push_back(std::move(handler.track));

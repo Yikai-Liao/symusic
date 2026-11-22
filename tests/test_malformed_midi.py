@@ -181,6 +181,27 @@ def test_midi_without_notes_keeps_lyric_programs():
     ]
 
 
+def test_midi_moving_lyrics_preserves_channel_events():
+    body = bytes.fromhex(
+        "00 ff 05 01 61 "  # lyric
+        "00 bf 40 7f "  # sustain on, channel 16
+        "00 90 3c 40 01 80 3c 00 "  # note, channel 1
+        "01 ef 01 40 "  # pitch bend, channel 16
+        "01 bf 40 00 "  # sustain off, channel 16
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    note_track, channel_track = score.tracks
+    assert [lyric.text for lyric in note_track.lyrics] == ["a"]
+    assert not channel_track.lyrics
+    assert [(cc.time, cc.number, cc.value) for cc in channel_track.controls] == [
+        (0, 64, 127),
+        (3, 64, 0),
+    ]
+    assert [(pedal.time, pedal.duration) for pedal in channel_track.pedals] == [(0, 3)]
+    assert [(bend.time, bend.value) for bend in channel_track.pitch_bends] == [(2, 1)]
+
+
 def test_midi_rejects_unrepresentable_denominator():
     body = bytes.fromhex("00 ff 58 04 04 08 18 08 00 ff 2f 00")
     with pytest.raises(RuntimeError, match="time signature denominator"):
