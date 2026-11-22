@@ -73,3 +73,15 @@ def test_links_resolve(page: Path):
         if fragment:
             headings = {anchor(h) for h in HEADING.findall(linked.read_text("utf-8"))}
             assert fragment in headings, f"{target}: no such heading"
+
+
+@pytest.mark.parametrize("page", PAGES, ids=page_id)
+def test_guide_uses_plain_markdown(page: Path):
+    text = page.read_text("utf-8")
+    forbidden = re.compile(
+        r"^\s*(?:```|~~~|:::)\{[^}]+\}|^\s*\.\.\s+[\w-]+::"
+        r"|^\s*\([^)\n]+\)=\s*$|\{[\w:-]+\}`[^`]+`|:[\w:-]+:`[^`]+`",
+        re.MULTILINE,
+    )
+    matches = forbidden.findall(text)
+    assert not matches, f"Use plain Markdown in {page_id(page)}: {matches}"
