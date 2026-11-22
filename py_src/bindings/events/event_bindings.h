@@ -206,9 +206,9 @@ auto bind_event(
     std::index_sequence<I...> fields,
     auto                      bind_init
 ) {
-    using Value     = UnitValue<Event>;
-    using List      = typename EventSequence<Event>::Value;
-    auto type       = [&] {
+    using Value = UnitValue<Event>;
+    using List  = typename EventSequence<Event>::Value;
+    auto type   = [&] {
         if constexpr (std::same_as<Event<Tick>, Note<Tick>>) {
             // The descriptors retain these definitions for the lifetime of the class.
             static PyGetSetDef fields[] = {note_time_field<0>, note_time_field<1>, {}};
@@ -228,8 +228,7 @@ auto bind_event(
             if constexpr (!std::same_as<Event<Tick>, Note<Tick>> || !time_field<Event<Tick>, I>)
                 bind_event_field<Event, I>(type);
         }(),
-        ...
-    );
+        ...);
     type.attr("__match_args__")
         = nb::make_tuple(std::get<I>(detail::event_fields<Event<Tick>>).first...);
     bind_init(type);

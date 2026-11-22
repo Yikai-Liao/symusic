@@ -105,9 +105,7 @@ inline nb::object abc_io(const char* name) {
     return nb::module_::import_("symusic._score_io").attr(name);
 }
 
-inline ScoreValue score_from_abc(
-    const nb::bytes& input, nb::handle marker, nb::handle tune
-) {
+inline ScoreValue score_from_abc(const nb::bytes& input, nb::handle marker, nb::handle tune) {
     return with_unit(marker, [&](auto unit) {
         const auto parse_midi = nb::cpp_function([](const nb::bytes& data) {
             return parse_score_midi<decltype(unit)>(bytes_span(data), false);

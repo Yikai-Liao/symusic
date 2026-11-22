@@ -126,8 +126,8 @@ struct ListIterator {
 
 template<template<class> class Native, class Item>
 void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
-    using List     = UnitValue<Native>;
-    using Iterator = ListIterator<List, Item>;
+    using List          = UnitValue<Native>;
+    using Iterator      = ListIterator<List, Item>;
     PyType_Slot slots[] = {
         {Py_tp_iter, reinterpret_cast<void*>(PyObject_SelfIter)},
         {Py_tp_iternext, reinterpret_cast<void*>(Iterator::next)},
@@ -283,9 +283,11 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                     const auto [start, stop, step, length] = slice.compute(ptr->size());
                     if constexpr (is_event_sequence<Vector>) {
                         if (length == 0) return List(std::make_shared<Vector>());
-                        return List(std::make_shared<Vector>(
-                            ptr->getitem(event_slice(start, stop, step, length))
-                        ));
+                        return List(
+                            std::make_shared<Vector>(
+                                ptr->getitem(event_slice(start, stop, step, length))
+                            )
+                        );
                     } else {
                         auto result = std::make_shared<Vector>();
                         result->reserve(length);
@@ -311,8 +313,8 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
             "insert",
             [](const List& self, Py_ssize_t index, const Item& item) {
                 self.visit([&](const auto& ptr) {
-                    using T           = UnitOf<decltype(ptr)>;
-                    const auto& value = item.template get<T>();
+                    using T              = UnitOf<decltype(ptr)>;
+                    const auto& value    = item.template get<T>();
                     const auto  position = clamp_list_index(index, ptr->size());
                     if constexpr (is_event_sequence<Native<T>>)
                         ptr->insert(position, value);
