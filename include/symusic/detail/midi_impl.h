@@ -2,7 +2,6 @@
 
 #include <bit>
 #include <limits>
-#include <optional>
 #include <string_view>
 
 #ifdef _MSC_VER
@@ -38,16 +37,16 @@ class MidiTrackSink {
     std::string                    name;
     std::array<Track<T>, 16> pending_tracks;
     std::array<u8, 16>             programs{};
-    std::array<std::optional<u8>, 16> sustain_program;
+    std::array<Track<T>*, 16>       sustain_tracks{};
 
     Track<T>& track(u8 channel, bool promote) {
-        return track(channel, programs[channel], promote);
-    }
-
-    Track<T>& track(u8 channel, u8 program, bool promote) {
-        auto& result = builder.track(
-            {channel, program}, pending_tracks[channel], promote, message_count / 2 + 1
-        );
+        auto& pending = pending_tracks[channel];
+        auto& sustain = sustain_tracks[channel];
+        const auto program = programs[channel];
+        auto& result = builder.track({channel, program}, pending, promote, message_count / 2 + 1);
+        // An active sustain in pending always has a control. A promotion moves
+        // that control into the new track and resets pending.
+        if (sustain == &pending && pending.controls.empty()) sustain = &result;
         result.program = program;
         result.is_drum = channel == 9;
         return result;
@@ -72,18 +71,10 @@ public:
     void end_note(NoteHandle handle, unit time) { builder.end_note(handle, time); }
 
     void add_control(u8 channel, unit time, u8 number, u8 value) {
-        auto program = programs[channel];
-        // Sustain is channel-wide. Keep both transitions on the track that
-        // received the press, even when a program change precedes the release.
-        if (number == 64) {
-            auto& owner = sustain_program[channel];
-            program = owner.value_or(program);
-            if (value >= 64)
-                owner = program;
-            else
-                owner.reset();
-        }
-        auto& target = track(channel, program, false);
+        auto& sustain = sustain_tracks[channel];
+        // Sustain is channel-wide, including across program changes.
+        auto& target = number == 64 && sustain ? *sustain : track(channel, false);
+        if (number == 64) sustain = value >= 64 ? &target : nullptr;
         if (target.controls.capacity() < message_count / 2) [[unlikely]] {
             target.controls.reserve(message_count / 2);
         }
