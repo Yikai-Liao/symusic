@@ -501,7 +501,9 @@ def test_dump_abc_issue78_regression(tmp_path: Path):
 
 
 def test_converter_layout():
-    vendor = Path(symusic.__file__).resolve().parent / "_vendor" / "abcmidi"
+    package = Path(symusic.__file__).resolve().parent
+    assert not (package / "bin").exists()
+    vendor = package / "_vendor" / "abcmidi"
     suffix = ".exe" if sys.platform == "win32" else ""
     assert {path.name for path in vendor.iterdir()} == {
         f"abc2midi{suffix}",
