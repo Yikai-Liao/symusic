@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cmath>
 #include <filesystem>
+#include <stdexcept>
 
 #include "symusic/detail/time_conversion.h"
 
@@ -40,6 +42,13 @@ public:
     /// Render notes, controls and pitch bends using the score's tempo map.
     template<TType T, typename S>
     [[nodiscard]] AudioBuffer render(const Score<T, S>& score, bool stereo = true) const {
+        for (const auto& handle : S::get(score.tracks)) {
+            for (const auto& note : S::get(S::get(handle).notes)) {
+                if (!std::isfinite(note.duration) || note.duration < 0) {
+                    throw std::invalid_argument("Note duration must be finite and nonnegative");
+                }
+            }
+        }
         if constexpr (std::is_same_v<T, Second> && std::is_same_v<S, ValueStorage>) {
             return render_seconds(score, stereo);
         } else {
