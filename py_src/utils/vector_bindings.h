@@ -75,12 +75,15 @@ shared<Vector> clone_list(Vector& list, bool deep) {
 template<class List, class Item>
 struct ListIterator {
     List   list;
-    size_t index = 0;
+    Py_ssize_t index = 0;
 
     Item next() {
         return list.visit([&](const auto& ptr) {
-            if (index >= ptr->size()) throw nb::stop_iteration();
-            return Item(list_item(*ptr, static_cast<Py_ssize_t>(index++)));
+            if (index < 0 || static_cast<size_t>(index) >= ptr->size()) {
+                index = -1;
+                throw nb::stop_iteration();
+            }
+            return Item(list_item(*ptr, index++));
         });
     }
 };

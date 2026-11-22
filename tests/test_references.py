@@ -193,3 +193,13 @@ def test_score_equality_shares_tracks(ttype):
     assert score == score.copy(deep=False)
     assert score == other
     assert score != score.copy(deep=True)
+
+
+def test_list_iterators_stay_exhausted():
+    score = Score()
+    track = Track(notes=[Note(0, 1, 60)])
+    for items, value in ((score.tracks, track), (track.notes, track.notes[0])):
+        iterator = iter(items)
+        assert list(iterator) == list(items)
+        items.append(value)
+        assert next(iterator, None) is None
