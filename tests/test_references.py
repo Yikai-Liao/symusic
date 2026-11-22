@@ -256,3 +256,13 @@ def test_score_nan_identity(ttype, compare, equal):
 
     assert compare(score, score) is equal
     assert compare(score, score.copy(deep=True)) is not equal
+
+
+def test_list_iterators_stay_exhausted():
+    score = Score()
+    track = Track(notes=[Note(0, 1, 60)])
+    for items, value in ((score.tracks, track), (track.notes, track.notes[0])):
+        iterator = iter(items)
+        assert list(iterator) == list(items)
+        items.append(value)
+        assert next(iterator, None) is None
