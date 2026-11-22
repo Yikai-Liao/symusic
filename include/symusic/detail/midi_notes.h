@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <concepts>
+#include <iterator>
 #include <limits>
 #include <queue>
 #include <unordered_map>
+#include <utility>
 
 #include <fmt/format.h>
 #include <minimidi/MiniMidi.hpp>
@@ -210,14 +212,12 @@ void decode_midi_track(
     }
 }
 
-// The existing messages are ordered by time. Merge note messages into that
-// sequence while preserving the ordering of simultaneous starts and ends.
+// Merge ordered metadata, note starts and note ends directly into the output.
 template<typename Notes>
-void append_midi_notes(minimidi::Messages<>& msgs, const Notes& source, u8 channel) {
-    // add notes
-    const size_t note_size  = source.size();
-    const auto   note_begin = msgs.end() - msgs.begin();
-
+minimidi::Messages<> merge_midi_notes(
+    minimidi::Messages<> messages, const Notes& source, u8 channel
+) {
+    if (source.empty()) return messages;
     // collect notes and make sure they are sorted
     vec<Note<Tick>> notes(source.size());
     bool            sorted    = true;
@@ -232,9 +232,9 @@ void append_midi_notes(minimidi::Messages<>& msgs, const Notes& source, u8 chann
             return a.time < b.time;
         });
     }
-    // add notes to messages
-    msgs.resize(msgs.size() + note_size * 2);
-    for (size_t i = note_begin; const auto& note : notes) {
+    minimidi::Messages<> earlier_note_events;
+    earlier_note_events.reserve(notes.size());
+    for (const auto& note : notes) {
         if (note.pitch < 0 || note.velocity < 0) {
             throw std::invalid_argument(fmt::format(
                 "MIDI note pitch and velocity must be non-negative, got {} and {}",
@@ -246,36 +246,50 @@ void append_midi_notes(minimidi::Messages<>& msgs, const Notes& source, u8 chann
         const auto pitch    = static_cast<u8>(note.pitch);
         const auto velocity = static_cast<u8>(note.velocity);
         if (note.duration > 0) {
-            msgs[i]             = minimidi::NoteOff(note.end(), channel, pitch, velocity);
-            msgs[i + note_size] = minimidi::NoteOn(note.time, channel, pitch, velocity);
-        } else {   // empty note
-            msgs[i + note_size] = minimidi::NoteOff(note.time, channel, pitch, velocity);
-            msgs[i]             = minimidi::NoteOn(note.time, channel, pitch, velocity);
+            earlier_note_events.emplace_back(minimidi::NoteOff(note.end(), channel, pitch, velocity));
+        } else {
+            earlier_note_events.emplace_back(minimidi::NoteOn(note.time, channel, pitch, velocity));
         }
-        i += 1;
     }
-    // After resizing, the last note_size slots hold one message for each note.
-    const auto note_middle = msgs.end() - std::ssize(notes);
-    // insertion sort note_off
     pdqsort_detail::insertion_sort(
-        msgs.begin() + note_begin,
-        note_middle,
-        [](const auto& a, const auto& b) { return (a.time) < (b.time); }
+        earlier_note_events.begin(), earlier_note_events.end(), [](const auto& a, const auto& b) {
+            return a.time < b.time;
+        }
     );
-    // merge note on and note off
-    std::inplace_merge(
-        msgs.begin() + note_begin,
-        note_middle,
-        msgs.end(),
-        [](const auto& a, const auto& b) { return (a.time) < (b.time); }
+
+    minimidi::Messages<> output;
+    output.reserve(messages.size() + notes.size() * 2);
+    auto message = messages.begin();
+    const auto emit = [&](auto&& event) {
+        // Metadata comes first at the same tick.
+        while (message != messages.end() && message->time <= event.time) {
+            output.push_back(std::move(*message++));
+        }
+        output.push_back(std::move(event));
+    };
+    auto end = earlier_note_events.begin();
+    for (const auto& note : notes) {
+        const auto tick = static_cast<u32>(note.time);
+        // Note-offs for sustained notes and note-ons for empty notes come first.
+        while (end != earlier_note_events.end() && end->time <= tick) {
+            emit(std::move(*end++));
+        }
+        // The first pass validated both data bytes and the caller checked note times.
+        const auto pitch = static_cast<u8>(note.pitch);
+        const auto velocity = static_cast<u8>(note.velocity);
+        if (note.duration > 0) {
+            emit(minimidi::NoteOn(tick, channel, pitch, velocity));
+        } else {
+            emit(minimidi::NoteOff(tick, channel, pitch, velocity));
+        }
+    }
+    for (; end != earlier_note_events.end(); ++end) {
+        emit(std::move(*end));
+    }
+    output.insert(
+        output.end(), std::make_move_iterator(message), std::make_move_iterator(messages.end())
     );
-    // merge prev to (note on and note off)
-    std::inplace_merge(
-        msgs.begin(),
-        msgs.begin() + note_begin,
-        msgs.end(),
-        [](const auto& a, const auto& b) { return (a.time) < (b.time); }
-    );
+    return output;
 }
 
 }   // namespace symusic::detail
