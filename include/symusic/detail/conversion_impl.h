@@ -1,12 +1,13 @@
 #pragma once
 
+#include "symusic/detail/event_fields.h"
 #include "symusic/conversion.h"
 
 namespace symusic {
 
 template<TType To, TType From, typename S>
 Score<To, S> convert(const Score<From, S>& score, typename To::unit min_dur) {
-    const auto converter = details::make_time_converter<To>(score);
+    const auto converter = detail::make_time_converter<To>(score);
     const auto& old_tracks = S::get(score.tracks);
     vec<typename Score<To, S>::track_handle> tracks;
     tracks.reserve(old_tracks.size());
@@ -39,10 +40,10 @@ auto resample_events(const Range& input, Convert convert, Tick::unit min_dur = 0
     output.reserve(input.size());
     for (const auto& event : input) {
         if constexpr (HasDuration) {
-            output.emplace_back(convert(event.time),
-                                std::max(convert(event.duration), min_dur), event);
+            output.push_back(retime_event<E>(convert(event.time),
+                                std::max(convert(event.duration), min_dur), event));
         } else {
-            output.emplace_back(convert(event.time), event);
+            output.push_back(retime_event<E>(convert(event.time), event));
         }
     }
     return output;
@@ -58,7 +59,7 @@ Score<Tick, S> resample_ticks(const Score<Tick, S>& score, i32 tpq, i32 min_dur)
     }
     const auto scale = static_cast<f64>(tpq) / static_cast<f64>(score.ticks_per_quarter);
     auto convert_time = [scale](Tick::unit time) {
-        return details::round_to_i32(scale * static_cast<f64>(time));
+        return detail::round_to_i32(scale * static_cast<f64>(time));
     };
     const auto& old_tracks = S::get(score.tracks);
     vec<typename Score<Tick, S>::track_handle> tracks;

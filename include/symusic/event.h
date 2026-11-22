@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_EVENT_H
-#define LIBSYMUSIC_EVENT_H
-
 #include <stdexcept>
 #include <string>
 #include <span>
@@ -12,62 +9,19 @@
 #include "symusic/io/iodef.h"
 #include "symusic/time_unit.h"
 #include "symusic/utils.h"
-#include "iostream"
+#include <tuple>
+#include <utility>
 
 namespace symusic {
-
-// Default Methods Macro
-#define COMPILER_DEFAULT_METHODS(T)                  \
-    T()         = default;                           \
-    T(const T&) = default;                           \
-    T    copy() const { return {*this}; }            \
-    T    deepcopy() const { return {*this}; }        \
-    T&   operator=(const T&)              = default; \
-    bool operator==(const T& other) const = default; \
-    bool operator!=(const T& other) const = default;
-
-// * -> operator for EVENT
-#define POINTER_METHODS(EVENT)                                     \
-    [[nodiscard]] const EVENT* operator->() const { return this; } \
-    [[nodiscard]] EVENT*       operator->() { return this; }       \
-    [[nodiscard]] const EVENT& operator*() const { return *this; } \
-    [[nodiscard]] EVENT&       operator*() { return *this; }
-
-// Define Basic Declarations for TimeStamp
-#define BASIC_TIMESTAMP_METHODS(EVENT, T)                        \
-    COMPILER_DEFAULT_METHODS(EVENT)                              \
-    POINTER_METHODS(EVENT)                                       \
-    typedef T                 ttype;                             \
-    typedef typename T::unit  unit;                              \
-    [[nodiscard]] std::string to_string() const;                 \
-    template<DataFormat F>                                       \
-    [[nodiscard]] static EVENT parse(std::span<const u8> bytes); \
-    template<DataFormat F>                                       \
-    [[nodiscard]] vec<u8> dumps() const;                         \
-    EVENT                 shift_time(unit offset) const;         \
-    EVENT&                shift_time_inplace(unit offset);       \
-/*                                                               \
- *  List of all the events (based on TimeStamp):                 \
- *  - Note(duration: unit, pitch: i8, velocity: i8)              \
- *  - Pedal(duration: unit)                                      \
- *  - ControlChange(number: u8, value: u8)                       \
- *  - TimeSignature(numerator: u8, denominator: u8)              \
- *  - KeySignature(key: i8, tonality: u8)                        \
- *  - Tempo(mspq: i32)                                           \
- *  - PitchBend(value: i32)                                      \
- *  - TextMeta(text: string)                                     \
- */
 
 // Define TimeStamp for events like Note
 template<TType T>
 struct TimeStamp {
-    typedef T                ttype;
-    typedef typename T::unit unit;
+    using ttype = T;
+    using unit = typename T::unit;
     unit                     time = 0;
 
-    COMPILER_DEFAULT_METHODS(TimeStamp)
-
-    explicit TimeStamp(const unit& time) : time(time) {};
+    bool operator==(const TimeStamp&) const = default;
 };
 
 // Define TimeEvent concept, representing events with time
@@ -81,20 +35,19 @@ concept HashDuration = requires(T t) {
 
 template<TType T>
 struct Note : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(Note, T);
+    bool operator==(const Note&) const = default;
+    [[nodiscard]] std::string to_string() const;
 
-    unit duration{0};
+    template<DataFormat F>
+    [[nodiscard]] static Note parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
+
+    typename T::unit duration{0};
     i8   pitch{0}, velocity{0};
 
-    Note(const unit time, const unit duration, const i8 pitch, const i8 velocity) :
-        TimeStamp<T>{time}, duration{duration}, pitch{pitch}, velocity{velocity} {}
-
-    template<TType U>
-    Note(const unit time, const unit duration, const Note<U>& other) :
-        TimeStamp<T>{time}, duration{duration}, pitch{other.pitch}, velocity{other.velocity} {}
-
-    [[nodiscard]] unit start() const { return this->time; }
-    [[nodiscard]] unit end() const { return details::add_time(this->time, duration); }
+    [[nodiscard]] typename T::unit start() const { return this->time; }
+    [[nodiscard]] typename T::unit end() const { return detail::add_time(this->time, duration); }
 
     [[nodiscard]] bool empty() const { return duration <= 0 || velocity <= 0; }
 
@@ -109,66 +62,63 @@ struct Note : TimeStamp<T> {
 
 template<TType T>
 struct Pedal : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(Pedal, T);
+    bool operator==(const Pedal&) const = default;
+    [[nodiscard]] std::string to_string() const;
 
-    unit duration;
+    template<DataFormat F>
+    [[nodiscard]] static Pedal parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
-    Pedal(const unit time, const unit duration) : TimeStamp<T>{time}, duration{duration} {}
+    typename T::unit duration{};
 
-    template<class U>
-    Pedal(const unit time, const unit duration, const Pedal<U>& other) :
-        TimeStamp<T>{time}, duration{duration} {}
-
-    [[nodiscard]] unit start() const { return this->time; }
-    [[nodiscard]] unit end() const { return details::add_time(this->time, duration); }
+    [[nodiscard]] typename T::unit start() const { return this->time; }
+    [[nodiscard]] typename T::unit end() const { return detail::add_time(this->time, duration); }
 
     auto default_key() const { return std::tie(this->time, duration); }
 };
 
 template<TType T>
 struct ControlChange : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(ControlChange, T);
+    bool operator==(const ControlChange&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static ControlChange parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
     u8 number{0}, value{0};
-
-    ControlChange(const unit time, const u8 number, const u8 value) :
-        TimeStamp<T>{time}, number{number}, value{value} {}
-
-    template<class U>
-    ControlChange(const unit time, const ControlChange<U>& other) :
-        TimeStamp<T>{time}, number{other.number}, value{other.value} {}
 
     auto default_key() const { return std::tie(this->time, number, value); }
 };
 
 template<TType T>
 struct TimeSignature : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(TimeSignature, T);
+    bool operator==(const TimeSignature&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static TimeSignature parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
     u8 numerator{4}, denominator{4};
-
-    TimeSignature(const unit time, const u8 numerator, const u8 denominator) :
-        TimeStamp<T>{time}, numerator{numerator}, denominator{denominator} {}
-
-    template<class U>
-    TimeSignature(const unit time, const TimeSignature<U>& other) :
-        TimeStamp<T>{time}, numerator{other.numerator}, denominator{other.denominator} {}
 
     auto default_key() const { return this->time; }
 };
 
 template<TType T>
 struct KeySignature : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(KeySignature, T);
+    bool operator==(const KeySignature&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static KeySignature parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
     i8 key{0}, tonality{0};
-
-    KeySignature(const unit time, const i8 key, const i8 tonality) :
-        TimeStamp<T>{time}, key{key}, tonality{tonality} {}
-
-    template<class U>
-    KeySignature(const unit time, const KeySignature<U>& other) :
-        TimeStamp<T>{time}, key{other.key}, tonality{other.tonality} {}
 
     [[nodiscard]] u8 degree() const {
         const int pitch_class = ((key * 5) % 12 + 12) % 12;
@@ -181,7 +131,13 @@ struct KeySignature : TimeStamp<T> {
 
 template<TType T>
 struct Tempo : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(Tempo, T);
+    bool operator==(const Tempo&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static Tempo parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
     // store mspq (i32) instead of qpm (f64) to avoid floating point error
     i32 mspq{};   // microseconds per quarter note
 
@@ -190,21 +146,16 @@ struct Tempo : TimeStamp<T> {
         if (!(qpm > 0.) || std::isinf(qpm)) {
             throw std::invalid_argument("qpm must be positive and finite");
         }
-        const i32 mspq = details::round_to_i32(60000000. / qpm);
+        const i32 mspq = detail::round_to_i32(60000000. / qpm);
         if (mspq < 1) { throw std::invalid_argument("qpm is too large: mspq would be zero"); }
         return mspq;
     }
 
     static constexpr f64 mspq2qpm(const i32 mspq) { return 60000000. / static_cast<f64>(mspq); }
 
-    Tempo(const unit time, const i32 mspq) : TimeStamp<T>{time}, mspq{mspq} {}
-
-    template<class U>
-    Tempo(const unit time, const Tempo<U>& other) : TimeStamp<T>{time}, mspq{other.mspq} {}
-
     // create a tempo event from qpm
-    [[nodiscard]] static Tempo from_qpm(const unit time, const f64 qpm) {
-        return Tempo(time, qpm2mspq(qpm));
+    [[nodiscard]] static Tempo from_qpm(const typename T::unit time, const f64 qpm) {
+        return Tempo{{time}, qpm2mspq(qpm)};
     }
 
     // return qpm based on mspq
@@ -221,52 +172,47 @@ struct Tempo : TimeStamp<T> {
 
 template<TType T>
 struct PitchBend : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(PitchBend, T);
+    bool operator==(const PitchBend&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static PitchBend parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
     i32 value{0};
-
-    PitchBend(const unit time, const i32 value) : TimeStamp<T>{time}, value{value} {}
-
-    template<class U>
-    PitchBend(const unit time, const PitchBend<U>& other) :
-        TimeStamp<T>{time}, value{other.value} {}
 
     auto default_key() const { return this->time; }
 };
 
 template<TType T>
 struct TextMeta : TimeStamp<T> {
-    BASIC_TIMESTAMP_METHODS(TextMeta, T);
+    bool operator==(const TextMeta&) const = default;
+    [[nodiscard]] std::string to_string() const;
+
+    template<DataFormat F>
+    [[nodiscard]] static TextMeta parse(std::span<const u8> bytes);
+    template<DataFormat F>
+    [[nodiscard]] vec<u8> dumps() const;
 
     std::string text{};
-
-    TextMeta(const unit time, std::string text) : TimeStamp<T>{time}, text{std::move(text)} {}
-
-    template<class U>
-    TextMeta(const unit time, const TextMeta<U>& other) : TimeStamp<T>{time}, text{other.text} {}
 
     auto default_key() const { return this->time; }
 };
 
-#undef COMPILER_DEFAULT_METHODS
-#undef BASIC_TIMESTAMP_METHODS
+// Shift one event in its own time unit. Tick overflow leaves the event unchanged.
+template<TimeEvent E>
+void shift_time(E& event, typename E::unit offset) {
+    event.time = detail::add_time(event.time, offset);
+}
 
-#define ERROR_PARSE_DUMPS(__COUNT, EVENT)           \
-    template<TType T>                               \
-    template<DataFormat>                            \
-    EVENT<T> EVENT<T>::parse(std::span<const u8>) { \
-        static_assert(true, "Not Implemented");     \
-        return {};                                  \
-    }                                               \
-    template<TType T>                               \
-    template<DataFormat>                            \
-    vec<u8> EVENT<T>::dumps() const {               \
-        static_assert(true, "Not Implemented");     \
-        return {};                                  \
-    }
+namespace detail {
 
-#undef ERROR_PARSE_DUMPS
+template<TimeEvent E, typename... Fields>
+[[nodiscard]] E make_event(typename E::unit time, Fields&&... fields) {
+    return E(TimeStamp<typename E::ttype>{time}, std::forward<Fields>(fields)...);
+}
 
-}   // namespace symusic
+}  // namespace detail
 
-#endif   // LIBSYMUSIC_EVENT_H
+}  // namespace symusic

@@ -8,7 +8,7 @@
 
 #include "symusic/time_unit.h"
 
-namespace symusic::docstring_helpers {
+namespace symusic::py {
 
 struct TimeFlavorInfo {
     std::string_view suffix;         // class name suffix
@@ -34,4 +34,4 @@ constexpr TimeFlavorInfo time_flavor<Second>() {
     return {.suffix = "Second", .scalar_label = "float", .units = "seconds"};
 }
 
-}   // namespace symusic::docstring_helpers
+}   // namespace symusic::py

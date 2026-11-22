@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <map>
 
-
 #include <pdqsort.h>
 
 #include "symusic/score.h"
@@ -60,13 +59,13 @@ public:
 
     NoteHandle begin_note(Track<T>& track, unit time, i8 pitch, i8 velocity) {
         if (track.notes.empty()) note_tracks.push_back(&track);
-        track.notes.emplace_back(time, -1, pitch, velocity);
+        track.notes.push_back(make_event<Note<T>>(time, -1, pitch, velocity));
         return {&track.notes, track.notes.size() - 1};
     }
 
     void end_note(NoteHandle handle, unit time) {
         auto& note    = (*handle.notes)[handle.index];
-        note.duration = details::sub_time(time, note.time);
+        note.duration = detail::sub_time(time, note.time);
     }
 
     void add_lyric(Track<T>& fallback, TextMeta<T> lyric) {

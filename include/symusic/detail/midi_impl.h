@@ -10,7 +10,6 @@
 
 #include <fmt/format.h>
 
-
 #include "symusic/score.h"
 #include "symusic/ops.h"
 #include "symusic/utils.h"
@@ -74,24 +73,24 @@ public:
         if (target.controls.capacity() < message_count / 2) [[unlikely]] {
             target.controls.reserve(message_count / 2);
         }
-        target.controls.emplace_back(time, number, value);
+        target.controls.push_back(make_event<ControlChange<T>>(time, number, value));
         if (number != 64) return;
 
         auto& start = pedal_start[channel];
         if (value >= 64) {
             if (start < 0) start = time;
         } else if (start >= 0) {
-            target.pedals.emplace_back(start, details::sub_time(time, start));
+            target.pedals.push_back(make_event<Pedal<T>>(start, detail::sub_time(time, start)));
             start = -1;
         }
     }
 
     void add_pitch_bend(u8 channel, unit time, i32 value) {
-        track(channel, false).pitch_bends.emplace_back(time, value);
+        track(channel, false).pitch_bends.push_back(make_event<PitchBend<T>>(time, value));
     }
 
     void add_lyric(u8 channel, unit time, std::string text) {
-        builder.add_lyric(track(channel, true), TextMeta<T>(time, std::move(text)));
+        builder.add_lyric(track(channel, true), symusic::detail::make_event<TextMeta<T>>(time, std::move(text)));
     }
 
     template<TimeEvent E>
@@ -179,35 +178,35 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         msgs.reserve(message_num);
         // add time signatures
         for (const auto& time_signature : S::get(score.time_signatures)) {
-            if (!std::has_single_bit(time_signature->denominator)) {
+            if (!std::has_single_bit(time_signature.denominator)) {
                 throw std::invalid_argument(fmt::format(
                     "MIDI time signature denominator must be a power of two, got {}",
-                    time_signature->denominator
+                    time_signature.denominator
                 ));
             }
             msgs.emplace_back(minimidi::TimeSignature(
-                time_signature->time, time_signature->numerator, time_signature->denominator
+                time_signature.time, time_signature.numerator, time_signature.denominator
             ));
         }
         // add key signatures
         for (const auto& key_signature : S::get(score.key_signatures)) {
             msgs.emplace_back(minimidi::KeySignature(
-                key_signature->time, key_signature->key, key_signature->tonality
+                key_signature.time, key_signature.key, key_signature.tonality
             ));
         }
         // add tempos
         for (const auto& tempo : S::get(score.tempos)) {
-            if (tempo->mspq < 0 || tempo->mspq > 0xFFFFFF) {
+            if (tempo.mspq < 0 || tempo.mspq > 0xFFFFFF) {
                 throw std::invalid_argument(
-                    fmt::format("MIDI tempo mspq must fit in 24 bits, got {}", tempo->mspq)
+                    fmt::format("MIDI tempo mspq must fit in 24 bits, got {}", tempo.mspq)
                 );
             }
-            msgs.emplace_back(minimidi::SetTempo(tempo->time, tempo->mspq));
+            msgs.emplace_back(minimidi::SetTempo(tempo.time, tempo.mspq));
         }
         // add markers
         for (const auto& marker : S::get(score.markers)) {
-            validate_midi_text(marker->text, "marker");
-            msgs.emplace_back(minimidi::Marker(marker->time, marker->text));
+            validate_midi_text(marker.text, "marker");
+            msgs.emplace_back(minimidi::Marker(marker.time, marker.text));
         }
     }
     const std::array<u8, 15> valid_channel{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15};
@@ -235,26 +234,26 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         // add control change
         for (const auto& control : S::get(track.controls)) {
             msgs.emplace_back(
-                minimidi::ControlChange(control->time, channel, control->number, control->value)
+                minimidi::ControlChange(control.time, channel, control.number, control.value)
             );
         }
         // add pitch bend
         for (const auto& pitch_bend : S::get(track.pitch_bends)) {
-            if (pitch_bend->value < minimidi::PitchBend<>::MIN_PITCH_BEND
-                || pitch_bend->value > minimidi::PitchBend<>::MAX_PITCH_BEND) {
+            if (pitch_bend.value < minimidi::PitchBend<>::MIN_PITCH_BEND
+                || pitch_bend.value > minimidi::PitchBend<>::MAX_PITCH_BEND) {
                 throw std::invalid_argument(
-                    fmt::format("MIDI pitch bend must be in -8192..8191, got {}", pitch_bend->value)
+                    fmt::format("MIDI pitch bend must be in -8192..8191, got {}", pitch_bend.value)
                 );
             }
             // The validated MIDI interval fits in i16.
             msgs.emplace_back(
-                minimidi::PitchBend(pitch_bend->time, channel, static_cast<i16>(pitch_bend->value))
+                minimidi::PitchBend(pitch_bend.time, channel, static_cast<i16>(pitch_bend.value))
             );
         }
         // add lyrics
         for (const auto& lyric : S::get(track.lyrics)) {
-            validate_midi_text(lyric->text, "lyric");
-            msgs.emplace_back(minimidi::Lyric(lyric->time, lyric->text));
+            validate_midi_text(lyric.text, "lyric");
+            msgs.emplace_back(minimidi::Lyric(lyric.time, lyric.text));
         }
 
         std::stable_sort(msgs.begin(), msgs.end(), [](const auto& a, const auto& b) {

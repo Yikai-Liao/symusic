@@ -6,8 +6,8 @@
 
 #include <nanobind/nanobind.h>
 
-namespace symusic {
+namespace symusic::py {
 
 nanobind::module_& bind_synthesizer(nanobind::module_& m);
 
-}   // namespace symusic
+}   // namespace symusic::py

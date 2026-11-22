@@ -104,11 +104,11 @@ Track<T, S> Track<T, S>::trim(
 
 template<TType T, typename S>
 void Track<T, S>::shift_time_inplace(const unit offset) {
-    for (auto& note : S::get(notes)) note->shift_time_inplace(offset);
-    for (auto& control : S::get(controls)) control->shift_time_inplace(offset);
-    for (auto& pitch_bend : S::get(pitch_bends)) pitch_bend->shift_time_inplace(offset);
-    for (auto& pedal : S::get(pedals)) pedal->shift_time_inplace(offset);
-    for (auto& lyric : S::get(lyrics)) lyric->shift_time_inplace(offset);
+    for (auto& note : S::get(notes)) symusic::shift_time(note, offset);
+    for (auto& control : S::get(controls)) symusic::shift_time(control, offset);
+    for (auto& pitch_bend : S::get(pitch_bends)) symusic::shift_time(pitch_bend, offset);
+    for (auto& pedal : S::get(pedals)) symusic::shift_time(pedal, offset);
+    for (auto& lyric : S::get(lyrics)) symusic::shift_time(lyric, offset);
 }
 
 template<TType T, typename S>
@@ -120,7 +120,7 @@ Track<T, S> Track<T, S>::shift_time(const unit offset) const {
 
 template<TType T, typename S>
 void Track<T, S>::shift_pitch_inplace(const i8 offset) {
-    for (auto& note : S::get(notes)) note->shift_pitch_inplace(offset);
+    for (auto& note : S::get(notes)) note.shift_pitch_inplace(offset);
 }
 
 template<TType T, typename S>
@@ -132,7 +132,7 @@ Track<T, S> Track<T, S>::shift_pitch(const i8 offset) const {
 
 template<TType T, typename S>
 void Track<T, S>::shift_velocity_inplace(const i8 offset) {
-    for (auto& note : S::get(notes)) note->shift_velocity_inplace(offset);
+    for (auto& note : S::get(notes)) note.shift_velocity_inplace(offset);
 }
 
 template<TType T, typename S>

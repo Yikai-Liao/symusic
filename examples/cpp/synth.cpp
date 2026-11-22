@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "symusic.h"
 #include "argparse.h"
 using namespace symusic;

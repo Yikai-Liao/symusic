@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_BATCH_OPS_H
-#define LIBSYMUSIC_BATCH_OPS_H
-
 #include "symusic/event.h"
 #include "symusic/score.h"
 #include "pdqsort.h"
@@ -10,14 +7,12 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace symusic::ops {
-
-namespace details {
+namespace symusic::detail {
 // Comparisons on event ends use a wide intermediate (i64 for Tick) so that an event whose end
 // exceeds the tick range compares correctly instead of throwing or overflowing. Only values
 // written back to an event go through narrow_time.
 template<TimeEvent T>
-using wide_t = symusic::details::wide_time_t<typename T::unit>;
+using wide_t = symusic::detail::wide_time_t<typename T::unit>;
 
 template<TimeEvent T>
 wide_t<T> wide_end(const T& event) {
@@ -28,7 +23,7 @@ wide_t<T> wide_end(const T& event) {
 template<typename U>
 U trunc_time(const f64 value) {
     if constexpr (std::integral<U>) {
-        return symusic::details::f64_to_i32(value);
+        return symusic::detail::f64_to_i32(value);
     } else {
         return static_cast<U>(value);
     }
@@ -44,7 +39,9 @@ inline void validate_trim_modes(const std::string& start_mode, const std::string
     validate(start_mode, "start_mode");
     validate(end_mode, "end_mode");
 }
-}   // namespace details
+}  // namespace symusic::detail
+
+namespace symusic::ops {
 
 template<TType T, typename S = ValueStorage>
 void sort_tracks(typename S::template Tracks<Track<T, S>>& tracks, bool reverse = false) {
@@ -67,7 +64,7 @@ void clip_inplace(
     if constexpr (HashDuration<T>) {
         if (clip_end) {
             S::erase_if(events, [start, end](const T& event) {
-                return !(event.time >= start && details::wide_end(event) <= end);
+                return !(event.time >= start && detail::wide_end(event) <= end);
             });
             return;
         }
@@ -86,15 +83,15 @@ void trim_inplace(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
-    details::validate_trim_modes(start_mode, end_mode);
+    detail::validate_trim_modes(start_mode, end_mode);
     if constexpr (HashDuration<T>) {
-        using wide = details::wide_t<T>;
+        using wide = detail::wide_t<T>;
         using unit = typename T::unit;
         const bool remove_at_start = start_mode == "remove";
         const bool remove_at_end = end_mode == "remove";
         S::erase_if(events, [=](const T& event) {
             const wide event_start = event.time;
-            const wide event_end = details::wide_end(event);
+            const wide event_end = detail::wide_end(event);
             if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
                 return true;
             }
@@ -105,15 +102,15 @@ void trim_inplace(
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {
-                event.duration = symusic::details::narrow_time<unit>(
-                    details::wide_end(event) - static_cast<wide>(start)
+                event.duration = symusic::detail::narrow_time<unit>(
+                    detail::wide_end(event) - static_cast<wide>(start)
                 );
                 event.time = start;
             }
-            if (end_mode == "truncate" && details::wide_end(event) > end) {
-                event.duration = symusic::details::narrow_time<unit>(
+            if (end_mode == "truncate" && detail::wide_end(event) > end) {
+                event.duration = symusic::detail::narrow_time<unit>(
                     static_cast<wide>(event.duration)
-                    - (details::wide_end(event) - static_cast<wide>(end))
+                    - (detail::wide_end(event) - static_cast<wide>(end))
                 );
             }
         }
@@ -143,8 +140,9 @@ void clip_with_sentinel_inplace(Range& events, typename T::unit start, typename 
     }
 }
 
+}  // namespace symusic::ops
 
-namespace details {
+namespace symusic::detail {
 template<typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void adjust_time_inplace_inner(
     Range&                    events,
@@ -196,12 +194,12 @@ void adjust_time_inplace_inner(
             cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
             pivot_new  = new_times[idx - 1];
         }
-        unit start = symusic::details::add_time<unit>(
+        unit start = symusic::detail::add_time<unit>(
             pivot_new,
             trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
         );
         if constexpr (has_dur) {
-            const auto original_end = symusic::details::narrow_time<unit>(get_end(event));
+            const auto original_end = symusic::detail::narrow_time<unit>(get_end(event));
             if (original_end < cur_range.first || original_end > cur_range.second) {
                 auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
                     - original_times.begin();
@@ -209,11 +207,11 @@ void adjust_time_inplace_inner(
                 cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
                 pivot_new  = new_times[idx - 1];
             }
-            unit end = symusic::details::add_time<unit>(
+            unit end = symusic::detail::add_time<unit>(
                 pivot_new,
                 trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
             );
-            event.duration = symusic::details::sub_time<unit>(end, start);
+            event.duration = symusic::detail::sub_time<unit>(end, start);
         }
         event.time = start;
         S::keep(events, i, j);
@@ -250,7 +248,9 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
     }
 }
 
-}   // namespace details
+}  // namespace symusic::detail
+
+namespace symusic::ops {
 
 template<bool check_times = true, typename S = ValueStorage, typename Range, TimeEvent T = typename Range::value_type>
 void adjust_time_inplace(
@@ -258,8 +258,8 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
-    return details::adjust_time_inplace_inner<S>(events, original_times, new_times);
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
+    return detail::adjust_time_inplace_inner<S>(events, original_times, new_times);
 }
 
 template<bool check_times = true, TType T, typename S>
@@ -268,7 +268,7 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
     adjust_time_inplace<false, S>(S::get(track.notes), original_times, new_times);
     adjust_time_inplace<false, S>(S::get(track.controls), original_times, new_times);
     adjust_time_inplace<false, S>(S::get(track.pitch_bends), original_times, new_times);
@@ -282,7 +282,7 @@ void adjust_time_inplace(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if constexpr (check_times) { details::check_times(original_times, new_times); }
+    if constexpr (check_times) { detail::check_times(original_times, new_times); }
     for (auto& track : S::get(score.tracks)) {
         adjust_time_inplace<false>(S::get(track), original_times, new_times);
     }
@@ -298,7 +298,7 @@ T adjust_time(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    details::check_times(original_times, new_times);
+    detail::check_times(original_times, new_times);
     T new_data = data.deepcopy();
     adjust_time_inplace<false>(new_data, original_times, new_times);
     return new_data;
@@ -327,5 +327,3 @@ inline typename T::unit end(const Range& events) {
 }
 
 }   // namespace symusic::ops
-
-#endif   // LIBSYMUSIC_BATCH_OPS_H

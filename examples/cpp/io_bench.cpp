@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <vector>
 #include "nanobench.h"
 #include "fmt/core.h"

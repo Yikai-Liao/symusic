@@ -108,7 +108,7 @@ void decode_midi_track(
         if (msg.time > static_cast<u32>(std::numeric_limits<Tick::unit>::max())) [[unlikely]] {
             throw_midi_time_overflow(msg.time);
         }
-        const auto cur_tick = details::narrow_i32(msg.time);
+        const auto cur_tick = detail::narrow_i32(msg.time);
         const auto cur_time = tick_to_unit(cur_tick);
         switch (msg.type()) {
         case minimidi::MessageType::NoteOn: {
@@ -164,7 +164,7 @@ void decode_midi_track(
             case (minimidi::MetaType::TrackName): {
                 auto data = meta.meta_value();
                 auto tmp  = std::string(data.begin(), data.end());
-                sink.set_name(details::strip_non_utf_8(tmp));
+                sink.set_name(detail::strip_non_utf_8(tmp));
                 break;
             }
             case (minimidi::MetaType::TimeSignature): {
@@ -173,32 +173,32 @@ void decode_midi_track(
                     throw std::runtime_error("Invalid MIDI time signature denominator or size");
                 }
                 // The exponent is at most seven, so the power of two fits in u8.
-                sink.add(TimeSignature<T>(cur_time, data[0], static_cast<u8>(1u << data[1])));
+                sink.add(symusic::detail::make_event<TimeSignature<T>>(cur_time, data[0], static_cast<u8>(1u << data[1])));
                 break;
             }
             case (minimidi::MetaType::SetTempo): {
                 // store the raw tempo value(mspq) directly
                 // qpm is calculated when needed
-                sink.add(Tempo<T>(cur_time, meta.template cast<minimidi::SetTempo>().tempo()));
+                sink.add(symusic::detail::make_event<Tempo<T>>(cur_time, meta.template cast<minimidi::SetTempo>().tempo()));
                 break;
             }
             case (minimidi::MetaType::KeySignature): {
                 const auto& k_msg = meta.template cast<minimidi::KeySignature>();
-                sink.add(KeySignature<T>(cur_time, k_msg.key(), k_msg.tonality()));
+                sink.add(symusic::detail::make_event<KeySignature<T>>(cur_time, k_msg.key(), k_msg.tonality()));
                 break;
             }
             case (minimidi::MetaType::Lyric): {
                 const auto data = meta.meta_value();
-                auto       text = details::strip_non_utf_8(std::string(data.begin(), data.end()));
+                auto       text = detail::strip_non_utf_8(std::string(data.begin(), data.end()));
                 if (!text.empty()) { sink.add_lyric(meta.channel(), cur_time, std::move(text)); }
                 break;
             }
             case (minimidi::MetaType::Marker): {
                 auto data = meta.meta_value();
                 auto tmp  = std::string(data.begin(), data.end());
-                auto text = details::strip_non_utf_8(tmp);
+                auto text = detail::strip_non_utf_8(tmp);
                 if (text.empty()) break;
-                sink.add(TextMeta<T>(cur_time, std::move(text)));
+                sink.add(symusic::detail::make_event<TextMeta<T>>(cur_time, std::move(text)));
                 break;
             }
             default: break;

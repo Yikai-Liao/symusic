@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "symusic.h"
 #include "fmt/ranges.h"
 #include "argparse.h"

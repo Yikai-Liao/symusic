@@ -16,24 +16,24 @@ TEST_CASE("Test Score class functionality", "[score]") {
 
     // Add tracks
     auto track1 = Track<Tick>("Piano", 0, false);
-    track1.notes.push_back(Note<Tick>(0, 100, 60, 100));     // C4
-    track1.notes.push_back(Note<Tick>(240, 240, 62, 100));   // D4
+    track1.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));     // C4
+    track1.notes.push_back(detail::make_event<Note<Tick>>(240, 240, 62, 100));   // D4
 
     auto track2 = Track<Tick>("Guitar", 1, false);
-    track2.notes.push_back(Note<Tick>(0, 480, 64, 100));   // E4, long note
+    track2.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 64, 100));   // E4, long note
 
     score.tracks.push_back(track1);
     score.tracks.push_back(track2);
 
     // Add time signatures
-    score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
-    score.time_signatures.push_back(TimeSignature<Tick>(240, 3, 4));
+    score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
+    score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(240, 3, 4));
 
     // Add key signatures
-    score.key_signatures.push_back(KeySignature<Tick>(0, 0, 0));   // C major
+    score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(0, 0, 0));   // C major
 
     // Add tempos
-    score.tempos.push_back(Tempo<Tick>(0, 500000));   // 120 bpm
+    score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 bpm
 
     SECTION("Default constructor and initial values") {
         Score<Tick> default_score;
@@ -80,8 +80,8 @@ TEST_CASE("Test Score class functionality", "[score]") {
         auto        track = Track<Tick>("Test", 0, false);
 
         // Add notes in unsorted order
-        track.notes.push_back(Note<Tick>(240, 100, 60, 100));
-        track.notes.push_back(Note<Tick>(0, 100, 62, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(240, 100, 60, 100));
+        track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 62, 100));
 
         sortable.tracks.push_back(track);
 

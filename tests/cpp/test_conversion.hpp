@@ -72,9 +72,9 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
     SECTION("Quarter to Second with Tempo Change") {
         // Create a sequence of tempo changes
         std::vector<Tempo<Quarter>> tempos = {
-            Tempo<Quarter>{0.0, 500000},    // 120 BPM at time 0
-            Tempo<Quarter>{4.0, 1000000},   // 60 BPM at time 4 quarters
-            Tempo<Quarter>{8.0, 250000}     // 240 BPM at time 8 quarters
+            detail::make_event<Tempo<Quarter>>(0.0, 500000),    // 120 BPM at time 0
+            detail::make_event<Tempo<Quarter>>(4.0, 1000000),   // 60 BPM at time 4 quarters
+            detail::make_event<Tempo<Quarter>>(8.0, 250000)     // 240 BPM at time 8 quarters
         };
 
         // Test conversion at different points
@@ -98,9 +98,9 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
     SECTION("Second to Quarter with Tempo Change") {
         // Create a sequence of tempo changes
         std::vector<Tempo<Quarter>> tempos = {
-            Tempo<Quarter>{0.0, 500000},    // 120 BPM at time 0
-            Tempo<Quarter>{4.0, 1000000},   // 60 BPM at time 4 quarters
-            Tempo<Quarter>{8.0, 250000}     // 240 BPM at time 8 quarters
+            detail::make_event<Tempo<Quarter>>(0.0, 500000),    // 120 BPM at time 0
+            detail::make_event<Tempo<Quarter>>(4.0, 1000000),   // 60 BPM at time 4 quarters
+            detail::make_event<Tempo<Quarter>>(8.0, 250000)     // 240 BPM at time 8 quarters
         };
 
         // Test conversion at different points
@@ -125,9 +125,9 @@ TEST_CASE("Test Variable Tempo Conversion", "[symusic][conversion][tempo]") {
         // Create a sequence of tempo changes
         int                      tpq    = 480;
         std::vector<Tempo<Tick>> tempos = {
-            Tempo<Tick>{0, 500000},       // 120 BPM at time 0
-            Tempo<Tick>{1920, 1000000},   // 60 BPM at time 4 quarters (1920 ticks)
-            Tempo<Tick>{3840, 250000}     // 240 BPM at time 8 quarters (3840 ticks)
+            detail::make_event<Tempo<Tick>>(0, 500000),       // 120 BPM at time 0
+            detail::make_event<Tempo<Tick>>(1920, 1000000),   // 60 BPM at time 4 quarters (1920 ticks)
+            detail::make_event<Tempo<Tick>>(3840, 250000)     // 240 BPM at time 8 quarters (3840 ticks)
         };
 
         // Test conversion at different points
@@ -161,18 +161,18 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         Score<Tick> tick_score(480);   // 480 ticks per quarter
 
         // Add some test data
-        tick_score.time_signatures.push_back(TimeSignature<Tick>{0, 4, 4});
-        tick_score.key_signatures.push_back(KeySignature<Tick>{240, 0, true});
-        tick_score.tempos.push_back(Tempo<Tick>{0, 500000});   // 120 BPM
-        tick_score.markers.push_back(TextMeta<Tick>{480, "Section A"});
+        tick_score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
+        tick_score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(240, 0, true));
+        tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 BPM
+        tick_score.markers.push_back(detail::make_event<TextMeta<Tick>>(480, "Section A"));
 
         // Add a track with notes and other events
         auto track = Track<Tick>("Test Track", 0, false);
 
         // Add events directly without shared_ptr
-        track.notes.push_back(Note<Tick>{480, 480, 60, 100});
-        track.controls.push_back(ControlChange<Tick>{240, 7, 100});
-        track.pitch_bends.push_back(PitchBend<Tick>{360, 8192});
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 60, 100));
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(240, 7, 100));
+        track.pitch_bends.push_back(detail::make_event<PitchBend<Tick>>(360, 8192));
 
         tick_score.tracks.push_back(track);
 
@@ -248,18 +248,18 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         Score<Quarter> quarter_score(480);   // 480 ticks per quarter
 
         // Add some test data
-        quarter_score.time_signatures.push_back(TimeSignature<Quarter>{0.0f, 4, 4});
-        quarter_score.key_signatures.push_back(KeySignature<Quarter>{0.5f, 0, true});
-        quarter_score.tempos.push_back(Tempo<Quarter>{0.0f, 500000});   // 120 BPM
-        quarter_score.markers.push_back(TextMeta<Quarter>{1.0f, "Section A"});
+        quarter_score.time_signatures.push_back(detail::make_event<TimeSignature<Quarter>>(0.0f, 4, 4));
+        quarter_score.key_signatures.push_back(detail::make_event<KeySignature<Quarter>>(0.5f, 0, true));
+        quarter_score.tempos.push_back(detail::make_event<Tempo<Quarter>>(0.0f, 500000));   // 120 BPM
+        quarter_score.markers.push_back(detail::make_event<TextMeta<Quarter>>(1.0f, "Section A"));
 
         // Add a track with notes and other events
         auto track = Track<Quarter>("Test Track", 0, false);
 
         // Add events directly without shared_ptr
-        track.notes.push_back(Note<Quarter>{1.0f, 1.0f, 60, 100});
-        track.controls.push_back(ControlChange<Quarter>{0.5f, 7, 100});
-        track.pitch_bends.push_back(PitchBend<Quarter>{0.75f, 8192});
+        track.notes.push_back(detail::make_event<Note<Quarter>>(1.0f, 1.0f, 60, 100));
+        track.controls.push_back(detail::make_event<ControlChange<Quarter>>(0.5f, 7, 100));
+        track.pitch_bends.push_back(detail::make_event<PitchBend<Quarter>>(0.75f, 8192));
 
         quarter_score.tracks.push_back(track);
 
@@ -322,14 +322,14 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         Score<Tick> tick_score(480);   // 480 ticks per quarter
 
         // Add tempo (120 BPM)
-        tick_score.tempos.push_back(Tempo<Tick>{0, 500000});
+        tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));
 
         // Add a track with notes and other events
         auto track = Track<Tick>("Test Track", 0, false);
 
         // Add events directly without shared_ptr
-        track.notes.push_back(Note<Tick>{480, 480, 60, 100});
-        track.controls.push_back(ControlChange<Tick>{240, 7, 100});
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 60, 100));
+        track.controls.push_back(detail::make_event<ControlChange<Tick>>(240, 7, 100));
 
         tick_score.tracks.push_back(track);
 
@@ -373,14 +373,14 @@ TEST_CASE("Test Score Conversion", "[symusic][conversion][score]") {
         Score<Second> second_score(480);   // 480 ticks per quarter
 
         // Add tempo (120 BPM)
-        second_score.tempos.push_back(Tempo<Second>{0.0f, 500000});
+        second_score.tempos.push_back(detail::make_event<Tempo<Second>>(0.0f, 500000));
 
         // Add a track with notes and other events
         auto track = Track<Second>("Test Track", 0, false);
 
         // Add events directly without shared_ptr
-        track.notes.push_back(Note<Second>{0.5f, 0.5f, 60, 100});
-        track.controls.push_back(ControlChange<Second>{0.25f, 7, 100});
+        track.notes.push_back(detail::make_event<Note<Second>>(0.5f, 0.5f, 60, 100));
+        track.controls.push_back(detail::make_event<ControlChange<Second>>(0.25f, 7, 100));
 
         second_score.tracks.push_back(track);
 
@@ -423,12 +423,12 @@ TEST_CASE("Test Score Resampling", "[symusic][conversion][resample]") {
         Score<Tick> original_score(480);
 
         // Add basic content
-        original_score.tempos.push_back(Tempo<Tick>{0, 500000});   // 120 BPM
-        original_score.time_signatures.push_back(TimeSignature<Tick>{0, 4, 4});
+        original_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 BPM
+        original_score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
         // Add a track with a note
         auto track = Track<Tick>("Piano", 0, false);
-        track.notes.push_back(Note<Tick>{480, 480, 60, 100});   // Quarter note C4
+        track.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 60, 100));   // Quarter note C4
         original_score.tracks.push_back(track);
 
         // Resample to 960 ticks per quarter (double the resolution)

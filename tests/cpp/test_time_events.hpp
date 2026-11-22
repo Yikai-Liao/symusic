@@ -14,14 +14,14 @@ using namespace symusic;
 TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
     SECTION("Note Default Constructor") {
         // Test default constructor with different time unit types
-        REQUIRE(Note<Tick>{} == Note<Tick>{0, 0, 0, 0});
-        REQUIRE(Note<Quarter>{} == Note<Quarter>{0, 0, 0, 0});
-        REQUIRE(Note<Second>{} == Note<Second>{0, 0, 0, 0});
+        REQUIRE(Note<Tick>{} == detail::make_event<Note<Tick>>(0, 0, 0, 0));
+        REQUIRE(Note<Quarter>{} == detail::make_event<Note<Quarter>>(0, 0, 0, 0));
+        REQUIRE(Note<Second>{} == detail::make_event<Note<Second>>(0, 0, 0, 0));
     }
 
     SECTION("Note Custom Constructor") {
         // Test custom constructor
-        Note<Tick> note{480, 240, 60, 80};
+        Note<Tick> note = detail::make_event<Note<Tick>>(480, 240, 60, 80);
         REQUIRE(note.time == 480);
         REQUIRE(note.duration == 240);
         REQUIRE(note.pitch == 60);
@@ -33,15 +33,15 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
         // Test empty method
         REQUIRE_FALSE(note.empty());
-        Note<Tick> empty_note{480, 0, 60, 80};
+        Note<Tick> empty_note = detail::make_event<Note<Tick>>(480, 0, 60, 80);
         REQUIRE(empty_note.empty());
-        Note<Tick> zero_vel_note{480, 240, 60, 0};
+        Note<Tick> zero_vel_note = detail::make_event<Note<Tick>>(480, 240, 60, 0);
         REQUIRE(zero_vel_note.empty());
     }
 
     SECTION("Pedal Constructor") {
         // Test pedal event
-        Pedal<Tick> pedal{100, 200};
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
         REQUIRE(pedal.time == 100);
         REQUIRE(pedal.duration == 200);
         REQUIRE(pedal.start() == 100);
@@ -50,7 +50,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
     SECTION("ControlChange Constructor") {
         // Test control change event
-        ControlChange<Tick> cc{50, 7, 100};
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(50, 7, 100);
         REQUIRE(cc.time == 50);
         REQUIRE(cc.number == 7);
         REQUIRE(cc.value == 100);
@@ -58,7 +58,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
     SECTION("TimeSignature Constructor") {
         // Test time signature event
-        TimeSignature<Tick> ts{200, 3, 4};
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(200, 3, 4);
         REQUIRE(ts.time == 200);
         REQUIRE(ts.numerator == 3);
         REQUIRE(ts.denominator == 4);
@@ -66,7 +66,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
     SECTION("KeySignature Constructor") {
         // Test key signature event
-        KeySignature<Tick> ks{300, 2, 0};
+        KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(300, 2, 0);
         REQUIRE(ks.time == 300);
         REQUIRE(ks.key == 2);
         REQUIRE(ks.tonality == 0);
@@ -75,7 +75,7 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
     SECTION("Tempo Constructor") {
         // Test tempo event with MSPQ value
-        Tempo<Tick> tempo{150, 500000};
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);
         REQUIRE(tempo.time == 150);
         REQUIRE(tempo.mspq == 500000);
 
@@ -90,14 +90,14 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
 
     SECTION("PitchBend Constructor") {
         // Test pitch bend event
-        PitchBend<Tick> pb{400, 2000};
+        PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(400, 2000);
         REQUIRE(pb.time == 400);
         REQUIRE(pb.value == 2000);
     }
 
     SECTION("TextMeta Constructor") {
         // Test text meta event
-        TextMeta<Tick> text{500, "Test Text"};
+        TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(500, "Test Text");
         REQUIRE(text.time == 500);
         REQUIRE(text.text == "Test Text");
     }
@@ -108,17 +108,18 @@ TEST_CASE("Test Time Event Constructors", "[symusic][time_events]") {
  */
 TEST_CASE("Test Time Event Shift Operations", "[symusic][time_events][shifts]") {
     SECTION("Note Shifting") {
-        Note<Tick> note{100, 200, 60, 90};
+        Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 90);
 
         // Test time shifting
-        auto shifted_note = note.shift_time(50);
+        auto shifted_note = note;
+        shift_time(shifted_note, 50);
         REQUIRE(shifted_note.time == 150);
         REQUIRE(shifted_note.duration == 200);
         REQUIRE(shifted_note.pitch == 60);
         REQUIRE(shifted_note.velocity == 90);
 
         // Test inplace shifting
-        note.shift_time_inplace(50);
+        shift_time(note, 50);
         REQUIRE(note.time == 150);
 
         // Test pitch shifting
@@ -141,20 +142,24 @@ TEST_CASE("Test Time Event Shift Operations", "[symusic][time_events][shifts]") 
 
     SECTION("Other Events Shifting") {
         // Test time shifting for other event types
-        Pedal<Tick> pedal{100, 200};
-        auto        shifted_pedal = pedal.shift_time(50);
+        Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
+        auto        shifted_pedal = pedal;
+        shift_time(shifted_pedal, 50);
         REQUIRE(shifted_pedal.time == 150);
 
-        ControlChange<Tick> cc{50, 7, 100};
-        auto                shifted_cc = cc.shift_time(25);
+        ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(50, 7, 100);
+        auto                shifted_cc = cc;
+        shift_time(shifted_cc, 25);
         REQUIRE(shifted_cc.time == 75);
 
-        TimeSignature<Tick> ts{200, 3, 4};
-        auto                shifted_ts = ts.shift_time(100);
+        TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(200, 3, 4);
+        auto                shifted_ts = ts;
+        shift_time(shifted_ts, 100);
         REQUIRE(shifted_ts.time == 300);
 
-        Tempo<Tick> tempo{150, 500000};
-        auto        shifted_tempo = tempo.shift_time(50);
+        Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(150, 500000);
+        auto        shifted_tempo = tempo;
+        shift_time(shifted_tempo, 50);
         REQUIRE(shifted_tempo.time == 200);
     }
 }
@@ -165,17 +170,17 @@ TEST_CASE("Test Time Event Shift Operations", "[symusic][time_events][shifts]") 
 TEST_CASE("Test Time Unit Conversion", "[symusic][time_events][conversion]") {
     SECTION("Note Conversion Between Units") {
         // Create a note with Tick time unit
-        Note<Tick> tick_note{480, 240, 60, 100};
+        Note<Tick> tick_note = detail::make_event<Note<Tick>>(480, 240, 60, 100);
 
         // Convert to Quarter time unit
-        Note<Quarter> quarter_note{1.0, 0.5, tick_note};
+        Note<Quarter> quarter_note = detail::retime_event<Note<Quarter>>(1.0, 0.5, tick_note);
         REQUIRE(quarter_note.time == 1.0);
         REQUIRE(quarter_note.duration == 0.5);
         REQUIRE(quarter_note.pitch == 60);
         REQUIRE(quarter_note.velocity == 100);
 
         // Convert to Second time unit (assuming 120 BPM - 1 quarter = 0.5 seconds)
-        Note<Second> second_note{0.5, 0.25, tick_note};
+        Note<Second> second_note = detail::retime_event<Note<Second>>(0.5, 0.25, tick_note);
         REQUIRE(second_note.time == 0.5);
         REQUIRE(second_note.duration == 0.25);
         REQUIRE(second_note.pitch == 60);
@@ -184,13 +189,13 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][time_events][conversion]") {
 
     SECTION("Other Events Conversion") {
         // Test conversion for other event types
-        Tempo<Tick>    tick_tempo{480, 500000};
-        Tempo<Quarter> quarter_tempo{1.0, tick_tempo};
+        Tempo<Tick> tick_tempo = detail::make_event<Tempo<Tick>>(480, 500000);
+        Tempo<Quarter> quarter_tempo = detail::retime_event<Tempo<Quarter>>(1.0, tick_tempo);
         REQUIRE(quarter_tempo.time == 1.0);
         REQUIRE(quarter_tempo.mspq == 500000);
 
-        TimeSignature<Tick>    tick_ts{960, 6, 8};
-        TimeSignature<Quarter> quarter_ts{2.0, tick_ts};
+        TimeSignature<Tick> tick_ts = detail::make_event<TimeSignature<Tick>>(960, 6, 8);
+        TimeSignature<Quarter> quarter_ts = detail::retime_event<TimeSignature<Quarter>>(2.0, tick_ts);
         REQUIRE(quarter_ts.time == 2.0);
         REQUIRE(quarter_ts.numerator == 6);
         REQUIRE(quarter_ts.denominator == 8);
@@ -202,9 +207,9 @@ TEST_CASE("Test Time Unit Conversion", "[symusic][time_events][conversion]") {
  */
 TEST_CASE("Test Time Event Comparisons", "[symusic][time_events][comparison]") {
     SECTION("Note Comparison") {
-        Note<Tick> note1{100, 200, 60, 90};
-        Note<Tick> note2{100, 200, 60, 90};
-        Note<Tick> note3{100, 200, 61, 90};
+        Note<Tick> note1 = detail::make_event<Note<Tick>>(100, 200, 60, 90);
+        Note<Tick> note2 = detail::make_event<Note<Tick>>(100, 200, 60, 90);
+        Note<Tick> note3 = detail::make_event<Note<Tick>>(100, 200, 61, 90);
 
         REQUIRE(note1 == note2);
         REQUIRE(note1 != note3);
@@ -213,8 +218,8 @@ TEST_CASE("Test Time Event Comparisons", "[symusic][time_events][comparison]") {
     SECTION("Equal with Different Units") {
         // Notes with same values but different time units should not be directly comparable
         // This test ensures the type system works as expected
-        Note<Tick>    tick_note{480, 240, 60, 90};
-        Note<Quarter> quarter_note{1.0, 0.5, 60, 90};
+        Note<Tick> tick_note = detail::make_event<Note<Tick>>(480, 240, 60, 90);
+        Note<Quarter> quarter_note = detail::make_event<Note<Quarter>>(1.0, 0.5, 60, 90);
 
         // These are semantically equal but have different types
         // C++ type system prevents direct comparison

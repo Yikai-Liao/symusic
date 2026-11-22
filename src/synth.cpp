@@ -7,7 +7,7 @@
 
 namespace symusic {
 
-namespace details {
+namespace detail {
 
 struct BankSelect {
     Second::unit time;
@@ -23,7 +23,7 @@ struct TrackIdx {
 
 typedef std::map<TrackIdx, psynth::Track> TrackMapper;
 
-vec<BankSelect> getBanks(const Track<Second>& track) {
+vec<BankSelect> get_banks(const Track<Second>& track) {
     vec<BankSelect> banks;
     // Drum Track always get bank=128
     if (track.is_drum) {
@@ -33,7 +33,7 @@ vec<BankSelect> getBanks(const Track<Second>& track) {
     }
     // filter bank select events
     for (const ControlChange<Second>& control : track.controls) {
-        if (control->number == 0) { banks.emplace_back(control->time, control->value); }
+        if (control.number == 0) { banks.emplace_back(control.time, control.value); }
     }
     // if no bank select event, add default bank 0
     if (banks.empty()) {
@@ -48,7 +48,7 @@ vec<BankSelect> getBanks(const Track<Second>& track) {
     return banks;
 }
 
-vec<psynth::Note> toPNotes(const vec<Note<Second>>& notes) {
+vec<psynth::Note> to_presto_notes(const vec<Note<Second>>& notes) {
     static_assert(std::is_same_v<Second::unit, decltype(psynth::Note::start)>);
     vec<psynth::Note> pnotes;
     pnotes.resize(notes.size());
@@ -92,12 +92,12 @@ void divideNotes(
     }
 }
 
-psynth::Sequence toSequence(const Score<Second>& score) {
+psynth::Sequence to_sequence(const Score<Second>& score) {
     psynth::Sequence sequence;
     TrackMapper      track_mapper{};
     for (const auto& score_track : score.tracks) {
-        auto banks  = getBanks(score_track);
-        auto pnotes = toPNotes(score_track.notes);
+        auto banks  = get_banks(score_track);
+        auto pnotes = to_presto_notes(score_track.notes);
         divideNotes(pnotes, banks, track_mapper, score_track.program);
     }
     for (auto& [idx, track] : track_mapper) {
@@ -109,14 +109,14 @@ psynth::Sequence toSequence(const Score<Second>& score) {
     if (sequence.tracks.empty()) { throw std::runtime_error("No valid tracks in the score"); }
     return sequence;
 }
-}   // namespace details
+}   // namespace detail
 
 template<TType T>
 psynth::AudioData Synthesizer::render(const Score<T>& score, const bool stereo) {
     if constexpr (std::is_same_v<T, Second>) {
-        return synthesizer.render(details::toSequence(score), stereo);
+        return synthesizer.render(detail::to_sequence(score), stereo);
     } else {
-        return synthesizer.render(details::toSequence(convert<Second>(score)), stereo);
+        return synthesizer.render(detail::to_sequence(convert<Second>(score)), stereo);
     }
 }
 

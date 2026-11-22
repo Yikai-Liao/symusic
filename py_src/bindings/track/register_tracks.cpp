@@ -3,23 +3,19 @@
 //
 #include "../core/binding_prelude.h"
 
-#include "MetaMacro.h"
+#include "../core/binding_common.h"
 #include "../core/binding_registration.h"
 #include "track_bindings.h"
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
 void bind_track_types(nb::module_& m) {
-#define BIND_TRACK(__COUNT, BIND_FUNC) \
-    BIND_FUNC<Tick>(m, "Tick");        \
-    BIND_FUNC<Quarter>(m, "Quarter");  \
-    BIND_FUNC<Second>(m, "Second");
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_track<T>(module, name);
+    });
 
-    REPEAT_ON(BIND_TRACK, bind_track)
-
-#undef BIND_TRACK
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

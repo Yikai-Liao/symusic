@@ -8,7 +8,7 @@
 #include <span>
 
 #include "zpp_bits.h"
-#include "MetaMacro.h"
+#include "symusic/detail/event_fields.h"
 #include "symusic/event.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
@@ -38,69 +38,32 @@ constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Memb
     return archive(zpp::bits::as_bytes(image));
 }
 
-#define SERIALIZE_NON_HEAP(__COUNT, NAME)                             \
-    template<symusic::TType T>                                        \
-    constexpr auto serialize(auto& archive, symusic::NAME<T>& data) { \
-        return archive(zpp::bits::as_bytes(data));                    \
-    }
-
-REPEAT_ON(
-    SERIALIZE_NON_HEAP, Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend
-)
-
-#undef SERIALIZE_NON_HEAP
-
-// Output overloads. Pedal, Tempo and PitchBend have no padding (two 4-byte
-// members), so their raw bytes are already deterministic.
-#define SERIALIZE_PACKED_OUT(NAME)                                          \
-    template<symusic::TType T>                                              \
-    constexpr auto serialize(auto& archive, const symusic::NAME<T>& data) { \
-        return archive(zpp::bits::as_bytes(data));                          \
-    }
-SERIALIZE_PACKED_OUT(Pedal)
-SERIALIZE_PACKED_OUT(Tempo)
-SERIALIZE_PACKED_OUT(PitchBend)
-#undef SERIALIZE_PACKED_OUT
-
-template<symusic::TType T>
-constexpr auto serialize(auto& archive, const symusic::Note<T>& d) {
-    return serialize_zeroed_padding(archive, d, d.time, d.duration, d.pitch, d.velocity);
+template<TimeEvent E>
+    requires (std::is_trivially_copyable_v<E> && !std::is_const_v<E>)
+constexpr auto serialize(auto& archive, E& data) {
+    return archive(zpp::bits::as_bytes(data));
 }
 
-template<symusic::TType T>
-constexpr auto serialize(auto& archive, const symusic::ControlChange<T>& d) {
-    return serialize_zeroed_padding(archive, d, d.time, d.number, d.value);
+template<TimeEvent E>
+    requires std::is_trivially_copyable_v<E>
+constexpr auto serialize(auto& archive, const E& data) {
+    return std::apply([&](const auto&... fields) {
+        return serialize_zeroed_padding(archive, data, (data.*fields.second)...);
+    }, detail::event_fields<E>);
 }
 
-template<symusic::TType T>
-constexpr auto serialize(auto& archive, const symusic::TimeSignature<T>& d) {
-    return serialize_zeroed_padding(archive, d, d.time, d.numerator, d.denominator);
-}
+// Arithmetic event members occupy the leading bytes of each wire image.
+template<typename E>
+inline constexpr size_t padded_payload = 0;
 
-template<symusic::TType T>
-constexpr auto serialize(auto& archive, const symusic::KeySignature<T>& d) {
-    return serialize_zeroed_padding(archive, d, d.time, d.key, d.tonality);
-}
-
-// Per-element serialization of a whole `vec<E>` costs one archive call per
-// event, several times slower than the bulk copy zpp_bits uses for plain
-// trivially copyable elements. `zeroed(vec)` restores a bulk path for output:
-// it writes the same `u32 size` prefix and element images as zpp_bits would,
-// then zeroes the padding tail of each image inside the output buffer. No
-// scratch copy is made, because allocating one per call dominated the cost.
-// `payload` is the number of leading bytes that hold members; the tail is two
-// bytes, which a single constant store clears (a memset call per event did not
-// inline and cost more than the copy).
-template<class E>
-inline constexpr std::size_t padded_payload = 0;
-template<class T>
-inline constexpr std::size_t padded_payload<Note<T>> = 2 * sizeof(typename T::unit) + 2;
-template<class T>
-inline constexpr std::size_t padded_payload<ControlChange<T>> = sizeof(typename T::unit) + 2;
-template<class T>
-inline constexpr std::size_t padded_payload<TimeSignature<T>> = sizeof(typename T::unit) + 2;
-template<class T>
-inline constexpr std::size_t padded_payload<KeySignature<T>> = sizeof(typename T::unit) + 2;
+template<TimeEvent E>
+    requires std::is_trivially_copyable_v<E>
+inline constexpr size_t padded_payload<E> = [] {
+    const auto payload = std::apply([](const auto&... fields) {
+        return (sizeof(std::declval<E>().*fields.second) + ...);
+    }, detail::event_fields<E>);
+    return payload == sizeof(E) ? 0 : payload;
+}();
 
 using ZppSize = zpp::bits::default_size_type;
 
@@ -165,14 +128,21 @@ constexpr zpp::bits::errc serialize(auto& archive, const ZppContainer<Container>
     }
 }
 
-template<TType T>
-constexpr auto serialize(auto& archive, const TextMeta<T>& data) {
-    return archive(data.time, ZppContainer{data.text});
+template<typename Member>
+constexpr decltype(auto) zpp_field(Member& value) {
+    if constexpr (std::same_as<std::remove_const_t<Member>, std::string>) {
+        return ZppContainer{value};
+    } else {
+        return (value);
+    }
 }
 
-template<TType T>
-constexpr auto serialize(auto& archive, TextMeta<T>& data) {
-    return archive(data.time, ZppContainer{data.text});
+template<typename E>
+    requires TimeEvent<std::remove_cv_t<E>> && (!std::is_trivially_copyable_v<E>)
+constexpr auto serialize(auto& archive, E& data) {
+    return std::apply([&](const auto&... fields) {
+        return archive(zpp_field(data.*fields.second)...);
+    }, detail::event_fields<std::remove_cv_t<E>>);
 }
 
 template<typename S, typename Track>
@@ -239,7 +209,7 @@ constexpr auto serialize(auto& archive, Score<T>& data) {
 
 namespace symusic {
 
-namespace details {
+namespace detail {
 
 inline constexpr std::array<u8, 4> kZppMagic{'S', 'Y', 'M', 'Z'};
 inline constexpr u8 kZppVersion = 1;
@@ -286,26 +256,26 @@ T deserialize_zpp(std::span<const u8> buffer) {
     return data;
 }
 
-}   // namespace details
+}   // namespace detail
 
 template<TType T, typename S>
 vec<u8> Track<T, S>::dump_zpp_bytes() const {
-    return details::serialize_zpp(*this);
+    return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
 Track<T, S> Track<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
-    return detail::adopt_storage<S>(details::deserialize_zpp<Track<T>>(bytes));
+    return detail::adopt_storage<S>(detail::deserialize_zpp<Track<T>>(bytes));
 }
 
 template<TType T, typename S>
 vec<u8> Score<T, S>::dump_zpp_bytes() const {
-    return details::serialize_zpp(*this);
+    return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
 Score<T, S> Score<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
-    return detail::adopt_storage<S>(details::deserialize_zpp<Score<T>>(bytes));
+    return detail::adopt_storage<S>(detail::deserialize_zpp<Score<T>>(bytes));
 }
 
 namespace detail {
@@ -313,7 +283,7 @@ namespace detail {
 template<TType T, typename S>
 vec<u8> dump_track_list(const typename S::template Tracks<Track<T, S>>& tracks) {
     using Range = std::remove_cvref_t<decltype(S::get(tracks))>;
-    return details::serialize_zpp(ZppTrackRange<S, Range>{S::get(tracks)});
+    return detail::serialize_zpp(ZppTrackRange<S, Range>{S::get(tracks)});
 }
 
 }  // namespace detail

@@ -19,18 +19,18 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
     auto track = Track<Tick>("Test", 0, false);
 
     // Add notes and other events
-    track.notes.push_back(Note<Tick>(0, 480, 60, 100));     // One beat
-    track.notes.push_back(Note<Tick>(480, 240, 62, 100));   // Half beat
-    track.notes.push_back(Note<Tick>(720, 120, 64, 100));   // Quarter beat
+    track.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));     // One beat
+    track.notes.push_back(detail::make_event<Note<Tick>>(480, 240, 62, 100));   // Half beat
+    track.notes.push_back(detail::make_event<Note<Tick>>(720, 120, 64, 100));   // Quarter beat
 
-    track.controls.push_back(ControlChange<Tick>(0, 7, 100));   // Volume
-    track.pedals.push_back(Pedal<Tick>(0, 960));                // Two beats pedal
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume
+    track.pedals.push_back(detail::make_event<Pedal<Tick>>(0, 960));                // Two beats pedal
 
     tick_score.tracks.push_back(track);
 
     // Add global events
-    tick_score.tempos.push_back(Tempo<Tick>(0, 500000));   // 120 BPM
-    tick_score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
+    tick_score.tempos.push_back(detail::make_event<Tempo<Tick>>(0, 500000));   // 120 BPM
+    tick_score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
 
     SECTION("Test conversion from Tick to Quarter") {
         // Convert to Quarter time unit
@@ -97,9 +97,9 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         Score<Quarter> quarter_score(120);   // 120 is sampling rate, not meaningful for Quarter
 
         auto q_track = Track<Quarter>("Quarter Track", 0, false);
-        q_track.notes.push_back(Note<Quarter>(0.0f, 1.0f, 60, 100));    // One beat
-        q_track.notes.push_back(Note<Quarter>(1.0f, 0.5f, 62, 100));    // Half beat
-        q_track.notes.push_back(Note<Quarter>(1.5f, 0.25f, 64, 100));   // Quarter beat
+        q_track.notes.push_back(detail::make_event<Note<Quarter>>(0.0f, 1.0f, 60, 100));    // One beat
+        q_track.notes.push_back(detail::make_event<Note<Quarter>>(1.0f, 0.5f, 62, 100));    // Half beat
+        q_track.notes.push_back(detail::make_event<Note<Quarter>>(1.5f, 0.25f, 64, 100));   // Quarter beat
 
         quarter_score.tracks.push_back(q_track);
         quarter_score.tempos.push_back(Tempo<Quarter>::from_qpm(0.0f, 120.0f));   // 120 BPM
@@ -140,7 +140,7 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         // Create a Score with very short notes
         Score<Tick> very_short_note_score(480);
         auto        short_track = Track<Tick>("Short", 0, false);
-        short_track.notes.push_back(Note<Tick>(0, 24, 60, 100));   // 1/20 beat (24 ticks)
+        short_track.notes.push_back(detail::make_event<Note<Tick>>(0, 24, 60, 100));   // 1/20 beat (24 ticks)
         very_short_note_score.tracks.push_back(short_track);
 
         // Convert and set minimum duration
@@ -158,8 +158,8 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
     Score<Tick> tick_score(480);
     tick_score.tempos.push_back(Tempo<Tick>::from_qpm(0, 120.0));
     tick_score.tempos.push_back(Tempo<Tick>::from_qpm(360, 60.0));
-    tick_score.time_signatures.push_back(TimeSignature<Tick>(0, 4, 4));
-    tick_score.time_signatures.push_back(TimeSignature<Tick>(960, 3, 4));
+    tick_score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
+    tick_score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(960, 3, 4));
 
     SECTION("Scalar and vector time conversion reuse the shared tempo map") {
         REQUIRE(convert_time<Quarter>(480, tick_score) == Catch::Approx(1.0f));
@@ -199,8 +199,8 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
 
     SECTION("Duration event conversion handles tempo crossings and minimum durations") {
         vec<Note<Tick>> notes;
-        notes.push_back(Note<Tick>(240, 240, 60, 100));
-        notes.push_back(Note<Tick>(720, 30, 62, 90));
+        notes.push_back(detail::make_event<Note<Tick>>(240, 240, 60, 100));
+        notes.push_back(detail::make_event<Note<Tick>>(720, 30, 62, 90));
 
         const auto second_notes = convert_duration_events<Second, Note>(notes, tick_score);
         REQUIRE(second_notes.size() == 2);

@@ -12,9 +12,9 @@
 using namespace symusic;
 
 TEST_CASE("Test Note formatting", "[repr][note]") {
-    Note<Tick>    note(100, 200, 60, 80);
-    Note<Quarter> quarter_note(0.5f, 1.0f, 62, 90);
-    Note<Second>  second_note(1.5f, 0.75f, 64, 100);
+    Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
+    Note<Quarter> quarter_note = detail::make_event<Note<Quarter>>(0.5f, 1.0f, 62, 90);
+    Note<Second> second_note = detail::make_event<Note<Second>>(1.5f, 0.75f, 64, 100);
 
     SECTION("Default format (short)") {
         // Test the default formatting (short format)
@@ -52,7 +52,7 @@ TEST_CASE("Test Note formatting", "[repr][note]") {
 }
 
 TEST_CASE("Test Pedal formatting", "[repr][pedal]") {
-    Pedal<Tick> pedal(100, 200);
+    Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(100, 200);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", pedal);
@@ -66,7 +66,7 @@ TEST_CASE("Test Pedal formatting", "[repr][pedal]") {
 }
 
 TEST_CASE("Test ControlChange formatting", "[repr][control]") {
-    ControlChange<Tick> cc(100, 7, 127);
+    ControlChange<Tick> cc = detail::make_event<ControlChange<Tick>>(100, 7, 127);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", cc);
@@ -80,7 +80,7 @@ TEST_CASE("Test ControlChange formatting", "[repr][control]") {
 }
 
 TEST_CASE("Test TimeSignature formatting", "[repr][timesig]") {
-    TimeSignature<Tick> ts(100, 3, 4);
+    TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(100, 3, 4);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", ts);
@@ -94,7 +94,7 @@ TEST_CASE("Test TimeSignature formatting", "[repr][timesig]") {
 }
 
 TEST_CASE("Test KeySignature formatting", "[repr][keysig]") {
-    KeySignature<Tick> ks(100, 2, 0);
+    KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(100, 2, 0);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", ks);
@@ -108,7 +108,7 @@ TEST_CASE("Test KeySignature formatting", "[repr][keysig]") {
 }
 
 TEST_CASE("Test Tempo formatting", "[repr][tempo]") {
-    Tempo<Tick> tempo(100, 500000);   // 120 BPM
+    Tempo<Tick> tempo = detail::make_event<Tempo<Tick>>(100, 500000);   // 120 BPM
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", tempo);
@@ -122,7 +122,7 @@ TEST_CASE("Test Tempo formatting", "[repr][tempo]") {
 }
 
 TEST_CASE("Test PitchBend formatting", "[repr][pitchbend]") {
-    PitchBend<Tick> pb(100, 8192);
+    PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(100, 8192);
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", pb);
@@ -136,7 +136,7 @@ TEST_CASE("Test PitchBend formatting", "[repr][pitchbend]") {
 }
 
 TEST_CASE("Test TextMeta formatting", "[repr][text]") {
-    TextMeta<Tick> text(100, "Test Text");
+    TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(100, "Test Text");
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", text);
@@ -151,8 +151,8 @@ TEST_CASE("Test TextMeta formatting", "[repr][text]") {
 
 TEST_CASE("Test Track formatting", "[repr][track]") {
     Track<Tick> track("Piano", 0, false);
-    track.notes.push_back(Note<Tick>(0, 100, 60, 100));
-    track.notes.push_back(Note<Tick>(100, 100, 62, 100));
+    track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
+    track.notes.push_back(detail::make_event<Note<Tick>>(100, 100, 62, 100));
 
     SECTION("Basic formatting") {
         std::string str = track.to_string();
@@ -179,7 +179,7 @@ TEST_CASE("Test Track formatting", "[repr][track]") {
 TEST_CASE("Test Score formatting", "[repr][score]") {
     Score<Tick> score(480);
     auto        track = Track<Tick>("Piano", 0, false);
-    track.notes.push_back(Note<Tick>(0, 100, 60, 100));
+    track.notes.push_back(detail::make_event<Note<Tick>>(0, 100, 60, 100));
     score.tracks.push_back(track);
 
     SECTION("Basic formatting") {
@@ -207,8 +207,8 @@ TEST_CASE("Test Score formatting", "[repr][score]") {
 
 TEST_CASE("Test fixed_float formatting function", "[repr][utils]") {
     // Test the fix_float helper function through note formatting
-    Note<Tick>    integer_note(100, 200, 60, 80);
-    Note<Quarter> float_note(0.5123f, 0.9987f, 62, 90);
+    Note<Tick> integer_note = detail::make_event<Note<Tick>>(100, 200, 60, 80);
+    Note<Quarter> float_note = detail::make_event<Note<Quarter>>(0.5123f, 0.9987f, 62, 90);
 
     std::string int_str   = fmt::format("{}", integer_note);
     std::string float_str = fmt::format("{}", float_note);
