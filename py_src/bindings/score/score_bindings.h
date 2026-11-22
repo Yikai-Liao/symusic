@@ -89,10 +89,15 @@ Returns a new score unless *inplace* is true.
 )pbdoc";
 using ScoreValue                          = UnitValue<Score>;
 
+template<TType T>
+ScoreValue parse_score_midi(std::span<const u8> data, bool sanitize_data) {
+    using Native = Score<T>;
+    return ScoreValue(std::make_shared<Native>(Native::parse_midi_bytes(data, sanitize_data)));
+}
+
 inline ScoreValue score_from_midi(std::span<const u8> data, nb::handle marker, bool sanitize_data) {
     return with_unit(marker, [&](auto unit) {
-        using Native = Score<decltype(unit)>;
-        return ScoreValue(std::make_shared<Native>(Native::parse_midi_bytes(data, sanitize_data)));
+        return parse_score_midi<decltype(unit)>(data, sanitize_data);
     });
 }
 
@@ -103,10 +108,12 @@ inline nb::object abc_io(const char* name) {
 inline ScoreValue score_from_abc(
     const nb::bytes& input, nb::handle marker, nb::handle tune
 ) {
-    const auto parse_midi = nb::cpp_function([marker = nb::borrow(marker)](const nb::bytes& data) {
-        return score_from_midi(bytes_span(data), marker, false);
+    return with_unit(marker, [&](auto unit) {
+        const auto parse_midi = nb::cpp_function([](const nb::bytes& data) {
+            return parse_score_midi<decltype(unit)>(bytes_span(data), false);
+        });
+        return nb::cast<ScoreValue>(abc_io("read_abc")(input, tune, parse_midi));
     });
-    return nb::cast<ScoreValue>(abc_io("read_abc")(input, tune, parse_midi));
 }
 
 inline ScoreValue score_from_abc_file(

@@ -815,3 +815,13 @@ for unit in (Tick, Quarter, Second):
         raise AssertionError("MIDI constructor accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
+
+
+def test_abc_validates_ttype_before_conversion(tmp_path):
+    path = tmp_path / "invalid.abc"
+    path.write_text("invalid ABC", encoding="utf-8")
+    for read in (Score, Score.from_file, Score.from_abc_file):
+        with pytest.raises(ValueError, match="ttype must be Tick, Quarter or Second"):
+            read(path, ttype=object)
+    with pytest.raises(ValueError, match="ttype must be Tick, Quarter or Second"):
+        Score.from_abc("invalid ABC", ttype=object)
