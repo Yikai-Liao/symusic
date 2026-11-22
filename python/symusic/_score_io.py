@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,7 @@ from . import _abc, core
 if TYPE_CHECKING:
     import typing_extensions
 
+_FilePath = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 _MIDI_EXTENSIONS = {".mid", ".midi", ".MID", ".MIDI"}
 
 
@@ -17,14 +19,14 @@ class _FileMethods:
     @classmethod
     def from_file(
         cls,
-        path: str | pathlib.Path,
+        path: _FilePath,
         format: str | None = None,  # noqa: A002
         sanitize_data: bool = False,
         *,
         tune: int | None = None,
     ) -> typing_extensions.Self:
         """Read MIDI or ABC, selecting the format by extension or explicit name."""
-        path = pathlib.Path(path)
+        path = pathlib.Path(os.fsdecode(path))
         if format is not None and not isinstance(format, str):
             msg = "format must be a string or None"
             raise TypeError(msg)
@@ -59,16 +61,20 @@ class _FileMethods:
     @classmethod
     def from_abc_file(
         cls,
-        path: str | pathlib.Path,
+        path: _FilePath,
         *,
         tune: int | None = None,
     ) -> typing_extensions.Self:
         """Read an ABC file, selecting an ``X:`` number or defaulting to the first tune."""
-        return _abc.parse_abc(pathlib.Path(path).read_bytes(), tune, cls.from_midi)
+        return _abc.parse_abc(
+            pathlib.Path(os.fsdecode(path)).read_bytes(), tune, cls.from_midi
+        )
 
-    def dump_abc(self, path: str | pathlib.Path, warn: bool = False) -> None:
+    def dump_abc(self, path: _FilePath, warn: bool = False) -> None:
         """Write ABC to a file. With ``warn=True``, report converter diagnostics."""
-        pathlib.Path(path).write_bytes(self.dumps_abc(warn).encode("utf-8"))
+        pathlib.Path(os.fsdecode(path)).write_bytes(
+            self.dumps_abc(warn).encode("utf-8")
+        )
 
     def dumps_abc(self, warn: bool = False) -> str:
         """Return ABC text. With ``warn=True``, report converter diagnostics."""

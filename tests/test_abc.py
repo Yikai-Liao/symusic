@@ -366,6 +366,25 @@ def test_core_score_keeps_abc_methods(tmp_path):
     assert core.ScoreQuarter.from_file(path).note_num() == score.note_num()
 
 
+@pytest.mark.parametrize("path_type", [str, bytes])
+def test_core_score_file_pathlike(tmp_path, path_type):
+    class FilePath:
+        def __init__(self, path):
+            self.path = path
+
+        def __fspath__(self):
+            return os.fspath(self.path) if path_type is str else os.fsencode(self.path)
+
+    score = core.ScoreTick.from_abc(make_roundtrip_abc_text())
+    path = FilePath(tmp_path / "score.abc")
+    score.dump_abc(path)
+    assert core.ScoreTick.from_file(path).note_num() == score.note_num()
+    assert core.ScoreTick.from_abc_file(path).note_num() == score.note_num()
+    midi = FilePath(tmp_path / "score.mid")
+    score.dump_midi(midi)
+    assert core.ScoreTick.from_file(midi) == score
+
+
 # ---------------------------------------------------------------------------
 # Regression test for GitHub issue #78
 # https://github.com/lzqlzzq/symusic/issues/78
