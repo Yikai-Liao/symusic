@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -90,6 +91,11 @@ constexpr const char* kClipDoc     = R"pbdoc(
 Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedals must also end by
 *end*. Times are not shifted. The tempo, time signature and key signature in effect at *start* move
 to *start*. Returns a new score unless *inplace* is true.
+)pbdoc";
+constexpr const char* kTrimDoc     = R"pbdoc(
+Return a new score trimmed to the window. For notes and pedals that cross a boundary, "remove"
+drops them, "truncate" cuts them at the boundary, and "retain" keeps them whole. The tempo,
+time signature and key signature in effect at *start* move to *start*.
 )pbdoc";
 constexpr const char* kShiftTimeDoc
     = R"pbdoc(Add *offset* to every time. Returns a new score unless *inplace* is true.)pbdoc";
@@ -279,6 +285,22 @@ auto bind_score(nb::module_& m, const std::string& name_) {
                 return self;
             }   return std::make_shared<Score<T>>(self->clip(start, end, clip_end));
         }, nb::arg("start"), nb::arg("end"), nb::arg("clip_end") = false, nb::arg("inplace") = false, score_docstrings::kClipDoc)
+        .def("trim", [](const self_t& self, unit start, unit end, unit min_overlap,
+                         const std::string& start_mode, const std::string& end_mode) {
+            const auto valid_mode = [](const std::string& mode) {
+                return mode == "remove" || mode == "truncate" || mode == "retain";
+            };
+            if (!valid_mode(start_mode) || !valid_mode(end_mode)) {
+                throw std::invalid_argument("trim modes must be 'remove', 'truncate', or 'retain'");
+            }
+            return std::make_shared<Score<T>>(self->trim(start, end, min_overlap, start_mode, end_mode));
+        }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = static_cast<unit>(0),
+           nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", score_docstrings::kTrimDoc,
+           nb::sig(fmt::format(
+               "def trim(self, start: {}, end: {}, min_overlap: {} = 0, "
+               "start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', "
+               "end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove') -> {}",
+               flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("shift_time", [](self_t& self, const unit offset, const bool inplace) {
             if (inplace) {
                 self->shift_time_inplace(offset);
