@@ -1,3 +1,5 @@
+import pytest
+
 from symusic import Note, Track
 from symusic.core import NoteQuarterList
 
@@ -32,3 +34,12 @@ def test_trim_notes():
         ],
     )
     assert track.notes == trimmed
+
+
+@pytest.mark.parametrize("boundary", ["start_mode", "end_mode"])
+@pytest.mark.parametrize("inplace", [False, True])
+def test_track_rejects_unknown_trim_mode(boundary, inplace):
+    track = Track(notes=[Note(1, 2, 60, 80)])
+    with pytest.raises(ValueError, match=rf"{boundary}.*unknown"):
+        track.trim(2, 4, inplace=inplace, **{boundary: "unknown"})
+    assert track.notes[0].start == 1
