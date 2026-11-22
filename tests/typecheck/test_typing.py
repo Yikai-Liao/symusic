@@ -11,7 +11,19 @@ import pytest
 CASES = Path(__file__).with_name("cases")
 
 
-@pytest.mark.parametrize("checker", ["mypy", "pyright"])
+@pytest.mark.parametrize(
+    "checker",
+    [
+        pytest.param(
+            "mypy",
+            marks=pytest.mark.skipif(
+                sys.implementation.name == "pypy",
+                reason="mypy does not run on PyPy",
+            ),
+        ),
+        "pyright",
+    ],
+)
 @pytest.mark.parametrize("valid", [True, False])
 def test_generated_types(checker, valid):
     case = CASES / ("valid.py" if valid else "invalid.py")
