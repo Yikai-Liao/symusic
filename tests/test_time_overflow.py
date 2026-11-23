@@ -352,3 +352,66 @@ def test_midi_rejects_unrepresentable_delta():
 def test_midi_rejects_negative_note_data(pitch, velocity):
     with pytest.raises(ValueError, match=r"(pitch|velocity).*-1"):
         Note(0, 1, pitch, velocity)
+
+
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
+@pytest.mark.parametrize("offset", [math.nan, math.inf, -math.inf])
+@pytest.mark.parametrize("kind", ["score", "tracks", "track", "notes", "note"])
+def test_shift_rejects_nonfinite_offset(ttype, offset, kind):
+    score = Score(ttype=ttype)
+    score.tracks.append(Track(notes=[Note(1, 2, 60, 80, ttype=ttype)], ttype=ttype))
+    score.tempos.append(Tempo(2, 120, ttype=ttype))
+    track = score.tracks[0]
+    notes = track.notes
+    note = notes[0]
+    tempo = score.tempos[0]
+    targets = {
+        "score": score,
+        "tracks": score.tracks,
+        "track": track,
+        "notes": notes,
+        "note": note,
+    }
+    target = targets[kind]
+
+    with pytest.raises(ValueError, match="offset must be finite"):
+        target.shift_time(offset)
+    assert (note.time, tempo.time) == (1, 2)
+
+    assert target.shift_time(3) is None
+    assert note.time == notes[0].time == track.notes[0].time == 4
+    assert tempo.time == (5 if kind == "score" else 2)
+
+    if kind != "note":
+        if kind in {"tracks", "notes"}:
+            target.clear()
+        else:
+            track.notes.clear()
+            score.tempos.clear()
+        with pytest.raises(ValueError, match="offset must be finite"):
+            target.shift_time(offset)
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+@pytest.mark.parametrize("kind", ["score", "tracks", "track", "notes", "note"])
+def test_shift_rejects_float_overflow_atomically(ttype, kind):
+    score = Score(ttype=ttype)
+    track = Track(
+        notes=[Note(1, 2, 60, 80, ttype=ttype), Note(3e38, 2, 61, 80, ttype=ttype)],
+        ttype=ttype,
+    )
+    score.tracks.append(track)
+    notes = track.notes
+    first, last = notes
+    original = last.time
+    targets = {
+        "score": score,
+        "tracks": score.tracks,
+        "track": track,
+        "notes": notes,
+        "note": last,
+    }
+
+    with pytest.raises(ValueError, match="Shifted time must be finite"):
+        targets[kind].shift_time(3e38)
+    assert (first.time, last.time) == (1, original)

@@ -357,7 +357,7 @@ auto bind_event(
         [](const Value& self, nb::handle offset) {
             self.visit([&](const auto& ptr) {
                 using T = UnitOf<decltype(ptr)>;
-                symusic::shift_time(*ptr, read_time<T>(offset));
+                symusic::shift_time(*ptr, read_shift_offset<T>(offset));
             });
         },
         "offset"_a,

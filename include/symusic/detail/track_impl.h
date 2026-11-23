@@ -97,6 +97,7 @@ Track<T, S> Track<T, S>::trim(
 
 template<TType T, typename S>
 void Track<T, S>::shift_time(const unit offset) {
+    detail::require_finite_shift_offset(offset);
     detail::FieldUpdates<unit> changes;
     detail::collect_time_shifts(*this, offset, changes);
     changes.apply();

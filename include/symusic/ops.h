@@ -368,13 +368,17 @@ public:
     }
 };
 
+template<class Events, class U>
+void collect_list_time_shifts(Events& events, U offset, FieldUpdates<U>& changes) {
+    for (auto& event : events) changes.add(event.time, shifted_time(event.time, offset));
+}
+
 template<TType T, class S>
 void collect_time_shifts(
     Track<T, S>& track, typename T::unit offset, FieldUpdates<typename T::unit>& changes
 ) {
-    const auto collect = [&](auto& list) {
-        for (auto& event : S::get(list)) changes.add(event.time, add_time(event.time, offset));
-    };
+    const auto collect
+        = [&](auto& list) { collect_list_time_shifts(S::get(list), offset, changes); };
     collect(track.notes);
     collect(track.controls);
     collect(track.pitch_bends);
@@ -386,9 +390,8 @@ void collect_time_shifts(
     Score<T, S>& score, typename T::unit offset, FieldUpdates<typename T::unit>& changes
 ) {
     for (auto& track : S::get(score.tracks)) collect_time_shifts(S::get(track), offset, changes);
-    const auto collect = [&](auto& list) {
-        for (auto& event : S::get(list)) changes.add(event.time, add_time(event.time, offset));
-    };
+    const auto collect
+        = [&](auto& list) { collect_list_time_shifts(S::get(list), offset, changes); };
     collect(score.time_signatures);
     collect(score.key_signatures);
     collect(score.tempos);

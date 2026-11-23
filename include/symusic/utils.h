@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <concepts>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -68,6 +69,19 @@ inline U add_time(const U lhs, const U rhs) {
     } else {
         return lhs + rhs;
     }
+}
+
+inline void require_finite_shift_offset(f64 offset) {
+    if (!std::isfinite(offset)) { throw std::invalid_argument("Time shift offset must be finite"); }
+}
+
+template<typename U>
+inline U shifted_time(U time, U offset) {
+    const U result = add_time(time, offset);
+    if constexpr (std::floating_point<U>) {
+        if (!std::isfinite(result)) { throw std::invalid_argument("Shifted time must be finite"); }
+    }
+    return result;
 }
 
 template<typename U>

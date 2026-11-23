@@ -127,7 +127,7 @@ void bind_transformations(
             "shift_time",
             [](const Value& self, nb::handle offset) {
                 self.visit([&](const auto& ptr) {
-                    ptr->shift_time(read_time<UnitOf<decltype(ptr)>>(offset));
+                    ptr->shift_time(read_shift_offset<UnitOf<decltype(ptr)>>(offset));
                 });
             },
             "offset"_a,

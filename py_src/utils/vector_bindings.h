@@ -587,6 +587,28 @@ void bind_list_algorithms(nb::class_<List>& type) {
             "Keep the items for which the function returns true."
         )
         .def(
+            "shift_time",
+            [](const List& self, nb::handle offset) {
+                self.visit([&](const auto& ptr) {
+                    using T          = UnitOf<decltype(ptr)>;
+                    using Vector     = typename std::remove_cvref_t<decltype(ptr)>::element_type;
+                    const auto shift = read_shift_offset<T>(offset);
+                    detail::require_finite_shift_offset(shift);
+                    detail::FieldUpdates<typename T::unit> changes;
+                    if constexpr (is_event_sequence<Vector>) {
+                        detail::collect_list_time_shifts(*ptr, shift, changes);
+                    } else {
+                        for (auto& track : *ptr)
+                            detail::collect_time_shifts(*track, shift, changes);
+                    }
+                    changes.apply();
+                });
+            },
+            "offset"_a,
+            nb::sig("def shift_time(self, offset: int | float) -> None"),
+            "Shift every item by the given offset."
+        )
+        .def(
             "adjust_time",
             [](const List&         self,
                const nb::iterable& original_times,

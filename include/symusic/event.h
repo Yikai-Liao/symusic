@@ -250,10 +250,11 @@ struct TextMeta : TimeStamp<T> {
     auto default_key() const { return this->time; }
 };
 
-// Shift one event in its own time unit. Tick overflow leaves the event unchanged.
+// Shift one event in its own time unit. An invalid offset or result leaves it unchanged.
 template<TimeEvent E>
 void shift_time(E& event, typename E::unit offset) {
-    event.time = detail::add_time(event.time, offset);
+    detail::require_finite_shift_offset(offset);
+    event.time = detail::shifted_time(event.time, offset);
 }
 
 namespace detail {
