@@ -202,10 +202,15 @@ def _read_abc(
         args.extend(("-o", output.name, "-silent"))
 
         if _INCLUDE.search(data):
-            # The parser seeks back to its input after consuming an include.
-            # With CRLF it saves the position between the two newline bytes.
+            # abc2midi opens this file in text mode and, after an include,
+            # seeks back to a position it saved with ftell. The position is
+            # exact only with native line endings: on POSIX a CRLF line stops
+            # between the two bytes, and the leftover LF reads as a blank line
+            # that ends the tune; on Windows ftell counts every LF as CRLF.
             input_path = workdir / "input.abc"
-            input_path.write_bytes(data.replace(b"\r\n", b"\n"))
+            input_path.write_bytes(
+                data.replace(b"\r\n", b"\n").replace(b"\n", os.linesep.encode())
+            )
             args[1] = input_path.name
             result = subprocess.run(args, cwd=workdir, capture_output=True)
         else:
