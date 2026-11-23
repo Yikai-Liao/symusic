@@ -159,7 +159,9 @@ struct Channel {
 size_t frame_count(double frames) {
     // Stereo size must fit both the vector and pointer arithmetic.
     if (!(frames >= 0)) {
-        throw std::invalid_argument("Audio render times must be finite and nonnegative");
+        throw std::invalid_argument(
+            fmt::format("Audio render times must be finite and nonnegative, got {}", frames)
+        );
     }
     if (frames >= static_cast<double>(vec<float>().max_size() / 2)) {
         throw std::overflow_error("Audio render length exceeds the sample buffer limit");
@@ -169,7 +171,9 @@ size_t frame_count(double frames) {
 
 void validate_event_time(double time) {
     if (!std::isfinite(time) || time < 0) {
-        throw std::invalid_argument("Audio render times must be finite and nonnegative");
+        throw std::invalid_argument(
+            fmt::format("Audio render times must be finite and nonnegative, got {}", time)
+        );
     }
 }
 
@@ -180,7 +184,9 @@ size_t event_frame(double time, int sample_rate, int block_size) {
 
 void validate_midi_data(int value) {
     if (value < 0 || value >= kMidiKeys) {
-        throw std::invalid_argument("MIDI data must be in the range 0 to 127");
+        throw std::invalid_argument(
+            fmt::format("MIDI data must be in the range 0 to 127, got {}", value)
+        );
     }
 }
 
@@ -206,7 +212,9 @@ void schedule_track(
     }
     for (const auto& bend : track.pitch_bends) {
         if (bend.value < -kPitchBendCenter || bend.value >= kPitchBendCenter) {
-            throw std::invalid_argument("Pitch bend must be in the range -8192 to 8191");
+            throw std::invalid_argument(
+                fmt::format("Pitch bend must be in the range -8192 to 8191, got {}", bend.value)
+            );
         }
         add(bend.time, EventKind::PitchBend, bend.value + kPitchBendCenter, 0);
     }
@@ -214,7 +222,9 @@ void schedule_track(
         validate_midi_data(note.pitch);
         validate_midi_data(note.velocity);
         if (!std::isfinite(note.duration) || note.duration < 0) {
-            throw std::invalid_argument("Note duration must be finite and nonnegative");
+            throw std::invalid_argument(
+                fmt::format("Note duration must be finite and nonnegative, got {}", note.duration)
+            );
         }
         if (note.duration == 0 || note.velocity == 0) {
             validate_event_time(note.time);
@@ -481,13 +491,23 @@ Synthesizer::Synthesizer(
     SynthSettings                settings
 ) : settings(settings) {
     if (settings.sample_rate < 8000 || settings.sample_rate > 96000) {
-        throw std::invalid_argument("sample_rate must be in the range 8000 to 96000 Hz");
+        throw std::invalid_argument(
+            fmt::format(
+                "sample_rate must be in the range 8000 to 96000 Hz, got {}", settings.sample_rate
+            )
+        );
     }
     if (settings.polyphony < 1 || settings.polyphony > 65535) {
-        throw std::invalid_argument("polyphony must be in the range 1 to 65535");
+        throw std::invalid_argument(
+            fmt::format("polyphony must be in the range 1 to 65535, got {}", settings.polyphony)
+        );
     }
     if (!std::isfinite(settings.tail_seconds) || settings.tail_seconds < 0) {
-        throw std::invalid_argument("tail_seconds must be finite and nonnegative");
+        throw std::invalid_argument(
+            fmt::format(
+                "tail_seconds must be finite and nonnegative, got {}", settings.tail_seconds
+            )
+        );
     }
     this->soundfont = std::filesystem::absolute(soundfont);
     if (!std::filesystem::exists(this->soundfont)) {

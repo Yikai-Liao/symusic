@@ -4,6 +4,8 @@
 #include <filesystem>
 #include <stdexcept>
 
+#include <fmt/format.h>
+
 #include "symusic/detail/time_conversion.h"
 
 namespace symusic {
@@ -47,7 +49,12 @@ public:
             for (const auto& handle : S::get(score.tracks)) {
                 for (const auto& note : S::get(S::get(handle).notes)) {
                     if (!std::isfinite(note.duration) || note.duration < 0) {
-                        throw std::invalid_argument("Note duration must be finite and nonnegative");
+                        throw std::invalid_argument(
+                            fmt::format(
+                                "Note duration must be finite and nonnegative, got {}",
+                                note.duration
+                            )
+                        );
                     }
                 }
             }
