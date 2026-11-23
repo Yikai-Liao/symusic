@@ -32,8 +32,11 @@ TEST_CASE("Concurrent renders serialize FluidSynth sample-cache access", "[symus
     std::promise<void> start;
     const auto         ready  = start.get_future().share();
     const auto         render = [&](const Synthesizer& synth) {
+        Score<Tick> score{480};
+        score.tracks.emplace_back();
+        score.tracks.back().notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
         ready.wait();
-        return synth.render(Score<Tick>{480}).frames();
+        return synth.render(score).frames();
     };
     auto       failing_render = std::async(std::launch::async, [&] {
         Score<Tick> score{480};
@@ -52,7 +55,7 @@ TEST_CASE("Concurrent renders serialize FluidSynth sample-cache access", "[symus
         std::async(std::launch::async, render, std::cref(second)),
     };
     start.set_value();
-    for (auto& worker : workers) { CHECK(worker.get() == 44100); }
+    for (auto& worker : workers) { CHECK(worker.get() == 66180); }
     CHECK(failing_render.get());
 }
 #endif
