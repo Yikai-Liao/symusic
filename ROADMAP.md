@@ -29,6 +29,7 @@ Workarounds and unsupported configurations with current toolchains.
 Found while checking the guide against the package. Each fix needs a test that fails without it.
 
 - **abc2midi stress velocities.** With a `%%MIDI stressmodel` file, abc2midi reads per-note stress velocities that it never initializes: `store.c` allocates `stressvelocity` without clearing it, and `genmidi.c` reads it before any bar fills it. On Windows the result changes from run to run, so `tests/test_abc.py` skips its stress tests there. Fix it upstream, update the pinned release and remove the skip.
+- **Pickle restore skips range checks.** `__setstate__` accepts event fields that constructors and setters reject, such as a NaN note time in a quarter or second track. Validate the decoded object before it replaces the receiver. `tests/test_py_bindings.py` builds its NaN track this way; once restore validates, drop that case, since no public path can create a NaN time.
 
 ## Test coverage
 
