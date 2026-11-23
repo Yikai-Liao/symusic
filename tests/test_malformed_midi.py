@@ -270,7 +270,7 @@ def test_midi_pending_programs(with_note):
             (1, [10], [2]),
         ]
     )
-    for parsed in (score, Score.from_midi(score.dumps_midi())):
+    for parsed in (score, Score.from_midi(score.to_midi())):
         assert [
             (
                 track.program,
