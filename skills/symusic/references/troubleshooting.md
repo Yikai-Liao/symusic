@@ -20,10 +20,11 @@ Each entry starts with the error message or symptom and links to the page that e
 ## Building and editing scores
 
 - **`ValueError: Time units must match`.** The object you add has a different time unit from the list. Create events with the list's `ttype`, or convert the source with `to`; see [time_units.md](time_units.md).
-- **`TypeError: __init__(): incompatible function arguments` when creating a `Note`.** A pitch or velocity outside −128..127 does not fit the 8-bit field, or a time has the wrong type for the unit; see [data_model.md](data_model.md#events).
+- **`ValueError: pitch must be in 0..127, got 128` when creating an event.** Pitch, velocity, and control numbers and values range from 0 to 127; see [data_model.md](data_model.md#events).
+- **`TypeError: 'float' object cannot be interpreted as an integer` when creating an event.** Tick times and durations are integers. Round them, or create the event with `ttype=Quarter`; see [time_units.md](time_units.md).
 - **`TypeError` on `Score(480)`.** Pass the resolution by keyword with `Score(ticks_per_quarter=480)`.
 - **`ValueError: ttype must be Tick, Quarter or Second`.** `ttype` takes the markers `Tick`, `Quarter` and `Second` imported from `symusic`, not strings such as `"tick"`.
-- **`ValueError: Overflow while adding ...`.** `shift_pitch` or `shift_velocity` pushed a value outside −128..127; see [data_model.md](data_model.md#transformations).
+- **`ValueError: pitch must be in 0..127, got 128` from `shift_pitch` or `shift_velocity`.** The shift would move a value outside 0–127. The call changes nothing; see [data_model.md](data_model.md#transformations).
 - **`ValueError: symusic::ops::adjust_time: ...`.** The anchor lists differ in length, have fewer than two entries, or violate the required ordering. Original times must increase strictly, and new times must be nondecreasing.
 - **Notes have duration 0 after `to(Tick)`, `resample` or a MIDI round trip.** Durations shorter than half a tick round to 0. Pass `min_duration=1`; see [time_units.md](time_units.md#conversion-rules).
 - **Editing a pedal snapshot.** Change control 64 in `controls` to change sustain. [MIDI writing](files.md#writing-midi) uses these controls.
