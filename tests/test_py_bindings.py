@@ -25,6 +25,7 @@ from symusic import (
     Tick,
     TimeSignature,
     Track,
+    TrackList,
 )
 
 
@@ -437,3 +438,22 @@ def test_track_constructor_copies_event_lists(ttype):
         original.append(event)
         owned.clear()
         assert list(original) == [event]
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+@pytest.mark.parametrize("nan_time", [False, True])
+@pytest.mark.parametrize("operation", ["count", "contains", "remove"])
+def test_track_list_matches_identity_and_value(ttype, nan_time, operation):
+    track = Track(notes=[Note(1, 2, 60, 80, ttype=ttype)], ttype=ttype)
+    tracks = TrackList([track], ttype=ttype)
+    if nan_time:
+        track.notes[0].time = float("nan")
+    target = track if nan_time else Track(track)
+
+    if operation == "count":
+        assert tracks.count(target) == 1
+    elif operation == "contains":
+        assert target in tracks
+    else:
+        tracks.remove(target)
+        assert len(tracks) == 0

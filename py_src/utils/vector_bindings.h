@@ -75,6 +75,11 @@ shared<Vector> clone_list(Vector& list, bool deep) {
     }
 }
 
+template<class T>
+bool same_item(const shared<T>& left, const shared<T>& right) {
+    return left == right || *left == *right;
+}
+
 inline Py_ssize_t clamp_list_index(Py_ssize_t index, Py_ssize_t size) {
     return std::clamp(index < 0 ? index + size : index, Py_ssize_t{0}, size);
 }
@@ -150,9 +155,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                         ptr->begin(),
                         ptr->end(),
                         (*match)->begin(),
-                        [](const auto& left, const auto& right) {
-                            return left == right || *left == *right;
-                        }
+                        [](const auto& left, const auto& right) { return same_item(left, right); }
                     );
                 }
             });
@@ -169,9 +172,10 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 if (!match) return false;
                 const auto item = list_item(*ptr, i);
                 if constexpr (!is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
-                    if (item == *match) continue;
+                    if (!same_item(item, *match)) return false;
+                } else {
+                    if (*item != **match) return false;
                 }
-                if (*item != **match) return false;
             }
             return true;
         });
@@ -184,7 +188,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 return ptr->count(*match);
             else
                 return std::ranges::count_if(*ptr, [&](const auto& item) {
-                    return *item == **match;
+                    return same_item(item, *match);
                 });
         });
     };
@@ -450,7 +454,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                             if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
                                 if (&element == match->get() || element == **match) return i;
                             } else {
-                                if (element == *match || *element == **match) return i;
+                                if (same_item(element, *match)) return i;
                             }
                         }
                         throw std::invalid_argument("Item is not in list");
@@ -473,7 +477,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                         ptr->remove(item);
                     else {
                         auto pos = std::ranges::find_if(*ptr, [&](const auto& element) {
-                            return *element == *item;
+                            return same_item(element, item);
                         });
                         if (pos == ptr->end()) throw std::invalid_argument("Item is not in list");
                         ptr->erase(pos);
