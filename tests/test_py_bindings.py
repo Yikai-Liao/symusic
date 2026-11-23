@@ -397,3 +397,15 @@ def test_track_slice_with_large_step():
     assert tracks[1].name == "replacement"
     del tracks[selection]
     assert [track.name for track in tracks] == ["first", "third"]
+
+
+@pytest.mark.parametrize("name", ["pitch", "velocity"])
+@pytest.mark.parametrize("offset", [-61, 68])
+def test_note_shift_rejects_midi_range(name, offset):
+    note = Note(0, 1, 60, 60)
+    shift = getattr(note, f"shift_{name}")
+    with pytest.raises(ValueError, match="Overflow while adding"):
+        shift(offset, inplace=True)
+    assert getattr(note, name) == 60
+    assert getattr(shift(1), name) == 61
+    assert getattr(note, name) == 60
