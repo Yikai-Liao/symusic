@@ -92,9 +92,26 @@ def test_score_trim_checks_contained_note_duration():
 
 
 @pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_score_trim_rejects_inplace(ttype):
-    with pytest.raises(TypeError, match="incompatible function arguments"):
-        Score(480, ttype=ttype).trim(0, 1, inplace=True)
+@pytest.mark.parametrize("inplace", [False, True])
+def test_score_trim_inplace(ttype, inplace):
+    score = Score(ttype=ttype)
+    score.tracks.append(Track(notes=[Note(1, 5, 60, 80, ttype)], ttype=ttype))
+    track = score.tracks[0]
+    notes = track.notes
+    note = notes[0]
+
+    result = score.trim(
+        2, 4, start_mode="truncate", end_mode="truncate", inplace=inplace
+    )
+
+    assert (result is score) == inplace
+    assert (result.tracks[0].notes[0].time, result.tracks[0].notes[0].duration) == (
+        2,
+        2,
+    )
+    assert (note.time, note.duration) == ((2, 2) if inplace else (1, 5))
+    assert notes[0] == note
+    assert score.tracks[0] == track
 
 
 def test_empty_score_rejects_unknown_trim_mode():

@@ -94,7 +94,6 @@ NEGATIVE_SAMPLE = """
     tick.get_beats(0.5)
     tick.trim(0, 10, start_mode="unknown")
     tick.trim(0, 10, end_mode="unknown")
-    tick.trim(0, 10, inplace=True)
     second.pianoroll()
     wrong_unit: core.Score[core.Tick] = core.ScoreSecond(480)
 """
@@ -135,6 +134,5 @@ def test_complete_typing_contract(tmp_path: Path) -> None:
     assert 'incompatible type "float"; expected "int"' in result.stdout
     assert 'Argument "start_mode" to "trim"' in result.stdout
     assert 'Argument "end_mode" to "trim"' in result.stdout
-    assert 'Unexpected keyword argument "inplace" for "trim"' in result.stdout
     assert "Invalid self argument" in result.stdout
     assert "Incompatible types in assignment" in result.stdout
