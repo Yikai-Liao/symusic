@@ -3,7 +3,7 @@
 # Install once with `uv tool install prek && prek install`.
 
 # Vendored code and binary test fixtures are not ours to rewrite.
-exclude = '^(3rdparty/|tests/testcases/|include/argparse\.h$)'
+exclude = '^(3rdparty/|tests/testcases/|examples/cpp/argparse\.h$)'
 
 [[repos]]
 repo = "builtin"
