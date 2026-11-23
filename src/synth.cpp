@@ -412,7 +412,8 @@ struct Synthesizer::Backend {
             return std::tie(a.frame, a.time, a.kind) < std::tie(b.frame, b.time, b.kind);
         });
 
-        const size_t last_frame = events.empty() ? 0 : events.back().frame;
+        if (events.empty()) return AudioBuffer{{}, stereo ? 2U : 1U};
+        const size_t last_frame = events.back().frame;
         const size_t tail       = frame_count(std::round(config.tail_seconds * config.sample_rate));
         const size_t frames     = last_frame + tail;
         if (frames > vec<float>().max_size() / 2) {

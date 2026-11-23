@@ -280,10 +280,20 @@ def test_invalid_silent_note_time(synth, score, duration, velocity):
         synth.render(seconds)
 
 
-def test_empty_score_and_zero_tail(soundfont: Path) -> None:
-    audio = Synthesizer(soundfont, tail_seconds=0).render(Score(), stereo=False)
-    assert audio.shape == (0, 1)
+@pytest.mark.parametrize("stereo", [False, True])
+@pytest.mark.parametrize("tail_seconds", [None, 0, 0.25])
+def test_empty_score_has_no_tail(soundfont, score, stereo, tail_seconds):
+    kwargs = {} if tail_seconds is None else {"tail_seconds": tail_seconds}
+    synth = Synthesizer(soundfont, sample_rate=SAMPLE_RATE, **kwargs)
+    channels = 2 if stereo else 1
+    audio = synth.render(Score(), stereo=stereo)
+    assert audio.shape == (0, channels)
     assert audio.dtype == np.float32
+    tail = 1 if tail_seconds is None else tail_seconds
+    assert synth.render(score, stereo=stereo).shape == (
+        11072 + round(SAMPLE_RATE * tail),
+        channels,
+    )
 
 
 @pytest.mark.parametrize("invalid_file", [False, True])
