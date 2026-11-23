@@ -51,7 +51,12 @@ class Soundfont:
         """Return whether the cached SoundFont exists and matches its SHA-384 digest."""
         path = self.path()
         try:
-            return _verify(path, _identity(path.stat()), self.sha384_digest)
+            # Take the identity from the open file, as _verify does: on
+            # Windows a stat by path can report directory metadata that lags
+            # behind the file, so the two would not match.
+            with path.open("rb") as file:
+                identity = _identity(os.fstat(file.fileno()))
+            return _verify(path, identity, self.sha384_digest)
         except FileNotFoundError:
             return False
 
