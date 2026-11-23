@@ -201,6 +201,14 @@ def test_abc_include_resolves_from_caller(tmp_path, monkeypatch, newline):
     assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
 
 
+# A velocity read from uninitialized memory can be 0, which drops the note.
+WINDOWS_STRESS_BUG = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="abc2midi reads uninitialized stress velocities on Windows (store.c, genmidi.c)",
+)
+
+
+@WINDOWS_STRESS_BUG
 @pytest.mark.parametrize("include", [False, True])
 @pytest.mark.parametrize(
     "music",
@@ -224,10 +232,7 @@ def test_abc_stress_resolves_from_caller(tmp_path, monkeypatch, include, music):
 
 
 @pytest.mark.parametrize("absolute", [False, True])
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="abc2midi reads uninitialized stress velocities on Windows (store.c, genmidi.c)",
-)
+@WINDOWS_STRESS_BUG
 def test_abc_stress_instruction_comment(tmp_path, monkeypatch, absolute):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "stress pattern.txt"
