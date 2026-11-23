@@ -26,7 +26,7 @@ namespace symusic::py {
 namespace nb = nanobind;
 
 template<TType T>
-const char* doc() {
+const char* track_doc() {
     static const std::string rendered = [] {
         constexpr auto flavor = time_flavor<T>();
         return fmt::format(
@@ -133,7 +133,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
         = [](const self_t& self) { return std::make_shared<track_t>(std::move(self->deepcopy())); };
 
     // clang-format off
-    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), doc<T>())
+    auto track = nb::class_<shared<Track<T>>>(m, name.c_str(), nb::sig(track_sig.c_str()), track_doc<T>())
         .def("__init__", &pyinit<Track<T>>,
              nb::sig("def __init__(self, /) -> None"))
         .def("__init__", &pyinit<Track<T>, std::string, u8, const bool>,

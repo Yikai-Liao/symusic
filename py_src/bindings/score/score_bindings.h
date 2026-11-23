@@ -29,7 +29,7 @@ namespace symusic::py {
 namespace nb = nanobind;
 
 template<TType T>
-const char* doc() {
+const char* score_doc() {
     constexpr auto           flavor   = time_flavor<T>();
     static const std::string rendered = fmt::format(
         "A score: global tempos, time signatures, key signatures and markers, and a list of "
@@ -205,7 +205,7 @@ auto bind_score(nb::module_& m, const std::string& name_) {
     };
 
     // clang-format off
-    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), doc<T>())
+    auto score = nb::class_<self_t>(m, name.c_str(), nb::sig(score_sig.c_str()), score_doc<T>())
         .def("__init__", &pyinit<Score<T>, i32>, nb::arg("tpq"), kScoreTpqCtorDoc,
              nb::sig("def __init__(self, tpq: int, /) -> None"))
         .def("__init__", [](self_t* self, const self_t& other) {
