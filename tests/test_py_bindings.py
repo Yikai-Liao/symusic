@@ -6,6 +6,8 @@ This test module verifies that Python bindings correctly expose C++ functionalit
 
 from __future__ import annotations
 
+import math
+import struct
 import tempfile
 from pathlib import Path
 
@@ -422,9 +424,15 @@ def test_track_constructor_copies_event_lists(ttype):
 @pytest.mark.parametrize("operation", ["count", "contains", "remove"])
 def test_track_list_matches_identity_and_value(ttype, nan_time, operation):
     track = Track(notes=[Note(1, 2, 60, 80, ttype=ttype)], ttype=ttype)
-    tracks = TrackList([track], ttype=ttype)
     if nan_time:
-        track.notes[0].time = float("nan")
+        # Pickle restoration reads the note's native float bytes directly.
+        unit, data = track.__getstate__()
+        time = struct.pack("=f", 1)
+        assert data.count(time) == 1
+        track = Track.__new__(Track)
+        track.__setstate__((unit, data.replace(time, struct.pack("=f", math.nan))))
+        assert math.isnan(track.notes[0].time)
+    tracks = TrackList([track], ttype=ttype)
     target = track if nan_time else Track(track)
 
     if operation == "count":
