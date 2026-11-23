@@ -420,3 +420,19 @@ def test_note_duration_setter_rejects_negative_values(score, unit):
     with pytest.raises(ValueError, match="duration"):
         note.duration = -1
     assert note.duration == original
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {"sample_rate": 0},
+            "sample_rate must be in the range 8000 to 96000 Hz, got 0",
+        ),
+        ({"polyphony": 0}, "polyphony must be in the range 1 to 65535, got 0"),
+        ({"tail_seconds": -1}, "tail_seconds must be finite and nonnegative, got -1"),
+    ],
+)
+def test_synth_settings_errors_include_value(soundfont, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        Synthesizer(soundfont, **kwargs)
