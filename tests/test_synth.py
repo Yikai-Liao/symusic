@@ -291,7 +291,7 @@ def test_empty_score_has_no_tail(soundfont, score, stereo, tail_seconds):
     assert audio.dtype == np.float32
     tail = 1 if tail_seconds is None else tail_seconds
     assert synth.render(score, stereo=stereo).shape == (
-        11072 + round(SAMPLE_RATE * tail),
+        11072 + math.floor(SAMPLE_RATE * tail + 0.5),
         channels,
     )
 
