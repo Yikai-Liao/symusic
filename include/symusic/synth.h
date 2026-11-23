@@ -10,6 +10,8 @@
 
 namespace symusic {
 
+/// Rendered audio as 32-bit float samples, interleaved by frame.
+/// Stereo buffers store left then right for each frame; mono buffers store one sample per frame.
 struct AudioBuffer {
     vec<f32> samples;
     size_t   channels = 0;
@@ -17,6 +19,10 @@ struct AudioBuffer {
     [[nodiscard]] size_t frames() const { return channels == 0 ? 0 : samples.size() / channels; }
 };
 
+/// Rendering options, checked when a Synthesizer is constructed.
+/// sample_rate is in Hz, from 8000 to 96000. polyphony is the most voices FluidSynth plays at
+/// once, from 1 to 65535. tail_seconds is the finite, nonnegative time rendered after the last
+/// event so that releases and effects can decay.
 struct SynthSettings {
     int  sample_rate  = 44100;
     int  polyphony    = 256;
@@ -35,6 +41,12 @@ class Synthesizer {
     [[nodiscard]] AudioBuffer render_seconds(const Score<Second>& score, bool stereo) const;
 
 public:
+    /// Load FluidSynth from library_path, which must be absolute, and keep soundfont for rendering.
+    /// The SoundFont path is made absolute and must exist now; FluidSynth loads it on each render,
+    /// and a file it cannot read or parse fails that render.
+    /// Throws std::invalid_argument for invalid settings or a relative library path,
+    /// std::filesystem::filesystem_error for a missing SoundFont, and std::runtime_error when the
+    /// library cannot be loaded or lacks a required function.
     Synthesizer(
         const std::filesystem::path& library_path,
         const std::filesystem::path& soundfont,
@@ -42,6 +54,14 @@ public:
     );
 
     /// Render notes, controls and pitch bends using the score's tempo map.
+    /// Pedals and lyrics are ignored. Each track that has notes gets its own FluidSynth channel,
+    /// up to 256. The buffer is stereo by default and mono averages the two channels. It ends
+    /// tail_seconds after the last event; a score without notes renders zero frames.
+    /// Throws std::invalid_argument for a negative or non-finite note duration or event time, a
+    /// control or pitch bend value outside its MIDI range, or more than 256 tracks with notes;
+    /// std::overflow_error when the buffer would be too large; std::filesystem::filesystem_error
+    /// or std::runtime_error when the SoundFont cannot be loaded; and std::runtime_error when
+    /// FluidSynth fails.
     template<TType T, typename S>
     [[nodiscard]] AudioBuffer render(const Score<T, S>& score, bool stereo = true) const {
         if constexpr (!std::is_same_v<T, Second>) {
