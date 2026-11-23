@@ -746,13 +746,13 @@ import sys
 from symusic import Score
 
 try:
-    Score(sys.argv[1])
+    Score(sys.argv[1], format="midi")
 except OSError as error:
     assert error.errno == errno.ESPIPE
 else:
     raise AssertionError("MIDI reader accepted a named pipe")
 
-assert Score(sys.argv[2]).note_count() == 3
+assert Score(sys.argv[2], format="midi").note_count() == 3
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
 
