@@ -49,7 +49,8 @@ endif()
 
 if(SYMUSIC_ENABLE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-        string(APPEND CMAKE_CXX_FLAGS " -g -fprofile-arcs -ftest-coverage")
+        # Atomic counters keep concurrent tests from corrupting hit counts.
+        string(APPEND CMAKE_CXX_FLAGS " -g -fprofile-arcs -ftest-coverage -fprofile-update=atomic")
         add_link_options(--coverage)
     else()
         message(WARNING "Code coverage requires GCC or Clang")
