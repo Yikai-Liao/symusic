@@ -40,4 +40,4 @@ Each entry starts with the error message or symptom and links to the page that e
 - **FluidSynth load error from `Synthesizer`.** Check the reported library path under `symusic/_vendor/fluidsynth/`. Reinstall symusic if the bundled runtime is missing or damaged.
 - **`FileNotFoundError` or `PermissionError` from `Synthesizer`.** Check that the SoundFont at the reported path exists and is readable when you render.
 - **`ConnectionError` from `Soundfont.download()`.** The download failed or did not match its expected digest. See [SoundFonts](synthesis.md#soundfonts).
-- **The rendered audio clips or sounds dry.** Samples are not normalized, and pedals and control changes are not rendered; see [synthesis.md](synthesis.md).
+- **The rendered audio clips or sounds dry.** Samples are not normalized, so loud scores can clip. Sustain comes from control change 64 in `controls`; the `pedals` list is not rendered. See [synthesis.md](synthesis.md).
