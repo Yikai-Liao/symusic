@@ -118,6 +118,34 @@ def test_adjust_time_anchors_at_tick_limits():
     ]
 
 
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+def test_adjust_time_wide_float_anchors(ttype):
+    score = Score(480, ttype=ttype)
+    control = ControlChange(2e38, 1, 64, ttype=ttype)
+    score.tracks.append(Track(controls=[control], ttype=ttype))
+
+    anchors = [-3e38, 3e38]
+    adjusted = score.adjust_time(anchors, anchors)
+    assert adjusted.tracks[0].controls[0].time == control.time
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("inplace", [False, True])
+def test_adjust_time_float_duration_overflow(ttype, inplace):
+    score = Score(480, ttype=ttype)
+    score.tracks.append(
+        Track(controls=[ControlChange(0.25, 1, 64, ttype=ttype)], ttype=ttype)
+    )
+    score.tracks.append(Track(notes=[Note(0, 1, 60, 80, ttype=ttype)], ttype=ttype))
+
+    with pytest.raises(
+        ValueError, match="adjusted duration must be finite and in range, got "
+    ):
+        score.adjust_time([0, 1], [-3e38, 3e38], inplace=inplace)
+    assert [control.time for control in score.tracks[0].controls] == [0.25]
+    assert [(note.time, note.duration) for note in score.tracks[1].notes] == [(0, 1)]
+
+
 def _spacer() -> bytes:
     # Maximal 28-bit delta (0x0FFFFFFF) followed by an empty text meta event.
     return bytes([0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0x01, 0x00])

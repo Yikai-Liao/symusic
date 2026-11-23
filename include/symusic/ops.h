@@ -5,11 +5,14 @@
 
 #include "symusic/event.h"
 #include "symusic/score.h"
+#include "fmt/core.h"
 #include "pdqsort.h"
 #include "pyvec.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace symusic::ops {
 
@@ -243,85 +246,94 @@ vec<shared<T>> clamp_dur(
 }
 
 namespace details {
-template<TimeEvent T>
-void adjust_time_inplace_inner(
-    pyvec<T>&                    events,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
-) {
-    using unit = typename T::unit;
-    // check if the events have duration
-    constexpr bool has_dur = HashDuration<T>;
-    // Difference of two times as f64, exact for Tick (i64) and in unit precision for floats.
-    auto diff = [](const unit lhs, const unit rhs) {
-        return static_cast<f64>(static_cast<wide_t<T>>(lhs) - static_cast<wide_t<T>>(rhs));
-    };
-    // Wide end so that an event ending beyond the tick range is rejected by `valid`, not wrapped.
-    auto get_end = [has_dur](const T& event) {
-        if constexpr (has_dur) { return wide_end(event); }
-        return static_cast<wide_t<T>>(event.time);
-    };
-    // return empty vector if events is empty
-    if (events.empty()) return;
-    auto get_factor = [&original_times, &new_times, diff](const size_t x) {
-        // Segment indices start at one, leaving a preceding anchor at x - 1.
-        f64 factor
-            = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
-        return factor;
-    };
-
-    const auto range = std::make_pair(original_times.front(), original_times.back());
-
-    auto valid = [get_end, range](const T& event) {
-        const auto end = get_end(event);
-        return event.time >= range.first && event.time <= range.second && end >= range.first
-               && end <= range.second;
-    };
-
-    auto cur_range  = std::make_pair(original_times[0], original_times[1]);
-    auto cur_factor = get_factor(1);
-    auto pivot_new  = new_times[0];
-    auto right_new  = new_times[1];
-
-    size_t i = 0;
-    // clang-format off
-    for (size_t j = 0; j < events.size(); j++) {
-        T& event = events[j];
-        if (!valid(event)) continue;
-        if ((event.time) < cur_range.first | (event.time) > cur_range.second) {
-            auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), event.time)
-                - original_times.begin();
-            cur_factor = get_factor(idx);
-            cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-            pivot_new  = new_times[idx - 1];
-            right_new  = new_times[idx];
-        }
-        unit start = event.time == cur_range.second ? right_new : symusic::details::add_time<unit>(
-            pivot_new,
-            trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
+template<std::floating_point U>
+U checked_adjusted_time(f64 value, const char* field) {
+    if (!(value >= std::numeric_limits<U>::lowest() && value <= std::numeric_limits<U>::max())) {
+        throw std::invalid_argument(
+            fmt::format("adjusted {} must be finite and in range, got {}", field, value)
         );
-        if constexpr (has_dur) {
-            const auto original_end = symusic::details::narrow_time<unit>(get_end(event));
-            if (original_end < cur_range.first || original_end > cur_range.second) {
-                auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
-                    - original_times.begin();
-                cur_factor = get_factor(idx);
-                cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-                pivot_new  = new_times[idx - 1];
-                right_new  = new_times[idx];
-            }
-            unit end = original_end == cur_range.second ? right_new : symusic::details::add_time<unit>(
-                pivot_new,
-                trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
-            );
-            event.duration = symusic::details::sub_time<unit>(end, start);
-        }
-        event.time = start;
-        *(events.pbegin() + i) = *(events.pbegin() + j);
-        ++i;
     }
-    events.resize(i);
-    // clang-format on
+    return static_cast<U>(value);
+}
+
+struct TimeAdjustments {
+    std::unordered_set<const void*> lists;
+    vec<std::function<void()>>      actions;
+
+    void apply() const {
+        for (const auto& action : actions) action();
+    }
+};
+
+template<TimeEvent E>
+void plan_time_adjustment(
+    pyvec<E>&                    events,
+    const vec<typename E::unit>& original_times,
+    const vec<typename E::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    if (events.empty() || !plan.lists.insert(&events).second) return;
+    using unit = typename E::unit;
+    using wide = wide_t<E>;
+    struct Change {
+        size_t index;
+        unit   start;
+        unit   duration;
+    };
+    vec<Change> retained;
+    retained.reserve(events.size());
+    const auto diff
+        = [](unit left, unit right) { return static_cast<f64>(left) - static_cast<f64>(right); };
+    const auto map_time = [&](unit time) {
+        const auto right = std::lower_bound(original_times.begin(), original_times.end(), time);
+        const auto index = static_cast<size_t>(right - original_times.begin());
+        if (*right == time) {
+            if constexpr (std::integral<unit>) {
+                return new_times[index];
+            } else {
+                return checked_adjusted_time<unit>(new_times[index], "time");
+            }
+        }
+        const auto left   = index - 1;
+        const auto scale  = diff(new_times[index], new_times[left])
+                            / diff(original_times[index], original_times[left]);
+        const auto offset = scale * diff(time, original_times[left]);
+        if constexpr (std::integral<unit>) {
+            return symusic::details::add_time(new_times[left], trunc_time<unit>(offset));
+        } else {
+            return checked_adjusted_time<unit>(static_cast<f64>(new_times[left]) + offset, "time");
+        }
+    };
+    for (size_t index = 0; const E& event : events) {
+        const auto end = [&]() -> wide {
+            if constexpr (HashDuration<E>) return wide_end(event);
+            return event.time;
+        }();
+        if (event.time >= original_times.front() && event.time <= original_times.back()
+            && end >= original_times.front() && end <= original_times.back()) {
+            const auto start    = map_time(event.time);
+            unit       duration = 0;
+            if constexpr (HashDuration<E>) {
+                const auto mapped_end = map_time(symusic::details::narrow_time<unit>(end));
+                if constexpr (std::integral<unit>) {
+                    duration = symusic::details::sub_time(mapped_end, start);
+                } else {
+                    duration = checked_adjusted_time<unit>(diff(mapped_end, start), "duration");
+                }
+            }
+            retained.push_back({index, start, duration});
+        }
+        ++index;
+    }
+    plan.actions.emplace_back([&events, retained = std::move(retained)] {
+        for (size_t out = 0; const auto& change : retained) {
+            auto& event = events[change.index];
+            event.time  = change.start;
+            if constexpr (HashDuration<E>) event.duration = change.duration;
+            *(events.pbegin() + out++) = *(events.pbegin() + change.index);
+        }
+        events.resize(retained.size());
+    });
 }
 
 template<typename T>
@@ -352,6 +364,36 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
     }
 }
 
+template<TType T>
+void plan_time_adjustment(
+    Track<T>&                    track,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    plan_time_adjustment(*track.notes, original_times, new_times, plan);
+    plan_time_adjustment(*track.controls, original_times, new_times, plan);
+    plan_time_adjustment(*track.pitch_bends, original_times, new_times, plan);
+    plan_time_adjustment(*track.pedals, original_times, new_times, plan);
+    plan_time_adjustment(*track.lyrics, original_times, new_times, plan);
+}
+
+template<TType T>
+void plan_time_adjustment(
+    Score<T>&                    score,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    for (auto& track : *score.tracks) {
+        plan_time_adjustment(*track, original_times, new_times, plan);
+    }
+    plan_time_adjustment(*score.time_signatures, original_times, new_times, plan);
+    plan_time_adjustment(*score.key_signatures, original_times, new_times, plan);
+    plan_time_adjustment(*score.tempos, original_times, new_times, plan);
+    plan_time_adjustment(*score.markers, original_times, new_times, plan);
+}
+
 }   // namespace details
 
 template<bool check_times = true, TimeEvent T>
@@ -361,7 +403,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    return details::adjust_time_inplace_inner(events, original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(events, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<bool check_times = true, TType T>
@@ -371,11 +415,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    adjust_time_inplace<false>(*(track.notes), original_times, new_times);
-    adjust_time_inplace<false>(*(track.controls), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pitch_bends), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pedals), original_times, new_times);
-    adjust_time_inplace<false>(*(track.lyrics), original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(track, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<bool check_times = true, TType T>
@@ -385,13 +427,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    for (const shared<Track<T>>& track : *(score.tracks)) {
-        adjust_time_inplace<false>(*track, original_times, new_times);
-    }
-    adjust_time_inplace<false>(*(score.time_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
-    adjust_time_inplace<false>(*(score.markers), original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(score, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<typename T>
