@@ -255,3 +255,32 @@ raise SystemExit(1)
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("with_note", [False, True])
+def test_midi_pending_programs(with_note):
+    body = bytes.fromhex(
+        "00 b2 07 64 00 e2 01 40 00 c2 01 00 b2 0a 20 00 e2 02 40 00 c2 00 00 b2 0b 30"
+    )
+    if with_note:
+        body += bytes.fromhex("00 c2 01 00 92 3c 40 01 82 3c 00")
+    score = Score.from_midi(
+        build_single_track_midi(body + bytes.fromhex("00 ff 2f 00"))
+    )
+    expected = (
+        [(1, [7, 10, 11], [1, 2])]
+        if with_note
+        else [
+            (0, [7, 11], [1]),
+            (1, [10], [2]),
+        ]
+    )
+    for parsed in (score, Score.from_midi(score.dumps_midi())):
+        assert [
+            (
+                track.program,
+                [cc.number for cc in track.controls],
+                [bend.value for bend in track.pitch_bends],
+            )
+            for track in parsed.tracks
+        ] == expected

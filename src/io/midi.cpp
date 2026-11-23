@@ -133,8 +133,8 @@ class TrackManager {
     std::map<TrackKey, TrackHandler<T>>           formalTracks;
     vec<TrackHandler<T>*>                         note_tracks;
     vec<std::pair<TrackHandler<T>*, TextMeta<T>>> lyrics;
-    // used to store events if a real track haven't been created
-    std::array<TrackHandler<T>, 16> stragglers;
+    // Preserve arrival order when pending events move to a track with notes.
+    std::array<vec<TrackHandler<T>>, 16> stragglers;
     // last track cache to accelerate track searching
     TrackHandler<T>* lastTrack = nullptr;
     TrackKey         lastKey{255, 255};
@@ -143,7 +143,18 @@ class TrackManager {
     // the current program number for each channel
     std::array<uint8_t, 16> cur_instr{};
 
-    std::vector<Note<T>>& get_notes(uint8_t channel) { return get<false>(channel).track.notes; }
+    static void append_pending(TrackNative<T>& target, TrackNative<T>& source) {
+        const auto append = [](auto& dest, auto& events) {
+            if (dest.empty()) {
+                dest = std::move(events);
+            } else {
+                dest.insert(dest.end(), events.begin(), events.end());
+            }
+        };
+        append(target.controls, source.controls);
+        append(target.pitch_bends, source.pitch_bends);
+        append(target.pedals, source.pedals);
+    }
 
 public:
     explicit TrackManager(const size_t msg_num) : msg_num(msg_num) {}
@@ -162,17 +173,17 @@ public:
             lastTrack = &it->second;
             return *lastTrack;
         }
-        // Only create real track if handling notes or lyrics
-        auto& straggler         = stragglers[channel];
-        straggler.track.program = program;
-        if constexpr (!create_new) return straggler;
-        straggler.track.is_drum = channel == 9;
+        auto& pending = stragglers[channel];
+        if constexpr (!create_new) {
+            if (pending.empty() || pending.back().track.program != program) {
+                pending.emplace_back("", program, channel == 9);
+            }
+            return pending.back();
+        }
 
-        auto [iter, inserted] = formalTracks.try_emplace(key, std::move(straggler));
-
-        stragglers[channel] = TrackHandler<T>();
-
-        auto& newTrack = iter->second;
+        auto& newTrack = formalTracks.try_emplace(key, "", program, channel == 9).first->second;
+        for (auto& segment : pending) append_pending(newTrack.track, segment.track);
+        pending.clear();
         newTrack.track.notes.reserve(msg_num / 2 + 1);
         lastKey   = key;
         lastTrack = &newTrack;
@@ -208,13 +219,12 @@ public:
             auto& owner = lyric_owner ? *lyric_owner : *fallback;
             owner.track.lyrics.push_back(std::move(lyric));
         }
-        // Promote channel events that arrived without a note or lyric.
         for (size_t channel = 0; channel < stragglers.size(); ++channel) {
-            const auto& pending = stragglers[channel].track;
-            if (!pending.empty()) {
-                const auto channel_number = static_cast<u8>(channel);
-                set_program(channel_number, pending.program);
-                get<true>(channel_number);
+            for (auto& segment : stragglers[channel]) {
+                const TrackKey key{static_cast<u8>(channel), segment.track.program};
+                auto&          target = formalTracks.try_emplace(key, "", key.program, channel == 9)
+                                            .first->second.track;
+                append_pending(target, segment.track);
             }
         }
         for (auto& [_, handler] : formalTracks) {
@@ -294,12 +304,8 @@ template<TType T, typename Conv, typename Container>   // only works for Tick an
                 const auto&   control_change = msg.template cast<minimidi::ControlChange>();
                 const uint8_t channel        = control_change.channel();
 
-                auto& handler = trackManager.template get<false>(channel);
-                auto& track   = handler.track;
-                if (track.controls.capacity() < message_num / 2) [[unlikely]] {
-                    track.controls.reserve(message_num / 2);
-                }
-
+                auto&         handler        = trackManager.template get<false>(channel);
+                auto&         track          = handler.track;
                 const uint8_t control_number = control_change.control_number();
                 const uint8_t control_value  = control_change.control_value();
 
