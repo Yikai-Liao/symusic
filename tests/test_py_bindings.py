@@ -406,9 +406,34 @@ def test_note_shift_rejects_midi_range(name, offset):
     assert getattr(note, name) == 60
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_score_and_track_class_docstrings(ttype):
-    score = Score(ttype=ttype)
-    track = Track(ttype=ttype)
-    assert type(score).__doc__.startswith("A score:")
-    assert type(track).__doc__.startswith("A part:")
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
+def test_track_constructor_copies_event_lists(ttype):
+    source = Track(ttype=ttype)
+    events = {
+        "notes": Note(1, 2, 60, 80, ttype=ttype),
+        "controls": ControlChange(1, 7, 80, ttype=ttype),
+        "pitch_bends": PitchBend(1, 2, ttype=ttype),
+        "pedals": Pedal(1, 2, ttype=ttype),
+    }
+    for field, event in events.items():
+        getattr(source, field).append(event)
+    lists = {field: getattr(source, field) for field in events}
+    track = Track(ttype=ttype, **lists)
+    from_iterables = Track(
+        ttype=ttype, **{field: iter(items) for field, items in lists.items()}
+    )
+    assert from_iterables == track
+
+    for field, event in events.items():
+        original = lists[field]
+        owned = getattr(track, field)
+        assert owned.ttype is ttype
+        original[0].time = 3
+        assert owned[0].time == 1
+        original.clear()
+        assert list(owned) == [event]
+        owned.append(event)
+        assert len(original) == 0
+        original.append(event)
+        owned.clear()
+        assert list(original) == [event]

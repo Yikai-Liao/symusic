@@ -82,11 +82,14 @@ inline void bind_track(nb::module_& module) {
                     auto       result = std::make_shared<Track<T>>(name, program, is_drum);
                     const auto read =
                         [&]<template<class> class E>(shared<pyvec<E<T>>>& field, nb::handle input) {
-                            if (!input.is_none())
-                                field = read_list<
-                                    typename EventSequence<E>::Value,
-                                    UnitValue<E>,
-                                    pyvec<E<T>>>(input);
+                            if (input.is_none()) return;
+                            using List = typename EventSequence<E>::Value;
+                            if (nb::isinstance<List>(input)) {
+                                const auto& source = nb::cast<const List&>(input).template get<T>();
+                                field              = clone_list(*source, true);
+                            } else {
+                                field = read_list<List, UnitValue<E>, pyvec<E<T>>>(input);
+                            }
                         };
                     read.template operator()<Note>(result->notes, notes);
                     read.template operator()<ControlChange>(result->controls, controls);
