@@ -46,7 +46,8 @@ score.shift_time(480, inplace=True)
 Event lists convert to NumPy arrays, and tick scores to piano rolls; see [arrays.md](arrays.md):
 
 ```python
-arrays = next(track for track in score.tracks if track.notes).notes.numpy()  # time, duration, pitch, velocity
+track = next(track for track in score.tracks if track.notes)
+arrays = track.notes.numpy()  # time, duration, pitch, velocity
 roll = score.resample(tpq=6, min_dur=1).pianoroll(modes=["frame"])
 ```
 
