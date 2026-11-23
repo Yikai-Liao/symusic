@@ -126,7 +126,7 @@ jobs:
         if: matrix.coverage
         shell: bash
         run: >-
-          uvx gcovr --xml "$RUNNER_TEMP/symusic-python-build/coverage.xml" --root . --filter src/ --filter include/
+          uvx gcovr --xml "$RUNNER_TEMP/symusic-python-build/coverage.xml" --root . --filter src/ --filter include/ --exclude-throw-branches --exclude-unreachable-branches
           --gcov-ignore-errors=no_working_dir_found "$RUNNER_TEMP/symusic-python-build"
       - name: Upload C++ coverage from Python tests
         if: matrix.coverage
@@ -184,7 +184,7 @@ jobs:
       - name: Coverage report
         if: matrix.coverage
         run: >-
-          uvx gcovr --xml "$RUNNER_TEMP/symusic-build/coverage.xml" --root . --filter src/ --filter include/
+          uvx gcovr --xml "$RUNNER_TEMP/symusic-build/coverage.xml" --root . --filter src/ --filter include/ --exclude-throw-branches --exclude-unreachable-branches
           --gcov-ignore-errors=no_working_dir_found "$RUNNER_TEMP/symusic-build"
       - name: Upload coverage
         if: matrix.coverage
