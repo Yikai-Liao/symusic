@@ -23,7 +23,7 @@ Read the page for the task; each one is short and its examples run.
 | How do I render audio with a SoundFont? | [synthesis.md](references/synthesis.md) |
 | What does this error mean? | [troubleshooting.md](references/troubleshooting.md) |
 
-Exact signatures and docstrings are in the installed package's type stubs, `symusic/_core.pyi`; `python -c "import symusic; print(symusic.__file__)"` shows its directory. The build generates the stubs from the compiled module, and the examples in this guide run in the test suite. At run time, `help(symusic.core.ScoreTick.clip)` shows the signature as the docstring's first line; `inspect.signature` raises `ValueError` on compiled methods, a limitation of nanobind, not a sign that the API differs.
+Exact signatures and docstrings are in the installed package's type stubs, `symusic/_core.pyi`; `python -c "import symusic; print(symusic.__file__)"` shows its directory. The build generates the stubs from the compiled module, and the examples in this guide run in the test suite. At run time, `help(symusic.Score.clip)` shows the signature as the docstring's first line; `inspect.signature` raises `ValueError` on compiled methods, a limitation of nanobind, not a sign that the API differs.
 
 ## Rules that prevent most mistakes
 

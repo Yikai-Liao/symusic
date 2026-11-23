@@ -28,7 +28,7 @@ assert score == same
 
 ## Writing MIDI
 
-`score.dump_midi(path)` writes a file and `score.dumps_midi()` returns bytes. A score in quarters or seconds is converted to ticks first, the same way as `to("tick")`; to keep short notes from rounding to zero length, convert yourself with `score.to(Tick, min_dur=1)` and dump the result.
+`score.dump_midi(path)` writes a file and `score.dumps_midi()` returns bytes. A score in quarters or seconds is converted to ticks first, the same way as `to(Tick)`; to keep short notes from rounding to zero length, convert yourself with `score.to(Tick, min_dur=1)` and dump the result.
 
 - The file is a multi-track (format 1) file with the score's `ticks_per_quarter`. A resolution outside 1–32767 raises `ValueError`. Each `Track` becomes one MIDI track with its name and a program change at time 0.
 - The global events go into the first MIDI track, or into a track of their own when the score has no tracks.
