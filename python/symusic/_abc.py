@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import warnings
@@ -100,6 +101,18 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
     includes: dict[bytes, bytes] = {}
     stress_files: dict[bytes, bytes] = {}
 
+    def is_regular_file(path: str | Path) -> bool:
+        return stat.S_ISREG(os.stat(path).st_mode)  # noqa: PTH116
+
+    def guard_nested_include(match: re.Match[bytes]) -> bytes:
+        path = workdir / os.fsdecode(match[1][:79])
+        try:
+            if not is_regular_file(path):
+                return b"%%abc-include nonregular-include.abc"
+        except (OSError, ValueError):
+            pass
+        return match[0]
+
     def stage_stress(match: re.Match[bytes]) -> bytes:
         original = match["argument"]
         if original is None:
@@ -111,8 +124,11 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
             comment = separator + suffix
         if original not in stress_files:
             name = f"stress-{len(stress_files)}.txt"
+            path = os.fsdecode(original)
             try:
-                shutil.copyfile(os.fsdecode(original), workdir / name)
+                if not is_regular_file(path):
+                    return match["prefix"] + b"nonregular-stress.txt" + comment
+                shutil.copyfile(path, workdir / name)
             except (OSError, ValueError):
                 # This may be an inline stress pattern or a missing file.
                 return match[0]
@@ -122,12 +138,16 @@ def _stage_input_files(data: bytes, workdir: Path) -> tuple[bytes, set[bytes]]:
     def stage_include(match: re.Match[bytes]) -> bytes:
         original = match[1][:79]
         if original not in includes:
+            path = Path(os.fsdecode(original))
             try:
-                content = Path(os.fsdecode(original)).read_bytes()
+                if not is_regular_file(path):
+                    return b"%%abc-include nonregular-include.abc"
+                content = path.read_bytes()
             except (OSError, ValueError):
                 # Let the converter report its original include diagnostic.
                 return match[0]
             name = f"include-{len(includes)}.abc"
+            content = _INCLUDE.sub(guard_nested_include, content)
             (workdir / name).write_bytes(_STRESS.sub(stage_stress, content))
             includes[original] = name.encode("ascii")
         return b"%%abc-include " + includes[original]

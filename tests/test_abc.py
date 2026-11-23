@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -213,6 +214,59 @@ def test_abc_include_resolves_from_caller(tmp_path, monkeypatch, newline):
     monkeypatch.setattr(_abc.subprocess, "run", run_with_staged_input)
     score = Score.from_abc(abc.replace("\n", newline))
     assert [note.pitch for note in score.tracks[0].notes] == [60, 62, 64, 65]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX FIFOs")
+@pytest.mark.parametrize(
+    "directive", ["ignored", "active", "nested", "stress", "regular"]
+)
+def test_abc_file_directives(tmp_path, directive):
+    program = (
+        "import sys\n"
+        "from symusic import Score\n"
+        "score = Score.from_abc(sys.argv[1])\n"
+        "print([note.pitch for track in score.tracks for note in track.notes])\n"
+    )
+    tune = "X:1\nM:1/4\nL:1/4\nK:C\nC|\n"
+    with tempfile.TemporaryDirectory(dir="/tmp") as short_directory:
+        fifo = Path(short_directory) / "pipe"
+        os.mkfifo(fifo)
+        include = f"%%abc-include {fifo}\n"
+        if directive == "ignored":
+            abc = f"%%begintext\n{include}%%endtext\n{tune}"
+        elif directive == "active":
+            abc = include
+        elif directive == "nested":
+            (tmp_path / "include.abc").write_text(include, encoding="ascii")
+            abc = "%%abc-include include.abc\n"
+        elif directive == "stress":
+            abc = tune.replace("C|", f"%%MIDI ptstress {fifo}\nC|")
+        else:
+            (tmp_path / "include.abc").write_text(tune, encoding="ascii")
+            abc = "%%abc-include include.abc\n"
+
+        with subprocess.Popen(
+            [sys.executable, "-c", program, abc],
+            cwd=tmp_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        ) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                raise
+
+    if directive in {"active", "nested"}:
+        assert process.returncode != 0
+        assert b"RuntimeError:" in stderr
+        assert b"Failed to open include file" in stderr
+    elif directive == "stress":
+        assert b"Failed to open file" in stderr
+    else:
+        assert process.returncode == 0, stderr
+        assert stdout.strip() == b"[60]"
 
 
 # A velocity read from uninitialized memory can be 0, which drops the note.
