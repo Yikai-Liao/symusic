@@ -590,3 +590,25 @@ for read in (ScoreTick.from_file, ScoreTick.from_abc_file, Score.from_abc_file):
         raise AssertionError("ABC reader accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, str(path)], check=True, timeout=5)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires a POSIX FIFO")
+def test_concrete_midi_reader_rejects_named_pipe(tmp_path):
+    fifo = tmp_path / "input.mid"
+    os.mkfifo(fifo)
+    midi = tmp_path / "regular.mid"
+    make_roundtrip_score().dump_midi(midi)
+    program = """
+import sys
+from symusic.core import ScoreTick
+
+try:
+    ScoreTick.from_file(sys.argv[1])
+except RuntimeError as error:
+    assert "Cannot seek" in str(error)
+else:
+    raise AssertionError("MIDI reader accepted a named pipe")
+
+assert ScoreTick.from_file(sys.argv[2]).note_num() == 3
+"""
+    subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)

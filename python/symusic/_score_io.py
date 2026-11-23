@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import pathlib
 import stat
@@ -45,6 +46,13 @@ class _FileMethods:
             if tune is not None:
                 msg = "tune is only supported for ABC input"
                 raise ValueError(msg)
+            mode = path.stat().st_mode
+            if stat.S_ISDIR(mode):
+                error = errno.EISDIR
+                raise IsADirectoryError(error, os.strerror(error), path)
+            if not stat.S_ISREG(mode):
+                msg = "Cannot seek to the end of the file"
+                raise RuntimeError(msg)
             with path.open("rb") as midi_file:
                 if not midi_file.seekable():
                     msg = "Cannot seek to the end of the file"
