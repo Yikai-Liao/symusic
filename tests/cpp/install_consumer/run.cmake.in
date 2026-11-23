@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.20)
+
+set(scratch "@CMAKE_CURRENT_BINARY_DIR@/install-consumer/${config}")
+set(prefix "${scratch}/prefix")
+set(consumer_build "${scratch}/build")
+file(REMOVE_RECURSE "${scratch}")
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --install "@CMAKE_BINARY_DIR@" --config "${config}"
+        --prefix "${prefix}"
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" -S "@CMAKE_CURRENT_SOURCE_DIR@/install_consumer" -B "${consumer_build}"
+        -G "@CMAKE_GENERATOR@" -A "@CMAKE_GENERATOR_PLATFORM@" -T "@CMAKE_GENERATOR_TOOLSET@"
+        "-DCMAKE_GENERATOR_INSTANCE=@CMAKE_GENERATOR_INSTANCE@"
+        "-DCMAKE_CXX_COMPILER=@CMAKE_CXX_COMPILER@" "-DCMAKE_BUILD_TYPE=${config}"
+        "-DCMAKE_PREFIX_PATH=${prefix}" "-Dconsumer_link_options=@consumer_link_options@"
+    COMMAND_ERROR_IS_FATAL ANY
+)
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "${consumer_build}" --config "${config}" -j2
+    COMMAND_ERROR_IS_FATAL ANY
+)
+if(WIN32)
+    set(ENV{PATH} "${prefix}/@CMAKE_INSTALL_BINDIR@;$ENV{PATH}")
+endif()
+execute_process(
+    COMMAND "@CMAKE_CTEST_COMMAND@" --test-dir "${consumer_build}" -C "${config}" --output-on-failure
+    COMMAND_ERROR_IS_FATAL ANY
+)

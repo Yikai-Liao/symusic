@@ -9,3 +9,12 @@ add_custom_command(TARGET symusic_test POST_BUILD
 )
 add_test(NAME symusic_ctest COMMAND symusic_test)
 set_tests_properties(symusic_ctest PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/tests")
+
+if(NOT SYMUSIC_BUILD_PYTHON AND NOT CMAKE_CROSSCOMPILING)
+    get_directory_property(consumer_link_options LINK_OPTIONS)
+    configure_file(install_consumer/run.cmake.in run_install_consumer.cmake @ONLY)
+    add_test(NAME symusic_install_consumer
+        COMMAND "${CMAKE_COMMAND}" "-Dconfig=$<CONFIG>"
+            -P "${CMAKE_CURRENT_BINARY_DIR}/run_install_consumer.cmake"
+    )
+endif()
