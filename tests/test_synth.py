@@ -307,6 +307,14 @@ def test_runtime_load_error(monkeypatch, soundfont, tmp_path, invalid_file):
     assert str(library) in str(error.value)
 
 
+def test_runtime_reports_missing_symbol(monkeypatch, soundfont):
+    library = _library.library_path().with_name(_library.SNDFILE_NAME)
+    monkeypatch.setattr(_library, "library_path", lambda: library)
+    with pytest.raises(RuntimeError, match="is missing fluid_version") as error:
+        Synthesizer(soundfont)
+    assert str(library) in str(error.value)
+
+
 def test_runtime_layout():
     runtime = _library.library_path().parent
     files = {path.name for path in runtime.iterdir() if path.suffix != ".txt"}

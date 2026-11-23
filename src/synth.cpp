@@ -241,7 +241,30 @@ void check(int status, const char* operation) {
 }   // namespace
 
 struct Synthesizer::Backend {
-    explicit Backend(const std::filesystem::path& path) : library(path) {}
+    explicit Backend(const std::filesystem::path& path) : library(path) {
+        load(new_fluid_settings, "new_fluid_settings");
+        load(delete_fluid_settings, "delete_fluid_settings");
+        load(fluid_settings_setnum, "fluid_settings_setnum");
+        load(fluid_settings_setint, "fluid_settings_setint");
+        load(new_fluid_synth, "new_fluid_synth");
+        load(delete_fluid_synth, "delete_fluid_synth");
+        load(fluid_synth_sfload, "fluid_synth_sfload");
+        load(fluid_synth_set_channel_type, "fluid_synth_set_channel_type");
+        load(fluid_synth_program_select, "fluid_synth_program_select");
+        load(fluid_synth_noteon, "fluid_synth_noteon");
+        load(fluid_synth_noteoff, "fluid_synth_noteoff");
+        load(fluid_synth_cc, "fluid_synth_cc");
+        load(fluid_synth_pitch_bend, "fluid_synth_pitch_bend");
+        load(fluid_synth_all_notes_off, "fluid_synth_all_notes_off");
+        load(fluid_synth_get_internal_bufsize, "fluid_synth_get_internal_bufsize");
+        load(fluid_synth_set_interp_method, "fluid_synth_set_interp_method");
+        load(fluid_synth_write_float, "fluid_synth_write_float");
+    }
+
+    template<typename F>
+    void load(F*& function, const char* name) const {
+        function = library.symbol<F>(name);
+    }
 
     struct FluidLibrary : SharedLibrary {
         explicit FluidLibrary(const std::filesystem::path& path) : SharedLibrary(path) {
@@ -263,26 +286,23 @@ struct Synthesizer::Backend {
 
     FluidLibrary library;
 
-#define FLUID_ENTRY(name, signature) \
-    decltype(library.symbol<signature>(#name)) name = library.symbol<signature>(#name)
-    FLUID_ENTRY(new_fluid_settings, FluidSettings*());
-    FLUID_ENTRY(delete_fluid_settings, void(FluidSettings*));
-    FLUID_ENTRY(fluid_settings_setnum, int(FluidSettings*, const char*, double));
-    FLUID_ENTRY(fluid_settings_setint, int(FluidSettings*, const char*, int));
-    FLUID_ENTRY(new_fluid_synth, FluidSynth*(FluidSettings*));
-    FLUID_ENTRY(delete_fluid_synth, void(FluidSynth*));
-    FLUID_ENTRY(fluid_synth_sfload, int(FluidSynth*, const char*, int));
-    FLUID_ENTRY(fluid_synth_set_channel_type, int(FluidSynth*, int, int));
-    FLUID_ENTRY(fluid_synth_program_select, int(FluidSynth*, int, int, int, int));
-    FLUID_ENTRY(fluid_synth_noteon, int(FluidSynth*, int, int, int));
-    FLUID_ENTRY(fluid_synth_noteoff, int(FluidSynth*, int, int));
-    FLUID_ENTRY(fluid_synth_cc, int(FluidSynth*, int, int, int));
-    FLUID_ENTRY(fluid_synth_pitch_bend, int(FluidSynth*, int, int));
-    FLUID_ENTRY(fluid_synth_all_notes_off, int(FluidSynth*, int));
-    FLUID_ENTRY(fluid_synth_get_internal_bufsize, int(FluidSynth*));
-    FLUID_ENTRY(fluid_synth_set_interp_method, int(FluidSynth*, int, int));
-    FLUID_ENTRY(fluid_synth_write_float, int(FluidSynth*, int, void*, int, int, void*, int, int));
-#undef FLUID_ENTRY
+    FluidSettings* (*new_fluid_settings)();
+    void (*delete_fluid_settings)(FluidSettings*);
+    int (*fluid_settings_setnum)(FluidSettings*, const char*, double);
+    int (*fluid_settings_setint)(FluidSettings*, const char*, int);
+    FluidSynth* (*new_fluid_synth)(FluidSettings*);
+    void (*delete_fluid_synth)(FluidSynth*);
+    int (*fluid_synth_sfload)(FluidSynth*, const char*, int);
+    int (*fluid_synth_set_channel_type)(FluidSynth*, int, int);
+    int (*fluid_synth_program_select)(FluidSynth*, int, int, int, int);
+    int (*fluid_synth_noteon)(FluidSynth*, int, int, int);
+    int (*fluid_synth_noteoff)(FluidSynth*, int, int);
+    int (*fluid_synth_cc)(FluidSynth*, int, int, int);
+    int (*fluid_synth_pitch_bend)(FluidSynth*, int, int);
+    int (*fluid_synth_all_notes_off)(FluidSynth*, int);
+    int (*fluid_synth_get_internal_bufsize)(FluidSynth*);
+    int (*fluid_synth_set_interp_method)(FluidSynth*, int, int);
+    int (*fluid_synth_write_float)(FluidSynth*, int, void*, int, int, void*, int, int);
 
     void select_program(FluidSynth* synth, int index, int font_id, Channel& channel) const {
         const int bank = channel.bank();
