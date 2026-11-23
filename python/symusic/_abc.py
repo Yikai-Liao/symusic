@@ -52,7 +52,7 @@ _TUNE_LINE = re.compile(
     rb"|(?i:%%MidiOff|%%MidiOn)|%%(?:begin|end)ps(?=[\r\n]|$)"
     rb"|[^\r\n]*?%%(?:begin|end)text)[^\r\n]*"
 )
-_INCLUDE_LINE = re.compile(_INCLUDE.pattern + rb"[^\r\n]*(?:\r\n|\n\r|\r|\n)")
+_INCLUDE_LINE = re.compile(_INCLUDE.pattern + rb"[^\r\n]*(?:\r\n|\n\r|\r|\n|$)")
 
 
 def _diagnostics(stdout: bytes, stderr: bytes) -> str:

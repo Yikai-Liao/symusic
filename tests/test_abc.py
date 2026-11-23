@@ -166,6 +166,20 @@ def test_abc_tune_zero_in_include(tmp_path, monkeypatch):
     assert [note.pitch for note in score.tracks[0].notes] == [69]
 
 
+@pytest.mark.parametrize("ending", ["", "\n"])
+def test_abc_tune_zero_in_final_include(tmp_path, monkeypatch, ending):
+    monkeypatch.chdir(tmp_path)
+    included = Path("tune.abc")
+    included.write_text("X:0\nM:1/4\nL:1/4\nK:C\nA|\n", encoding="ascii")
+    abc = f"X:1\nK:C\nC|\n\n%%abc-include tune.abc{ending}"
+    score = Score.from_abc(abc, tune=0)
+    assert [note.pitch for note in score.tracks[0].notes] == [69]
+
+    included.write_text("X:2\nK:C\nA|\n", encoding="ascii")
+    with pytest.raises(ValueError, match="X:0"):
+        Score.from_abc(abc, tune=0)
+
+
 def test_abc_tune_zero_missing_with_broken_tune():
     broken = "X:1\nK:C\n@C|\n"
     with pytest.raises(ValueError, match="X:0"):
