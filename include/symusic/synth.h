@@ -11,26 +11,26 @@
 namespace symusic {
 
 struct AudioBuffer {
-    vec<float> samples;
-    size_t     channels = 0;
+    vec<f32> samples;
+    size_t   channels = 0;
 
     [[nodiscard]] size_t frames() const { return channels == 0 ? 0 : samples.size() / channels; }
 };
 
 struct SynthSettings {
-    int    sample_rate  = 44100;
-    int    polyphony    = 256;
-    bool   reverb       = false;
-    bool   chorus       = false;
-    double tail_seconds = 1.0;
+    int  sample_rate  = 44100;
+    int  polyphony    = 256;
+    bool reverb       = false;
+    bool chorus       = false;
+    f64  tail_seconds = 1.0;
 };
 
 class Synthesizer {
     struct Backend;
 
-    std::shared_ptr<const Backend> backend;
-    std::filesystem::path          soundfont;
-    SynthSettings                  settings;
+    shared<const Backend> backend;
+    std::filesystem::path soundfont;
+    SynthSettings         settings;
 
     [[nodiscard]] AudioBuffer render_seconds(const Score<Second>& score, bool stereo) const;
 

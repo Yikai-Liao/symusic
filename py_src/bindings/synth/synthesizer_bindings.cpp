@@ -17,7 +17,7 @@ std::filesystem::path fluid_library_path() {
     return nb::cast<std::filesystem::path>(runtime.attr("library_path")());
 }
 
-using AudioArray = nb::ndarray<nb::numpy, float, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+using AudioArray = nb::ndarray<nb::numpy, f32, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 
 template<TType T>
 AudioArray render(const Synthesizer& synth, const shared<Score<T>>& score, bool stereo) {
@@ -27,8 +27,8 @@ AudioArray render(const Synthesizer& synth, const shared<Score<T>>& score, bool 
     });
     auto*       buffer = audio.release();
     // NumPy must distinguish an empty buffer from a null pointer.
-    static float empty_sample = 0;
-    auto*        samples      = buffer->samples.empty() ? &empty_sample : buffer->samples.data();
+    static f32 empty_sample = 0;
+    auto*      samples      = buffer->samples.empty() ? &empty_sample : buffer->samples.data();
     return {samples, {buffer->frames(), buffer->channels}, owner};
 }
 
@@ -52,7 +52,7 @@ nb::module_& bind_synthesizer(nb::module_& m) {
                int                          polyphony,
                bool                         reverb,
                bool                         chorus,
-               double                       tail_seconds) {
+               f64                          tail_seconds) {
                 const auto library_path = fluid_library_path();
                 new (self) Synthesizer(
                     library_path, soundfont, {sample_rate, polyphony, reverb, chorus, tail_seconds}

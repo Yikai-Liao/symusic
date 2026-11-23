@@ -131,7 +131,7 @@ constexpr int kOmniOff         = 124;
 enum class EventKind { Control, PitchBend, NoteOff, NoteOn };
 
 struct Event {
-    double    time;
+    f64       time;
     size_t    frame;
     int       channel;
     EventKind kind;
@@ -156,20 +156,20 @@ struct Channel {
     }
 };
 
-size_t frame_count(double frames) {
+size_t frame_count(f64 frames) {
     // Stereo size must fit both the vector and pointer arithmetic.
     if (!(frames >= 0)) {
         throw std::invalid_argument(
             fmt::format("Audio render times must be finite and nonnegative, got {}", frames)
         );
     }
-    if (frames >= static_cast<double>(vec<float>().max_size() / 2)) {
+    if (frames >= static_cast<f64>(vec<f32>().max_size() / 2)) {
         throw std::overflow_error("Audio render length exceeds the sample buffer limit");
     }
     return static_cast<size_t>(frames);
 }
 
-void validate_event_time(double time) {
+void validate_event_time(f64 time) {
     if (!std::isfinite(time) || time < 0) {
         throw std::invalid_argument(
             fmt::format("Audio render times must be finite and nonnegative, got {}", time)
@@ -177,7 +177,7 @@ void validate_event_time(double time) {
     }
 }
 
-size_t event_frame(double time, int sample_rate, int block_size) {
+size_t event_frame(f64 time, int sample_rate, int block_size) {
     validate_event_time(time);
     return frame_count(std::ceil(time * sample_rate / block_size) * block_size);
 }
@@ -193,18 +193,17 @@ void validate_midi_data(int value) {
 void schedule_track(
     const Track<Second>& track, int channel, int sample_rate, int block_size, vec<Event>& events
 ) {
-    const auto add
-        = [&](double time, EventKind kind, int value, int parameter, size_t note_id = 0) {
-              events.push_back(
-                  {time,
-                   event_frame(time, sample_rate, block_size),
-                   channel,
-                   kind,
-                   value,
-                   parameter,
-                   note_id}
-              );
-          };
+    const auto add = [&](f64 time, EventKind kind, int value, int parameter, size_t note_id = 0) {
+        events.push_back(
+            {time,
+             event_frame(time, sample_rate, block_size),
+             channel,
+             kind,
+             value,
+             parameter,
+             note_id}
+        );
+    };
     for (const auto& control : track.controls) {
         validate_midi_data(control.number);
         validate_midi_data(control.value);
@@ -233,11 +232,9 @@ void schedule_track(
         const size_t note_id = events.size() + 1;
         add(note.time, EventKind::NoteOn, note.pitch, note.velocity, note_id);
         const size_t first_off_frame = events.back().frame + static_cast<size_t>(block_size);
-        add(static_cast<double>(note.time) + note.duration,
-            EventKind::NoteOff,
-            note.pitch,
-            0,
-            note_id);
+        add(
+            static_cast<f64>(note.time) + note.duration, EventKind::NoteOff, note.pitch, 0, note_id
+        );
         events.back().frame = std::max(events.back().frame, first_off_frame);
     }
 }
@@ -446,10 +443,10 @@ struct Synthesizer::Backend {
         const size_t last_frame = events.back().frame;
         const size_t tail       = frame_count(std::round(config.tail_seconds * config.sample_rate));
         const size_t frames     = last_frame + tail;
-        if (frames > vec<float>().max_size() / 2) {
+        if (frames > vec<f32>().max_size() / 2) {
             throw std::overflow_error("Audio render length exceeds the sample buffer limit");
         }
-        AudioBuffer audio{vec<float>(frames * 2), 2};
+        AudioBuffer audio{vec<f32>(frames * 2), 2};
         size_t      written = 0;
         // Keep writes block-aligned until all events have been dispatched.
         const int  max_write   = std::numeric_limits<int>::max() / block_size * block_size;
@@ -457,7 +454,7 @@ struct Synthesizer::Backend {
             while (written < frame) {
                 const int count
                     = static_cast<int>(std::min(frame - written, static_cast<size_t>(max_write)));
-                float* out = audio.samples.data() + written * 2;
+                f32* out = audio.samples.data() + written * 2;
                 check(fluid_synth_write_float(state, count, out, 0, 2, out, 1, 2), "render audio");
                 written += static_cast<size_t>(count);
             }
