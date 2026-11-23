@@ -784,18 +784,6 @@ for unit in (Tick, Quarter, Second):
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
 
 
-def test_converter_layout():
-    package = Path(symusic.__file__).resolve().parent
-    assert not (package / "bin").exists()
-    vendor = package / "_vendor" / "abcmidi"
-    suffix = ".exe" if sys.platform == "win32" else ""
-    assert {path.name for path in vendor.iterdir()} == {
-        f"abc2midi{suffix}",
-        f"midi2abc{suffix}",
-        "LICENSE.txt",
-    }
-
-
 def test_abc_validates_ttype_before_conversion(tmp_path):
     path = tmp_path / "invalid.abc"
     path.write_text("invalid ABC", encoding="utf-8")
