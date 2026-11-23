@@ -69,6 +69,7 @@ Found while checking the guide against the package. Each fix needs a test that f
 
 - **`to()` in the stubs.** `Score.to`, `Track.to` and the event `to` return `object` in `core.pyi`; type them by the target unit.
 - **SoundFont download error.** The `ConnectionError` raised by `Soundfont.download` formats the bound method `self.path` instead of the file path.
+- **abc2midi stress velocities.** With a `%%MIDI stressmodel` file, abc2midi reads per-note stress velocities that it never initializes: `store.c` allocates `stressvelocity` without clearing it, and `genmidi.c` reads it before any bar fills it. On Windows the result changes from run to run, so `tests/test_abc.py` skips the stress-comment test there. Fix it upstream, update the pinned release and remove the skip.
 
 ## Test coverage
 
