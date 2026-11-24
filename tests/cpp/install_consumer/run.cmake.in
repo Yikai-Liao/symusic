@@ -10,6 +10,12 @@ execute_process(
         --prefix "${prefix}"
     COMMAND_ERROR_IS_FATAL ANY
 )
+if(EXISTS "${prefix}/@CMAKE_INSTALL_INCLUDEDIR@/fmt")
+    message(FATAL_ERROR "Vendored fmt headers must not be installed at top-level includedir")
+endif()
+if(EXISTS "${prefix}/@CMAKE_INSTALL_INCLUDEDIR@/symusic/detail/zpp_impl.h")
+    message(FATAL_ERROR "Private zpp_impl.h must not be installed without zpp_bits")
+endif()
 execute_process(
     COMMAND "@CMAKE_COMMAND@" -S "@CMAKE_CURRENT_SOURCE_DIR@/install_consumer" -B "${consumer_build}"
         -G "@CMAKE_GENERATOR@" -A "@CMAKE_GENERATOR_PLATFORM@" -T "@CMAKE_GENERATOR_TOOLSET@"

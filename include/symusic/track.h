@@ -48,14 +48,14 @@ struct Track {
     }
 
     template<DataFormat F>
+        requires(F == DataFormat::ZPP)
     [[nodiscard]] static Track parse(std::span<const u8> bytes) {
-        static_assert(F == DataFormat::ZPP);
         return parse_zpp_bytes(bytes);
     }
 
     template<DataFormat F>
+        requires(F == DataFormat::ZPP)
     [[nodiscard]] vec<u8> dumps() const {
-        static_assert(F == DataFormat::ZPP);
         return dump_zpp_bytes();
     }
 

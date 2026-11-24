@@ -37,6 +37,7 @@ target_include_directories(symusic
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/3rdparty>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/3rdparty/pdqsort>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/symusic/vendor>
     PRIVATE 3rdparty/zpp_bits
 )
 target_compile_features(symusic PUBLIC cxx_std_20)

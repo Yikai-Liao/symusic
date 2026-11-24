@@ -270,7 +270,7 @@ minimidi::Messages<> merge_midi_notes(
             earlier_note_events.emplace_back(minimidi::NoteOn(note.time, channel, pitch, velocity));
         }
     }
-    pdqsort_detail::insertion_sort(
+    std::stable_sort(
         earlier_note_events.begin(), earlier_note_events.end(), [](const auto& a, const auto& b) {
             return a.time < b.time;
         }
