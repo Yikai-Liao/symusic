@@ -10,5 +10,6 @@ score.to("second")  # rejected
 Score(ttype="tick")  # rejected
 Score.from_abc("X:1", tune="7")  # rejected
 score.resample(480, min_dur=0.5)  # rejected
+seconds.resample(480, min_dur=0.5)  # rejected
 notes = score.tracks[0].notes
 notes += [second]  # rejected

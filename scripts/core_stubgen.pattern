@@ -254,7 +254,7 @@
     @overload
     def trim(self: \1[Second], start: float, end: float, min_overlap: float = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Track[Second]: ...
 
-^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|NoteList|PedalList|TempoList|ControlChangeList|PitchBendList|TimeSignatureList|KeySignatureList|TextMetaList|TrackList)\.adjust_time$:
+^symusic\._core\.(Score|Track|NoteList|PedalList|TempoList|ControlChangeList|PitchBendList|TimeSignatureList|KeySignatureList|TextMetaList|TrackList)\.adjust_time$:
     @overload
     def adjust_time(self: \1[Tick], original_times: Iterable[int], new_times: Iterable[int], inplace: bool = False) -> \1[Tick]: ...
     @overload
@@ -282,10 +282,7 @@
     def pianoroll(self: \1[Tick], modes: Iterable[str] = ("frame", "onset"), pitch_range: tuple[int, int] = (0, 128), encode_velocity: bool = False) -> ndarray: ...
 
 ^symusic\._core\.Score\.resample$:
-    @overload
-    def resample(self: Score[Tick], tpq: int, min_dur: int | None = None) -> Score[Tick]: ...
-    @overload
-    def resample(self: Score[Quarter] | Score[Second], tpq: int, min_dur: float | None = None) -> Score[Tick]: ...
+    def resample(self, tpq: int, min_dur: int | None = None) -> Score[Tick]: ...
 
 ^symusic\._core\.Score\.to$:
     @overload

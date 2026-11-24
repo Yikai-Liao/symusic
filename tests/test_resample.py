@@ -104,3 +104,12 @@ def test_resample_rejects_tpq(tpq):
 def test_resample_rejects_negative_min_dur():
     with pytest.raises(ValueError, match="min_dur"):
         make_score(480, [(0, 1)]).resample(960, min_dur=-1)
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+def test_resample_min_dur_uses_target_ticks(ttype):
+    score = make_score(480, [(0.0, 0.0001)], ttype)
+    out = score.resample(100, min_dur=5)
+    assert note_times(out) == [(0, 5)]
+    with pytest.raises(TypeError):
+        score.resample(100, min_dur=0.5)

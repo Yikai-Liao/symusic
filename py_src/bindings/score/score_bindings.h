@@ -319,17 +319,14 @@ inline void bind_score(nb::module_& module) {
         .def(
             "resample",
             [](const ScoreValue& self, i32 tpq, nb::handle min_dur) {
+                const auto minimum = min_dur.is_none() ? 0 : read_time<Tick>(min_dur);
                 return self.visit([&](const auto& ptr) {
-                    using T = UnitOf<decltype(ptr)>;
-                    const auto minimum
-                        = min_dur.is_none() ?
-                              0 :
-                              detail::f64_to_i32(static_cast<f64>(read_time<T>(min_dur)));
                     return ScoreValue(std::make_shared<Score<Tick>>(resample(*ptr, tpq, minimum)));
                 });
             },
             "tpq"_a,
             "min_dur"_a = nb::none(),
+            nb::sig("def resample(self, tpq: int, min_dur: int | None = None) -> Score"),
             kScoreResampleDoc
         )
         .def(

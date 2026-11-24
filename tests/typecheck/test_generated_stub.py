@@ -1,6 +1,8 @@
 import ast
+import re
 from pathlib import Path
 
+import pytest
 import symusic
 from symusic import _core
 
@@ -109,3 +111,38 @@ def test_stub_exposes_runtime_classes():
         for method in trim_methods:
             annotations = {arg.arg: ast.unparse(arg.annotation) for arg in method.args.args if arg.annotation}
             assert annotations["start_mode"] == annotations["end_mode"] == "_TrimMode"
+
+
+
+def test_stubgen_patterns_match_without_shadowing():
+    pattern_file = (
+        Path(__file__).resolve().parents[2] / "scripts" / "core_stubgen.pattern"
+    )
+    if not pattern_file.is_file():
+        pytest.skip("requires source tree pattern file")
+
+    runtime_queries = {_core.__name__}
+    for name, obj in vars(_core).items():
+        if name.startswith("__") and name.endswith("__"):
+            continue
+        runtime_queries.add(f"{_core.__name__}.{name}")
+        if isinstance(obj, type):
+            for attr in obj.__dict__:
+                runtime_queries.add(f"{_core.__name__}.{name}.{attr}")
+
+    claimed: set[str] = set()
+    for lineno, raw in enumerate(pattern_file.read_text().splitlines(), 1):
+        if not raw or raw[0].isspace() or raw.startswith("#"):
+            continue
+        assert raw.endswith(":"), f"line {lineno}: malformed pattern header {raw!r}"
+        expr = raw[:-1]
+        if expr in {r"^symusic\._core\.__prefix__$", r"^symusic\._core\.__postfix__$"}:
+            continue
+        regex = re.compile(expr)
+        matched = {query for query in runtime_queries if regex.search(query)}
+        assert matched, f"line {lineno}: pattern {expr!r} matches no runtime symbol"
+        active = matched - claimed
+        assert active, (
+            f"line {lineno}: pattern {expr!r} is completely shadowed by an earlier rule"
+        )
+        claimed |= active
