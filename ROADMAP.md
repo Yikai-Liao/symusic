@@ -75,6 +75,7 @@ Found while checking the guide against the package. Each fix needs a test that f
 Changes that reduce the number of places one change must touch.
 
 - **MIDI semantics in minimidi.** Move the note layer in `include/symusic/detail/midi_notes.h` into minimidi with its own recording-sink tests, tag a release and pin it. Then introduce a source concept for writing and move the corresponding note encoding there. Symusic owns the split by channel and program, pedals and construction of its score model.
+- **FluidSynth SoundFont and handle reuse.** `Synthesizer::render` currently creates a fresh `fluid_synth_t`, reloads and decompresses the SoundFont inside `lifecycle_mutex`, and destroys it on every call, and each `Synthesizer` opens its own dynamic-library handle. Revisit if batch SF3 rendering becomes a bottleneck by caching the loaded `Backend` per library path and anchoring the FluidSynth sample cache across renders without reintroducing teardown races.
 
 ## Code cleanup
 

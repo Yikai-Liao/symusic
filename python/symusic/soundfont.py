@@ -1,9 +1,10 @@
 """Locate, verify and download curated SoundFonts."""
 
 import os
+import ssl
 import urllib.request
+from collections import OrderedDict
 from dataclasses import dataclass
-from functools import lru_cache
 from hashlib import sha384
 from http.client import HTTPException
 from pathlib import Path
@@ -13,26 +14,21 @@ from urllib.error import URLError
 from platformdirs import user_data_path
 
 _CHUNK_SIZE = 1024 * 1024
+_VERIFIED_CACHE_SIZE = 32
+_VERIFIED_FILES: OrderedDict[tuple[Path, tuple[int, int, int, int, int], str], None] = (
+    OrderedDict()
+)
 
 
 def _identity(stat: os.stat_result) -> tuple[int, int, int, int, int]:
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
-@lru_cache(maxsize=32)
-def _verify(
-    path: Path, identity: tuple[int, int, int, int, int], expected: str
-) -> bool:
-    digest = sha384()
-    with path.open("rb") as file:
-        if _identity(os.fstat(file.fileno())) != identity:
-            return False
-        while chunk := file.read(_CHUNK_SIZE):
-            digest.update(chunk)
-        return (
-            _identity(os.fstat(file.fileno())) == identity
-            and digest.hexdigest() == expected
-        )
+def _remember_verified(key: tuple[Path, tuple[int, int, int, int, int], str]) -> None:
+    _VERIFIED_FILES[key] = None
+    _VERIFIED_FILES.move_to_end(key)
+    while len(_VERIFIED_FILES) > _VERIFIED_CACHE_SIZE:
+        _VERIFIED_FILES.popitem(last=False)
 
 
 @dataclass(frozen=True)
@@ -51,12 +47,24 @@ class Soundfont:
         """Return whether the cached SoundFont exists and matches its SHA-384 digest."""
         path = self.path()
         try:
-            # Take the identity from the open file, as _verify does: on
-            # Windows a stat by path can report directory metadata that lags
-            # behind the file, so the two would not match.
+            # Take the identity from the open file: on Windows a stat by path can
+            # report directory metadata that lags behind the file.
             with path.open("rb") as file:
                 identity = _identity(os.fstat(file.fileno()))
-            return _verify(path, identity, self.sha384_digest)
+                key = (path, identity, self.sha384_digest)
+                if key in _VERIFIED_FILES:
+                    _VERIFIED_FILES.move_to_end(key)
+                    return True
+                digest = sha384()
+                while chunk := file.read(_CHUNK_SIZE):
+                    digest.update(chunk)
+                if (
+                    _identity(os.fstat(file.fileno())) == identity
+                    and digest.hexdigest() == self.sha384_digest
+                ):
+                    _remember_verified(key)
+                    return True
+                return False
         except FileNotFoundError:
             return False
 
@@ -79,7 +87,7 @@ class Soundfont:
                 msg = f"SHA-384 mismatch downloading {self.url} to {path}"
                 raise ConnectionError(msg)
             os.replace(temporary, path)  # noqa: PTH105
-        except (URLError, HTTPException, TimeoutError) as error:
+        except (URLError, HTTPException, TimeoutError, ssl.SSLError) as error:
             msg = f"Failed to download {self.url} to {path}"
             raise ConnectionError(msg) from error
         finally:

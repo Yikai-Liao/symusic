@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.25)
+
 set(vendor "${PROJECT_SOURCE_DIR}/3rdparty")
 if(NOT EXISTS "${vendor}/fluidsynth/gcem/include/gcem.hpp")
     message(FATAL_ERROR "Initialize the git submodules recursively before building FluidSynth.")

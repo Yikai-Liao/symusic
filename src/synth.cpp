@@ -85,8 +85,11 @@ public:
 #else
         handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
         if (!handle) {
+            const char* error = dlerror();
             throw std::runtime_error(
-                fmt::format("Cannot load FluidSynth at {}: {}", name, dlerror())
+                fmt::format(
+                    "Cannot load FluidSynth at {}: {}", name, error ? error : "unknown error"
+                )
             );
         }
 #endif
@@ -113,6 +116,8 @@ public:
         if (!address) {
             throw std::runtime_error(fmt::format("FluidSynth at {} is missing {}", name, entry));
         }
+        // POSIX dlsym (void*) and Win32 GetProcAddress (FARPROC) require reinterpret_cast to
+        // recover the typed C ABI function pointer.
         return reinterpret_cast<Signature*>(address);
     }
 };

@@ -1,6 +1,7 @@
 """SoundFont cache and download tests with no network access."""
 
 import io
+import ssl
 from hashlib import sha384
 from urllib.error import URLError
 
@@ -63,12 +64,25 @@ def test_download_publishes_verified_file(font, monkeypatch):
     assert font.download() == font.path()
 
 
-@pytest.mark.parametrize("network_error", [True, False])
-def test_failed_download_preserves_destination(font, monkeypatch, network_error):
+@pytest.mark.parametrize("failure", ["url", "ssl", "digest"])
+def test_failed_download_preserves_destination(font, monkeypatch, failure):
+    class FailingStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, size):
+            msg = "connection reset"
+            raise ssl.SSLError(msg)
+
     def open_url(*args, **kwargs):
-        if network_error:
+        if failure == "url":
             reason = "offline"
             raise URLError(reason)
+        if failure == "ssl":
+            return FailingStream()
         return io.BytesIO(b"invalid content")
 
     font.path().write_bytes(b"previous copy")
