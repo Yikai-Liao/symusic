@@ -6,6 +6,7 @@ from symusic import (
     ControlChange,
     Note,
     NoteList,
+    Pedal,
     Quarter,
     Score,
     Second,
@@ -37,6 +38,7 @@ assert_type(seconds.tracks[0].notes[0].duration, float)
 assert_type(seconds.tracks[0].notes[0].end, float)
 assert_type(seconds.tracks[0].controls[0].time, float)
 assert_type(ticks.tracks[0].controls[0], ControlChange[Tick])
+assert_type(ticks.tracks[0].pedals(), tuple[Pedal[Tick], ...])
 assert_type(ticks.tempos[0].time, int)
 assert_type(ticks.clip(0, 1), Score[Tick])
 ticks.pianoroll()

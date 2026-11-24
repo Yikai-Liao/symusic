@@ -50,7 +50,7 @@ score.dump("out.abc")
 
 - **Reading.** symusic runs `abc2midi` on the text and reads the MIDI file it writes, so the result follows `abc2midi`, including its `%%MIDI` directives, and the rules in [Reading MIDI](#reading-midi). The first tune is the default. Use `Score.from_abc(text, tune=...)` with an `X:` number to select a tune. Relative paths in `%%abc-include`, `%%MIDI ptstress`, `I:MIDI ptstress` and inline `[I:MIDI ptstress ...]` resolve from the caller’s working directory. On a music line or in a standalone `I:` field, `%` starts a comment. `abc2midi` starts notes one tick late, at tick 1 of 480 ticks per quarter.
 - **Errors.** Import reports diagnostics from a usable conversion as `symusic.ABCConversionWarning`. Failed conversions raise `RuntimeError` with the converter's diagnostics. An unknown tune raises `ValueError`, and a missing converter raises `FileNotFoundError`.
-- **Writing.** `dump` with ABC format and `to_abc` convert the score's MIDI bytes with `midi2abc`. The converter infers note lengths and bar lines from the timing, so unquantized scores can produce irregular notation. Export omits the tune title.
+- **Writing.** `dump` with ABC format and `to_abc` convert the score's MIDI bytes with `midi2abc`. The converter infers note lengths and bar lines from the timing, so unquantized scores can produce irregular notation. Export omits the tune title and discards diagnostics when `midi2abc` exits with status 0.
 
 ## Pickle
 

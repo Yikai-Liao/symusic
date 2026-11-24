@@ -4,7 +4,7 @@ symusic turns event lists into one NumPy array per field, and tick scores and tr
 
 ## Event lists as arrays
 
-`to_numpy()` on an event list returns a dict of arrays, one per field. `from_numpy` on the event class builds a list back:
+`to_numpy()` on an event list returns a dict of arrays, one per field. `from_numpy` on the event list class builds a list back:
 
 ```python
 from symusic import NoteList, Score
@@ -30,7 +30,7 @@ assert notes == score.tracks[0].notes
 - `time` and `duration` are `int32` in ticks and `float32` in quarters and seconds; `pitch` and `velocity` are `int8`.
 - The arrays are copies; changing them does not change the score.
 - `from_numpy` takes the same keys as keyword arguments plus `ttype`. The arrays must be one-dimensional CPU arrays of equal length.
-- `TextMeta` lists (lyrics and markers) have no `numpy`.
+- `TextMeta` lists (lyrics and markers) have no `to_numpy`.
 
 Arrays make statistics over a whole score short:
 

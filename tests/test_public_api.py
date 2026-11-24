@@ -90,12 +90,20 @@ def test_removed_forms():
         Score(Score())
     with pytest.raises(TypeError, match="ticks_per_quarter"):
         Score(960)
+    with pytest.raises(TypeError):
+        Score().to_abc(warn=True)
+    with pytest.raises(TypeError):
+        Score("input.mid", sanitize_data=True)
     assert not hasattr(Score, "from_file")
 
 
 def test_checked_python_inputs(tmp_path):
     with pytest.raises(ValueError, match="ticks_per_quarter"):
         Score(ticks_per_quarter=0)
+    with pytest.raises(ValueError, match="format"):
+        Score(None, format="midi")
+    with pytest.raises(ValueError, match="ticks_per_quarter"):
+        Score(tmp_path / "missing.mid", ticks_per_quarter=480)
     with pytest.raises(ValueError, match="time"):
         Note(2**31, 1, 60)
     with pytest.raises(TypeError):

@@ -489,7 +489,7 @@ def test_dump_abc_is_quiet_and_has_no_title(tmp_path, capfd):
     assert capfd.readouterr() == ("", "")
 
 
-def test_dumps_abc_warning(monkeypatch, capfd):
+def test_to_abc_drops_successful_diagnostics(monkeypatch, capfd):
     stdout = b"calling midi2abc\nconverter stdout\nX: 1\nT: from input.mid\nK:C\nC|\n"
 
     def run(args, **kwargs):

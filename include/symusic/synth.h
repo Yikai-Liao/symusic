@@ -54,14 +54,14 @@ public:
     );
 
     /// Render notes, controls and pitch bends using the score's tempo map.
-    /// Pedals and lyrics are ignored. Each track that has notes gets its own FluidSynth channel,
-    /// up to 256. The buffer is stereo by default and mono averages the two channels. It ends
-    /// tail_seconds after the last event; a score without notes renders zero frames.
-    /// Throws std::invalid_argument for a negative or non-finite note duration or event time, a
-    /// control or pitch bend value outside its MIDI range, or more than 256 tracks with notes;
-    /// std::overflow_error when the buffer would be too large; std::filesystem::filesystem_error
-    /// or std::runtime_error when the SoundFont cannot be loaded; and std::runtime_error when
-    /// FluidSynth fails.
+    /// Lyrics are ignored; sustain comes from CC64 controls. Each track that has notes gets its own
+    /// FluidSynth channel, up to 256. The buffer is stereo by default and mono averages the two
+    /// channels. It ends tail_seconds after the last event; a score without notes renders zero
+    /// frames. Throws std::invalid_argument for a negative or non-finite note duration or event
+    /// time, a control or pitch bend value outside its MIDI range, or more than 256 tracks with
+    /// notes; std::overflow_error when the buffer would be too large;
+    /// std::filesystem::filesystem_error or std::runtime_error when the SoundFont cannot be loaded;
+    /// and std::runtime_error when FluidSynth fails.
     template<TType T, typename S>
     [[nodiscard]] AudioBuffer render(const Score<T, S>& score, bool stereo = true) const {
         if constexpr (!std::is_same_v<T, Second>) {

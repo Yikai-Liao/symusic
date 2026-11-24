@@ -23,5 +23,7 @@ score.get_beats(0.5)  # rejected
 wrong_unit: Score[Tick] = seconds  # rejected
 score.pianoroll(["unknown"])  # rejected
 Score("input.mid", format="unknown")  # rejected
+Score("input.mid", ticks_per_quarter=480)  # rejected
+Score(None, format="midi")  # rejected
 Score.from_midi(b"", invalid_data_bytes="sanitize")  # rejected
 score.tracks[0].trim(0, 12, end_mode="unknown")  # rejected

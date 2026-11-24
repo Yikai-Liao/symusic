@@ -219,7 +219,7 @@ bool Score<T, S>::empty() const {
 }
 
 template<TType T, typename S>
-size_t Score<T, S>::track_num() const {
+size_t Score<T, S>::track_count() const {
     return S::get(tracks).size();
 }
 
@@ -339,7 +339,7 @@ std::string Score<T, S>::summary() const {
         ticks_per_quarter,
         start(),
         end(),
-        track_num(),
+        track_count(),
         note_count(),
         S::get(time_signatures).size(),
         S::get(key_signatures).size(),

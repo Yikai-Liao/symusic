@@ -55,9 +55,6 @@
 ^symusic\._core\.(Score|Track)\.pitch_bends$:
     pitch_bends: _ListField[PitchBend[_Unit], PitchBendList[_Unit]]
 
-^symusic\._core\.(Score|Track)\.pedals$:
-    pedals: _ListField[Pedal[_Unit], PedalList[_Unit]]
-
 ^symusic\._core\.(Score|Track)\.lyrics$:
     lyrics: _ListField[TextMeta[_Unit], TextMetaList[_Unit]]
 
@@ -75,9 +72,13 @@
 
 ^symusic\._core\.Score\.__init__$:
     @overload
-    def __init__(self: Score[Tick], path_or_file: _Path | BinaryIO | None = None, /, *, ttype: type[Tick] = Tick, format: _FileFormat | None = None, ticks_per_quarter: int = 960) -> None: ...
+    def __init__(self: Score[Tick], path_or_file: None = None, /, *, ttype: type[Tick] = Tick, ticks_per_quarter: int = 960) -> None: ...
     @overload
-    def __init__(self: Score[_Unit], path_or_file: _Path | BinaryIO | None = None, /, *, ttype: type[_Unit], format: _FileFormat | None = None, ticks_per_quarter: int = 960) -> None: ...
+    def __init__(self: Score[_Unit], path_or_file: None = None, /, *, ttype: type[_Unit], ticks_per_quarter: int = 960) -> None: ...
+    @overload
+    def __init__(self: Score[Tick], path_or_file: _Path | BinaryIO, /, *, ttype: type[Tick] = Tick, format: _FileFormat | None = None) -> None: ...
+    @overload
+    def __init__(self: Score[_Unit], path_or_file: _Path | BinaryIO, /, *, ttype: type[_Unit], format: _FileFormat | None = None) -> None: ...
 
 ^symusic\._core\.Track\.__init__$:
     @overload

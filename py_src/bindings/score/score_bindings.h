@@ -101,8 +101,21 @@ inline bool is_path(nb::handle object) {
 }
 
 template<TType T>
-Score<T> load_score(nb::handle source, std::optional<DataFormat> format, i32 ticks_per_quarter) {
-    if (source.is_none()) return Score<T>(ticks_per_quarter);
+Score<T> load_score(
+    nb::handle source, std::optional<DataFormat> format, nb::handle ticks_per_quarter
+) {
+    if (source.is_none()) {
+        if (format) {
+            throw std::invalid_argument("format cannot be used when building an empty score");
+        }
+        const i32 resolution = ticks_per_quarter.is_none() ?
+                                   960 :
+                                   read_int32(ticks_per_quarter, "ticks_per_quarter");
+        return Score<T>(resolution);
+    }
+    if (!ticks_per_quarter.is_none()) {
+        throw std::invalid_argument("ticks_per_quarter cannot be used when reading a score");
+    }
     if (is_path(source)) {
         return read_score<T, SharedStorage>(
             nb::cast<std::filesystem::path>(source), format, [](std::span<const u8> data) {
@@ -148,9 +161,9 @@ inline void bind_score(nb::module_& module) {
                 new (self) ScoreValue(with_unit(marker, [&](auto unit) {
                     using T = decltype(unit);
                     return ScoreValue(
-                        std::make_shared<Score<T>>(load_score<T>(
-                            source, selected, read_int32(ticks_per_quarter, "ticks_per_quarter")
-                        ))
+                        std::make_shared<Score<T>>(
+                            load_score<T>(source, selected, ticks_per_quarter)
+                        )
                     );
                 }));
             },
@@ -158,10 +171,10 @@ inline void bind_score(nb::module_& module) {
             nb::kw_only(),
             "ttype"_a             = nb::type<Tick>(),
             "format"_a            = nb::none(),
-            "ticks_per_quarter"_a = 960,
+            "ticks_per_quarter"_a = nb::none(),
             nb::sig(
                 "def __init__(self, path_or_file=None, /, *, ttype=Tick, format=None, "
-                "ticks_per_quarter: int = 960) -> None"
+                "ticks_per_quarter: int | None = None) -> None"
             ),
             "Read a MIDI or ABC file, or build an empty score. Binary files require format."
     )

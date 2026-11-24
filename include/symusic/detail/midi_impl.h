@@ -272,7 +272,6 @@ minimidi::MidiFile<> to_midi(const Score<Tick, S>& score, u16 division) {
         if (!track.name.empty()) msgs.emplace_back(minimidi::TrackName(0, track.name));
         // add program change
         msgs.emplace_back(minimidi::ProgramChange(0, channel, track.program));
-        // Todo add check for Pedal
         // add control change
         for (const auto& control : S::get(track.controls)) {
             msgs.emplace_back(

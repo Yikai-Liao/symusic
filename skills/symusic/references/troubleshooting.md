@@ -10,8 +10,8 @@ Each entry starts with the error message or symptom and links to the page that e
 ## Loading files
 
 - **`ValueError: Unknown file format`.** The extension is not one of `.mid`, `.midi`, `.MID`, `.MIDI` or `.abc`. Pass `format="midi"` or `format="abc"`; see [files.md](files.md#loading).
-- **`ValueError: ... is not a file`.** The path does not exist or is a directory.
-- **`TypeError: Invalid type: <class 'bytes'>`.** `Score(...)` takes a path, a tick count or another score. Load bytes with `Score.from_midi(data)` and ABC text with `Score.from_abc(text)`.
+- **`FileNotFoundError` or `IsADirectoryError` from `Score(path)`.** The path does not exist or is a directory.
+- **`TypeError: Score expects a path or binary file; pass ticks_per_quarter by keyword`.** `Score(...)` reads a path or binary file, or builds an empty score with `ticks_per_quarter=...`. Load bytes with `Score.from_midi(data)` and ABC text with `Score.from_abc(text)`.
 - **`RuntimeError: MiniMidi: ...`.** The MIDI file is truncated or corrupt. In a dataset, catch the error and skip the file; see [datasets.md](datasets.md#parallel-loading).
 - **`RuntimeError: Get control_value=168`, `Get pitch_bend=...` or similar.** The file contains a data byte above 127. Read the bytes with `Score.from_midi(data, invalid_data_bytes="clamp")`; see [files.md](files.md#reading-midi).
 - **`RuntimeError: Division type is not ticks per quarter`.** The file uses SMPTE time division, which symusic does not read.
@@ -32,7 +32,7 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Arrays and piano rolls
 
-- **`AttributeError: ... has no attribute 'pianoroll'`.** Piano rolls exist only for tick scores and tracks. Convert with `to(Tick)` or `resample`; see [arrays.md](arrays.md#piano-rolls).
+- **`ValueError: Time units must match` from `pianoroll()`.** Piano rolls exist only for tick scores and tracks. Convert with `to(Tick)` or `resample`; see [arrays.md](arrays.md#piano-rolls).
 - **`ValueError: Pitch range [...) is invalid` or `No such pianoroll mode called ...`.** See the rules in [arrays.md](arrays.md#piano-rolls).
 - **Looping over notes in Python is slow.** Every element read from an event list creates a Python object. Use `to_numpy()` instead; see [arrays.md](arrays.md).
 

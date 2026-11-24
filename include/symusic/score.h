@@ -51,9 +51,11 @@ struct Score {
         typename S::template List<Tempo<T>>         tempos,
         typename S::template List<TextMeta<T>>      markers
     ) :
-        ticks_per_quarter(ticks_per_quarter), tracks(std::move(tracks)),
-        time_signatures(std::move(time_signatures)), key_signatures(std::move(key_signatures)),
-        tempos(std::move(tempos)), markers(std::move(markers)) {}
+        tracks(std::move(tracks)), time_signatures(std::move(time_signatures)),
+        key_signatures(std::move(key_signatures)), tempos(std::move(tempos)),
+        markers(std::move(markers)) {
+        set_ticks_per_quarter(ticks_per_quarter);
+    }
 
     [[nodiscard]] Score copy() const;
     bool                operator==(const Score& other) const;
@@ -77,7 +79,7 @@ struct Score {
     [[nodiscard]] size_t note_count() const;
 
     // return the number of tracks in the score
-    [[nodiscard]] size_t track_num() const;
+    [[nodiscard]] size_t track_count() const;
 
     // return true if the score is empty
     [[nodiscard]] bool empty() const;

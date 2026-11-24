@@ -324,7 +324,7 @@ TEST_CASE("Test Score Operations", "[symusic][score]") {
 
         // Test note count
         REQUIRE(score.note_count() == 3);
-        REQUIRE(score.track_num() == 2);
+        REQUIRE(score.track_count() == 2);
     }
 
     SECTION("Score Beat Locations Use Current Time Unit") {
