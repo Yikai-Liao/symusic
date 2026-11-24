@@ -109,3 +109,29 @@ def test_adjust_time_checks_both_note_endpoints():
     score.tracks.append(Track(notes=[Note(2, -10, 60, 80)]))
     adjusted = score.adjust_time([0, 4], [0, 8])
     assert not adjusted.tracks[0].notes
+
+
+def test_adjust_time_wide_tick_span_in_range():
+    int32_min = -(2**31)
+    int32_max = 2**31 - 1
+    score = Score(480)
+    score.tracks.append(Track(notes=[Note(6, 0, 60, 80)]))
+    adjusted = score.adjust_time([0, 10], [int32_min, int32_max])
+    expected = int32_min + int(((int32_max - int32_min) / 10.0) * 6.0)
+    assert adjusted.tracks[0].notes[0].time == expected
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize(
+    ("times_og", "times_new"),
+    [
+        ([0.0, 1.0], [0.0, float("nan")]),
+        ([0.0, 1.0], [float("nan"), 1.0]),
+        ([float("-inf"), float("inf")], [0.0, 1.0]),
+        ([0.0, 1.0], [0.0, float("inf")]),
+    ],
+)
+def test_adjust_time_rejects_non_finite_anchors(ttype, times_og, times_new):
+    score = Score(480, ttype=ttype)
+    with pytest.raises(ValueError, match="adjust_time"):
+        score.adjust_time(times_og, times_new)

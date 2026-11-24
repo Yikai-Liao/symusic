@@ -10,6 +10,7 @@
 #include "pyvec.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <stdexcept>
 #include <unordered_set>
@@ -28,19 +29,15 @@ wide_t<T> wide_end(const T& event) {
     return static_cast<wide_t<T>>(event.time) + static_cast<wide_t<T>>(event.duration);
 }
 
-// Truncating conversion of a scaled offset; rejects NaN and out-of-range values for Tick.
-template<typename U>
-U trunc_time(const f64 value) {
-    if constexpr (std::integral<U>) {
-        return symusic::details::f64_to_i32(value);
-    } else {
-        return static_cast<U>(value);
-    }
-}
 inline void validate_trim_options(
-    auto min_overlap, const std::string& start_mode, const std::string& end_mode
+    auto               start,
+    auto               end,
+    auto               min_overlap,
+    const std::string& start_mode,
+    const std::string& end_mode
 ) {
-    if (min_overlap < 0) { throw std::invalid_argument("min_overlap must be non-negative"); }
+    if (!(start <= end)) { throw std::invalid_argument("trim requires start <= end"); }
+    if (!(min_overlap >= 0)) { throw std::invalid_argument("min_overlap must be non-negative"); }
     const auto validate = [](const std::string& mode, const char* name) {
         if (mode != "remove" && mode != "truncate" && mode != "retain") {
             throw std::invalid_argument(
@@ -142,7 +139,7 @@ void trim_inplace(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
-    details::validate_trim_options(min_overlap, start_mode, end_mode);
+    details::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
     if constexpr (HashDuration<T>) {
         using wide                 = details::wide_t<T>;
         using unit                 = typename T::unit;
@@ -299,7 +296,11 @@ void plan_time_adjustment(
                             / diff(original_times[index], original_times[left]);
         const auto offset = scale * diff(time, original_times[left]);
         if constexpr (std::integral<unit>) {
-            return symusic::details::add_time(new_times[left], trunc_time<unit>(offset));
+            // Compute in f64 before narrowing so a valid target across a >INT32_MAX span does not
+            // falsely overflow on the intermediate offset.
+            return symusic::details::f64_to_i32(
+                static_cast<f64>(new_times[left]) + std::trunc(offset)
+            );
         } else {
             return checked_adjusted_time<unit>(static_cast<f64>(new_times[left]) + offset, "time");
         }
@@ -349,6 +350,13 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
             "should have at least 2 elements"
         );
     }
+    if constexpr (std::floating_point<T>) {
+        const auto non_finite = [](const T value) { return !std::isfinite(value); };
+        if (std::any_of(original_times.begin(), original_times.end(), non_finite)
+            || std::any_of(new_times.begin(), new_times.end(), non_finite)) {
+            throw std::invalid_argument("symusic::ops::adjust_time: anchor times must be finite");
+        }
+    }
     const auto invalid = std::adjacent_find(
         original_times.begin(), original_times.end(), [](const T left, const T right) {
             return !(left < right);
@@ -359,7 +367,11 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
             "symusic::ops::adjust_time: original_times must be strictly increasing"
         );
     }
-    if (!std::is_sorted(new_times.begin(), new_times.end())) {
+    const auto unsorted
+        = std::adjacent_find(new_times.begin(), new_times.end(), [](const T left, const T right) {
+              return !(left <= right);
+          });
+    if (unsorted != new_times.end()) {
         throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");
     }
 }

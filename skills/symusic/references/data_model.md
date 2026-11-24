@@ -109,7 +109,7 @@ Copies differ in depth:
 
 ## Transformations
 
-Score and track methods with an `inplace` parameter default to returning a new object. Passing `inplace=True` changes the receiver, so existing references see the change. `sort` defaults to working in place. `Score.trim`, `Score.to` and `Score.resample` always return a new score.
+Score and track methods with an `inplace` parameter default to returning a new object. Passing `inplace=True` changes the receiver, so existing references see the change. `sort` defaults to working in place. `Score.to` and `Score.resample` always return a new score.
 
 | Method | On | Effect |
 |---|---|---|
@@ -123,7 +123,7 @@ Score and track methods with an `inplace` parameter default to returning a new o
 
 - `shift_pitch` and `shift_velocity` raise `ValueError` when a result leaves −128..127; they do not clamp to 0–127.
 - `clip` keeps events by their start time. With `clip_end=True`, notes and pedals must also end at or before `end`. Times are not shifted, so the clipped score still starts near `start`; follow with `shift_time(-start)` to move it to 0. The tempo, time signature and key signature in effect at `start` are kept and moved to `start`.
-- `trim` keeps notes and pedals that overlap the window by at least `min_overlap`. At each boundary, `"remove"` drops crossing events, `"truncate"` cuts them at the boundary, and `"retain"` keeps them whole. Unknown modes and negative `min_overlap` raise `ValueError`. For `Score.trim`, reversed or NaN bounds also raise `ValueError`. Control changes, pitch bends and lyrics are clipped by time.
+- `trim` keeps notes and pedals that overlap the window by at least `min_overlap`. At each boundary, `"remove"` drops crossing events, `"truncate"` cuts them at the boundary, and `"retain"` keeps them whole. Unknown modes, reversed or NaN bounds, and negative or NaN `min_overlap` raise `ValueError`. Control changes, pitch bends and lyrics are clipped by time.
 - `adjust_time` maps each time through straight segments between the anchor pairs `(original_times[i], new_times[i])`, with at least two anchors in each list. The lists must be the same length. Original times must increase strictly, and new times must be nondecreasing. Events that start before the first anchor or end after the last are dropped. In ticks the mapped times are truncated toward zero.
 - `Score.sort` and `Track.sort` sort the event lists of each track and the global lists; they do not reorder `tracks`.
 - `start()` and `end()` on a score or track return the earliest event time and the latest event end, or 0 when there are no events. `note_num()` counts notes. `empty()` is true for a track without events and for a score without tracks or global events.

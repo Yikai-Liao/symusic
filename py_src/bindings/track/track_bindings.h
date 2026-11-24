@@ -226,7 +226,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             return ans;
         }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = 0, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false,
             track_docstrings::kTrimDoc,
-            nb::sig(fmt::format("def trim(self, start: {}, end: {}, min_overlap: {} = 0, start_mode: str = 'remove', end_mode: str = 'remove', inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
+            nb::sig(fmt::format("def trim(self, start: {}, end: {}, min_overlap: {} = 0, start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->sort_inplace(reverse);

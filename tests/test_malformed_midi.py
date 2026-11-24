@@ -284,3 +284,26 @@ def test_midi_pending_programs(with_note):
             )
             for track in parsed.tracks
         ] == expected
+
+
+def test_midi_lyric_does_not_merge_pending_programs_on_channel_15():
+    body = bytes.fromhex(
+        "00 bf 07 64 "  # CC7 on channel 16, program 0
+        "00 cf 01 "  # program 1 on channel 16
+        "00 ff 05 01 61 "  # lyric while channel 16 is program 1
+        "00 90 3c 40 01 80 3c 00 "  # note on channel 1
+        "00 ff 2f 00"
+    )
+    score = Score.from_midi(build_single_track_midi(body))
+    assert [
+        (
+            track.program,
+            len(track.notes),
+            [cc.number for cc in track.controls],
+            [lyric.text for lyric in track.lyrics],
+        )
+        for track in score.tracks
+    ] == [
+        (0, 1, [], ["a"]),
+        (0, 0, [7], []),
+    ]

@@ -129,10 +129,10 @@ struct TrackKey {
 template<typename T>
 class TrackManager {
     // Used to manager multiple symusic Track corresponding to a single MIDI Track
-    NoteManager<T>                                noteManager;
-    std::map<TrackKey, TrackHandler<T>>           formalTracks;
-    vec<TrackHandler<T>*>                         note_tracks;
-    vec<std::pair<TrackHandler<T>*, TextMeta<T>>> lyrics;
+    NoteManager<T>                        noteManager;
+    std::map<TrackKey, TrackHandler<T>>   formalTracks;
+    vec<TrackHandler<T>*>                 note_tracks;
+    vec<std::pair<TrackKey, TextMeta<T>>> lyrics;
     // Preserve arrival order when pending events move to a track with notes.
     std::array<vec<TrackHandler<T>>, 16> stragglers;
     // last track cache to accelerate track searching
@@ -199,8 +199,9 @@ public:
     }
 
     void add_lyric(uint8_t channel, typename T::unit time, std::string text) {
-        auto& fallback = get<true>(channel);
-        lyrics.emplace_back(&fallback, TextMeta<T>(time, std::move(text)));
+        lyrics.emplace_back(
+            TrackKey{channel, cur_instr[channel]}, TextMeta<T>(time, std::move(text))
+        );
     }
 
     bool end_note(uint8_t channel, uint8_t pitch, typename T::unit end_time) {
@@ -215,8 +216,11 @@ public:
             std::erase_if(notes, [](const Note<T>& note) { return note.duration < 0; });
             if (!lyric_owner && !notes.empty()) { lyric_owner = handler; }
         }
-        for (auto& [fallback, lyric] : lyrics) {
-            auto& owner = lyric_owner ? *lyric_owner : *fallback;
+        for (auto& [key, lyric] : lyrics) {
+            auto& owner = lyric_owner ?
+                              *lyric_owner :
+                              formalTracks.try_emplace(key, "", key.program, key.channel == 9)
+                                  .first->second;
             owner.track.lyrics.push_back(std::move(lyric));
         }
         for (size_t channel = 0; channel < stragglers.size(); ++channel) {

@@ -120,20 +120,24 @@ def test_empty_score_rejects_unknown_trim_mode():
 
 
 @pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-@pytest.mark.parametrize("has_track", [False, True])
-def test_score_trim_rejects_reversed_bounds(ttype, has_track):
+@pytest.mark.parametrize("target", ["track", "score", "empty score"])
+def test_trim_rejects_reversed_bounds(ttype, target):
+    track = Track(ttype=ttype)
     score = Score(ttype=ttype)
-    if has_track:
-        score.tracks.append(Track(ttype=ttype))
+    if target == "score":
+        score.tracks.append(track)
+    obj = track if target == "track" else score
     with pytest.raises(ValueError, match="start <= end"):
-        score.trim(4, 2)
+        obj.trim(4, 2)
 
 
 @pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("target", ["track", "score"])
 @pytest.mark.parametrize("bounds", [(float("nan"), 2), (0, float("nan"))])
-def test_score_trim_rejects_nan_bounds(ttype, bounds):
+def test_trim_rejects_nan_bounds(ttype, target, bounds):
+    obj = Track(ttype=ttype) if target == "track" else Score(ttype=ttype)
     with pytest.raises(ValueError, match="start <= end"):
-        Score(ttype=ttype).trim(*bounds)
+        obj.trim(*bounds)
 
 
 @pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
@@ -147,3 +151,11 @@ def test_trim_rejects_negative_overlap(ttype, target):
     obj = track if target == "track" else score
     with pytest.raises(ValueError, match="min_overlap"):
         obj.trim(2, 4, min_overlap=-1, start_mode="truncate")
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("target", ["track", "score"])
+def test_trim_rejects_nan_overlap(ttype, target):
+    obj = Track(ttype=ttype) if target == "track" else Score(ttype=ttype)
+    with pytest.raises(ValueError, match="min_overlap"):
+        obj.trim(2, 4, min_overlap=float("nan"))
