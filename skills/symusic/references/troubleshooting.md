@@ -15,7 +15,7 @@ Each entry starts with the error message or symptom and links to the page that e
 - **`RuntimeError: MiniMidi: ...`.** The MIDI file is truncated or corrupt. In a dataset, catch the error and skip the file; see [datasets.md](datasets.md#parallel-loading).
 - **`RuntimeError: Get control_value=168`, `Get pitch_bend=...` or similar.** The file contains a data byte above 127. Load it with `sanitize_data=True`; see [files.md](files.md#reading-midi).
 - **`RuntimeError: Division type is not ticks per quarter`.** The file uses SMPTE time division, which symusic does not read.
-- **`RuntimeError: Process exited with code 1: ...` from an ABC file.** `abc2midi` reported an error. Its messages, with line and column, are printed to standard output above the exception; see [files.md](files.md#abc).
+- **`RuntimeError: abc2midi ...` or `ABCConversionWarning` from an ABC file.** `abc2midi` reported diagnostics; fatal failures include the captured output in the exception message, and recovered imports emit `ABCConversionWarning`. See [files.md](files.md#abc).
 
 ## Building and editing scores
 

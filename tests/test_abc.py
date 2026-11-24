@@ -200,7 +200,7 @@ def test_abc_tune_reference_prefers_exact_match():
 
 
 @pytest.mark.usefixtures("isolated_symusic_temp_root")
-@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"], ids=["lf", "crlf", "cr"])
 def test_abc_include_resolves_from_caller(tmp_path, monkeypatch, newline):
     monkeypatch.chdir(tmp_path)
     Path("notes.abc").write_bytes(f"C D{newline}".encode())

@@ -171,7 +171,8 @@ def _isolate_tune(data: bytes, tune: int, workdir: Path, includes: set[bytes]) -
     first = selected = None
     for line in _TUNE_LINE.finditer(data):
         content = line[0]
-        # parseline applies endtext after begintext, then checks MidiOff and MidiOn.
+        # Mirror parseabc.c's single ignore_line flag: parseline applies
+        # endtext after begintext, then beginps/endps, then MidiOff/MidiOn.
         if b"%%begintext" in content or content == b"%%beginps":
             ignored = True
         if b"%%endtext" in content or content == b"%%endps":
@@ -229,7 +230,7 @@ def _read_abc(
             # that ends the tune; on Windows ftell counts every LF as CRLF.
             input_path = workdir / "input.abc"
             input_path.write_bytes(
-                data.replace(b"\r\n", b"\n").replace(b"\n", os.linesep.encode())
+                re.sub(rb"\r\n|\n\r|\r|\n", os.linesep.encode(), data)
             )
             args[1] = input_path.name
             result = subprocess.run(args, cwd=workdir, capture_output=True)
