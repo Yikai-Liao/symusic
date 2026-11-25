@@ -131,19 +131,30 @@ def test_adjust_time_wide_float_anchors(ttype):
 
 @pytest.mark.parametrize("ttype", ["quarter", "second"])
 @pytest.mark.parametrize("inplace", [False, True])
-def test_adjust_time_float_duration_overflow(ttype, inplace):
+@pytest.mark.parametrize("target", ["score", "tracks"])
+def test_adjust_time_float_duration_overflow(ttype, inplace, target):
     score = Score(480, ttype=ttype)
     score.tracks.append(
         Track(controls=[ControlChange(0.25, 1, 64, ttype=ttype)], ttype=ttype)
     )
     score.tracks.append(Track(notes=[Note(0, 1, 60, 80, ttype=ttype)], ttype=ttype))
+    receiver = score if target == "score" else score.tracks
+    control = score.tracks[0].controls[0]
+    note = score.tracks[1].notes[0]
 
     with pytest.raises(
         ValueError, match="adjusted duration must be finite and in range, got "
     ):
-        score.adjust_time([0, 1], [-3e38, 3e38], inplace=inplace)
+        receiver.adjust_time([0, 1], [-3e38, 3e38], inplace=inplace)
     assert [control.time for control in score.tracks[0].controls] == [0.25]
     assert [(note.time, note.duration) for note in score.tracks[1].notes] == [(0, 1)]
+
+    result = receiver.adjust_time([0, 1], [2, 4], inplace=inplace)
+    adjusted = result.tracks if target == "score" else result
+    assert [control.time for control in adjusted[0].controls] == [2.5]
+    assert [(note.time, note.duration) for note in adjusted[1].notes] == [(2, 2)]
+    assert control.time == (2.5 if inplace else 0.25)
+    assert (note.time, note.duration) == ((2, 2) if inplace else (0, 1))
 
 
 def _spacer() -> bytes:

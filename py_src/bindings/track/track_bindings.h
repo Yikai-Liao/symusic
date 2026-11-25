@@ -330,7 +330,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
            nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, /) -> bool"))
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : clone_track_vector(self);
-            for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);
+            ops::details::adjust_track_times(*ans, original_times, new_times);
             return ans;
         }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, track_docstrings::kVecAdjustDoc,
            nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str()))

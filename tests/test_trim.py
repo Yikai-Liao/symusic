@@ -127,7 +127,7 @@ def test_trim_rejects_reversed_bounds(ttype, target):
     if target == "score":
         score.tracks.append(track)
     obj = track if target == "track" else score
-    with pytest.raises(ValueError, match="start <= end"):
+    with pytest.raises(ValueError, match="start <= end, got start=4, end=2"):
         obj.trim(4, 2)
 
 
@@ -149,7 +149,7 @@ def test_trim_rejects_negative_overlap(ttype, target):
     if target == "score":
         score.tracks.append(track)
     obj = track if target == "track" else score
-    with pytest.raises(ValueError, match="min_overlap"):
+    with pytest.raises(ValueError, match="min_overlap must be non-negative, got -1"):
         obj.trim(2, 4, min_overlap=-1, start_mode="truncate")
 
 
@@ -157,5 +157,5 @@ def test_trim_rejects_negative_overlap(ttype, target):
 @pytest.mark.parametrize("target", ["track", "score"])
 def test_trim_rejects_nan_overlap(ttype, target):
     obj = Track(ttype=ttype) if target == "track" else Score(ttype=ttype)
-    with pytest.raises(ValueError, match="min_overlap"):
+    with pytest.raises(ValueError, match="min_overlap must be non-negative, got nan"):
         obj.trim(2, 4, min_overlap=float("nan"))

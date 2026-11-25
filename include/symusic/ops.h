@@ -36,8 +36,16 @@ inline void validate_trim_options(
     const std::string& start_mode,
     const std::string& end_mode
 ) {
-    if (!(start <= end)) { throw std::invalid_argument("trim requires start <= end"); }
-    if (!(min_overlap >= 0)) { throw std::invalid_argument("min_overlap must be non-negative"); }
+    if (!(start <= end)) {
+        throw std::invalid_argument(
+            fmt::format("trim requires start <= end, got start={}, end={}", start, end)
+        );
+    }
+    if (!(min_overlap >= 0)) {
+        throw std::invalid_argument(
+            fmt::format("min_overlap must be non-negative, got {}", min_overlap)
+        );
+    }
     const auto validate = [](const std::string& mode, const char* name) {
         if (mode != "remove" && mode != "truncate" && mode != "retain") {
             throw std::invalid_argument(
@@ -351,11 +359,20 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
         );
     }
     if constexpr (std::floating_point<T>) {
-        const auto non_finite = [](const T value) { return !std::isfinite(value); };
-        if (std::any_of(original_times.begin(), original_times.end(), non_finite)
-            || std::any_of(new_times.begin(), new_times.end(), non_finite)) {
-            throw std::invalid_argument("symusic::ops::adjust_time: anchor times must be finite");
-        }
+        const auto check_finite = [](const vec<T>& times, const char* parameter) {
+            const auto invalid = std::find_if(times.begin(), times.end(), [](const T value) {
+                return !std::isfinite(value);
+            });
+            if (invalid != times.end()) {
+                throw std::invalid_argument(
+                    fmt::format(
+                        "symusic::ops::adjust_time: {} must be finite, got {}", parameter, *invalid
+                    )
+                );
+            }
+        };
+        check_finite(original_times, "original_times");
+        check_finite(new_times, "new_times");
     }
     const auto invalid = std::adjacent_find(
         original_times.begin(), original_times.end(), [](const T left, const T right) {
@@ -388,6 +405,19 @@ void plan_time_adjustment(
     plan_time_adjustment(*track.pitch_bends, original_times, new_times, plan);
     plan_time_adjustment(*track.pedals, original_times, new_times, plan);
     plan_time_adjustment(*track.lyrics, original_times, new_times, plan);
+}
+
+template<TType T>
+void adjust_track_times(
+    vec<shared<Track<T>>>&       tracks,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times
+) {
+    if (tracks.empty()) return;
+    check_times(original_times, new_times);
+    TimeAdjustments plan;
+    for (auto& track : tracks) { plan_time_adjustment(*track, original_times, new_times, plan); }
+    plan.apply();
 }
 
 template<TType T>

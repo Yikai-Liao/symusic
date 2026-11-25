@@ -123,15 +123,17 @@ def test_adjust_time_wide_tick_span_in_range():
 
 @pytest.mark.parametrize("ttype", ["quarter", "second"])
 @pytest.mark.parametrize(
-    ("times_og", "times_new"),
+    ("times_og", "times_new", "parameter", "value"),
     [
-        ([0.0, 1.0], [0.0, float("nan")]),
-        ([0.0, 1.0], [float("nan"), 1.0]),
-        ([float("-inf"), float("inf")], [0.0, 1.0]),
-        ([0.0, 1.0], [0.0, float("inf")]),
+        ([0.0, 1.0], [0.0, float("nan")], "new_times", "nan"),
+        ([0.0, 1.0], [float("nan"), 1.0], "new_times", "nan"),
+        ([float("-inf"), float("inf")], [0.0, 1.0], "original_times", "-inf"),
+        ([0.0, 1.0], [0.0, float("inf")], "new_times", "inf"),
     ],
 )
-def test_adjust_time_rejects_non_finite_anchors(ttype, times_og, times_new):
+def test_adjust_time_rejects_non_finite_anchors(
+    ttype, times_og, times_new, parameter, value
+):
     score = Score(480, ttype=ttype)
-    with pytest.raises(ValueError, match="adjust_time"):
+    with pytest.raises(ValueError, match=rf"{parameter} must be finite, got {value}\b"):
         score.adjust_time(times_og, times_new)

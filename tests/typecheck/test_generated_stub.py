@@ -98,20 +98,20 @@ def test_generic_bases_contain_every_shared_specialization_member() -> None:
     ]
 
 
-@pytest.mark.parametrize(
-    "class_name", ["Score", *(f"Score{unit}" for unit in TIME_UNITS)]
-)
-def test_score_trim_modes_are_literals(class_name: str) -> None:
+@pytest.mark.parametrize("base", ["Score", "Track"])
+@pytest.mark.parametrize("unit", ["", *TIME_UNITS])
+def test_trim_modes_are_literals(base: str, unit: str) -> None:
+    class_name = f"{base}{unit}"
     stub_path = Path(core.__file__).with_name("core.pyi")
     module = ast.parse(stub_path.read_text())
-    score = next(
+    cls = next(
         node
         for node in module.body
         if isinstance(node, ast.ClassDef) and node.name == class_name
     )
     methods = [
         node
-        for node in score.body
+        for node in cls.body
         if isinstance(node, ast.FunctionDef) and node.name == "trim"
     ]
     assert methods
