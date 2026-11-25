@@ -457,3 +457,40 @@ def test_track_list_matches_identity_and_value(ttype, nan_time, operation):
     else:
         tracks.remove(target)
         assert len(tracks) == 0
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+@pytest.mark.parametrize("nan_time", [False, True])
+@pytest.mark.parametrize("operation", ["count", "contains", "remove"])
+def test_note_list_matches_identity_and_value(ttype, nan_time, operation):
+    note = Note(1, 2, 60, 80, ttype=ttype)
+    notes = Track(notes=[note, note], ttype=ttype).notes
+    target = notes[0] if nan_time else note.copy()
+    if nan_time:
+        target.time = float("nan")
+    assert notes.index(target) == 0
+
+    if operation == "count":
+        assert notes.count(target) == (1 if nan_time else 2)
+    elif operation == "contains":
+        assert target in notes
+    else:
+        notes.remove(target)
+        assert list(notes) == [note]
+
+
+@pytest.mark.parametrize(
+    "selection", [slice(2048), slice(1, None, 2), slice(None, None, -2)]
+)
+def test_track_list_slice_deletion(selection):
+    original = [Track(str(i)) for i in range(4096)]
+    tracks = TrackList(original)
+    expected = original.copy()
+
+    del tracks[selection]
+    del expected[selection]
+
+    assert [track.name for track in tracks] == [track.name for track in expected]
+    for track, reference in zip(tracks, expected, strict=True):
+        reference.program = 1
+        assert track.program == 1

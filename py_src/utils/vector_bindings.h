@@ -80,6 +80,11 @@ bool same_item(const shared<T>& left, const shared<T>& right) {
     return left == right || *left == *right;
 }
 
+template<class T>
+bool same_item(const T& left, const shared<T>& right) {
+    return &left == right.get() || left == *right;
+}
+
 inline Py_ssize_t clamp_list_index(Py_ssize_t index, Py_ssize_t size) {
     return std::clamp(index < 0 ? index + size : index, Py_ssize_t{0}, size);
 }
@@ -185,12 +190,9 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
         return self.visit([&](const auto& ptr) -> size_t {
             const auto* match = value.template find<UnitOf<decltype(ptr)>>();
             if (!match) return 0;
-            if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>)
-                return ptr->count(*match);
-            else
-                return std::ranges::count_if(*ptr, [&](const auto& item) {
-                    return same_item(item, *match);
-                });
+            return std::count_if(ptr->cbegin(), ptr->cend(), [&](const auto& item) {
+                return same_item(item, *match);
+            });
         });
     };
 
@@ -421,6 +423,8 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                     if (length == 0) return;
                     if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
                         ptr->delitem(event_slice(start, stop, step, length));
+                    } else if (step == 1) {
+                        ptr->erase(ptr->begin() + start, ptr->begin() + stop);
                     } else {
                         if (step > 0) {
                             start += (static_cast<Py_ssize_t>(length) - 1) * step;
@@ -436,8 +440,16 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
         )
         .def(
             "__contains__",
-            [count](const List& self, nb::handle item) {
-                return nb::isinstance<Item>(item) && count(self, nb::cast<const Item&>(item)) != 0;
+            [](const List& self, nb::handle item) {
+                if (!nb::isinstance<Item>(item)) return false;
+                const auto& value = nb::cast<const Item&>(item);
+                return self.visit([&](const auto& ptr) {
+                    const auto* match = value.template find<UnitOf<decltype(ptr)>>();
+                    return match
+                           && std::any_of(ptr->cbegin(), ptr->cend(), [&](const auto& element) {
+                                  return same_item(element, *match);
+                              });
+                });
             },
             "item"_a.none()
         )
@@ -451,12 +463,7 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                         const auto  size  = static_cast<Py_ssize_t>(ptr->size());
                         const auto  end   = clamp_list_index(stop, size);
                         for (auto i = clamp_list_index(start, size); match && i < end; ++i) {
-                            const auto& element = (*ptr)[i];
-                            if constexpr (is_event_sequence<Native<UnitOf<decltype(ptr)>>>) {
-                                if (&element == match->get() || element == **match) return i;
-                            } else {
-                                if (same_item(element, *match)) return i;
-                            }
+                            if (same_item((*ptr)[i], *match)) return i;
                         }
                         throw std::invalid_argument("Item is not in list");
                     });
@@ -474,15 +481,17 @@ void bind_list_ops(nb::class_<UnitValue<Native>>& type) {
                 self.visit([&](const auto& ptr) {
                     using T          = UnitOf<decltype(ptr)>;
                     const auto& item = value.template get<T>();
-                    if constexpr (is_event_sequence<Native<T>>)
-                        ptr->remove(item);
-                    else {
-                        auto pos = std::ranges::find_if(*ptr, [&](const auto& element) {
-                            return same_item(element, item);
-                        });
-                        if (pos == ptr->end()) throw std::invalid_argument("Item is not in list");
-                        ptr->erase(pos);
+                    const auto  pos
+                        = std::find_if(ptr->cbegin(), ptr->cend(), [&](const auto& element) {
+                              return same_item(element, item);
+                          });
+                    if (pos == ptr->cend()) {
+                        if constexpr (is_event_sequence<Native<T>>)
+                            throw std::invalid_argument("pyvec::remove: value not found");
+                        else
+                            throw std::invalid_argument("Item is not in list");
                     }
+                    ptr->erase(pos);
                 });
             },
             "item"_a

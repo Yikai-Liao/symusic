@@ -123,7 +123,7 @@ def test_abc_tune_selection(tmp_path: Path, ttype):
     path.write_text(text, encoding="utf-8")
 
     def pitches(score):
-        assert isinstance(score, type(Score(ttype=ttype)))
+        assert score.ttype is ttype
         return [note.pitch for note in score.tracks[0].notes]
 
     assert pitches(Score(path, ttype=ttype)) == [60, 62, 64, 65]
