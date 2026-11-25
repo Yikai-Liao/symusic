@@ -31,29 +31,31 @@ class _FileMethods:
         if not isinstance(sanitize_data, bool):
             msg = "sanitize_data must be a bool"
             raise TypeError(msg)
-        path = pathlib.Path(os.fsdecode(path))
+        path = os.fsdecode(path)
         if format is not None and not isinstance(format, str):
             msg = "format must be a string or None"
             raise TypeError(msg)
         if format:
             file_format = format.lower()
-        elif path.suffix in _MIDI_EXTENSIONS:
-            file_format = "midi"
         else:
-            file_format = "abc" if path.suffix == ".abc" else ""
+            suffix = pathlib.Path(path).suffix
+            if suffix in _MIDI_EXTENSIONS:
+                file_format = "midi"
+            else:
+                file_format = "abc" if suffix == ".abc" else ""
 
         if file_format in {"midi", "mid"}:
             if tune is not None:
                 msg = "tune is only supported for ABC input"
                 raise ValueError(msg)
-            mode = path.stat().st_mode
+            mode = os.stat(path).st_mode  # noqa: PTH116
             if stat.S_ISDIR(mode):
                 error = errno.EISDIR
                 raise IsADirectoryError(error, os.strerror(error), path)
             if not stat.S_ISREG(mode):
                 msg = "Cannot seek to the end of the file"
                 raise RuntimeError(msg)
-            with path.open("rb") as midi_file:
+            with open(path, "rb") as midi_file:  # noqa: PTH123
                 if not midi_file.seekable():
                     msg = "Cannot seek to the end of the file"
                     raise RuntimeError(msg)
@@ -82,12 +84,14 @@ class _FileMethods:
         tune: int | None = None,
     ) -> typing_extensions.Self:
         """Read an ABC file, selecting an ``X:`` number or defaulting to the first tune."""
-        path = pathlib.Path(os.fsdecode(path))
-        mode = path.stat().st_mode
+        path = os.fsdecode(path)
+        mode = os.stat(path).st_mode  # noqa: PTH116
         if not stat.S_ISREG(mode) and not stat.S_ISDIR(mode):
             msg = "Cannot seek to the end of the file"
             raise RuntimeError(msg)
-        return _abc.parse_abc(path.read_bytes(), tune, cls.from_midi)
+        with open(path, "rb") as abc_file:  # noqa: PTH123
+            data = abc_file.read()
+        return _abc.parse_abc(data, tune, cls.from_midi)
 
     def dump_abc(self, path: _FilePath, warn: bool = False) -> None:
         """Write ABC to a file. With ``warn=True``, report converter diagnostics."""

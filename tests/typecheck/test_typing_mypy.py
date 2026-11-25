@@ -16,6 +16,7 @@ MYPY_SKIP_REASON = "mypy checks run on the CPython CI jobs"
 
 POSITIVE_SAMPLE = """
     from os import PathLike
+    from typing_extensions import assert_type
 
     from symusic import Score
     import symusic.core as core
@@ -32,7 +33,8 @@ POSITIVE_SAMPLE = """
     tick_track_copy: core.Track[core.Tick] = tick_track.copy()
     tick_note_copy: core.Note[core.Tick] = tick_note.copy()
     tick_pitch: int = tick_note.pitch
-    abc_score: core.ScoreQuarter = core.ScoreQuarter.from_abc("X:1", tune=1)
+    abc_score = core.ScoreQuarter.from_abc("X:1", tune=1)
+    assert_type(abc_score, core.ScoreQuarter)
     abc_file: core.Score[core.Tick] = tick_score.from_abc_file("score.abc")
     abc_text: str = abc_score.dumps_abc(warn=True)
     tick_score.dump_abc("out.abc")

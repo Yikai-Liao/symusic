@@ -34,9 +34,12 @@ _MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(
     rb"(?P<prefix>"
-    rb"(?:(?:^|(?<=[\r\n]))[ \t]*(?P<instruction>I[ \t]*:[ \t]*MIDI)"
-    rb"|%%MIDI|(?P<inline>\[I:)[ \t]*MIDI)"
-    rb"[ \t]+ptstress[ \t]+)"
+    rb"(?:(?:^|(?<=[\r\n]))[ \t]*(?P<instruction>I[ \t]*:[ \t]*MIDI)[ \t]+"
+    rb"|%%MIDI[ \t]+"
+    # readaln stops at whitespace or after 30 bytes of the macro name.
+    rb"|%%MIDIdef(?![A-Za-z])[ \t]*(?:[^\s\x00]{1,29}[ \t]+|[^\s\x00]{30}[ \t]*)"
+    rb"|(?P<inline>\[I:)[ \t]*MIDI[ \t]+)"
+    rb"ptstress[ \t]+)"
     # parsemusic cuts the line at the first percent sign before parsing inline fields.
     rb"(?P<argument>(?(inline)[^\]%\r\n]+(?=\])|[^\r\n]+))"
     # Skip other fields, music annotations, and comments that can contain literal [I: text.
@@ -241,6 +244,9 @@ def _read_abc(
             # exact only with native line endings: on POSIX a CRLF line stops
             # between the two bytes, and the leftover LF reads as a blank line
             # that ends the tune; on Windows ftell counts every LF as CRLF.
+            # The converter only expands includes on terminated lines.
+            if not data.endswith((b"\r", b"\n")):
+                data += b"\n"
             input_path = workdir / "input.abc"
             input_path.write_bytes(
                 re.sub(rb"\r\n|\n\r|\r|\n", os.linesep.encode(), data)

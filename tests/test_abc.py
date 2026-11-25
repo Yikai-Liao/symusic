@@ -185,17 +185,18 @@ def test_abc_tune_zero_in_include(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("ending", ["", "\n"])
-def test_abc_tune_zero_in_final_include(tmp_path, monkeypatch, ending):
+@pytest.mark.parametrize("tune", [0, 7])
+def test_abc_tune_in_final_include(tmp_path, monkeypatch, ending, tune):
     monkeypatch.chdir(tmp_path)
     included = Path("tune.abc")
-    included.write_text("X:0\nM:1/4\nL:1/4\nK:C\nA|\n", encoding="ascii")
+    included.write_text(f"X:{tune}\nM:1/4\nL:1/4\nK:C\nA|\n", encoding="ascii")
     abc = f"X:1\nK:C\nC|\n\n%%abc-include tune.abc{ending}"
-    score = Score.from_abc(abc, tune=0)
+    score = Score.from_abc(abc, tune=tune)
     assert [note.pitch for note in score.tracks[0].notes] == [69]
 
     included.write_text("X:2\nK:C\nA|\n", encoding="ascii")
-    with pytest.raises(ValueError, match="X:0"):
-        Score.from_abc(abc, tune=0)
+    with pytest.raises(ValueError, match=f"X:{tune}"):
+        Score.from_abc(abc, tune=tune)
 
 
 def test_abc_tune_zero_missing_with_broken_tune():
@@ -359,6 +360,30 @@ def test_abc_stress_trailing_directive(tmp_path, monkeypatch):
     assert velocities(trailing)[4:] == velocities(standalone)[4:]
     assert velocities(comment) == velocities(plain)
     assert velocities(trailing)[4:] != velocities(plain)[4:]
+
+
+@WINDOWS_STRESS_BUG
+def test_abc_stress_midi_macro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pattern.txt").write_text("4\n95 1\n80 1\n85 1\n80 1\n95 1\n")
+    run = subprocess.run
+
+    def enable_stress(args, **kwargs):
+        return run([*args, "-BF"], **kwargs)
+
+    monkeypatch.setattr(_abc.subprocess, "run", enable_stress)
+    header = "X:1\nM:4/4\nL:1/4\nR:reel\nK:C\n"
+    music = "C D E F|\n"
+    direct = Score.from_abc(f"{header}%%MIDI ptstress pattern.txt\n{music}")
+    macro = Score.from_abc(
+        f"{header}%%MIDIdef pattern ptstress pattern.txt\n%%MIDIx pattern\n{music}"
+    )
+    plain = Score.from_abc(header + music)
+
+    assert macro == direct
+    assert [note.velocity for note in macro.tracks[0].notes] != [
+        note.velocity for note in plain.tracks[0].notes
+    ]
 
 
 def test_dump_abc_roundtrip(tmp_path: Path):
@@ -633,6 +658,28 @@ def test_core_score_file_pathlike(tmp_path, path_type):
     midi = FilePath(tmp_path / "score.mid")
     score.dump_midi(midi)
     assert core.ScoreTick.from_file(midi) == score
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="requires POSIX trailing slash semantics"
+)
+@pytest.mark.parametrize("file_format", ["midi", "abc"])
+def test_core_score_readers_preserve_trailing_slash(tmp_path, file_format):
+    path = tmp_path / f"score.{file_format}"
+    score = make_roundtrip_score()
+    if file_format == "midi":
+        score.dump_midi(path)
+    else:
+        score.dump_abc(path)
+
+    assert core.ScoreTick.from_file(str(path), format=file_format).note_num() == 3
+    with pytest.raises(NotADirectoryError):
+        core.ScoreTick.from_file(f"{path}/", format=file_format)
+
+    if file_format == "abc":
+        assert core.ScoreTick.from_abc_file(str(path)).note_num() == 3
+        with pytest.raises(NotADirectoryError):
+            core.ScoreTick.from_abc_file(f"{path}/")
 
 
 @pytest.mark.parametrize("warn", ["false", 0, None])
