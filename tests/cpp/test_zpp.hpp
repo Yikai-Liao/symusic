@@ -3,9 +3,12 @@
 #define SYMUSIC_TEST_ZPP_HPP
 
 #include <cstring>
+#include <iterator>
 #include <new>
 #include <span>
 #include <string>
+#include <string_view>
+#include "fmt/format.h"
 #include "symusic.h"
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/matchers/catch_matchers_floating_point.hpp"
@@ -264,6 +267,59 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
         image[10]  = 0xAA;
         image[11]  = 0x55;
         REQUIRE(Note<Tick>::parse<DataFormat::ZPP>(bytes) == Note<Tick>(1, 2, 3, 4));
+    }
+}
+
+TEST_CASE("ZPP score bytes match the versioned layout", "[symusic][io][zpp]") {
+    // A layout change must bump kZppVersion and regenerate the golden bytes.
+    const auto check = []<TType T>(typename T::unit step, std::string_view golden) {
+        constexpr u8 kExpectedZppVersion = 1;
+        Score<T>     score(480);
+        auto         track = std::make_shared<Track<T>>("Kit", 9, true);
+        track->notes->emplace_back(step, 2 * step, 61, 83);
+        track->controls->emplace_back(3 * step, 7, 101);
+        track->pitch_bends->emplace_back(4 * step, -1234);
+        track->pedals->emplace_back(5 * step, 3 * step);
+        track->lyrics->emplace_back(6 * step, "la");
+        score.tracks->push_back(track);
+        score.time_signatures->emplace_back(7 * step, 3, 8);
+        score.key_signatures->emplace_back(8 * step, -2, 1);
+        score.tempos->emplace_back(9 * step, 500000);
+        score.markers->emplace_back(10 * step, "A");
+
+        const auto bytes = score.template dumps<DataFormat::ZPP>();
+        REQUIRE(bytes.at(4) == kExpectedZppVersion);
+        std::string hex;
+        for (const auto byte : bytes) fmt::format_to(std::back_inserter(hex), "{:02x}", byte);
+        REQUIRE(hex == golden);
+    };
+
+    SECTION("Tick") {
+        check.template operator()<Tick>(
+            120,
+            "53594d5a01e001000001000000030000004b697409010100000078000000f00000003d53"
+            "000001000000680100000765000001000000e00100002efbffff01000000580200006801"
+            "000001000000d0020000020000006c6101000000480300000308000001000000c0030000"
+            "fe010000010000003804000020a1070001000000b00400000100000041"
+        );
+    }
+    SECTION("Quarter") {
+        check.template operator()<Quarter>(
+            0.25f,
+            "53594d5a01e001000001000000030000004b69740901010000000000803e0000003f3d53"
+            "0000010000000000403f07650000010000000000803f2efbffff010000000000a03f0000"
+            "403f010000000000c03f020000006c61010000000000e03f030800000100000000000040"
+            "fe010000010000000000104020a1070001000000000020400100000041"
+        );
+    }
+    SECTION("Second") {
+        check.template operator()<Second>(
+            0.125f,
+            "53594d5a01e001000001000000030000004b69740901010000000000003e0000803e3d53"
+            "0000010000000000c03e07650000010000000000003f2efbffff010000000000203f0000"
+            "c03e010000000000403f020000006c61010000000000603f03080000010000000000803f"
+            "fe010000010000000000903f20a10700010000000000a03f0100000041"
+        );
     }
 }
 
