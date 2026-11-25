@@ -668,6 +668,18 @@ def test_core_score_readers_preserve_trailing_slash(tmp_path, file_format):
         Score(f"{path}/", format=file_format)
 
 
+@pytest.mark.parametrize("extension", ["abc", "mid"])
+@pytest.mark.parametrize("strict", ["false", 0, None])
+def test_score_file_requires_bool(tmp_path, extension, strict):
+    path = tmp_path / f"score.{extension}"
+    if extension == "abc":
+        path.write_text(make_roundtrip_abc_text(), encoding="utf-8")
+    else:
+        make_roundtrip_score().dump(path)
+    with pytest.raises(TypeError):
+        Score(path, strict=strict)
+
+
 # ---------------------------------------------------------------------------
 # Regression test for GitHub issue #78
 # https://github.com/lzqlzzq/symusic/issues/78

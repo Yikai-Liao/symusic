@@ -1,6 +1,7 @@
 # pyright: strict
 from collections.abc import Iterator, MutableSequence, Sequence
 from os import PathLike
+from typing import BinaryIO
 
 from symusic import (
     ControlChange,
@@ -24,14 +25,21 @@ assert_type(reveal_type(seconds), Score[Second])
 assert_type(reveal_type(ticks.to(Second)), Score[Second])
 assert_type(seconds.to(Tick, min_duration=1), Score[Tick])
 assert_type(Score("input.mid", ttype=Quarter), Score[Quarter])
-assert_type(Score.from_midi(b"", ttype=Second), Score[Second])
+assert_type(Score.from_midi(b"", ttype=Second, strict=False), Score[Second])
+assert_type(Score.from_abc("X:1", ttype=Quarter, strict=False), Score[Quarter])
 abc_score = Score.from_abc("X:1", ttype=Quarter, tune=1)
 assert_type(abc_score, Score[Quarter])
 assert_type(Score("score.abc", format="abc"), Score[Tick])
 assert_type(Score("input.mid"), Score[Tick])
+assert_type(Score("input.mid", strict=False), Score[Tick])
+ticks.dump("output.mid")
 assert_type(ticks.tracks, TrackList[Tick])
+assert_type(seconds.tracks.filter(lambda track: not track.is_drum), TrackList[Second])
 assert_type(seconds.tracks[0], Track[Second])
 assert_type(ticks.tracks[0].notes, NoteList[Tick])
+assert_type(
+    seconds.tracks[0].notes.filter(lambda note: note.time > 0), NoteList[Second]
+)
 assert_type(seconds.ttype, type[Second])
 assert_type(ticks.tracks[0].notes[0].time, int)
 assert_type(seconds.tracks[0].notes[0].duration, float)
@@ -88,9 +96,16 @@ assert_type(notes, NoteList[Tick])
 
 
 def abc_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
-    assert_type(Score.from_file(text), Score[Tick])
-    assert_type(Score.from_file(binary), Score[Tick])
-    assert_type(Score.from_abc_file(binary), Score[Tick])
-    assert_type(abc_score.dumps_abc(warn=True), str)
-    Score.from_file(text).dump_abc(binary)
-    Score.from_abc_file(binary).dump_abc(text)
+    assert_type(Score(text), Score[Tick])
+    assert_type(Score(binary), Score[Tick])
+    assert_type(Score(binary, format="abc"), Score[Tick])
+    assert_type(abc_score.to_abc(), str)
+    Score(text).dump(binary, format="abc")
+    Score(binary, format="abc").dump(text, format="abc")
+
+
+def read_and_write_midi(source: BinaryIO, target: BinaryIO) -> None:
+    assert_type(Score(source, format="midi"), Score[Tick])
+    score = Score(source, ttype=Quarter, format="midi", strict=False)
+    assert_type(score, Score[Quarter])
+    score.dump(path_or_file=target, format="midi")

@@ -1,6 +1,9 @@
 #pragma once
 
-#include "symusic/io/midi.h"
+#include <filesystem>
+#include <system_error>
+
+#include "symusic/io/common.h"
 
 #include "utils/vector_bindings.h"
 #include "../core/binding_common.h"
@@ -74,16 +77,16 @@ inline nb::object abc_io(const char* name) {
     return nb::module_::import_("symusic._score_io").attr(name);
 }
 
-inline InvalidDataBytes invalid_data_byte_policy(const std::string& name) {
-    if (name == "raise") return InvalidDataBytes::Raise;
-    if (name == "clamp") return InvalidDataBytes::Clamp;
-    throw std::invalid_argument("invalid_data_bytes must be 'raise' or 'clamp', got " + name);
+inline MidiReadOptions midi_read_options(bool strict) {
+    return {strict ? InvalidDataBytes::Raise : InvalidDataBytes::Clamp};
 }
 
 template<TType T>
-Score<T> parse_abc(nb::bytes input, nb::handle tune) {
-    const auto parse_midi = nb::cpp_function([](const nb::bytes& data) {
-        return ScoreValue(std::make_shared<Score<T>>(Score<T>::from_midi(bytes_span(data))));
+Score<T> parse_abc(nb::bytes input, nb::handle tune, MidiReadOptions options) {
+    const auto parse_midi = nb::cpp_function([options](const nb::bytes& data) {
+        return ScoreValue(
+            std::make_shared<Score<T>>(Score<T>::from_midi(bytes_span(data), options))
+        );
     });
     auto       score      = nb::cast<ScoreValue>(abc_io("read_abc")(input, tune, parse_midi));
     return std::move(*score.template get<T>());
@@ -102,7 +105,10 @@ inline bool is_path(nb::handle object) {
 
 template<TType T>
 Score<T> load_score(
-    nb::handle source, std::optional<DataFormat> format, nb::handle ticks_per_quarter
+    nb::handle                source,
+    std::optional<DataFormat> format,
+    nb::handle                ticks_per_quarter,
+    MidiReadOptions           options
 ) {
     if (source.is_none()) {
         if (format) {
@@ -117,11 +123,13 @@ Score<T> load_score(
         throw std::invalid_argument("ticks_per_quarter cannot be used when reading a score");
     }
     if (is_path(source)) {
-        return read_score<T, SharedStorage>(
-            nb::cast<std::filesystem::path>(source), format, [](std::span<const u8> data) {
-                return parse_abc<T>(python_bytes(data), nb::none());
-            }
-        );
+        const auto path     = nb::cast<std::filesystem::path>(source);
+        const auto selected = format ? *format : score_file_format(path);
+        const auto data     = read_score_file(path);
+        if (selected == DataFormat::ABC) {
+            return parse_abc<T>(python_bytes(data), nb::none(), options);
+        }
+        return Score<T>::from_midi(data, options);
     }
     if (!nb::hasattr(source, "read")) {
         throw nb::type_error(
@@ -132,8 +140,8 @@ Score<T> load_score(
     auto data = source.attr("read")();
     if (!nb::isinstance<nb::bytes>(data)) throw nb::type_error("Expected a binary file");
     auto bytes = nb::borrow<nb::bytes>(data);
-    if (*format == DataFormat::ABC) return parse_abc<T>(bytes, nb::none());
-    return Score<T>::from_midi(bytes_span(bytes));
+    if (*format == DataFormat::ABC) return parse_abc<T>(bytes, nb::none(), options);
+    return Score<T>::from_midi(bytes_span(bytes), options);
 }
 
 inline nb::str score_to_abc(const ScoreValue& self) {
@@ -147,7 +155,8 @@ inline void bind_score(nb::module_& module) {
     auto type        = unit_class<ScoreValue>(
         module,
         "Score",
-        "Score(path_or_file=None, /, *, ttype=Tick, format=None, ticks_per_quarter=960)"
+        "Score(path_or_file=None, /, *, ttype=Tick, format=None, ticks_per_quarter=None, "
+        "strict=True)"
         "\n\nA musical score with tracks and global events."
     );
     type.def(
@@ -156,14 +165,15 @@ inline void bind_score(nb::module_& module) {
                nb::handle                        source,
                nb::handle                        marker,
                const std::optional<std::string>& format,
-               nb::handle                        ticks_per_quarter) {
+               nb::handle                        ticks_per_quarter,
+               bool                              strict) {
                 auto selected = explicit_format(format);
                 new (self) ScoreValue(with_unit(marker, [&](auto unit) {
                     using T = decltype(unit);
                     return ScoreValue(
-                        std::make_shared<Score<T>>(
-                            load_score<T>(source, selected, ticks_per_quarter)
-                        )
+                        std::make_shared<Score<T>>(load_score<T>(
+                            source, selected, ticks_per_quarter, midi_read_options(strict)
+                        ))
                     );
                 }));
             },
@@ -172,16 +182,19 @@ inline void bind_score(nb::module_& module) {
             "ttype"_a             = nb::type<Tick>(),
             "format"_a            = nb::none(),
             "ticks_per_quarter"_a = nb::none(),
+            "strict"_a            = true,
             nb::sig(
                 "def __init__(self, path_or_file=None, /, *, ttype=Tick, format=None, "
-                "ticks_per_quarter: int | None = None) -> None"
+                "ticks_per_quarter: int | None = None, strict: bool = True) -> None"
             ),
-            "Read a MIDI or ABC file, or build an empty score. Binary files require format."
+            "Read a MIDI or ABC file, or build an empty score. Binary files require format. "
+            "Pass strict=False to clamp invalid MIDI data bytes to 127, including after ABC "
+            "conversion."
     )
         .def_static(
             "from_midi",
-            [](const nb::bytes& data, nb::handle marker, const std::string& invalid_data_bytes) {
-                const MidiReadOptions options{invalid_data_byte_policy(invalid_data_bytes)};
+            [](const nb::bytes& data, nb::handle marker, bool strict) {
+                const auto options = midi_read_options(strict);
                 return with_unit(marker, [&](auto unit) {
                     using T = decltype(unit);
                     return ScoreValue(
@@ -191,27 +204,30 @@ inline void bind_score(nb::module_& module) {
             },
             "data"_a,
             nb::kw_only(),
-            "ttype"_a              = nb::type<Tick>(),
-            "invalid_data_bytes"_a = "raise",
-            "Read MIDI bytes. Use 'clamp' to reduce invalid channel data bytes to 127."
+            "ttype"_a  = nb::type<Tick>(),
+            "strict"_a = true,
+            "Read MIDI bytes. Pass strict=False to clamp invalid data bytes to 127."
         )
         .def_static(
             "from_abc",
-            [](const std::string& text, nb::handle marker, nb::handle tune) {
+            [](const std::string& text, nb::handle marker, nb::handle tune, bool strict) {
+                const auto options = midi_read_options(strict);
                 return with_unit(marker, [&](auto unit) {
                     using T = decltype(unit);
                     return ScoreValue(
                         std::make_shared<Score<T>>(
-                            parse_abc<T>(nb::bytes(text.data(), text.size()), tune)
+                            parse_abc<T>(nb::bytes(text.data(), text.size()), tune, options)
                         )
                     );
                 });
             },
             "text"_a,
             nb::kw_only(),
-            "ttype"_a = nb::type<Tick>(),
-            "tune"_a  = nb::none(),
-            "Read an ABC tune by its X: number, defaulting to the first tune."
+            "ttype"_a  = nb::type<Tick>(),
+            "tune"_a   = nb::none(),
+            "strict"_a = true,
+            "Read an ABC tune by its X: number, defaulting to the first tune. "
+            "Pass strict=False to clamp invalid data bytes in the converted MIDI to 127."
         )
         .def(
             "to_midi",
@@ -232,6 +248,16 @@ inline void bind_score(nb::module_& module) {
                 if (path_target) {
                     path = nb::cast<std::filesystem::path>(target);
                     if (!selected) selected = score_file_format(path);
+                    if (*selected == DataFormat::ABC) {
+                        std::error_code status_error;
+                        if (std::filesystem::is_directory(path, status_error)) {
+                            throw std::filesystem::filesystem_error(
+                                "Cannot open file for writing",
+                                path,
+                                std::make_error_code(std::errc::is_a_directory)
+                            );
+                        }
+                    }
                 } else {
                     if (!nb::hasattr(target, "write"))
                         throw nb::type_error("Expected a path or binary file");

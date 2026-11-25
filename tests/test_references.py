@@ -109,11 +109,13 @@ def test_ref_follows_sort(ttype):
 def test_ref_survives_filter(ttype):
     notes = make_track(ttype).notes
     kept, dropped = notes[3], notes[0]
-    notes.filter(lambda n: n.pitch > 60)
-    assert len(notes) == 3
+    selected = notes.filter(lambda n: n.pitch > 60)
+    assert len(notes) == 4
+    assert len(selected) == 3
     assert dropped.pitch == 60
     kept.pitch = 5
-    assert notes[2].pitch == 5
+    assert selected[2].pitch == 5
+    assert notes[3].pitch == 5
 
 
 @pytest.mark.parametrize("ttype", TTYPES)

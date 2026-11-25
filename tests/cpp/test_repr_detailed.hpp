@@ -98,12 +98,12 @@ TEST_CASE("Test KeySignature formatting", "[repr][keysig]") {
 
     SECTION("Default format") {
         std::string str = fmt::format("{}", ks);
-        REQUIRE(str == "KeySignature(100, 2, false, 10, 'Tick')");
+        REQUIRE(str == "KeySignature(100, 2, False, 10, 'Tick')");
     }
 
     SECTION("Detailed format") {
         std::string str = fmt::format("{:d}", ks);
-        REQUIRE(str == "KeySignature(time=100, key=2, minor=false, degree=10, ttype='Tick')");
+        REQUIRE(str == "KeySignature(time=100, key=2, minor=False, degree=10, ttype='Tick')");
     }
 }
 

@@ -572,19 +572,21 @@ void bind_list_algorithms(nb::class_<List>& type) {
         .def(
             "filter",
             [](const List& self, const nb::callable& function) {
-                self.visit([&](const auto& ptr) {
+                return self.visit([&](const auto& ptr) {
                     const auto keep
                         = [&](const auto& item) { return nb::cast<bool>(function(Item(item))); };
                     using Vector = typename std::remove_cvref_t<decltype(ptr)>::element_type;
+                    auto result  = clone_list(*ptr, false);
                     if constexpr (is_event_sequence<Vector>)
-                        ptr->filter_shared(keep);
+                        result->filter_shared(keep);
                     else
-                        std::erase_if(*ptr, [&](const auto& item) { return !keep(item); });
+                        std::erase_if(*result, [&](const auto& item) { return !keep(item); });
+                    return List(std::move(result));
                 });
             },
             "function"_a,
-            nb::sig("def filter(self, function: collections.abc.Callable) -> None"),
-            "Keep the items for which the function returns true."
+            nb::sig("def filter(self, function: collections.abc.Callable) -> typing.Self"),
+            "Return a new list with the items for which the function returns true."
         )
         .def(
             "shift_time",

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from io import BytesIO
 
 import pytest
-from symusic import Score, Tempo, TimeSignature
+from symusic import Score, Tempo, TimeSignature, _score_io
 
 from tests.utils import MIDI_PATHS_ALL, TESTCASES_PATH
 
@@ -28,24 +29,42 @@ def test_malformed_midi_default_load_is_strict():
         Score(ISSUE_104_PATH)
 
 
-@pytest.mark.parametrize("policy", ["raise", "clamp"])
-def test_malformed_midi_raises_runtime_error(policy):
+@pytest.mark.parametrize("strict", [True, False])
+def test_malformed_midi_raises_runtime_error(strict):
     with pytest.raises(RuntimeError):
-        Score.from_midi(ISSUE_104_PATH.read_bytes(), invalid_data_bytes=policy)
+        Score.from_midi(ISSUE_104_PATH.read_bytes(), strict=strict)
 
 
 def test_valid_midi_baseline_matches_clamped():
     midi_path = MIDI_PATHS_ALL[0]
-    assert Score.from_midi(midi_path.read_bytes(), invalid_data_bytes="clamp") == Score(
-        midi_path
+    assert Score.from_midi(midi_path.read_bytes(), strict=False) == Score(midi_path)
+
+
+def test_abc_strict_on_valid_input():
+    text = ABC_FIXTURE_PATH.read_text(encoding="utf-8")
+    assert Score(ABC_FIXTURE_PATH, strict=False) == Score(ABC_FIXTURE_PATH)
+    assert Score.from_abc(text, strict=False) == Score.from_abc(text)
+
+
+@pytest.mark.parametrize("entry_point", ["path", "stream", "text"])
+def test_abc_strict_controls_converted_midi(monkeypatch, entry_point):
+    data = build_single_track_midi(
+        bytes.fromhex("00 90 3c 40 00 e0 ff 01 01 80 3c 40 00 ff 2f 00")
+    )
+    monkeypatch.setattr(
+        _score_io, "read_abc", lambda input_data, tune, parse_midi: parse_midi(data)
     )
 
+    def load(strict):
+        if entry_point == "path":
+            return Score(ABC_FIXTURE_PATH, strict=strict)
+        if entry_point == "stream":
+            return Score(BytesIO(b""), format="abc", strict=strict)
+        return Score.from_abc("", strict=strict)
 
-def test_format_options_are_memory_only():
-    with pytest.raises(TypeError):
-        Score(ABC_FIXTURE_PATH, invalid_data_bytes="clamp")
-    with pytest.raises(ValueError, match="invalid_data_bytes"):
-        Score.from_midi(b"", invalid_data_bytes="sanitize")
+    with pytest.raises(RuntimeError, match="pitch_bend"):
+        load(True)
+    assert load(False).tracks[0].pitch_bends[0].value == 255 - 8192
 
 
 @pytest.mark.parametrize(
@@ -304,13 +323,19 @@ def test_midi_lyric_does_not_merge_pending_programs_on_channel_15():
     ]
 
 
-def test_midi_clamps_pitch_bend_bytes_before_combining():
+def test_midi_clamps_pitch_bend_bytes_before_combining(tmp_path):
     body = bytes.fromhex("00 90 3c 40 00 e0 ff 01 01 80 3c 40 00 ff 2f 00")
     data = build_single_track_midi(body)
     with pytest.raises(RuntimeError, match="pitch_bend"):
         Score.from_midi(data)
-    score = Score.from_midi(data, invalid_data_bytes="clamp")
+    score = Score.from_midi(data, strict=False)
     assert score.tracks[0].pitch_bends[0].value == 255 - 8192
+    path = tmp_path / "invalid-pitch-bend.mid"
+    path.write_bytes(data)
+    with pytest.raises(RuntimeError, match="pitch_bend"):
+        Score(path)
+    assert Score(path, strict=False) == score
+    assert Score(BytesIO(data), format="midi", strict=False) == score
 
 
 def test_channel_sustain_release_stays_with_the_press_after_program_change():

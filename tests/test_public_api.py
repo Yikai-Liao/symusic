@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import symusic
 from symusic import (
+    KeySignature,
     Note,
     NoteList,
     Pedal,
@@ -245,8 +246,9 @@ def test_score_file_write_errors(tmp_path):
         Score().dump(tmp_path / "out.mid", format="unknown")
 
 
-def test_score_dump_to_directory(tmp_path):
-    directory = tmp_path / "directory.mid"
+@pytest.mark.parametrize("name", ["output.mid", "output.abc"])
+def test_score_dump_to_directory(tmp_path, name):
+    directory = tmp_path / name
     directory.mkdir()
     with pytest.raises(IsADirectoryError) as exc:
         Score().dump(directory)
@@ -389,6 +391,11 @@ def test_track_repr_quotes_name(name, is_drum):
         f"Track(ttype='Quarter', program=3, is_drum={is_drum!r}, name={name!r}, "
         "notes=0, lyrics=0)"
     )
+
+
+@pytest.mark.parametrize(("minor", "expected"), [(False, "False"), (True, "True")])
+def test_key_signature_repr_bool(minor, expected):
+    assert f"minor={expected}" in repr(KeySignature(0, 0, minor))
 
 
 def test_score_repr_quotes_time_unit():

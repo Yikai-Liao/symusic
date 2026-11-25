@@ -79,6 +79,8 @@ struct formatter<E> : formatter<symusic::detail::BaseParser> {
             using V = std::remove_cvref_t<decltype(value)>;
             if constexpr (std::is_same_v<V, std::string>) {
                 out = fmt::format_to(out, "'{}'", value);
+            } else if constexpr (std::is_same_v<V, bool>) {
+                out = fmt::format_to(out, "{}", value ? "True" : "False");
             } else if constexpr (std::is_floating_point_v<V>) {
                 if (label == "time" || (std::same_as<E, symusic::Note<T>> && label == "duration")) {
                     out = fmt::format_to(out, "{:.2f}", value);

@@ -19,6 +19,7 @@ import statistics
 import sys
 import time
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,7 @@ CASES = Path(__file__).resolve().parent.parent / "tests" / "testcases"
 MULTITRACK = CASES / "Multitrack_MIDIs" / "Aicha.mid"
 PIANO = CASES / "One_track_MIDIs" / "Maestro_6.mid"
 ABC = CASES / "abc_files" / "the_wheels_of_the_world.abc"
+LEGACY_API = not hasattr(symusic.Score, "to_midi")
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,10 @@ def scenario(name: str, reps: int):
 
 def _load(path: Path):
     return symusic.Score(path)
+
+
+def _inplace(method):
+    return partial(method, inplace=True) if LEGACY_API else method
 
 
 @scenario("midi_parse_path", 3)
@@ -83,7 +89,7 @@ def _():
 @scenario("midi_dump_bytes", 4)
 def _():
     score = _load(PIANO)
-    return lambda: score.to_midi()
+    return score.dumps_midi if LEGACY_API else score.to_midi
 
 
 @scenario("abc_parse", 10)
@@ -125,7 +131,14 @@ def _():
 @scenario("shift_time", 100)
 def _():
     score = _load(PIANO)
-    return lambda: score.shift_time(480)
+    shift_time = _inplace(type(score).shift_time)
+
+    def run():
+        shifted = score.copy()
+        shift_time(shifted, 480)
+        return shifted
+
+    return run
 
 
 @scenario("clip", 100)
@@ -150,7 +163,14 @@ def _():
     end = score.end()
     original = [0, end // 3, end]
     adjusted = [0, end // 4, end]
-    return lambda: score.copy().adjust_time(original, adjusted)
+    adjust_time = _inplace(type(score).adjust_time)
+
+    def run():
+        result = score.copy()
+        adjust_time(result, original, adjusted)
+        return result
+
+    return run
 
 
 @scenario("tracks_adjust_time", 20)
@@ -165,19 +185,28 @@ def _():
 @scenario("sort", 40)
 def _():
     score = _load(PIANO)
-    return lambda: score.copy().sort()
+    sort = _inplace(type(score).sort)
+
+    def run():
+        result = score.copy()
+        sort(result)
+        return result
+
+    return run
 
 
 @scenario("track_shift_clip_sort", 2000)
 def _():
     track = _load(MULTITRACK).tracks[0]
     end = track.end() // 2
+    shift_time = _inplace(type(track).shift_time)
+    sort = _inplace(type(track).sort)
 
     def run():
         shifted = track.copy()
-        shifted.shift_time(240)
+        shift_time(shifted, 240)
         clipped = shifted.clip(0, end)
-        clipped.sort()
+        sort(clipped)
         return clipped
 
     return run
@@ -186,12 +215,13 @@ def _():
 @scenario("notes_to_numpy", 60)
 def _():
     notes = _load(PIANO).tracks[0].notes
-    return lambda: notes.to_numpy()
+    return notes.numpy if LEGACY_API else notes.to_numpy
 
 
 @scenario("notes_from_numpy", 150)
 def _():
-    arrays = _load(PIANO).tracks[0].notes.to_numpy()
+    notes = _load(PIANO).tracks[0].notes
+    arrays = notes.numpy() if LEGACY_API else notes.to_numpy()
     return lambda: symusic.NoteList.from_numpy(**arrays)
 
 

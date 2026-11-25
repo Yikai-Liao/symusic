@@ -116,8 +116,12 @@ def test_sort_preserves_same_tick_controls(reverse, scope):
     )
 
     assert track.controls.is_sorted(reverse=reverse)
-    assert [c.value for c in track.controls if c.number == 64] == [127, 0]
-    assert [c.value for c in track.controls if c.number == 1] == [75, 25]
+    expected = (
+        [(64, 127), (64, 0), (1, 75), (1, 25)]
+        if reverse
+        else [(1, 75), (1, 25), (64, 127), (64, 0)]
+    )
+    assert [(c.number, c.value) for c in track.controls] == expected
     assert track.pedals() == before
     restored = Score.from_midi(score.to_midi()).tracks[0]
     assert restored.controls == track.controls

@@ -1,4 +1,6 @@
 # pyright: strict
+from typing import BinaryIO
+
 from symusic import Note, Score, Second, Tick
 
 score = Score()
@@ -25,5 +27,15 @@ score.pianoroll(["unknown"])  # rejected
 Score("input.mid", format="unknown")  # rejected
 Score("input.mid", ticks_per_quarter=480)  # rejected
 Score(None, format="midi")  # rejected
-Score.from_midi(b"", invalid_data_bytes="sanitize")  # rejected
+Score("input.mid", strict="clamp")  # rejected
+Score.from_midi(b"", strict="clamp")  # rejected
+Score.from_abc("X:1", strict="clamp")  # rejected
 score.tracks[0].trim(0, 12, end_mode="unknown")  # rejected
+
+
+def read_and_write_without_format(source: BinaryIO, target: BinaryIO) -> None:
+    Score(source)  # rejected
+    Score(source, ttype=Second)  # rejected
+    Score(source, format=None)  # rejected
+    score.dump(target)  # rejected
+    score.dump(target, format=None)  # rejected

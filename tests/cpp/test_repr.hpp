@@ -237,21 +237,21 @@ TEST_CASE("Test KeySignature Formatting (Tick)", "[repr][keysig]") {
 
     SECTION("Default/Short Format") {
         // Assuming degree() returns 10 for key=2, minor=0
-        REQUIRE(fmt::format("{}", ks) == "KeySignature(300, 2, false, 10, 'Tick')");
-        REQUIRE(fmt::format("{:s}", ks) == "KeySignature(300, 2, false, 10, 'Tick')");
+        REQUIRE(fmt::format("{}", ks) == "KeySignature(300, 2, False, 10, 'Tick')");
+        REQUIRE(fmt::format("{:s}", ks) == "KeySignature(300, 2, False, 10, 'Tick')");
     }
 
     SECTION("Detailed Format") {
         REQUIRE(
             fmt::format("{:d}", ks)
-            == "KeySignature(time=300, key=2, minor=false, degree=10, ttype='Tick')"
+            == "KeySignature(time=300, key=2, minor=False, degree=10, ttype='Tick')"
         );
     }
 
     SECTION("Stream Operator") {
         std::stringstream ss;
         ss << ks;
-        REQUIRE(ss.str() == "KeySignature(time=300, key=2, minor=false, degree=10, ttype='Tick')");
+        REQUIRE(ss.str() == "KeySignature(time=300, key=2, minor=False, degree=10, ttype='Tick')");
     }
 }
 
