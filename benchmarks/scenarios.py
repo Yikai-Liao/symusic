@@ -179,7 +179,15 @@ def _():
     end = score.end()
     original = [0, end // 3, end]
     adjusted = [0, end // 4, end]
-    return lambda: score.tracks.adjust_time(original, adjusted)
+    tracks = score.tracks
+    adjust_time = _inplace(type(tracks).adjust_time)
+
+    def run():
+        result = tracks.copy()
+        adjust_time(result, original, adjusted)
+        return result
+
+    return run
 
 
 @scenario("sort", 40)
