@@ -141,6 +141,15 @@ def _():
     return lambda: score.adjust_time(original, adjusted)
 
 
+@scenario("tracks_adjust_time", 20)
+def _():
+    score = _load(MULTITRACK)
+    end = score.end()
+    original = [0, end // 3, end]
+    adjusted = [0, end // 4, end]
+    return lambda: score.tracks.adjust_time(original, adjusted)
+
+
 @scenario("sort", 40)
 def _():
     score = _load(PIANO)

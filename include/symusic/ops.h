@@ -381,7 +381,11 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
     );
     if (invalid != original_times.end()) {
         throw std::invalid_argument(
-            "symusic::ops::adjust_time: original_times must be strictly increasing"
+            fmt::format(
+                "symusic::ops::adjust_time: original_times must be strictly increasing, got {}, {}",
+                *invalid,
+                *(invalid + 1)
+            )
         );
     }
     const auto unsorted
@@ -413,8 +417,8 @@ void adjust_track_times(
     const vec<typename T::unit>& original_times,
     const vec<typename T::unit>& new_times
 ) {
-    if (tracks.empty()) return;
     check_times(original_times, new_times);
+    if (tracks.empty()) return;
     TimeAdjustments plan;
     for (auto& track : tracks) { plan_time_adjustment(*track, original_times, new_times, plan); }
     plan.apply();

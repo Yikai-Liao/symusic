@@ -157,6 +157,18 @@ def test_adjust_time_float_duration_overflow(ttype, inplace, target):
     assert (note.time, note.duration) == ((2, 2) if inplace else (0, 1))
 
 
+def test_adjust_time_shared_track():
+    score = tick_score(Note(2, 1, 60, 80))
+    track = score.tracks[0]
+    score.tracks.append(track)
+    note = track.notes[0]
+
+    score.tracks.adjust_time([0, 10], [1, 11], inplace=True)
+
+    assert [track.notes[0].start for track in score.tracks] == [3, 3]
+    assert note.start == 3
+
+
 def _spacer() -> bytes:
     # Maximal 28-bit delta (0x0FFFFFFF) followed by an empty text meta event.
     return bytes([0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0x01, 0x00])

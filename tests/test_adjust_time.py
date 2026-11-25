@@ -99,9 +99,20 @@ def test_score_adjust_time_rejects_invalid_anchors(
 def test_repeated_original_anchor(ttype, inplace):
     score = Score(480, ttype=ttype)
     score.tracks.append(Track(notes=[Note(2, 1, 60, 80, ttype)], ttype=ttype))
-    with pytest.raises(ValueError, match="original_times must be strictly increasing"):
+    with pytest.raises(
+        ValueError, match=r"original_times must be strictly increasing, got 1, 1\b"
+    ):
         score.adjust_time([0, 1, 1, 3], [0, 1, 2, 4], inplace=inplace)
     assert score.tracks[0].notes[0].start == 2
+
+
+def test_repeated_new_anchor():
+    score = Score(480)
+    score.tracks.append(Track(notes=[Note(1, 1, 60, 80)]))
+    adjusted = score.adjust_time([0, 1, 2, 3], [0, 1, 1, 3])
+    assert [(note.start, note.duration) for note in adjusted.tracks[0].notes] == [
+        (1, 0)
+    ]
 
 
 def test_adjust_time_checks_both_note_endpoints():
@@ -137,3 +148,13 @@ def test_adjust_time_rejects_non_finite_anchors(
     score = Score(480, ttype=ttype)
     with pytest.raises(ValueError, match=rf"{parameter} must be finite, got {value}\b"):
         score.adjust_time(times_og, times_new)
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("inplace", [False, True])
+def test_adjust_time_empty_tracks(ttype, inplace):
+    tracks = Score(480, ttype=ttype).tracks
+    with pytest.raises(ValueError, match=r"new_times must be finite, got inf\b"):
+        tracks.adjust_time([0, 1], [0, float("inf")], inplace=inplace)
+    assert not tracks.adjust_time([0, 1], [0, 2], inplace=inplace)
+    assert not tracks
