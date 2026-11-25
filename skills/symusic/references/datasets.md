@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
 - The `if __name__ == "__main__":` guard is required on Windows and macOS, where worker processes start by importing the script.
 - A corrupt or truncated MIDI file raises `RuntimeError`; a path with an unknown extension raises `ValueError`. Catch both in the worker so one bad file does not stop the run.
-- Files that store data bytes above 127, common in some scraped collections, load with `Score.from_midi(path.read_bytes(), invalid_data_bytes="clamp")`; see [files.md](files.md#reading-midi).
+- Files that store data bytes above 127, common in some scraped collections, load with `Score(path, strict=False)`; see [files.md](files.md#reading-midi).
 - To parse a dataset once and reuse it, store the pickled scores (see [files.md](files.md#pickle)) instead of the MIDI files.
 
 ## Cleaning
@@ -41,12 +41,12 @@ from symusic import Score
 score = Score("song.mid")
 score.tracks = [t for t in score.tracks if not t.is_drum and t.notes]
 for track in score.tracks:
-    track.notes.filter(lambda n: n.duration > 0 and n.velocity > 0)
+    track.notes = track.notes.filter(lambda n: n.duration > 0 and n.velocity > 0)
 score.sort()
 ```
 
 - Assigning a filtered Python list to `score.tracks` keeps the global tempos, signatures and markers. The tracks are shared with the list you assign, not copied.
-- `notes.filter` and `score.sort` work in place. `filter` calls the Python function once per note; for large lists, a mask over `notes.to_numpy()` passed to `NoteList.from_numpy` avoids that cost.
+- `score.sort` works in place; `notes.filter` returns a new list. `filter` calls the Python function once per note; for large lists, a mask over `notes.to_numpy()` passed to `NoteList.from_numpy` avoids that cost.
 - `score.empty()` is false for a score that has tempo events but no notes; check `score.note_count() == 0` to skip files without notes.
 
 ## Segmenting

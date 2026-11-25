@@ -76,7 +76,7 @@ Every list attribute is a typed list, such as `NoteList[Tick]`. Event and track 
 |---|---|
 | `sort(key=None, reverse=False)` | Sort by `key`, or by the default sort key |
 | `is_sorted(key=None, reverse=False)` | Check the order |
-| `filter(function)` | Keep the events for which `function` returns true |
+| `filter(function)` | Return a new list with the events for which `function` returns true |
 | `adjust_time(original_times, new_times)` | Warp times; see [Transformations](#transformations) |
 | `to_numpy()`, `NoteList.from_numpy(...)` | Convert to and from one NumPy array per field; see [arrays.md](arrays.md) |
 
@@ -84,8 +84,9 @@ Every list attribute is a typed list, such as `NoteList[Tick]`. Event and track 
 from symusic import Score
 
 score = Score("song.mid")
-notes = score.tracks[0].notes
-notes.filter(lambda n: n.velocity >= 40)  # in place
+track = score.tracks[0]
+track.notes = track.notes.filter(lambda n: n.velocity >= 40)
+notes = track.notes
 notes.sort(key=lambda n: (n.pitch, n.time))
 print(notes.is_sorted(key=lambda n: (n.pitch, n.time)))
 ```
@@ -100,7 +101,7 @@ Copies differ in depth:
 |---|---|
 | `score.copy()`, `track.copy()`, `copy.deepcopy(x)` | Deep: new tracks, lists and events |
 | `copy.copy(score)` | A new score that shares the `tracks` list and every event |
-| `copy.copy(notes)`, `notes[a:b]` | A new list that shares the events |
+| `copy.copy(notes)`, `notes[a:b]`, `notes.filter(f)` | A new list that shares the events |
 | `notes.copy()`, `copy.deepcopy(notes)` | A new list with new events |
 | `track.notes = [...]` | A new list with copies of the events |
 | `track.notes = other.notes` | Both attributes hold the same list |
@@ -108,7 +109,7 @@ Copies differ in depth:
 
 ## Transformations
 
-`sort`, `filter`, `shift_time`, `shift_pitch`, `shift_velocity`, and `adjust_time` mutate and return `None`. `clip`, `trim`, `to`, and `resample` return independent objects.
+`sort`, `shift_time`, `shift_pitch`, `shift_velocity`, and `adjust_time` mutate and return `None`. `clip`, `trim`, `to`, and `resample` return independent objects; `filter` returns a new list that shares the kept events.
 
 | Method | On | Effect |
 |---|---|---|

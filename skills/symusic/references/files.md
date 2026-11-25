@@ -24,7 +24,7 @@ assert score == same
 - **Pedals.** Sustain pedal regions are derived from control change 64 on each channel: a value of 64 or more presses the pedal, a lower value releases it. `track.pedals()` returns a tuple of detached regions for the current controls.
 - **Meta events.** Track names, lyrics and markers are read as text with bytes that are not valid UTF-8 removed; empty lyrics and markers are dropped. Markers go to `score.markers`. Lyrics go to the first channel/program track created by a note-on in the same MIDI track that still contains notes after pairing. If none contains notes, lyrics use the channel 16 track for the program in effect where each lyric appears. Tempo, time signature and key signature events from every MIDI track go to the global lists. All other meta events and SysEx messages are ignored.
 - **Order.** Notes are sorted by time only, so `notes.is_sorted()` with the default key can be false after loading; call `score.sort()` when you need the full order. The global lists are sorted by time.
-- **Invalid data.** A data byte above 127 raises `RuntimeError`, for example "Get control_value=168", and so does a pitch bend outside −8192..8191 ("Get pitch_bend=..."). `Score.from_midi(data, invalid_data_bytes="clamp")` clamps those bytes to 127 before decoding their fields.
+- **Invalid data.** A data byte above 127 raises `RuntimeError`, for example "Get control_value=168", and so does a pitch bend outside −8192..8191 ("Get pitch_bend=..."). Pass `strict=False` to `Score(...)`, `Score.from_midi` or `Score.from_abc` to clamp those bytes to 127 before decoding their fields.
 
 ## Writing MIDI
 
