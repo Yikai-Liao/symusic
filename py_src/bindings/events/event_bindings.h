@@ -125,7 +125,8 @@ constexpr const char* kVecIsSortedDoc
     = R"pbdoc(Return whether the list is sorted by *key*, or by the default sort key.)pbdoc";
 constexpr const char* kVecAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+lists must be the same length and have at least two anchors. Original times must be strictly
+increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a list of new events unless *inplace* is true.
 )pbdoc";
 constexpr const char* kVecNumpyDoc
@@ -371,7 +372,6 @@ auto bind_note(nb::module_& m, const std::string& name_) {
             [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time);},
             event_docstrings::kEndDoc)
         .def("empty", [](const self_t& self) { return self->empty(); }, event_docstrings::kNoteEmptyDoc)
-        .def("ent_time", [](const self_t& self) { return self->end(); }, "Return ``end``. Misspelled; use ``end``.")
         .def(
             "shift_pitch",
             [](self_t& self, const int8_t offset, const bool inplace) {

@@ -19,6 +19,7 @@ inline std::pair<u8, u8> validate_pitch_range(const std::pair<i64, i64>& range) 
             + ") is invalid"
         );
     }
+    // Both endpoints were checked against [0, 128].
     return {static_cast<u8>(range.first), static_cast<u8>(range.second)};
 }
 

@@ -141,7 +141,7 @@ TEST_CASE("Tick arithmetic overflow", "[symusic][checked_time]") {
 
     SECTION("adjust_time rejects overflowing results") {
         Track<Tick> track("t", 0, false);
-        track.notes->emplace_back(1, 0, 60, 80);
+        track.notes->emplace_back(0, 1, 60, 80);
         REQUIRE_THROWS_AS(
             ops::adjust_time_inplace(track, vec<i32>{0, 1}, vec<i32>{kMin, kMax}),
             std::overflow_error
@@ -173,9 +173,9 @@ TEST_CASE("Conversion with extreme ticks", "[symusic][checked_time]") {
         REQUIRE_THROWS_AS(convert<Second>(score), std::overflow_error);
     }
 
-    SECTION("Negative ticks extrapolate the first tempo") {
+    SECTION("Negative ticks use the default tempo before the first change") {
         Score<Tick> score(480);
-        score.tempos->emplace_back(0, 500000);
+        score.tempos->emplace_back(0, 1000000);
         auto track = std::make_shared<Track<Tick>>("t", 0, false);
         track->notes->emplace_back(-480, 480, 60, 80);
         score.tracks->push_back(track);

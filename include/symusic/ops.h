@@ -5,10 +5,15 @@
 
 #include "symusic/event.h"
 #include "symusic/score.h"
+#include "fmt/core.h"
 #include "pdqsort.h"
 #include "pyvec.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <functional>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace symusic::ops {
 
@@ -24,14 +29,32 @@ wide_t<T> wide_end(const T& event) {
     return static_cast<wide_t<T>>(event.time) + static_cast<wide_t<T>>(event.duration);
 }
 
-// Truncating conversion of a scaled offset; rejects NaN and out-of-range values for Tick.
-template<typename U>
-U trunc_time(const f64 value) {
-    if constexpr (std::integral<U>) {
-        return symusic::details::f64_to_i32(value);
-    } else {
-        return static_cast<U>(value);
+inline void validate_trim_options(
+    auto               start,
+    auto               end,
+    auto               min_overlap,
+    const std::string& start_mode,
+    const std::string& end_mode
+) {
+    if (!(start <= end)) {
+        throw std::invalid_argument(
+            fmt::format("trim requires start <= end, got start={}, end={}", start, end)
+        );
     }
+    if (!(min_overlap >= 0)) {
+        throw std::invalid_argument(
+            fmt::format("min_overlap must be non-negative, got {}", min_overlap)
+        );
+    }
+    const auto validate = [](const std::string& mode, const char* name) {
+        if (mode != "remove" && mode != "truncate" && mode != "retain") {
+            throw std::invalid_argument(
+                std::string(name) + " must be remove, truncate, or retain, got " + mode
+            );
+        }
+    };
+    validate(start_mode, "start_mode");
+    validate(end_mode, "end_mode");
 }
 }   // namespace details
 
@@ -124,29 +147,22 @@ void trim_inplace(
     const std::string& start_mode  = "remove",
     const std::string& end_mode    = "remove"
 ) {
+    details::validate_trim_options(start, end, min_overlap, start_mode, end_mode);
     if constexpr (HashDuration<T>) {
-        using wide = details::wide_t<T>;
-        using unit = typename T::unit;
-        if (start_mode == std::string("remove") && end_mode == std::string("remove")) {
-            events.filter([start, end](const T& event) {
-                return (event.time >= start) && (details::wide_end(event) <= end);
-            });
-        } else if (start_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (event.time >= start)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        } else if (end_mode == std::string("remove")) {
-            events.filter([start, end, min_overlap](const T& event) {
-                const wide event_end = details::wide_end(event);
-                return (event_end - start >= min_overlap) && (event_end <= end);
-            });
-        } else {
-            events.filter([start, end, min_overlap](const T& event) {
-                return (details::wide_end(event) - start >= min_overlap)
-                       && (static_cast<wide>(end) - event.time >= min_overlap);
-            });
-        }
+        using wide                 = details::wide_t<T>;
+        using unit                 = typename T::unit;
+        const bool remove_at_start = start_mode == "remove";
+        const bool remove_at_end   = end_mode == "remove";
+        events.filter([=](const T& event) {
+            const wide event_start = event.time;
+            const wide event_end   = details::wide_end(event);
+            if ((remove_at_start && event_start < start) || (remove_at_end && event_end > end)) {
+                return false;
+            }
+            const wide overlap_start = std::max<wide>(event_start, start);
+            const wide overlap_end   = std::min<wide>(event_end, end);
+            return overlap_end - overlap_start >= min_overlap;
+        });
 
         for (auto& event : events) {
             if (start_mode == "truncate" && event.time < start) {
@@ -235,80 +251,98 @@ vec<shared<T>> clamp_dur(
 }
 
 namespace details {
-template<TimeEvent T>
-void adjust_time_inplace_inner(
-    pyvec<T>&                    events,
-    const vec<typename T::unit>& original_times,
-    const vec<typename T::unit>& new_times
-) {
-    using unit = typename T::unit;
-    // check if the events have duration
-    constexpr bool has_dur = HashDuration<T>;
-    // Difference of two times as f64, exact for Tick (i64) and in unit precision for floats.
-    auto diff = [](const unit lhs, const unit rhs) {
-        return static_cast<f64>(static_cast<wide_t<T>>(lhs) - static_cast<wide_t<T>>(rhs));
-    };
-    // Wide end so that an event ending beyond the tick range is rejected by `valid`, not wrapped.
-    auto get_end = [has_dur](const T& event) {
-        if constexpr (has_dur) { return wide_end(event); }
-        return static_cast<wide_t<T>>(event.time);
-    };
-    // return empty vector if events is empty
-    if (events.empty()) return;
-    auto get_factor = [&original_times, &new_times, diff](const size_t x) {
-        f64 factor
-            = diff(new_times[x], new_times[x - 1]) / diff(original_times[x], original_times[x - 1]);
-        return factor;
-    };
-
-    const auto range = std::make_pair(original_times.front(), original_times.back());
-
-    auto valid = [get_end, range](const T& event) {
-        return (event.time >= range.first) & (get_end(event) <= range.second);
-    };
-
-    auto cur_range  = std::make_pair(original_times[0], original_times[1]);
-    auto cur_factor = get_factor(1);
-    auto pivot_new  = new_times[0];
-
-    size_t i = 0;
-    // clang-format off
-    for (size_t j = 0; j < events.size(); j++) {
-        T& event = events[j];
-        if (!valid(event)) continue;
-        if ((event.time) < cur_range.first | (event.time) > cur_range.second) {
-            auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), event.time)
-                - original_times.begin();
-            cur_factor = get_factor(idx);
-            cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-            pivot_new  = new_times[idx - 1];
-        }
-        unit start = symusic::details::add_time<unit>(
-            pivot_new,
-            trunc_time<unit>(cur_factor * diff(event.time, cur_range.first))
+template<std::floating_point U>
+U checked_adjusted_time(f64 value, const char* field) {
+    if (!(value >= std::numeric_limits<U>::lowest() && value <= std::numeric_limits<U>::max())) {
+        throw std::invalid_argument(
+            fmt::format("adjusted {} must be finite and in range, got {}", field, value)
         );
-        if constexpr (has_dur) {
-            // `valid` guarantees original_end <= original_times.back(), so it fits in `unit`.
-            const auto original_end = static_cast<unit>(get_end(event));
-            if (original_end > cur_range.second) {
-                auto idx = std::lower_bound(original_times.begin() + 1, original_times.end(), original_end)
-                    - original_times.begin();
-                cur_factor = get_factor(idx);
-                cur_range  = std::make_pair(original_times[idx - 1], original_times[idx]);
-                pivot_new  = new_times[idx - 1];
-            }
-            unit end = symusic::details::add_time<unit>(
-                pivot_new,
-                trunc_time<unit>(cur_factor * diff(original_end, cur_range.first))
-            );
-            event.duration = symusic::details::sub_time<unit>(end, start);
-        }
-        event.time = start;
-        *(events.pbegin() + i) = *(events.pbegin() + j);
-        ++i;
     }
-    events.resize(i);
-    // clang-format on
+    return static_cast<U>(value);
+}
+
+struct TimeAdjustments {
+    std::unordered_set<const void*> lists;
+    vec<std::function<void()>>      actions;
+
+    void apply() const {
+        for (const auto& action : actions) action();
+    }
+};
+
+template<TimeEvent E>
+void plan_time_adjustment(
+    pyvec<E>&                    events,
+    const vec<typename E::unit>& original_times,
+    const vec<typename E::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    if (events.empty() || !plan.lists.insert(&events).second) return;
+    using unit = typename E::unit;
+    using wide = wide_t<E>;
+    struct Change {
+        size_t index;
+        unit   start;
+        unit   duration;
+    };
+    vec<Change> retained;
+    retained.reserve(events.size());
+    const auto diff
+        = [](unit left, unit right) { return static_cast<f64>(left) - static_cast<f64>(right); };
+    const auto map_time = [&](unit time) {
+        const auto right = std::lower_bound(original_times.begin(), original_times.end(), time);
+        const auto index = static_cast<size_t>(right - original_times.begin());
+        if (*right == time) {
+            if constexpr (std::integral<unit>) {
+                return new_times[index];
+            } else {
+                return checked_adjusted_time<unit>(new_times[index], "time");
+            }
+        }
+        const auto left   = index - 1;
+        const auto scale  = diff(new_times[index], new_times[left])
+                            / diff(original_times[index], original_times[left]);
+        const auto offset = scale * diff(time, original_times[left]);
+        if constexpr (std::integral<unit>) {
+            // Compute in f64 before narrowing so a valid target across a >INT32_MAX span does not
+            // falsely overflow on the intermediate offset.
+            return symusic::details::f64_to_i32(
+                static_cast<f64>(new_times[left]) + std::trunc(offset)
+            );
+        } else {
+            return checked_adjusted_time<unit>(static_cast<f64>(new_times[left]) + offset, "time");
+        }
+    };
+    for (size_t index = 0; const E& event : events) {
+        const auto end = [&]() -> wide {
+            if constexpr (HashDuration<E>) return wide_end(event);
+            return event.time;
+        }();
+        if (event.time >= original_times.front() && event.time <= original_times.back()
+            && end >= original_times.front() && end <= original_times.back()) {
+            const auto start    = map_time(event.time);
+            unit       duration = 0;
+            if constexpr (HashDuration<E>) {
+                const auto mapped_end = map_time(symusic::details::narrow_time<unit>(end));
+                if constexpr (std::integral<unit>) {
+                    duration = symusic::details::sub_time(mapped_end, start);
+                } else {
+                    duration = checked_adjusted_time<unit>(diff(mapped_end, start), "duration");
+                }
+            }
+            retained.push_back({index, start, duration});
+        }
+        ++index;
+    }
+    plan.actions.emplace_back([&events, retained = std::move(retained)] {
+        for (size_t out = 0; const auto& change : retained) {
+            auto& event = events[change.index];
+            event.time  = change.start;
+            if constexpr (HashDuration<E>) event.duration = change.duration;
+            *(events.pbegin() + out++) = *(events.pbegin() + change.index);
+        }
+        events.resize(retained.size());
+    });
 }
 
 template<typename T>
@@ -324,12 +358,86 @@ void check_times(const vec<T>& original_times, const vec<T>& new_times) {
             "should have at least 2 elements"
         );
     }
-    if (!std::is_sorted(original_times.begin(), original_times.end())) {
-        throw std::invalid_argument("symusic::ops::adjust_time: original_times should be sorted");
+    if constexpr (std::floating_point<T>) {
+        const auto check_finite = [](const vec<T>& times, const char* parameter) {
+            const auto invalid = std::find_if(times.begin(), times.end(), [](const T value) {
+                return !std::isfinite(value);
+            });
+            if (invalid != times.end()) {
+                throw std::invalid_argument(
+                    fmt::format(
+                        "symusic::ops::adjust_time: {} must be finite, got {}", parameter, *invalid
+                    )
+                );
+            }
+        };
+        check_finite(original_times, "original_times");
+        check_finite(new_times, "new_times");
     }
-    if (!std::is_sorted(new_times.begin(), new_times.end())) {
+    const auto invalid = std::adjacent_find(
+        original_times.begin(), original_times.end(), [](const T left, const T right) {
+            return !(left < right);
+        }
+    );
+    if (invalid != original_times.end()) {
+        throw std::invalid_argument(
+            fmt::format(
+                "symusic::ops::adjust_time: original_times must be strictly increasing, got {}, {}",
+                *invalid,
+                *(invalid + 1)
+            )
+        );
+    }
+    const auto unsorted
+        = std::adjacent_find(new_times.begin(), new_times.end(), [](const T left, const T right) {
+              return !(left <= right);
+          });
+    if (unsorted != new_times.end()) {
         throw std::invalid_argument("symusic::ops::adjust_time: new_times should be sorted");
     }
+}
+
+template<TType T>
+void plan_time_adjustment(
+    Track<T>&                    track,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    plan_time_adjustment(*track.notes, original_times, new_times, plan);
+    plan_time_adjustment(*track.controls, original_times, new_times, plan);
+    plan_time_adjustment(*track.pitch_bends, original_times, new_times, plan);
+    plan_time_adjustment(*track.pedals, original_times, new_times, plan);
+    plan_time_adjustment(*track.lyrics, original_times, new_times, plan);
+}
+
+template<TType T>
+void adjust_track_times(
+    vec<shared<Track<T>>>&       tracks,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times
+) {
+    check_times(original_times, new_times);
+    if (tracks.empty()) return;
+    TimeAdjustments plan;
+    for (auto& track : tracks) { plan_time_adjustment(*track, original_times, new_times, plan); }
+    plan.apply();
+}
+
+template<TType T>
+void plan_time_adjustment(
+    Score<T>&                    score,
+    const vec<typename T::unit>& original_times,
+    const vec<typename T::unit>& new_times,
+    TimeAdjustments&             plan
+) {
+    for (auto& track : *score.tracks) {
+        plan_time_adjustment(*track, original_times, new_times, plan);
+    }
+    plan_time_adjustment(*score.time_signatures, original_times, new_times, plan);
+    plan_time_adjustment(*score.key_signatures, original_times, new_times, plan);
+    plan_time_adjustment(*score.tempos, original_times, new_times, plan);
+    plan_time_adjustment(*score.markers, original_times, new_times, plan);
 }
 
 }   // namespace details
@@ -341,7 +449,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    return details::adjust_time_inplace_inner(events, original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(events, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<bool check_times = true, TType T>
@@ -351,11 +461,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    adjust_time_inplace<false>(*(track.notes), original_times, new_times);
-    adjust_time_inplace<false>(*(track.controls), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pitch_bends), original_times, new_times);
-    adjust_time_inplace<false>(*(track.pedals), original_times, new_times);
-    adjust_time_inplace<false>(*(track.lyrics), original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(track, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<bool check_times = true, TType T>
@@ -365,13 +473,9 @@ void adjust_time_inplace(
     const vec<typename T::unit>& new_times
 ) {
     if constexpr (check_times) { details::check_times(original_times, new_times); }
-    for (const shared<Track<T>>& track : *(score.tracks)) {
-        adjust_time_inplace<false>(*track, original_times, new_times);
-    }
-    adjust_time_inplace<false>(*(score.time_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.key_signatures), original_times, new_times);
-    adjust_time_inplace<false>(*(score.tempos), original_times, new_times);
-    adjust_time_inplace<false>(*(score.markers), original_times, new_times);
+    details::TimeAdjustments plan;
+    details::plan_time_adjustment(score, original_times, new_times, plan);
+    plan.apply();
 }
 
 template<typename T>

@@ -103,7 +103,16 @@ jobs:
             echo CMAKE_CXX_COMPILER_LAUNCHER=sccache
           } >> "$GITHUB_ENV"
       - name: Install
+        if: ${{ !matrix.coverage }}
         run: uv pip install ".[test]" --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
+      - name: Install with C++ coverage
+        if: matrix.coverage
+        shell: bash
+        run: >-
+          uv pip install ".[test]"
+          --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
+          --config-settings-package symusic:cmake.define.SYMUSIC_ENABLE_COVERAGE=ON
+          --config-settings-package "symusic:build-dir=$RUNNER_TEMP/symusic-python-build"
       - name: Test
         run: python -m pytest -n auto tests ${{ matrix.coverage && '--cov=symusic --cov-report=xml' || '' }}
       - name: Upload coverage
@@ -113,6 +122,19 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           flags: python
+      - name: C++ coverage report
+        if: matrix.coverage
+        shell: bash
+        run: >-
+          uvx gcovr --xml "$RUNNER_TEMP/symusic-python-build/coverage.xml" --root . --filter src/ --filter include/ --exclude-throw-branches --exclude-unreachable-branches
+          --gcov-ignore-errors=no_working_dir_found "$RUNNER_TEMP/symusic-python-build"
+      - name: Upload C++ coverage from Python tests
+        if: matrix.coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ runner.temp }}/symusic-python-build/coverage.xml
+          flags: cpp
 
   cpp:
     needs: changes
@@ -162,7 +184,7 @@ jobs:
       - name: Coverage report
         if: matrix.coverage
         run: >-
-          uvx gcovr --xml "$RUNNER_TEMP/symusic-build/coverage.xml" --root . --filter src/ --filter include/
+          uvx gcovr --xml "$RUNNER_TEMP/symusic-build/coverage.xml" --root . --filter src/ --filter include/ --exclude-throw-branches --exclude-unreachable-branches
           --gcov-ignore-errors=no_working_dir_found "$RUNNER_TEMP/symusic-build"
       - name: Upload coverage
         if: matrix.coverage

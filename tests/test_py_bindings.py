@@ -368,3 +368,44 @@ def test_score_from_other_forwards_min_dur(ttype, min_dur):
 
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])
+
+
+def test_flat_key_degree():
+    from symusic import KeySignature
+
+    assert "degree=7" in repr(KeySignature(0, -1, 0))
+    assert "degree=19" in repr(KeySignature(0, -1, 1))
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_note_end_binding(ttype):
+    from symusic import Note
+
+    note = Note(1, 2, 60, 80, ttype)
+    assert note.end == 3
+    assert not hasattr(note, "ent_time")
+
+
+def test_track_slice_with_large_step():
+    import sys
+
+    tracks = Score(480).tracks
+    tracks.extend([Track("first"), Track("second"), Track("third")])
+    selection = slice(1, None, sys.maxsize)
+    assert [track.name for track in tracks[selection]] == ["second"]
+    tracks[selection] = [Track("replacement")]
+    assert tracks[1].name == "replacement"
+    del tracks[selection]
+    assert [track.name for track in tracks] == ["first", "third"]
+
+
+@pytest.mark.parametrize("name", ["pitch", "velocity"])
+@pytest.mark.parametrize("offset", [-61, 68])
+def test_note_shift_rejects_midi_range(name, offset):
+    note = Note(0, 1, 60, 60)
+    shift = getattr(note, f"shift_{name}")
+    with pytest.raises(ValueError, match="Overflow while adding"):
+        shift(offset, inplace=True)
+    assert getattr(note, name) == 60
+    assert getattr(shift(1), name) == 61
+    assert getattr(note, name) == 60

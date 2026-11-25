@@ -29,6 +29,7 @@ inline i8 safe_add(const i8 a, const i8 b) {
         throw std::range_error(
             "Overflow while adding " + std::to_string(a) + " and " + std::to_string(b)
         );
+    // The range check bounds the result to a MIDI data byte.
     return static_cast<i8>(ans);
 }
 

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <span>
 #include <type_traits>
@@ -77,56 +78,58 @@ struct SecondTimeConverter {
     vec<to_unit>   to_times;
     vec<from_unit> from_times;
     vec<f64>       factors;
+    f64            default_factor;
 
     explicit SecondTimeConverter(const Score<From>& score) :
         tpq(static_cast<f64>(score.ticks_per_quarter)) {
-        vec<Tempo<From>> tempos;
-        if (score.tempos->empty()) {
-            tempos
-                = {Tempo<From>(static_cast<from_unit>(0), 500000),
-                   Tempo<From>(std::numeric_limits<from_unit>::max(), 500000)};
-        } else {
-            tempos.reserve(score.tempos->size() + 2);
-            tempos.assign(score.tempos->cbegin(), score.tempos->cend());
-            std::sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
-                return lhs.time < rhs.time;
-            });
-            if (tempos.front().time != static_cast<from_unit>(0)) {
-                tempos.insert(tempos.begin(), Tempo<From>(static_cast<from_unit>(0), 500000));
+        constexpr i32    default_mspq = 500000;
+        vec<Tempo<From>> tempos(score.tempos->cbegin(), score.tempos->cend());
+        std::stable_sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.time < rhs.time;
+        });
+        const auto zero = std::lower_bound(
+            tempos.begin(), tempos.end(), from_unit{0}, [](const auto& tempo, const auto time) {
+                return tempo.time < time;
             }
-            tempos.emplace_back(std::numeric_limits<from_unit>::max(), tempos.back().mspq);
+        );
+        const auto origin = zero - tempos.begin();
+        if (zero == tempos.end() || zero->time != from_unit{0}) {
+            // Carry an active negative-time tempo across the origin.
+            const auto mspq = zero == tempos.begin() ? default_mspq : std::prev(zero)->mspq;
+            tempos.emplace(zero, from_unit{0}, mspq);
         }
 
         const auto self = static_cast<const Converter*>(this);
-
-        auto pivot_to   = static_cast<to_unit>(0);
-        auto pivot_from = static_cast<from_unit>(0);
-        auto cur_factor = self->get_factor(tempos.front());
-
-        to_times.reserve(tempos.size());
-        from_times.reserve(tempos.size());
+        default_factor  = self->get_factor(Tempo<From>(from_unit{0}, default_mspq));
+        to_times.resize(tempos.size());
+        from_times.reserve(tempos.size() + 1);
         factors.reserve(tempos.size());
+        for (const auto& tempo : tempos) {
+            from_times.push_back(tempo.time);
+            factors.push_back(self->get_factor(tempo));
+        }
+        // The sentinel bounds the final segment without requiring a converted pivot.
+        from_times.push_back(std::numeric_limits<from_unit>::max());
 
-        to_times.push_back(pivot_to);
-        from_times.push_back(pivot_from);
-        factors.push_back(cur_factor);
-
-        for (size_t index = 1; index < tempos.size(); ++index) {
-            // The last boundary is the maximum time, which is not representable in the target
-            // unit; range_index never selects its segment, so its pivot is never read.
-            if (index + 1 < tempos.size()) {
-                pivot_to = self->get_time(tempos[index].time, pivot_to, pivot_from, cur_factor);
-            }
-            pivot_from = tempos[index].time;
-            cur_factor = self->get_factor(tempos[index]);
-            to_times.push_back(pivot_to);
-            from_times.push_back(pivot_from);
-            factors.push_back(cur_factor);
+        // Keep zero fixed and integrate each segment using the tempo at its left boundary.
+        const auto count = tempos.end() - tempos.begin();
+        for (auto index = origin + 1; index < count; ++index) {
+            to_times[index] = self->get_time(
+                from_times[index], to_times[index - 1], from_times[index - 1], factors[index - 1]
+            );
+        }
+        for (auto index = origin; index > 0; --index) {
+            to_times[index - 1] = self->get_time(
+                from_times[index - 1], to_times[index], from_times[index], factors[index - 1]
+            );
         }
     }
 
     [[nodiscard]] to_unit time_value(const from_unit time) const {
-        const auto self  = static_cast<const Converter*>(this);
+        const auto self = static_cast<const Converter*>(this);
+        if (time < from_times.front()) {
+            return self->get_time(time, to_times.front(), from_times.front(), default_factor);
+        }
         const auto index = range_index(time);
         return self->get_time(time, to_times[index], from_times[index], factors[index]);
     }
@@ -194,9 +197,8 @@ struct SecondTimeConverter {
 
 private:
     [[nodiscard]] size_t range_index(const from_unit time) const {
-        // Segment i spans [from_times[i], from_times[i + 1]). Times before the first boundary
-        // (negative) extrapolate the first segment; the last boundary is the maximum time itself,
-        // so a time equal to it belongs to the last segment.
+        // Segment i spans [from_times[i], from_times[i + 1]). The last boundary is
+        // the maximum time itself, so a time equal to it belongs to the last segment.
         const auto pos
             = std::upper_bound(from_times.begin(), from_times.end(), time) - from_times.begin();
         const auto last = static_cast<std::ptrdiff_t>(from_times.size()) - 2;
@@ -209,6 +211,12 @@ private:
 
     void update_state(RangeState& state, const from_unit time) const {
         if (time < state.range.first || time >= state.range.second) {
+            if (time < from_times.front()) {
+                // Use an empty cached range with its pivot at the first boundary.
+                state
+                    = {{from_times.front(), from_times.front()}, to_times.front(), default_factor};
+                return;
+            }
             const auto index = range_index(time);
             state.range      = {from_times[index], from_times[index + 1]};
             state.pivot_to   = to_times[index];
@@ -270,7 +278,7 @@ struct Tick2SecondConverter : SecondTimeConverter<Tick2SecondConverter, Second, 
         const Tick::unit   pivot_from,
         const f64          factor
     ) {
-        return pivot_to + static_cast<Second::unit>(factor * (time - pivot_from));
+        return pivot_to + static_cast<Second::unit>(factor * (static_cast<i64>(time) - pivot_from));
     }
 };
 

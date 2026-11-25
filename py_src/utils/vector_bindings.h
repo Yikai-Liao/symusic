@@ -123,8 +123,9 @@ nanobind::class_<Vector> bind_vector_copy(
             .def(
                 "insert",
                 [](Vector& v, Py_ssize_t i, const Value& x) {
-                    if (i < 0) i += (Py_ssize_t)v.size();
-                    if (i < 0 || (size_t)i > v.size()) throw index_error();
+                    // Vector sizes fit in their signed iterator difference type.
+                    if (i < 0) i += static_cast<Py_ssize_t>(v.size());
+                    if (i < 0 || static_cast<size_t>(i) > v.size()) throw index_error();
                     v.insert(v.begin() + i, x);
                 },
                 "Insert object `arg1` before index `arg0`."
@@ -168,8 +169,10 @@ nanobind::class_<Vector> bind_vector_copy(
                     seq->reserve(length);
 
                     for (size_t i = 0; i < length; ++i) {
-                        seq->push_back(v[start]);
-                        start += step;
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
+                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
+                        seq->push_back(v[index]);
                     }
 
                     return seq;
@@ -188,8 +191,10 @@ nanobind::class_<Vector> bind_vector_copy(
                         );
 
                     for (size_t i = 0; i < length; ++i) {
-                        v[start] = value[i];
-                        start += step;
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
+                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
+                        v[index]         = value[i];
                     }
                 }
             )
@@ -198,7 +203,8 @@ nanobind::class_<Vector> bind_vector_copy(
                 auto [start, stop, step, length] = slice.compute(v.size());
                 if (length == 0) return;
 
-                stop = start + (length - 1) * step;
+                // A nonempty normalized slice has length at most the signed vector size.
+                stop = start + (static_cast<Py_ssize_t>(length) - 1) * step;
                 if (start > stop) {
                     std::swap(start, stop);
                     step = -step;
@@ -208,8 +214,7 @@ nanobind::class_<Vector> bind_vector_copy(
                     v.erase(v.begin() + start, v.begin() + stop + 1);
                 } else {
                     for (size_t i = 0; i < length; ++i) {
-                        v.erase(v.begin() + stop);
-                        stop -= step;
+                        v.erase(v.begin() + (stop - static_cast<Py_ssize_t>(i) * step));
                     }
                 }
             });
@@ -342,8 +347,9 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
             .def(
                 "insert",
                 [](self_t& v, Py_ssize_t i, const Value& x) {
-                    if (i < 0) i += (Py_ssize_t)v->size();
-                    if (i < 0 || (size_t)i > v->size()) throw index_error();
+                    // Vector sizes fit in their signed iterator difference type.
+                    if (i < 0) i += static_cast<Py_ssize_t>(v->size());
+                    if (i < 0 || static_cast<size_t>(i) > v->size()) throw index_error();
                     v->insert(v->begin() + i, x);
                 },
                 "Insert object `arg1` before index `arg0`."
@@ -387,8 +393,10 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                     seq->reserve(length);
 
                     for (size_t i = 0; i < length; ++i) {
-                        seq->push_back(v->operator[](start));
-                        start += step;
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
+                        const auto index = start + static_cast<Py_ssize_t>(i) * step;
+                        seq->push_back(v->operator[](index));
                     }
 
                     return seq;
@@ -407,8 +415,10 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                         );
 
                     for (size_t i = 0; i < length; ++i) {
-                        v->operator[](start) = other->operator[](i);
-                        start += step;
+                        // Compute only selected indices, whose signed offsets fit by slice
+                        // normalization.
+                        const auto index     = start + static_cast<Py_ssize_t>(i) * step;
+                        v->operator[](index) = other->operator[](i);
                     }
                 }
             )
@@ -417,7 +427,8 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                 auto [start, stop, step, length] = slice.compute(v->size());
                 if (length == 0) return;
 
-                stop = start + (length - 1) * step;
+                // A nonempty normalized slice has length at most the signed vector size.
+                stop = start + (static_cast<Py_ssize_t>(length) - 1) * step;
                 if (start > stop) {
                     std::swap(start, stop);
                     step = -step;
@@ -427,8 +438,7 @@ nanobind::class_<std::shared_ptr<Vector>> bind_shared_vector_copy(
                     v->erase(v->begin() + start, v->begin() + stop + 1);
                 } else {
                     for (size_t i = 0; i < length; ++i) {
-                        v->erase(v->begin() + stop);
-                        stop -= step;
+                        v->erase(v->begin() + (stop - static_cast<Py_ssize_t>(i) * step));
                     }
                 }
             });

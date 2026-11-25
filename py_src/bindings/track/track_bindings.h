@@ -50,10 +50,10 @@ Keep the events that start in ``[start, end)``; with *clip_end*, notes and pedal
 *end*. Times are not shifted. Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kTrimDoc       = R"pbdoc(
-Keep the notes and pedals inside ``[start, end)``. *start_mode* and *end_mode* decide what happens to
-notes and pedals that cross a boundary: ``"remove"`` drops them, ``"truncate"`` cuts them at it if
-they still overlap the window by *min_overlap*. Other events are clipped by time. Returns a deep
-copy unless *inplace* is true.
+Keep notes and pedals that overlap ``[start, end)`` by at least *min_overlap*. At each boundary,
+``"remove"`` drops crossing events, ``"truncate"`` cuts them at the boundary, and ``"retain"``
+keeps them whole. Other events are clipped by time. Invalid modes and negative *min_overlap* raise ``ValueError``. Returns a
+deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kSortDoc       = R"pbdoc(
 Sort every event list by its default sort key. Works in place unless *inplace* is false, which
@@ -61,7 +61,8 @@ returns a deep copy.
 )pbdoc";
 constexpr const char* kAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
-anchors must be sorted and of equal length, with at least two; events outside them are dropped.
+lists must be the same length and have at least two anchors. Original times must be strictly
+increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a deep copy unless *inplace* is true.
 )pbdoc";
 constexpr const char* kShiftTimeDoc
@@ -225,7 +226,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             return ans;
         }, nb::arg("start"), nb::arg("end"), nb::arg("min_overlap") = 0, nb::arg("start_mode") = "remove", nb::arg("end_mode") = "remove", nb::arg("inplace") = false,
             track_docstrings::kTrimDoc,
-            nb::sig(fmt::format("def trim(self, start: {}, end: {}, min_overlap: {} = 0, start_mode: str = 'remove', end_mode: str = 'remove', inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
+            nb::sig(fmt::format("def trim(self, start: {}, end: {}, min_overlap: {} = 0, start_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', end_mode: typing.Literal['remove', 'truncate', 'retain'] = 'remove', inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, flavor.scalar_label, name).c_str()))
         .def("sort", [](self_t& self, const bool reverse, const bool inplace) {
             self_t ans = inplace ? self : std::make_shared<track_t>(std::move(self->deepcopy()));
             ans->sort_inplace(reverse);
@@ -329,7 +330,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
            nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, /) -> bool"))
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : clone_track_vector(self);
-            for (auto& t : *ans) ops::adjust_time_inplace(*t, original_times, new_times);
+            ops::details::adjust_track_times(*ans, original_times, new_times);
             return ans;
         }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, track_docstrings::kVecAdjustDoc,
            nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str()))

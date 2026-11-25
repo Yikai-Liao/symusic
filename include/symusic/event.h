@@ -170,7 +170,11 @@ struct KeySignature : TimeStamp<T> {
     KeySignature(const unit time, const KeySignature<U>& other) :
         TimeStamp<T>{time}, key{other.key}, tonality{other.tonality} {}
 
-    [[nodiscard]] u8 degree() const { return (key * 5) % 12 + tonality * 12; }
+    [[nodiscard]] u8 degree() const {
+        const int pitch_class = ((key * 5) % 12 + 12) % 12;
+        // The pitch class is in [0, 11], with an offset of 12 for minor.
+        return static_cast<u8>(pitch_class + (tonality != 0 ? 12 : 0));
+    }
 
     auto default_key() const { return this->time; }
 };
