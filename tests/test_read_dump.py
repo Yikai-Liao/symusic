@@ -1,9 +1,11 @@
+from io import BytesIO
 from operator import attrgetter
 from pathlib import Path
 
 import numpy as np
 import pytest
-from symusic import Score
+from mido import MidiFile
+from symusic import ControlChange, Note, Score, Track
 
 from tests.utils import MIDI_PATHS_ALL
 
@@ -75,3 +77,25 @@ def test_midi_round_trip_with_lyrics():
     restored = Score.from_midi(score.dumps_midi())
     assert len(restored.tracks) == 1
     assert restored.tracks[0] == score.tracks[0]
+
+
+def test_dump_preserves_simultaneous_event_order():
+    score = Score(480)
+    track = Track(notes=[Note(4, 3, 62, 80), Note(0, 4, 60, 80), Note(4, 0, 61, 80)])
+    track.controls.append(ControlChange(4, 1, 50))
+    score.tracks.append(track)
+
+    midi = MidiFile(file=BytesIO(score.dumps_midi()))
+    tick = 0
+    events = []
+    for message in midi.tracks[0]:
+        tick += message.time
+        if tick == 4:
+            events.append((message.type, getattr(message, "note", None)))
+    assert events == [
+        ("control_change", None),
+        ("note_off", 60),
+        ("note_on", 61),
+        ("note_on", 62),
+        ("note_off", 61),
+    ]

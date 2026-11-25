@@ -2,6 +2,7 @@
 // Implementation of the Synthesizer bindings.
 //
 
+#include "utils/storage.h"
 #include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
 
@@ -14,29 +15,27 @@
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
-namespace synth_docstrings {
-constexpr const char* kSynthDoc   = R"pbdoc(
+constexpr const char* kSynthSynthDoc   = R"pbdoc(
 Renders scores to audio with an SF2 or SF3 SoundFont, using prestosynth.
 
 *sample_rate* is the output rate in Hz. *quality*, 0-4, selects how SoundFont samples are resampled
 to it: 0 is linear interpolation, 1 zero-order hold, 2-4 sinc from fastest to best. Other values
 raise ``ValueError``. Loading reads the whole SoundFont, so reuse one synthesizer for many scores.
 )pbdoc";
-constexpr const char* kRenderDoc  = R"pbdoc(
+constexpr const char* kSynthRenderDoc  = R"pbdoc(
 Render *score*, in any time unit, to a ``float32`` array of shape ``(channels, samples)``: 2
 channels with *stereo*, otherwise 1. Only notes are rendered; pedals, pitch bends and control
 changes have no effect. Samples are not normalized and can exceed 1.
 )pbdoc";
-constexpr const char* kDumpWavDoc = R"pbdoc(
+constexpr const char* kSynthDumpWavDoc = R"pbdoc(
 Write *data*, a ``float32`` array of shape ``(channels, samples)``, to a WAV file. With *use_int16*
 the file holds 16-bit PCM, which clips samples beyond 1; otherwise 32-bit float.
 )pbdoc";
-}   // namespace synth_docstrings
 
 nb::module_& bind_synthesizer(nb::module_& m) {
-    nb::class_<Synthesizer>(m, "Synthesizer", synth_docstrings::kSynthDoc)
+    nb::class_<Synthesizer>(m, "Synthesizer", kSynthSynthDoc)
         .def(
             nb::init<const std::string&, u32, u8>(),
             nb::arg("sf_path"),
@@ -52,29 +51,29 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         .def(
             "render",
             [](Synthesizer& self, const shared<Score<Tick>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+                return self.render(copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kSynthRenderDoc
         )
         .def(
             "render",
             [](Synthesizer& self, const shared<Score<Quarter>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+                return self.render(copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kSynthRenderDoc
         )
         .def(
             "render",
             [](Synthesizer& self, const shared<Score<Second>>& score, const bool stereo) {
-                return self.render(*score, stereo);
+                return self.render(copy_score_values(*score), stereo);
             },
             nb::arg("score"),
             nb::arg("stereo") = true,
-            synth_docstrings::kRenderDoc
+            kSynthRenderDoc
         );
 
     m.def(
@@ -91,9 +90,9 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         nb::arg("data"),
         nb::arg("sample_rate"),
         nb::arg("use_int16") = true,
-        synth_docstrings::kDumpWavDoc
+        kSynthDumpWavDoc
     );
     return m;
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

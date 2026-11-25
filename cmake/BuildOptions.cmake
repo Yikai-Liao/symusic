@@ -1,21 +1,3 @@
-# Names used before 0.6.1. An old name applies only when the new one is unset;
-# remove the aliases after the next minor release (see ROADMAP.md).
-foreach(_symusic_alias IN ITEMS
-        BUILD_SYMUSIC_PY:SYMUSIC_BUILD_PYTHON
-        BUILD_SYMUSIC_EXAMPLE:SYMUSIC_BUILD_EXAMPLES
-        BUILD_SYMUSIC_TEST:SYMUSIC_BUILD_TESTS
-        ENABLE_LTO:SYMUSIC_ENABLE_LTO
-        ENABLE_COVERAGE:SYMUSIC_ENABLE_COVERAGE
-        MEM_LEAK_WARNING:SYMUSIC_WARN_ON_LEAKS)
-    string(REPLACE ":" ";" _symusic_alias "${_symusic_alias}")
-    list(GET _symusic_alias 0 _symusic_old)
-    list(GET _symusic_alias 1 _symusic_new)
-    if(DEFINED ${_symusic_old} AND NOT DEFINED ${_symusic_new})
-        message(DEPRECATION "${_symusic_old} is deprecated; use ${_symusic_new}")
-        set(${_symusic_new} "${${_symusic_old}}" CACHE BOOL "Set from deprecated ${_symusic_old}")
-    endif()
-endforeach()
-
 option(SYMUSIC_BUILD_PYTHON "Build the Python extension and bundled ABC tools" OFF)
 option(SYMUSIC_BUILD_EXAMPLES "Build the C++ examples" OFF)
 option(SYMUSIC_BUILD_TESTS "Build the C++ tests" OFF)

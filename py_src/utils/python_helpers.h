@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "utils/storage.h"
 #include <span>
 #include <string>
 #include <string_view>
@@ -14,9 +15,8 @@
 #include <nanobind/operators.h>
 #include <pyvec.hpp>
 
-namespace pyutils {
+namespace symusic::py {
 
-using namespace symusic;
 namespace nb = nanobind;
 
 /// Helper alias for describing CPU contiguous ndarrays.
@@ -30,7 +30,13 @@ namespace nb = nanobind;
 /// Construct a shared_ptr-wrapped C++ object in-place for nanobind.
 template<typename T, typename... Args>
 void pyinit(std::shared_ptr<T>* self, Args&&... args) {
-    new (self) std::shared_ptr<T>(std::make_shared<T>(std::forward<Args>(args)...));
+    if constexpr (TimeEvent<T>) {
+        new (self) shared<T>(
+            std::make_shared<T>(symusic::detail::make_event<T>(std::forward<Args>(args)...))
+        );
+    } else {
+        new (self) shared<T>(std::make_shared<T>(std::forward<Args>(args)...));
+    }
 }
 
 /// Serialize a shared object to bytes using the ZPP format.
@@ -65,12 +71,10 @@ void vec_from_bytes(shared<pyvec<T>>& self, const nb::bytes& bytes) {
     new (&self) shared<pyvec<T>>(std::make_shared<pyvec<T>>(std::move(native_ans)));
 }
 
-namespace details {
 template<typename T>
 std::shared_ptr<pyvec<T>> to_shared_vec(vec<T>&& vec_) {
     return std::make_shared<pyvec<T>>(std::move(vec_));
 }
-}   // namespace details
 
 /// Conversion helpers used by the python API to ingest numpy arrays.
 template<TType T, typename unit = typename T::unit>
@@ -84,9 +88,11 @@ auto note_from_numpy(
     vec<Note<T>> ans;
     ans.reserve(size);
     for (size_t i = 0; i < size; ++i) {
-        ans.emplace_back(time(i), duration(i), pitch(i), velocity(i));
+        ans.push_back(
+            symusic::detail::make_event<Note<T>>(time(i), duration(i), pitch(i), velocity(i))
+        );
     }
-    return details::to_shared_vec(std::move(ans));
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -95,8 +101,10 @@ auto pedal_from_numpy(NDARR(unit, 1) time, NDARR(unit, 1) duration) {
     if (size != duration.size()) { throw std::invalid_argument("time, duration size mismatch"); }
     vec<Pedal<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), duration(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<Pedal<T>>(time(i), duration(i)));
+    }
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -107,8 +115,10 @@ auto controlchange_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) number, NDARR(u8
     }
     vec<ControlChange<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), number(i), value(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<ControlChange<T>>(time(i), number(i), value(i)));
+    }
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -119,8 +129,12 @@ auto timesig_from_numpy(NDARR(unit, 1) time, NDARR(u8, 1) numerator, NDARR(u8, 1
     }
     vec<TimeSignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), numerator(i), denominator(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(
+            symusic::detail::make_event<TimeSignature<T>>(time(i), numerator(i), denominator(i))
+        );
+    }
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -131,8 +145,10 @@ auto keysig_from_numpy(NDARR(unit, 1) time, NDARR(i8, 1) key, NDARR(u8, 1) tonal
     }
     vec<KeySignature<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), key(i), tonality(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<KeySignature<T>>(time(i), key(i), tonality(i)));
+    }
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -141,8 +157,10 @@ auto tempo_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) mspq) {
     if (size != mspq.size()) { throw std::invalid_argument("time, mspq must have the same size"); }
     vec<Tempo<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), mspq(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<Tempo<T>>(time(i), mspq(i)));
+    }
+    return to_shared_vec(std::move(ans));
 }
 
 template<TType T, typename unit = typename T::unit>
@@ -153,8 +171,10 @@ auto pitchbend_from_numpy(NDARR(unit, 1) time, NDARR(i32, 1) value) {
     }
     vec<PitchBend<T>> ans;
     ans.reserve(size);
-    for (size_t i = 0; i < size; ++i) { ans.emplace_back(time(i), value(i)); }
-    return details::to_shared_vec(std::move(ans));
+    for (size_t i = 0; i < size; ++i) {
+        ans.push_back(symusic::detail::make_event<PitchBend<T>>(time(i), value(i)));
+    }
+    return to_shared_vec(std::move(ans));
 }
 
-}   // namespace pyutils
+}   // namespace symusic::py

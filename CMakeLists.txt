@@ -16,6 +16,7 @@ set_property(GLOBAL PROPERTY RULE_MESSAGES ${CMAKE_RULE_MESSAGES})
 
 include(cmake/BuildOptions.cmake)
 include(cmake/Dependencies.cmake)
+include(GNUInstallDirs)
 
 add_library(symusic
     src/conversion.cpp
@@ -31,10 +32,23 @@ add_library(symusic
     src/utils.cpp
 )
 target_include_directories(symusic
-    PUBLIC include 3rdparty 3rdparty/pdqsort
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/3rdparty>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/3rdparty/pdqsort>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/symusic/vendor>
     PRIVATE 3rdparty/zpp_bits
 )
-target_link_libraries(symusic PUBLIC fmt::fmt-header-only minimidi prestosynth pyvec)
+target_compile_features(symusic PUBLIC cxx_std_20)
+target_link_libraries(symusic PUBLIC
+    $<BUILD_INTERFACE:fmt::fmt-header-only>
+    $<BUILD_INTERFACE:minimidi>
+    $<BUILD_INTERFACE:prestosynth>
+    $<INSTALL_INTERFACE:symusic::prestosynth>
+)
+target_compile_definitions(symusic INTERFACE $<INSTALL_INTERFACE:FMT_HEADER_ONLY>)
+add_library(symusic::symusic ALIAS symusic)
 set_property(TARGET symusic PROPERTY INTERPROCEDURAL_OPTIMIZATION ${SYMUSIC_CORE_LTO})
 if(SYMUSIC_CORE_LTO)
     # Consumers must link the core's LTO objects, without enabling IPO on
@@ -49,6 +63,8 @@ endif()
 
 if(SYMUSIC_BUILD_PYTHON)
     add_subdirectory(py_src)
+else()
+    include(cmake/InstallCore.cmake)
 endif()
 if(SYMUSIC_BUILD_EXAMPLES)
     add_subdirectory(examples/cpp)

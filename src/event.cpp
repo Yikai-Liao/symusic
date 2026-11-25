@@ -1,27 +1,6 @@
 #include <stdexcept>
-#include "MetaMacro.h"
 #include "symusic/event.h"
 namespace symusic {
-
-// extern to_string for simple events
-#define EVENT_TO_STRING(__COUNT, NAME)                            \
-    extern template std::string NAME<Tick>::to_string() const;    \
-    extern template std::string NAME<Quarter>::to_string() const; \
-    extern template std::string NAME<Second>::to_string() const;
-
-REPEAT_ON(
-    EVENT_TO_STRING,
-    Note,
-    Pedal,
-    ControlChange,
-    TimeSignature,
-    KeySignature,
-    Tempo,
-    PitchBend,
-    TextMeta
-)
-
-#undef EVENT_TO_STRING
 
 inline i8 safe_add(const i8 a, const i8 b) {
     const int ans = a + b;
@@ -32,23 +11,6 @@ inline i8 safe_add(const i8 a, const i8 b) {
     // The range check bounds the result to a MIDI data byte.
     return static_cast<i8>(ans);
 }
-
-#define SHIFT_TIME(__COUNT, NAME)                                                \
-    template<TType T>                                                            \
-    inline NAME<T>& NAME<T>::shift_time_inplace(const typename T::unit offset) { \
-        this->time = details::add_time(this->time, offset);                      \
-        return *this;                                                            \
-    }                                                                            \
-    template<TType T>                                                            \
-    inline NAME<T> NAME<T>::shift_time(const typename T::unit offset) const {    \
-        return NAME<T>(*this).shift_time_inplace(offset);                        \
-    }
-
-REPEAT_ON(
-    SHIFT_TIME, Note, Pedal, ControlChange, TimeSignature, KeySignature, Tempo, PitchBend, TextMeta
-)
-
-#undef SHIFT_TIME
 
 template<TType T>
 Note<T> Note<T>::shift_pitch(const i8 offset) const {
@@ -72,23 +34,29 @@ Note<T>& Note<T>::shift_velocity_inplace(const i8 offset) {
     return *this;
 }
 
-#define INSTANTIATE_EVENT(__COUNT, NAME) \
-    template struct NAME<Tick>;          \
-    template struct NAME<Quarter>;       \
-    template struct NAME<Second>;
-
-REPEAT_ON(
-    INSTANTIATE_EVENT,
-    Note,
-    Pedal,
-    ControlChange,
-    TimeSignature,
-    KeySignature,
-    Tempo,
-    PitchBend,
-    TextMeta
-)
-
-#undef INSTANTIATE_EVENT
+template struct Note<Tick>;
+template struct Note<Quarter>;
+template struct Note<Second>;
+template struct Pedal<Tick>;
+template struct Pedal<Quarter>;
+template struct Pedal<Second>;
+template struct ControlChange<Tick>;
+template struct ControlChange<Quarter>;
+template struct ControlChange<Second>;
+template struct TimeSignature<Tick>;
+template struct TimeSignature<Quarter>;
+template struct TimeSignature<Second>;
+template struct KeySignature<Tick>;
+template struct KeySignature<Quarter>;
+template struct KeySignature<Second>;
+template struct Tempo<Tick>;
+template struct Tempo<Quarter>;
+template struct Tempo<Second>;
+template struct PitchBend<Tick>;
+template struct PitchBend<Quarter>;
+template struct PitchBend<Second>;
+template struct TextMeta<Tick>;
+template struct TextMeta<Quarter>;
+template struct TextMeta<Second>;
 
 }   // namespace symusic

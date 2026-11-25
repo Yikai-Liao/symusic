@@ -1,14 +1,10 @@
 #pragma once
-#ifndef SYNTH_H
-#define SYNTH_H
-
 #include "prestosynth/synthesizer.h"
 #include "symusic/score.h"
 
 #include <filesystem>
 #include <stdexcept>
 #include <string>
-
 
 namespace symusic {
 class Synthesizer {
@@ -27,19 +23,18 @@ private:
 public:
     /// `quality` selects the libsamplerate converter as `4 - quality`, so only 0-4 are valid;
     /// larger values make every resampled sample silent.
-    Synthesizer(const std::string& sfPath, u32 sampleRate, u8 quality) :
-        synthesizer(sfPath, sampleRate, checked_quality(quality), 1) {}
+    Synthesizer(const std::string& soundfont_path, u32 sample_rate, u8 quality) :
+        synthesizer(soundfont_path, sample_rate, checked_quality(quality), 1) {}
 
-    Synthesizer(const std::filesystem::path& sfPath, u32 sampleRate, u8 quality) :
-        Synthesizer(sfPath.string(), sampleRate, quality) {}
+    Synthesizer(const std::filesystem::path& soundfont_path, u32 sample_rate, u8 quality) :
+        Synthesizer(soundfont_path.string(), sample_rate, quality) {}
 
     template<TType T>
     psynth::AudioData render(const Score<T>& score, bool stereo);
 };
 
-namespace details {
-psynth::Sequence toSequence(const Score<Second>& score);
+namespace detail {
+psynth::Sequence to_sequence(const Score<Second>& score);
 }
 
 }   // namespace symusic
-#endif   // SYNTH_H

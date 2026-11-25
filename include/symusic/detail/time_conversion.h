@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
-#define LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
-
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
@@ -12,17 +9,19 @@
 #include <type_traits>
 #include <utility>
 
+#include "symusic/detail/event_fields.h"
 #include "symusic/score.h"
 #include "symusic/utils.h"
 
-namespace symusic::details {
+namespace symusic::detail {
 
 template<typename Converter, TType To, TType From>
 struct SimpleTimeConverter {
     using from_unit = typename From::unit;
     using to_unit   = typename To::unit;
 
-    explicit SimpleTimeConverter(const Score<From>&) {}
+    template<typename S>
+    explicit SimpleTimeConverter(const Score<From, S>&) {}
 
     [[nodiscard]] to_unit time_value(const from_unit time) const {
         const auto self = static_cast<const Converter*>(this);
@@ -36,30 +35,32 @@ struct SimpleTimeConverter {
         return converted;
     }
 
-    template<template<class> class Event>
+    template<template<class> class Event, typename Range>
         requires TimeEvent<Event<From>>
-    [[nodiscard]] pyvec<Event<To>> time_vec(const pyvec<Event<From>>& data) const {
+    [[nodiscard]] vec<Event<To>> time_vec(const Range& data) const {
         vec<Event<To>> converted;
         converted.reserve(data.size());
-        for (const auto& event : data) { converted.emplace_back(time_value(event.time), event); }
-        return pyvec<Event<To>>(std::move(converted));
+        for (const auto& event : data) {
+            converted.push_back(detail::retime_event<Event<To>>(time_value(event.time), event));
+        }
+        return converted;
     }
 
-    template<template<class> class Event>
+    template<template<class> class Event, typename Range>
         requires HashDuration<Event<From>>
-    [[nodiscard]] pyvec<Event<To>> duration_vec(
-        const pyvec<Event<From>>& data, typename To::unit min_dur
-    ) const {
+    [[nodiscard]] vec<Event<To>> duration_vec(const Range& data, typename To::unit min_dur) const {
         min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
 
         vec<Event<To>> converted;
         converted.reserve(data.size());
         for (const auto& event : data) {
-            converted.emplace_back(
-                time_value(event.time), std::max(min_dur, time_value(event.duration)), event
+            converted.push_back(
+                detail::retime_event<Event<To>>(
+                    time_value(event.time), std::max(min_dur, time_value(event.duration)), event
+                )
             );
         }
-        return pyvec<Event<To>>(std::move(converted));
+        return converted;
     }
 };
 
@@ -80,10 +81,12 @@ struct SecondTimeConverter {
     vec<f64>       factors;
     f64            default_factor;
 
-    explicit SecondTimeConverter(const Score<From>& score) :
+    template<typename S>
+    explicit SecondTimeConverter(const Score<From, S>& score) :
         tpq(static_cast<f64>(score.ticks_per_quarter)) {
-        constexpr i32    default_mspq = 500000;
-        vec<Tempo<From>> tempos(score.tempos->cbegin(), score.tempos->cend());
+        constexpr i32    default_mspq  = 500000;
+        const auto&      source_tempos = S::get(score.tempos);
+        vec<Tempo<From>> tempos(source_tempos.begin(), source_tempos.end());
         std::stable_sort(tempos.begin(), tempos.end(), [](const auto& lhs, const auto& rhs) {
             return lhs.time < rhs.time;
         });
@@ -96,11 +99,13 @@ struct SecondTimeConverter {
         if (zero == tempos.end() || zero->time != from_unit{0}) {
             // Carry an active negative-time tempo across the origin.
             const auto mspq = zero == tempos.begin() ? default_mspq : std::prev(zero)->mspq;
-            tempos.emplace(zero, from_unit{0}, mspq);
+            tempos.insert(zero, detail::make_event<Tempo<From>>(from_unit{0}, mspq));
         }
 
         const auto self = static_cast<const Converter*>(this);
-        default_factor  = self->get_factor(Tempo<From>(from_unit{0}, default_mspq));
+        default_factor  = self->get_factor(
+            symusic::detail::make_event<Tempo<From>>(from_unit{0}, default_mspq)
+        );
         to_times.resize(tempos.size());
         from_times.reserve(tempos.size() + 1);
         factors.reserve(tempos.size());
@@ -150,34 +155,35 @@ struct SecondTimeConverter {
         return converted;
     }
 
-    template<template<class> class Event>
+    template<template<class> class Event, typename Range>
         requires TimeEvent<Event<From>>
-    [[nodiscard]] pyvec<Event<To>> time_vec(const pyvec<Event<From>>& data) const {
+    [[nodiscard]] vec<Event<To>> time_vec(const Range& data) const {
         vec<Event<To>> converted;
         converted.reserve(data.size());
-        if (data.empty()) { return pyvec<Event<To>>(std::move(converted)); }
+        if (data.empty()) { return converted; }
 
         const auto self  = static_cast<const Converter*>(this);
         auto       state = initial_state();
         for (const auto& event : data) {
             update_state(state, event.time);
-            converted.emplace_back(
-                self->get_time(event.time, state.pivot_to, state.range.first, state.factor), event
+            converted.push_back(
+                detail::retime_event<Event<To>>(
+                    self->get_time(event.time, state.pivot_to, state.range.first, state.factor),
+                    event
+                )
             );
         }
-        return pyvec<Event<To>>(std::move(converted));
+        return converted;
     }
 
-    template<template<class> class Event>
+    template<template<class> class Event, typename Range>
         requires HashDuration<Event<From>>
-    [[nodiscard]] pyvec<Event<To>> duration_vec(
-        const pyvec<Event<From>>& data, typename To::unit min_dur
-    ) const {
+    [[nodiscard]] vec<Event<To>> duration_vec(const Range& data, typename To::unit min_dur) const {
         min_dur = std::max(min_dur, static_cast<typename To::unit>(0));
 
         vec<Event<To>> converted;
         converted.reserve(data.size());
-        if (data.empty()) { return pyvec<Event<To>>(std::move(converted)); }
+        if (data.empty()) { return converted; }
 
         const auto self  = static_cast<const Converter*>(this);
         auto       state = initial_state();
@@ -190,9 +196,13 @@ struct SecondTimeConverter {
             update_state(state, end_time);
             const auto end
                 = self->get_time(end_time, state.pivot_to, state.range.first, state.factor);
-            converted.emplace_back(start, std::max(min_dur, sub_time<to_unit>(end, start)), event);
+            converted.push_back(
+                retime_event<Event<To>>(
+                    start, std::max(min_dur, sub_time<to_unit>(end, start)), event
+                )
+            );
         }
-        return pyvec<Event<To>>(std::move(converted));
+        return converted;
     }
 
 private:
@@ -246,7 +256,8 @@ struct Second2SecondConverter : SimpleTimeConverter<Second2SecondConverter, Seco
 struct Tick2QuarterConverter : SimpleTimeConverter<Tick2QuarterConverter, Quarter, Tick> {
     f32 tpq;
 
-    explicit Tick2QuarterConverter(const Score<Tick>& score) :
+    template<typename S>
+    explicit Tick2QuarterConverter(const Score<Tick, S>& score) :
         SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Quarter::unit time(const Tick::unit value) const {
@@ -257,7 +268,8 @@ struct Tick2QuarterConverter : SimpleTimeConverter<Tick2QuarterConverter, Quarte
 struct Quarter2TickConverter : SimpleTimeConverter<Quarter2TickConverter, Tick, Quarter> {
     f32 tpq;
 
-    explicit Quarter2TickConverter(const Score<Quarter>& score) :
+    template<typename S>
+    explicit Quarter2TickConverter(const Score<Quarter, S>& score) :
         SimpleTimeConverter(score), tpq(static_cast<f32>(score.ticks_per_quarter)) {}
 
     [[nodiscard]] Tick::unit time(const Quarter::unit value) const {
@@ -333,8 +345,8 @@ struct Second2QuarterConverter : SecondTimeConverter<Second2QuarterConverter, Qu
     }
 };
 
-template<TType To, TType From>
-[[nodiscard]] auto make_time_converter(const Score<From>& score) {
+template<TType To, TType From, typename S>
+[[nodiscard]] auto make_time_converter(const Score<From, S>& score) {
     if constexpr (std::is_same_v<To, Tick> && std::is_same_v<From, Tick>) {
         return Tick2TickConverter(score);
     } else if constexpr (std::is_same_v<To, Quarter> && std::is_same_v<From, Quarter>) {
@@ -358,6 +370,4 @@ template<TType To, TType From>
     }
 }
 
-}   // namespace symusic::details
-
-#endif   // LIBSYMUSIC_DETAIL_TIME_CONVERSION_H
+}   // namespace symusic::detail

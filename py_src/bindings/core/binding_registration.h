@@ -6,10 +6,10 @@
 
 #include <nanobind/nanobind.h>
 
-namespace symusic {
+namespace symusic::py {
 
 void bind_event_types(nanobind::module_& m);
 void bind_track_types(nanobind::module_& m);
 void bind_score_types(nanobind::module_& m);
 
-}   // namespace symusic
+}   // namespace symusic::py

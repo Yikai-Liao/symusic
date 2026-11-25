@@ -4,28 +4,25 @@
 
 #pragma once
 
+#include "utils/storage.h"
 #include <optional>
 #include <string>
 #include <tuple>
 
-#include "MetaMacro.h"
 #include "../../utils/python_helpers.h"
 #include "../../utils/vector_bindings.h"
 #include <fmt/format.h>
 #include "../docstring_helpers.h"
 
-namespace pyutils {
+namespace symusic::py {
 
 namespace nb = nanobind;
-using namespace symusic;
-
-namespace event_docstrings {
 
 // Class docstring: the description followed by the unit of the time fields. Rendered once per
 // event type and unit and kept alive for the lifetime of the module.
 template<TType T>
 std::string with_units(std::string_view description, std::string_view time_fields) {
-    constexpr auto flavor = docstring_helpers::time_flavor<T>();
+    constexpr auto flavor = time_flavor<T>();
     return fmt::format(
         "{}\n\n{} in {} ({}).", description, time_fields, flavor.units, flavor.scalar_label
     );
@@ -105,59 +102,58 @@ const char* text_meta_doc() {
     return doc.c_str();
 }
 
-constexpr const char* kShiftTimeDoc
+constexpr const char* kEventShiftTimeDoc
     = R"pbdoc(Add *offset* to ``time``. Returns a new event unless *inplace* is true.)pbdoc";
-constexpr const char* kCopyCtorDoc = R"pbdoc(Create a copy of *other*.)pbdoc";
-constexpr const char* kCopyDoc
+constexpr const char* kEventCopyCtorDoc = R"pbdoc(Create a copy of *other*.)pbdoc";
+constexpr const char* kEventCopyDoc
     = R"pbdoc(Return a copy of the event. *deep* has no effect, because events share no data.)pbdoc";
-constexpr const char* kUseCountDoc
+constexpr const char* kEventUseCountDoc
     = R"pbdoc(Return the number of references to the event, for debugging.)pbdoc";
 
-constexpr const char* kVecSortDoc   = R"pbdoc(
+constexpr const char* kEventVecSortDoc   = R"pbdoc(
 Sort by *key*, or by the default sort key of the event type. Works in place unless *inplace* is
 false; the returned copy shares the events.
 )pbdoc";
-constexpr const char* kVecFilterDoc = R"pbdoc(
+constexpr const char* kEventVecFilterDoc = R"pbdoc(
 Keep the events for which *function* returns true. Works in place unless *inplace* is false; the
 returned copy shares the events.
 )pbdoc";
-constexpr const char* kVecIsSortedDoc
+constexpr const char* kEventVecIsSortedDoc
     = R"pbdoc(Return whether the list is sorted by *key*, or by the default sort key.)pbdoc";
-constexpr const char* kVecAdjustTimeDoc = R"pbdoc(
+constexpr const char* kEventVecAdjustTimeDoc = R"pbdoc(
 Map times piecewise linearly through the anchor pairs ``(original_times[i], new_times[i])``. The
 lists must be the same length and have at least two anchors. Original times must be strictly
 increasing, and new times must be nondecreasing. Events outside the anchor range are dropped.
 Returns a list of new events unless *inplace* is true.
 )pbdoc";
-constexpr const char* kVecNumpyDoc
+constexpr const char* kEventVecNumpyDoc
     = R"pbdoc(Return a dict with one NumPy array per field. The arrays are copies.)pbdoc";
-constexpr const char* kVecFromNumpyDoc
+constexpr const char* kEventVecFromNumpyDoc
     = R"pbdoc(Build a list from one NumPy array per field; the arrays must have equal length.)pbdoc";
-constexpr const char* kTextMetaNumpyDoc
+constexpr const char* kEventTextMetaNumpyDoc
     = R"pbdoc(Not supported for text events; raises ``RuntimeError``.)pbdoc";
 
-constexpr const char* kNoteEmptyDoc
+constexpr const char* kEventNoteEmptyDoc
     = R"pbdoc(Return whether the duration or the velocity is 0 or less.)pbdoc";
-constexpr const char* kEndDoc
+constexpr const char* kEventEndDoc
     = R"pbdoc(``time + duration``. Setting it changes ``duration``.)pbdoc";
-constexpr const char* kNoteShiftPitchDoc    = R"pbdoc(
+constexpr const char* kEventNoteShiftPitchDoc    = R"pbdoc(
 Add *offset* to ``pitch``. Returns a new note unless *inplace* is true. Raises ``ValueError`` when
 the result leaves -128..127.
 )pbdoc";
-constexpr const char* kNoteShiftVelocityDoc = R"pbdoc(
+constexpr const char* kEventNoteShiftVelocityDoc = R"pbdoc(
 Add *offset* to ``velocity``. Returns a new note unless *inplace* is true. Raises ``ValueError``
 when the result leaves -128..127.
 )pbdoc";
 
-constexpr const char* kTempoInitDoc = R"pbdoc(
+constexpr const char* kEventTempoInitDoc = R"pbdoc(
 Create a tempo change from *qpm* or *mspq*; *qpm* wins when both are given. Raises ``ValueError``
 when neither is given.
 )pbdoc";
-constexpr const char* kTempoQpmDoc  = R"pbdoc(
+constexpr const char* kEventTempoQpmDoc  = R"pbdoc(
 Quarter notes per minute, computed from ``mspq``. Setting it rounds ``mspq`` to the nearest
 microsecond.
 )pbdoc";
-}   // namespace event_docstrings
 
 template<typename T>
 auto bind_time_stamp(
@@ -183,7 +179,7 @@ auto bind_time_stamp(
                      nb::class_<shared<T>>(m, name.c_str(), nb::sig(event_sig.c_str()));
 
     // clang-format off
-    constexpr auto flavor = docstring_helpers::time_flavor<typename T::ttype>();
+    constexpr auto flavor = time_flavor<typename T::ttype>();
     event
         .def_prop_rw(
             RW_COPY(unit, "time", time),
@@ -195,19 +191,19 @@ auto bind_time_stamp(
             "ttype",
             [](const self_t&) { return typename T::ttype(); },
             "The time unit.",
-            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", docstring_helpers::time_flavor<typename T::ttype>().suffix).c_str()))
+            nb::for_getter(nb::sig(fmt::format("def ttype(self, /) -> symusic.core.{}", time_flavor<typename T::ttype>().suffix).c_str()))
         )
         .def(
             "shift_time",
             [](const self_t& self, const unit offset, const bool inplace) {
                 self_t ans = inplace ? self : std::make_shared<T>(*self);
-                ans->shift_time_inplace(offset);
+                symusic::shift_time(*ans, offset);
                 return ans;
             },
             nb::rv_policy::copy,
             nb::arg("offset"),
             nb::arg("inplace") = false,
-            event_docstrings::kShiftTimeDoc,
+            kEventShiftTimeDoc,
             nb::sig(fmt::format("def shift_time(self, offset: {}, inplace: bool = False) -> {}",
                                 flavor.scalar_label,
                                 name).c_str())
@@ -216,14 +212,14 @@ auto bind_time_stamp(
             "__init__",
             [](self_t* self, const self_t& other) { new (self) shared<T>(std::make_shared<T>(*other)); },
             nb::arg("other"),
-            event_docstrings::kCopyCtorDoc,
+            kEventCopyCtorDoc,
             nb::sig(fmt::format("def __init__(self, other: {}, /) -> None", name).c_str())
         )
         .def(
             "copy",
             [](const shared<T>& self, const bool deep) { return std::make_shared<T>(*self); },
             nb::arg("deep") = true,
-            event_docstrings::kCopyDoc,
+            kEventCopyDoc,
             nb::sig(fmt::format("def copy(self, deep: bool = True, /) -> {}", name).c_str())
         )
         .def("__copy__", copy_func, nb::sig(fmt::format("def __copy__(self, /) -> {}", name).c_str()))
@@ -242,7 +238,7 @@ auto bind_time_stamp(
         .def(nb::self != nb::self) // NOLINT
         .def("__getstate__", &to_bytes<T>, nb::sig("def __getstate__(self, /) -> bytes"))
         .def("__setstate__", &from_bytes<T>, nb::sig(fmt::format("def __setstate__(self, state: bytes, /) -> {}", name).c_str()))
-        .def("__use_count", [](const shared<T>& self) { return self.use_count(); }, event_docstrings::kUseCountDoc, nb::sig("def __use_count(self, /) -> int"))
+        .def("__use_count", [](const shared<T>& self) { return self.use_count(); }, kEventUseCountDoc, nb::sig("def __use_count(self, /) -> int"))
     ;
 
     const auto list_name = name + "List";
@@ -275,7 +271,7 @@ auto bind_time_stamp(
             nb::arg("key")      = nb::none(),
             nb::arg("reverse")  = false,
             nb::arg("inplace")  = true,
-            event_docstrings::kVecSortDoc,
+            kEventVecSortDoc,
             nb::sig(fmt::format("def sort(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, inplace: bool = True) -> {}", list_name).c_str())
         )
         .def(
@@ -291,7 +287,7 @@ auto bind_time_stamp(
             nb::rv_policy::copy,
             nb::arg("function"),
             nb::arg("inplace") = true,
-            event_docstrings::kVecFilterDoc,
+            kEventVecFilterDoc,
             nb::sig(fmt::format("def filter(self, function: typing.Callable, inplace: bool = True) -> {}", list_name).c_str())
         )
         .def(
@@ -304,21 +300,21 @@ auto bind_time_stamp(
             },
             nb::arg("key")     = nb::none(),
             nb::arg("reverse") = false,
-            event_docstrings::kVecIsSortedDoc,
+            kEventVecIsSortedDoc,
             nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False) -> bool")
         )
         .def(
             "adjust_time",
             [](vec_t& v, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) -> vec_t {
                 vec_t ans = inplace ? v : std::make_shared<pyvec<T>>(v->deepcopy());
-                ops::adjust_time_inplace(*ans, original_times, new_times);
+                ops::adjust_time_inplace<true, SharedStorage>(*ans, original_times, new_times);
                 return ans;
             },
             nb::rv_policy::copy,
             nb::arg("original_times"),
             nb::arg("new_times"),
             nb::arg("inplace") = false,
-            event_docstrings::kVecAdjustTimeDoc,
+            kEventVecAdjustTimeDoc,
             nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str())
         )
     ;
@@ -328,24 +324,20 @@ auto bind_time_stamp(
     return std::make_tuple(event, vec_class);
 }
 
-#define HELPER(x) x
+template<TimeEvent E>
+nb::dict events_to_numpy(const shared<pyvec<E>>& events) {
+    auto        columns = std::make_unique<EventColumns<E>>(*events);
+    auto*       data    = columns.get();
+    nb::capsule owner(data, [](void* p) noexcept { delete static_cast<EventColumns<E>*>(p); });
+    columns.release();
 
-#define ADD_TO_DICT(__COUNT, NAME)                                                  \
-    ans[#NAME] = nb::ndarray<nb::numpy, typename decltype(temp->NAME)::value_type>( \
-        temp->NAME.data(), {size}, deleter                                          \
-    );
-
-#define TO_NUMPY_INNER(ARR_TYPE, ...)                                                             \
-    [](const shared<pyvec<self_inner>>& self) {                                                   \
-        auto*       temp = new ARR_TYPE<T>(*self);                                                \
-        nb::capsule deleter(temp, [](void* p) noexcept { delete static_cast<ARR_TYPE<T>*>(p); }); \
-        size_t      size = self->size();                                                          \
-        nb::dict    ans{};                                                                        \
-        REPEAT_ON(ADD_TO_DICT, __VA_ARGS__)                                                       \
-        return ans;                                                                               \
-    }
-
-#define TO_NUMPY(...) HELPER(TO_NUMPY_INNER(__VA_ARGS__))
+    nb::dict result;
+    data->for_each([&](const char* name, auto& column) {
+        using Value  = typename std::remove_reference_t<decltype(column)>::value_type;
+        result[name] = nb::ndarray<nb::numpy, Value>(column.data(), {column.size()}, owner);
+    });
+    return result;
+}
 
 template<TType T>
 auto bind_note(nb::module_& m, const std::string& name_) {
@@ -354,10 +346,9 @@ auto bind_note(nb::module_& m, const std::string& name_) {
     using self_inner = Note<T>;
 
     const std::string name = "Note" + name_;
-    auto [note, note_vec]
-        = bind_time_stamp<Note<T>>(m, name, "Note", name_, event_docstrings::note_doc<T>());
+    auto [note, note_vec]  = bind_time_stamp<Note<T>>(m, name, "Note", name_, note_doc<T>());
 
-    auto to_numpy = TO_NUMPY(NoteArr, time, duration, pitch, velocity);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     note.def_prop_rw(RW_COPY(unit,  "start",    time), "Alias of ``time``.")
@@ -369,9 +360,9 @@ auto bind_note(nb::module_& m, const std::string& name_) {
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
-            [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time);},
-            event_docstrings::kEndDoc)
-        .def("empty", [](const self_t& self) { return self->empty(); }, event_docstrings::kNoteEmptyDoc)
+            [](self_t& self, unit value) { self->duration = symusic::detail::sub_time(value, self->time);},
+            kEventEndDoc)
+        .def("empty", [](const self_t& self) { return self->empty(); }, kEventNoteEmptyDoc)
         .def(
             "shift_pitch",
             [](self_t& self, const int8_t offset, const bool inplace) {
@@ -381,7 +372,7 @@ auto bind_note(nb::module_& m, const std::string& name_) {
             }, nb::rv_policy::copy,
             nb::arg("offset"),
             nb::arg("inplace") = false,
-            event_docstrings::kNoteShiftPitchDoc
+            kEventNoteShiftPitchDoc
         )
         .def(
             "shift_velocity",
@@ -392,13 +383,13 @@ auto bind_note(nb::module_& m, const std::string& name_) {
             }, nb::rv_policy::copy,
             nb::arg("offset"),
             nb::arg("inplace") = false,
-            event_docstrings::kNoteShiftVelocityDoc
+            kEventNoteShiftVelocityDoc
         )
     ;
 
     note_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &note_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &note_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(note, note_vec);
@@ -410,12 +401,11 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     using self_t     = shared<KeySignature<T>>;
     using self_inner = KeySignature<T>;
 
-    const std::string name    = "KeySignature" + name_;
-    auto [keysig, keysig_vec] = bind_time_stamp<KeySignature<T>>(
-        m, name, "KeySignature", name_, event_docstrings::key_signature_doc<T>()
-    );
+    const std::string name = "KeySignature" + name_;
+    auto [keysig, keysig_vec]
+        = bind_time_stamp<KeySignature<T>>(m, name, "KeySignature", name_, key_signature_doc<T>());
 
-    auto to_numpy = TO_NUMPY(KeySignatureArr, time, key, tonality);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     keysig.def_prop_rw(RW_COPY(i8,    "key", key))
@@ -425,8 +415,8 @@ auto bind_keysig(nb::module_& m, const std::string& name_) {
     ;
 
     keysig_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &keysig_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &keysig_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(keysig, keysig_vec);
@@ -440,10 +430,10 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
 
     const std::string name      = "TimeSignature" + name_;
     auto [timesig, timesig_vec] = bind_time_stamp<TimeSignature<T>>(
-        m, name, "TimeSignature", name_, event_docstrings::time_signature_doc<T>()
+        m, name, "TimeSignature", name_, time_signature_doc<T>()
     );
 
-    auto to_numpy = TO_NUMPY(TimeSignatureArr, time, numerator, denominator);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     timesig.def_prop_rw(RW_COPY(u8, "numerator", numerator))
@@ -453,8 +443,8 @@ auto bind_timesig(nb::module_& m, const std::string& name_) {
     ;
 
     timesig_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &timesig_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &timesig_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(timesig, timesig_vec);
@@ -468,10 +458,10 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
 
     const std::string name                  = "ControlChange" + name_;
     auto [controlchange, controlchange_vec] = bind_time_stamp<ControlChange<T>>(
-        m, name, "ControlChange", name_, event_docstrings::control_change_doc<T>()
+        m, name, "ControlChange", name_, control_change_doc<T>()
     );
 
-    auto to_numpy = TO_NUMPY(ControlChangeArr, time, number, value);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     controlchange
@@ -482,8 +472,8 @@ auto bind_controlchange(nb::module_& m, const std::string& name_) {
     ;
 
     controlchange_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &controlchange_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &controlchange_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(controlchange, controlchange_vec);
@@ -495,11 +485,10 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Pedal<T>>;
     using self_inner = Pedal<T>;
 
-    const std::string name = "Pedal" + name_;
-    auto [pedal, pedal_vec]
-        = bind_time_stamp<Pedal<T>>(m, name, "Pedal", name_, event_docstrings::pedal_doc<T>());
+    const std::string name  = "Pedal" + name_;
+    auto [pedal, pedal_vec] = bind_time_stamp<Pedal<T>>(m, name, "Pedal", name_, pedal_doc<T>());
 
-    auto to_numpy = TO_NUMPY(PedalArr, time, duration);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     pedal
@@ -508,15 +497,15 @@ auto bind_pedal(nb::module_& m, const std::string& name_) {
         .def_prop_rw(
             "end",
             [](const self_t& self) { return self->end(); },
-            [](self_t& self, unit value) { self->duration = symusic::details::sub_time(value, self->time); },
-            event_docstrings::kEndDoc)
+            [](self_t& self, unit value) { self->duration = symusic::detail::sub_time(value, self->time); },
+            kEventEndDoc)
         .def("__init__", &pyinit<Pedal<T>, unit, unit>,
             nb::arg("time"), nb::arg("duration"))
     ;
 
     pedal_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &pedal_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &pedal_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(pedal, pedal_vec);
@@ -528,11 +517,10 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
     using self_t     = shared<Tempo<T>>;
     using self_inner = Tempo<T>;
 
-    const std::string name = "Tempo" + name_;
-    auto [tempo, tempo_vec]
-        = bind_time_stamp<Tempo<T>>(m, name, "Tempo", name_, event_docstrings::tempo_doc<T>());
+    const std::string name  = "Tempo" + name_;
+    auto [tempo, tempo_vec] = bind_time_stamp<Tempo<T>>(m, name, "Tempo", name_, tempo_doc<T>());
 
-    auto to_numpy = TO_NUMPY(TempoArr, time, mspq);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     tempo
@@ -549,7 +537,7 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
                 throw std::invalid_argument("qpm or mspq must be specified");
             }
         }, nb::arg("time"), nb::arg("qpm") = nb::none(), nb::arg("mspq") = nb::none(),
-            event_docstrings::kTempoInitDoc)
+            kEventTempoInitDoc)
         .def_prop_rw(
             "tempo",
             [](const self_t& self) { return self->qpm(); },
@@ -559,12 +547,12 @@ auto bind_tempo(nb::module_& m, const std::string& name_) {
             "qpm",
             [](const self_t& self) { return self->qpm(); },
             [](self_t& self, f64 value) { self->set_qpm(value); },
-            event_docstrings::kTempoQpmDoc)
+            kEventTempoQpmDoc)
     ;
 
     tempo_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &tempo_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &tempo_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(tempo, tempo_vec);
@@ -576,12 +564,11 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     using self_t     = shared<PitchBend<T>>;
     using self_inner = PitchBend<T>;
 
-    const std::string name          = "PitchBend" + name_;
-    auto [pitchbend, pitchbend_vec] = bind_time_stamp<PitchBend<T>>(
-        m, name, "PitchBend", name_, event_docstrings::pitch_bend_doc<T>()
-    );
+    const std::string name = "PitchBend" + name_;
+    auto [pitchbend, pitchbend_vec]
+        = bind_time_stamp<PitchBend<T>>(m, name, "PitchBend", name_, pitch_bend_doc<T>());
 
-    auto to_numpy = TO_NUMPY(PitchBendArr, time, value);
+    auto to_numpy = &events_to_numpy<self_inner>;
 
     // clang-format off
     pitchbend
@@ -591,8 +578,8 @@ auto bind_pitchbend(nb::module_& m, const std::string& name_) {
     ;
 
     pitchbend_vec
-        .def("numpy", to_numpy, event_docstrings::kVecNumpyDoc)
-        .def_static("from_numpy", &pitchbend_from_numpy<T>, event_docstrings::kVecFromNumpyDoc)
+        .def("numpy", to_numpy, kEventVecNumpyDoc)
+        .def_static("from_numpy", &pitchbend_from_numpy<T>, kEventVecFromNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(pitchbend, pitchbend_vec);
@@ -603,10 +590,9 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     using unit   = typename T::unit;
     using self_t = shared<TextMeta<T>>;
 
-    const std::string name        = "TextMeta" + name_;
-    auto [textmeta, textmeta_vec] = bind_time_stamp<TextMeta<T>>(
-        m, name, "TextMeta", name_, event_docstrings::text_meta_doc<T>()
-    );
+    const std::string name = "TextMeta" + name_;
+    auto [textmeta, textmeta_vec]
+        = bind_time_stamp<TextMeta<T>>(m, name, "TextMeta", name_, text_meta_doc<T>());
 
     // clang-format off
     textmeta
@@ -618,18 +604,13 @@ auto bind_textmeta(nb::module_& m, const std::string& name_) {
     textmeta_vec
         .def("numpy", [](const self_t&) {
             throw std::runtime_error("TextMeta does not support numpy");
-        }, event_docstrings::kTextMetaNumpyDoc)
+        }, kEventTextMetaNumpyDoc)
         .def_static("from_numpy", []() {
             throw std::runtime_error("TextMeta does not support from_numpy");
-        }, event_docstrings::kTextMetaNumpyDoc)
+        }, kEventTextMetaNumpyDoc)
     ;
     // clang-format on
     return std::make_tuple(textmeta, textmeta_vec);
 }
 
-#undef TO_NUMPY
-#undef TO_NUMPY_INNER
-#undef ADD_TO_DICT
-#undef HELPER
-
-}   // namespace pyutils
+}   // namespace symusic::py

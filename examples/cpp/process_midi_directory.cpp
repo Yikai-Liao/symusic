@@ -29,13 +29,7 @@ std::vector<uint8_t> read_file_to_bytes(const fs::path& path) {
 // Function to count notes in a score
 size_t count_notes(const symusic::Score<symusic::Tick>& score) {
     size_t note_count = 0;
-    if (score.tracks) {                               // Check if tracks pointer is valid
-        for (const auto& track : *score.tracks) {     // Dereference score.tracks
-            if (track && track->notes) {              // Check if track and track->notes are valid
-                note_count += track->notes->size();   // Use -> for shared_ptr access
-            }
-        }
-    }
+    for (const auto& track : score.tracks) { note_count += track.note_num(); }
     return note_count;
 }
 

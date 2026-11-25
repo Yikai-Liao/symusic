@@ -409,3 +409,11 @@ def test_note_shift_rejects_midi_range(name, offset):
     assert getattr(note, name) == 60
     assert getattr(shift(1), name) == 61
     assert getattr(note, name) == 60
+
+
+@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+def test_score_and_track_class_docstrings(ttype):
+    score = Score(ttype=ttype)
+    track = Track(ttype=ttype)
+    assert type(score).__doc__.startswith("A score:")
+    assert type(track).__doc__.startswith("A part:")

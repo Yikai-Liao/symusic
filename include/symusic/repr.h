@@ -1,19 +1,15 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_REPR_H
-#define LIBSYMUSIC_REPR_H
-
 #include <string>
-#include <iostream>
+#include <ostream>
 
 #include "fmt/core.h"
 #include "fmt/ranges.h"
-#include "MetaMacro.h"
 
 #include "symusic/event.h"
+#include "symusic/detail/event_fields.h"
 #include "symusic/track.h"
 #include "symusic/score.h"
-
 
 // define fmt::formatter for symusic::Note
 // support different format for Note
@@ -21,25 +17,24 @@
 // :s for short Note(0.22, 0.51, 65, 0.5)
 // if nothing, use short format, i.e. "{}" is the same as "{:s}"
 
-namespace symusic::details {
+namespace symusic::detail {
 struct BaseParser {};
-}   // namespace symusic::details
+}   // namespace symusic::detail
 
 namespace fmt {
 
-#define TAG_FORMAT(__COUNT, NAME)                                                     \
-    template<>                                                                        \
-    struct formatter<symusic::NAME> {                                                 \
-        constexpr auto parse(const format_parse_context& ctx) { return ctx.begin(); } \
-        template<typename FmtCtx>                                                     \
-        constexpr auto format(const symusic::NAME& _, FmtCtx& ctx) const {            \
-            return fmt::format_to(ctx.out(), #NAME);                                  \
-        }                                                                             \
-    };
+template<symusic::TType T>
+struct formatter<T> {
+    constexpr auto parse(const format_parse_context& ctx) { return ctx.begin(); }
 
-REPEAT_ON(TAG_FORMAT, Tick, Quarter, Second)
-
-#undef TAG_FORMAT
+    template<typename FmtCtx>
+    auto format(T, FmtCtx& ctx) const {
+        if constexpr (std::same_as<T, symusic::Tick>) return fmt::format_to(ctx.out(), "Tick");
+        if constexpr (std::same_as<T, symusic::Quarter>)
+            return fmt::format_to(ctx.out(), "Quarter");
+        if constexpr (std::same_as<T, symusic::Second>) return fmt::format_to(ctx.out(), "Second");
+    }
+};
 
 template<>
 struct formatter<symusic::DataFormat> {
@@ -61,7 +56,7 @@ struct formatter<symusic::DataFormat> {
 };
 
 template<>
-struct formatter<symusic::details::BaseParser> {
+struct formatter<symusic::detail::BaseParser> {
     char presentation = 's';
 
     constexpr auto parse(const format_parse_context& ctx) {
@@ -73,122 +68,42 @@ struct formatter<symusic::details::BaseParser> {
     }
 };
 
-#define INNER_FORMATTER(STRUCT_NAME, ARG_NAME, DETAIL_FORMAT, SHORT_FORMAT, ...)          \
-    template<symusic::TType T>                                                            \
-    struct formatter<symusic::STRUCT_NAME<T>> : formatter<symusic::details::BaseParser> { \
-        template<typename FmtCtx>                                                         \
-        auto format(const symusic::STRUCT_NAME<T>& ARG_NAME, FmtCtx& ctx) const {         \
-            if (this->presentation == 'd') {                                              \
-                return fmt::format_to(ctx.out(), DETAIL_FORMAT, ##__VA_ARGS__);           \
-            } else {                                                                      \
-                return fmt::format_to(ctx.out(), SHORT_FORMAT, ##__VA_ARGS__);            \
-            }                                                                             \
-        }                                                                                 \
-    };
-
-// this is to make msvc work
-#define HELPER(X) X
-#define FORMATTER(...) HELPER(INNER_FORMATTER(__VA_ARGS__))
-
-// T is numeric type
-template<typename T>
-    requires std::is_arithmetic_v<T>
-std::string fix_float(const T value) {
-    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
-        return fmt::format("{:.2f}", value);
+template<symusic::TimeEvent E>
+struct formatter<E> : formatter<symusic::detail::BaseParser> {
+    template<typename FmtCtx>
+    auto format(const E& event, FmtCtx& ctx) const {
+        using T              = typename E::ttype;
+        constexpr auto name  = symusic::detail::event_name<E>;
+        auto           out   = fmt::format_to(ctx.out(), "{}(", name);
+        bool           first = true;
+        auto           field = [&](std::string_view label, const auto& value) {
+            if (!first) out = fmt::format_to(out, ", ");
+            first = false;
+            if (this->presentation == 'd') out = fmt::format_to(out, "{}=", label);
+            using V = std::remove_cvref_t<decltype(value)>;
+            if constexpr (std::is_same_v<V, std::string>) {
+                out = fmt::format_to(out, "'{}'", value);
+            } else if constexpr (std::is_floating_point_v<V>) {
+                if (label == "time" || (std::same_as<E, symusic::Note<T>> && label == "duration")) {
+                    out = fmt::format_to(out, "{:.2f}", value);
+                } else {
+                    out = fmt::format_to(out, "{}", value);
+                }
+            } else {
+                out = fmt::format_to(out, "{}", value);
+            }
+        };
+        symusic::detail::for_event_field<E>([&](std::string_view label, auto member) {
+            if constexpr (std::same_as<E, symusic::Tempo<T>>) {
+                if (label == "mspq") field("qpm", event.qpm());
+            }
+            field(label, event.*member);
+        });
+        if constexpr (std::same_as<E, symusic::KeySignature<T>>) field("degree", event.degree());
+        return this->presentation == 'd' ? fmt::format_to(out, ", ttype='{}')", T{}) :
+                                           fmt::format_to(out, ", '{}')", T{});
     }
-    return fmt::format("{}", value);
-}
-
-FORMATTER(
-    Note,
-    d,
-    "Note(time={}, duration={}, pitch={}, velocity={}, ttype='{}')",
-    "Note({}, {}, {}, {}, '{}')",
-    fix_float(d.time),
-    fix_float(d.duration),
-    d.pitch,
-    d.velocity,
-    T()
-)
-
-FORMATTER(
-    Pedal,
-    d,
-    "Pedal(time={}, duration={}, ttype='{}')",
-    "Pedal({}, {}, '{}')",
-    fix_float(d.time),
-    d.duration,
-    T()
-)
-
-FORMATTER(
-    ControlChange,
-    d,
-    "ControlChange(time={}, number={}, value={}, ttype='{}')",
-    "ControlChange({}, {}, {}, '{}')",
-    fix_float(d.time),
-    d.number,
-    d.value,
-    T()
-)
-
-FORMATTER(
-    TimeSignature,
-    d,
-    "TimeSignature(time={}, numerator={}, denominator={}, ttype='{}')",
-    "TimeSignature({}, {}, {}, '{}')",
-    fix_float(d.time),
-    d.numerator,
-    d.denominator,
-    T()
-)
-
-FORMATTER(
-    KeySignature,
-    d,
-    "KeySignature(time={}, key={}, tonality={}, degree={}, ttype='{}')",
-    "KeySignature({}, {}, {}, {}, '{}')",
-    fix_float(d.time),
-    d.key,
-    d.tonality,
-    d.degree(),
-    T()
-)
-
-FORMATTER(
-    Tempo,
-    d,
-    "Tempo(time={}, qpm={}, mspq={}, ttype='{}')",
-    "Tempo({}, {}, {}, '{}')",
-    fix_float(d.time),
-    d.qpm(),
-    d.mspq,
-    T()
-)
-
-FORMATTER(
-    PitchBend,
-    d,
-    "PitchBend(time={}, value={}, ttype='{}')",
-    "PitchBend({}, {}, '{}')",
-    fix_float(d.time),
-    d.value,
-    T()
-)
-
-FORMATTER(
-    TextMeta,
-    d,
-    "Text(time={}, text='{}', ttype='{}')",
-    "Text({}, '{}', '{}')",
-    fix_float(d.time),
-    d.text,
-    T()
-)
-#undef FORMATTER
-#undef INNER_FORMATTER
-#undef HELPER
+};
 
 template<typename T>
 struct formatter<std::shared_ptr<T>> {
@@ -204,26 +119,17 @@ struct formatter<std::shared_ptr<T>> {
 // #undef SUMMARY_FORMAT
 }   // namespace fmt
 
-// Declare ostream operator for all the classes and corresponding vectors
+template<symusic::TimeEvent E>
+std::ostream& operator<<(std::ostream& out, const E& event) {
+    return out << event.to_string();
+}
 
-#define OSTREAMEABLE(__COUNT, STRUCT_NAME) \
-    template<symusic::TType T>             \
-    std::ostream& operator<<(std::ostream& os, const symusic::STRUCT_NAME<T>& data);
+template<symusic::TType T, typename S>
+std::ostream& operator<<(std::ostream& out, const symusic::Track<T, S>& track) {
+    return out << track.to_string();
+}
 
-REPEAT_ON(
-    OSTREAMEABLE,
-    Note,
-    Pedal,
-    ControlChange,
-    TimeSignature,
-    KeySignature,
-    Tempo,
-    PitchBend,
-    TextMeta,
-    Track,
-    Score
-)
-#undef OSTREAMEABLE
-
-// define a base formatter with parse that
-#endif   // LIBSYMUSIC_REPR_H
+template<symusic::TType T, typename S>
+std::ostream& operator<<(std::ostream& out, const symusic::Score<T, S>& score) {
+    return out << score.to_string();
+}

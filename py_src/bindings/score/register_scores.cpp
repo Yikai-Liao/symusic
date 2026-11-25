@@ -3,23 +3,18 @@
 //
 #include "../core/binding_prelude.h"
 
-#include "MetaMacro.h"
+#include "../core/binding_common.h"
 #include "../core/binding_registration.h"
 #include "score_bindings.h"
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
 void bind_score_types(nb::module_& m) {
-#define BIND_SCORE(__COUNT, BIND_FUNC) \
-    BIND_FUNC<Tick>(m, "Tick");        \
-    BIND_FUNC<Quarter>(m, "Quarter");  \
-    BIND_FUNC<Second>(m, "Second");
-
-    REPEAT_ON(BIND_SCORE, bind_score)
-
-#undef BIND_SCORE
+    bind_units(m, []<TType T>(nb::module_& module, const std::string& name) {
+        bind_score<T>(module, name);
+    });
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

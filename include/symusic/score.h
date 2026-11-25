@@ -1,125 +1,69 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_TRACK_HSCORE_H
-#define LIBSYMUSIC_TRACK_HSCORE_H
+#include <span>
 
 #include "symusic/event.h"
+#include "symusic/storage.h"
 #include "symusic/track.h"
 
 namespace symusic {
 
-template<TType T>
+template<TType T, typename S = ValueStorage>
 struct Score {
-    typedef T                ttype;
-    typedef typename T::unit unit;
+    using ttype        = T;
+    using unit         = typename T::unit;
+    using storage_type = S;
 
-    i32                             ticks_per_quarter;
-    shared<vec<shared<Track<T>>>>   tracks;   // track is not small object, use shared_ptr
-    shared<pyvec<TimeSignature<T>>> time_signatures;
-    shared<pyvec<KeySignature<T>>>  key_signatures;
-    shared<pyvec<Tempo<T>>>         tempos;
-    shared<pyvec<TextMeta<T>>>      markers;
+    using track_type   = Track<T, S>;
+    using track_handle = typename S::template TrackHandle<track_type>;
 
-    Score() : ticks_per_quarter{0} {
-        tracks          = std::make_shared<vec<shared<Track<T>>>>();
-        time_signatures = std::make_shared<pyvec<TimeSignature<T>>>();
-        key_signatures  = std::make_shared<pyvec<KeySignature<T>>>();
-        tempos          = std::make_shared<pyvec<Tempo<T>>>();
-        markers         = std::make_shared<pyvec<TextMeta<T>>>();
-    }
+    i32                                         ticks_per_quarter = 0;
+    typename S::template Tracks<track_type>     tracks = S::adopt_tracks(vec<track_handle>{});
+    typename S::template List<TimeSignature<T>> time_signatures = S::adopt(vec<TimeSignature<T>>{});
+    typename S::template List<KeySignature<T>>  key_signatures  = S::adopt(vec<KeySignature<T>>{});
+    typename S::template List<Tempo<T>>         tempos          = S::adopt(vec<Tempo<T>>{});
+    typename S::template List<TextMeta<T>>      markers         = S::adopt(vec<TextMeta<T>>{});
 
-    Score(const Score&) = default;
-
-    Score(Score&& other) noexcept {
-        // move constructor
-        ticks_per_quarter = other.ticks_per_quarter;
-        tracks            = std::move(other.tracks);
-        time_signatures   = std::move(other.time_signatures);
-        key_signatures    = std::move(other.key_signatures);
-        tempos            = std::move(other.tempos);
-        markers           = std::move(other.markers);
-    }
-
+    Score() = default;
+    explicit Score(i32 tpq) : ticks_per_quarter(tpq) {}
     Score(
-        const i32                     tpq,
-        shared<vec<shared<Track<T>>>> tracks,
-        pyvec<TimeSignature<T>>&&     time_signatures,
-        pyvec<KeySignature<T>>&&      key_signatures,
-        pyvec<Tempo<T>>&&             tempos,
-        pyvec<TextMeta<T>>&&          markers
-    ) : ticks_per_quarter{tpq}, tracks{std::move(tracks)} {
-        this->time_signatures
-            = std::make_shared<pyvec<TimeSignature<T>>>(std::move(time_signatures));
-        this->key_signatures = std::make_shared<pyvec<KeySignature<T>>>(std::move(key_signatures));
-        this->tempos         = std::make_shared<pyvec<Tempo<T>>>(std::move(tempos));
-        this->markers        = std::make_shared<pyvec<TextMeta<T>>>(std::move(markers));
-    }
-
-
-    Score(
-        const i32                       tpq,
-        shared<vec<shared<Track<T>>>>   tracks,
-        shared<pyvec<TimeSignature<T>>> time_signatures,
-        shared<pyvec<KeySignature<T>>>  key_signatures,
-        shared<pyvec<Tempo<T>>>         tempos,
-        shared<pyvec<TextMeta<T>>>      markers
+        i32                                         tpq,
+        typename S::template Tracks<track_type>     tracks,
+        typename S::template List<TimeSignature<T>> time_signatures,
+        typename S::template List<KeySignature<T>>  key_signatures,
+        typename S::template List<Tempo<T>>         tempos,
+        typename S::template List<TextMeta<T>>      markers
     ) :
-        ticks_per_quarter{tpq}, tracks{std::move(tracks)},
-        time_signatures{std::move(time_signatures)}, key_signatures{std::move(key_signatures)},
-        tempos{std::move(tempos)}, markers{std::move(markers)} {}
+        ticks_per_quarter(tpq), tracks(std::move(tracks)),
+        time_signatures(std::move(time_signatures)), key_signatures(std::move(key_signatures)),
+        tempos(std::move(tempos)), markers(std::move(markers)) {}
 
-    Score& operator=(const Score&) = default;
-
-    bool operator==(const Score& other) const {
-
-        auto tracks_equal
-            = [](const shared<vec<shared<Track<T>>>>& a, const shared<vec<shared<Track<T>>>>& b) {
-                  if (a == b) return true;
-                  if (a->size() != b->size()) return false;
-                  for (size_t i = 0; i < a->size(); i++) {
-                      const auto& track1 = a->operator[](i);
-                      const auto& track2 = b->operator[](i);
-                      if (track1 != track2 && *track1 != *track2) return false;
-                  }
-                  return true;
-              };
-        // clang-format off
-        return ticks_per_quarter == other.ticks_per_quarter
-               && tracks_equal(tracks, other.tracks)
-               && *time_signatures == *other.time_signatures
-               && *key_signatures == *other.key_signatures
-               && *tempos == *other.tempos
-               && *markers == *other.markers;
-        // clang-format on
-    }
-
-    bool operator!=(const Score& other) const { return !(*this == other); }
-
-    [[nodiscard]] Score copy() const { return {*this}; }
-
-    [[nodiscard]] Score deepcopy() const {
-        auto new_tracks = std::make_shared<vec<shared<Track<T>>>>();
-        new_tracks->reserve(tracks->size());
-        for (const auto& track : *tracks) {
-            new_tracks->push_back(std::make_shared<Track<T>>(std::move(track->deepcopy())));
-        }
-        return {
-            ticks_per_quarter,
-            std::move(new_tracks),
-            std::move(time_signatures->deepcopy()),
-            std::move(key_signatures->deepcopy()),
-            std::move(tempos->deepcopy()),
-            std::move(markers->deepcopy())
-        };
-    }
-
-    explicit Score(const i32 tpq) : Score() { ticks_per_quarter = tpq; }
+    [[nodiscard]] Score copy() const { return *this; }
+    [[nodiscard]] Score deepcopy() const;
+    bool                operator==(const Score& other) const;
 
     template<DataFormat F>
-    [[nodiscard]] static Score parse(std::span<const u8> bytes);
+        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
+    [[nodiscard]] static Score parse(std::span<const u8> bytes) {
+        if constexpr (F == DataFormat::MIDI)
+            return parse_midi_bytes(bytes, false);
+        else
+            return parse_zpp_bytes(bytes);
+    }
 
     template<DataFormat F>
-    [[nodiscard]] vec<u8> dumps() const;
+        requires(F == DataFormat::MIDI || F == DataFormat::ZPP)
+    [[nodiscard]] vec<u8> dumps() const {
+        if constexpr (F == DataFormat::MIDI)
+            return dump_midi_bytes();
+        else
+            return dump_zpp_bytes();
+    }
+
+    [[nodiscard]] static Score parse_midi_bytes(std::span<const u8> bytes, bool sanitize_data);
+    [[nodiscard]] vec<u8>      dump_midi_bytes() const;
+    [[nodiscard]] static Score parse_zpp_bytes(std::span<const u8> bytes);
+    [[nodiscard]] vec<u8>      dump_zpp_bytes() const;
 
     // return the start time of the score
     [[nodiscard]] unit start() const;
@@ -151,7 +95,6 @@ struct Score {
     // non-inplace sort, return a new score
     [[nodiscard]] Score sort(bool reverse = false) const;
 
-    // inplace sort, and return self reference
     void sort_inplace(bool reverse = false);
 
     // Clip all the events in the score, non-inplace, return a new Score
@@ -177,50 +120,26 @@ struct Score {
     // shift the time of all the events in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_time(unit offset) const;
 
-    // shift the time of all the events in the score, inplace, return self reference
     void shift_time_inplace(unit offset);
 
     // shift the pitch of all notes in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_pitch(i8 offset) const;
 
-    // shift the pitch of all notes in the score, inplace, return self reference
     void shift_pitch_inplace(i8 offset);
 
     // shift the velocity of all notes in the score, non-inplace, return a new Score
     [[nodiscard]] Score shift_velocity(i8 offset) const;
 
-    // shift the velocity of all notes in the score, inplace, return self reference
     void shift_velocity_inplace(i8 offset);
 };
 
-/*
- *  ScoreNative is an original version of Score, which doesn't use shared_ptr
- */
+extern template struct Score<Tick>;
+extern template struct Score<Quarter>;
+extern template struct Score<Second>;
 
-template<typename T>
-struct ScoreNative {
-    i32                   ticks_per_quarter;
-    vec<TimeSignature<T>> time_signatures;
-    vec<KeySignature<T>>  key_signatures;
-    vec<Tempo<T>>         tempos;
-    vec<TextMeta<T>>      markers;
-    vec<TrackNative<T>>   tracks;
-
-    ScoreNative() : ticks_per_quarter(0) {}
-
-    explicit ScoreNative(const i32 ticks_per_quarter) : ticks_per_quarter(ticks_per_quarter) {}
-
-    [[nodiscard]] bool empty() const {
-        return time_signatures.empty() && key_signatures.empty() && tempos.empty()
-               && markers.empty() && tracks.empty();
-    }
-
-    template<DataFormat F>
-    [[nodiscard]] static ScoreNative parse(std::span<const u8> bytes);
-
-    template<DataFormat F>
-    [[nodiscard]] vec<u8> dumps() const;
-};
 }   // namespace symusic
 
-#endif   // LIBSYMUSIC_TRACK_HSCORE_H
+namespace symusic::detail {
+template<TType T, typename S>
+vec<u8> dump_track_list(const typename S::template Tracks<Track<T, S>>& tracks);
+}   // namespace symusic::detail

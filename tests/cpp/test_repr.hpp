@@ -11,7 +11,7 @@ using namespace symusic;
 
 // Replace TEMPLATE_TEST_CASE with specific TEST_CASE for Tick first
 TEST_CASE("Test Note Formatting (Tick)", "[repr][note]") {
-    Note<Tick> note(100, 200, 60, 90);
+    Note<Tick> note = detail::make_event<Note<Tick>>(100, 200, 60, 90);
 
     SECTION("Default/Short Format") {
         // Adjust expected string to match fmt::formatter for Tick
@@ -35,7 +35,8 @@ TEST_CASE("Test Note Formatting (Tick)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
-    Tempo<Tick> tempo(150, 500000);   // mspq = 500000 corresponds to 120 qpm
+    Tempo<Tick> tempo
+        = detail::make_event<Tempo<Tick>>(150, 500000);   // mspq = 500000 corresponds to 120 qpm
 
     SECTION("Default/Short Format") {
         // Fix: Adjust expected QPM format based on previous failure (120 instead of 120.00)
@@ -60,7 +61,7 @@ TEST_CASE("Test Tempo Formatting (Tick)", "[repr][tempo]") {
 
 // Add tests for Quarter type
 TEST_CASE("Test Note Formatting (Quarter)", "[repr][note]") {
-    Note<Quarter> note(100.5f, 200.25f, 60, 90);
+    Note<Quarter> note = detail::make_event<Note<Quarter>>(100.5f, 200.25f, 60, 90);
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", note) == "Note(100.50, 200.25, 60, 90, 'Quarter')");
@@ -84,7 +85,7 @@ TEST_CASE("Test Note Formatting (Quarter)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Quarter)", "[repr][tempo]") {
-    Tempo<Quarter> tempo(150.75f, 500000);   // qpm = 120
+    Tempo<Quarter> tempo = detail::make_event<Tempo<Quarter>>(150.75f, 500000);   // qpm = 120
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", tempo) == "Tempo(150.75, 120, 500000, 'Quarter')");
@@ -107,7 +108,7 @@ TEST_CASE("Test Tempo Formatting (Quarter)", "[repr][tempo]") {
 
 // Add tests for Second type
 TEST_CASE("Test Note Formatting (Second)", "[repr][note]") {
-    Note<Second> note(1.5f, 0.75f, 60, 90);
+    Note<Second> note = detail::make_event<Note<Second>>(1.5f, 0.75f, 60, 90);
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", note) == "Note(1.50, 0.75, 60, 90, 'Second')");
@@ -131,7 +132,7 @@ TEST_CASE("Test Note Formatting (Second)", "[repr][note]") {
 }
 
 TEST_CASE("Test Tempo Formatting (Second)", "[repr][tempo]") {
-    Tempo<Second> tempo(2.25f, 500000);   // qpm = 120
+    Tempo<Second> tempo = detail::make_event<Tempo<Second>>(2.25f, 500000);   // qpm = 120
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", tempo) == "Tempo(2.25, 120, 500000, 'Second')");
@@ -153,7 +154,7 @@ TEST_CASE("Test Tempo Formatting (Second)", "[repr][tempo]") {
 
 // Add tests for Pedal type (Tick only for now, as format is similar)
 TEST_CASE("Test Pedal Formatting (Tick)", "[repr][pedal]") {
-    Pedal<Tick> pedal(50, 150);
+    Pedal<Tick> pedal = detail::make_event<Pedal<Tick>>(50, 150);
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", pedal) == "Pedal(50, 150, 'Tick')");
@@ -174,7 +175,8 @@ TEST_CASE("Test Pedal Formatting (Tick)", "[repr][pedal]") {
 
 // Add tests for ControlChange type (Tick only for now)
 TEST_CASE("Test ControlChange Formatting (Tick)", "[repr][control]") {
-    ControlChange<Tick> cc(75, 64, 127);   // CC 64 (Sustain) ON
+    ControlChange<Tick> cc
+        = detail::make_event<ControlChange<Tick>>(75, 64, 127);   // CC 64 (Sustain) ON
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", cc) == "ControlChange(75, 64, 127, 'Tick')");
@@ -197,7 +199,7 @@ TEST_CASE("Test ControlChange Formatting (Tick)", "[repr][control]") {
 
 // Add tests for TimeSignature type (Tick only)
 TEST_CASE("Test TimeSignature Formatting (Tick)", "[repr][timesig]") {
-    TimeSignature<Tick> ts(200, 4, 4);
+    TimeSignature<Tick> ts = detail::make_event<TimeSignature<Tick>>(200, 4, 4);
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", ts) == "TimeSignature(200, 4, 4, 'Tick')");
@@ -221,7 +223,7 @@ TEST_CASE("Test TimeSignature Formatting (Tick)", "[repr][timesig]") {
 // Add tests for KeySignature type (Tick only)
 TEST_CASE("Test KeySignature Formatting (Tick)", "[repr][keysig]") {
     // Assuming key=2 (D major/B minor), tonality=0 (major)
-    KeySignature<Tick> ks(300, 2, 0);
+    KeySignature<Tick> ks = detail::make_event<KeySignature<Tick>>(300, 2, 0);
 
     SECTION("Default/Short Format") {
         // Assuming degree() returns 10 for key=2, tonality=0
@@ -245,7 +247,7 @@ TEST_CASE("Test KeySignature Formatting (Tick)", "[repr][keysig]") {
 
 // Add tests for PitchBend type (Tick only)
 TEST_CASE("Test PitchBend Formatting (Tick)", "[repr][pitchbend]") {
-    PitchBend<Tick> pb(400, 2000);
+    PitchBend<Tick> pb = detail::make_event<PitchBend<Tick>>(400, 2000);
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", pb) == "PitchBend(400, 2000, 'Tick')");
@@ -265,7 +267,7 @@ TEST_CASE("Test PitchBend Formatting (Tick)", "[repr][pitchbend]") {
 
 // Add tests for TextMeta type (Tick only)
 TEST_CASE("Test TextMeta Formatting (Tick)", "[repr][text]") {
-    TextMeta<Tick> text(500, "Test Text");
+    TextMeta<Tick> text = detail::make_event<TextMeta<Tick>>(500, "Test Text");
 
     SECTION("Default/Short Format") {
         REQUIRE(fmt::format("{}", text) == "Text(500, 'Test Text', 'Tick')");
@@ -285,10 +287,10 @@ TEST_CASE("Test TextMeta Formatting (Tick)", "[repr][text]") {
 
 // Add tests for Track summary/to_string (Tick only)
 TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
-    auto         track_ptr = std::make_shared<Track<Tick>>("Piano", 0, false);
-    Track<Tick>& track     = *track_ptr;
-    track.notes->push_back(Note<Tick>(100, 200, 60, 90));
-    track.notes->push_back(Note<Tick>(300, 100, 62, 80));
+    auto         track_ptr = Track<Tick>("Piano", 0, false);
+    Track<Tick>& track     = track_ptr;
+    track.notes.push_back(detail::make_event<Note<Tick>>(100, 200, 60, 90));
+    track.notes.push_back(detail::make_event<Note<Tick>>(300, 100, 62, 80));
 
     REQUIRE(
         track.summary()
@@ -310,12 +312,12 @@ TEST_CASE("Test Track Formatting (Tick)", "[repr][track]") {
 // Add tests for Score summary/to_string (Tick only)
 TEST_CASE("Test Score Formatting (Tick)", "[repr][score]") {
     Score<Tick> score(480);   // tpq
-    auto track1 = score.tracks->emplace_back(std::make_shared<Track<Tick>>("Track 1", 0, false));
-    track1->notes->push_back(Note<Tick>(0, 480, 60, 100));
-    auto track2 = score.tracks->emplace_back(std::make_shared<Track<Tick>>("Track 2", 1, false));
-    track2->notes->push_back(Note<Tick>(480, 480, 62, 90));
-    score.time_signatures->push_back(TimeSignature<Tick>(0, 4, 4));
-    score.key_signatures->push_back(KeySignature<Tick>(0, 0, 0));   // C major
+    auto&       track1 = score.tracks.emplace_back(Track<Tick>("Track 1", 0, false));
+    track1.notes.push_back(detail::make_event<Note<Tick>>(0, 480, 60, 100));
+    auto& track2 = score.tracks.emplace_back(Track<Tick>("Track 2", 1, false));
+    track2.notes.push_back(detail::make_event<Note<Tick>>(480, 480, 62, 90));
+    score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 4, 4));
+    score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(0, 0, 0));   // C major
 
     REQUIRE(score.start() == 0);
     REQUIRE(score.end() == 960);   // end time is start + duration

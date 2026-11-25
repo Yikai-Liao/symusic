@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBSYMUSIC_CONVERSION_H
-#define LIBSYMUSIC_CONVERSION_H
-
 #include <span>
 
 #include "symusic/time_unit.h"
@@ -11,123 +8,80 @@
 
 namespace symusic {
 
-template<TType To, TType From>
-Score<To> convert(
-    const Score<From>& score, typename To::unit min_dur = static_cast<typename To::unit>(0)
+template<TType To, TType From, typename S>
+Score<To, S> convert(
+    const Score<From, S>& score, typename To::unit min_dur = static_cast<typename To::unit>(0)
 );
 
-template<TType To, TType From>
-[[nodiscard]] typename To::unit convert_time(typename From::unit time, const Score<From>& context) {
-    const auto converter = details::make_time_converter<To>(context);
+template<TType To, TType From, typename S>
+[[nodiscard]] typename To::unit convert_time(
+    typename From::unit time, const Score<From, S>& context
+) {
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.time_value(time);
 }
 
-template<TType To, TType From>
+template<TType To, TType From, typename S>
 [[nodiscard]] vec<typename To::unit> convert_times(
-    std::span<const typename From::unit> times, const Score<From>& context
+    std::span<const typename From::unit> times, const Score<From, S>& context
 ) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.time_values(times);
 }
 
-template<TType To, TType From, template<class> class Event>
-    requires TimeEvent<Event<From>>
-[[nodiscard]] pyvec<Event<To>> convert_time_events(
-    const pyvec<Event<From>>& data, const Score<From>& context
-) {
-    const auto converter = details::make_time_converter<To>(context);
+template<TType To, template<class> class Event, TType From, typename S, typename Range>
+[[nodiscard]] vec<Event<To>> convert_time_events(const Range& data, const Score<From, S>& context) {
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.template time_vec<Event>(data);
 }
 
-template<TType To, TType From, template<class> class Event>
-    requires HashDuration<Event<From>>
-[[nodiscard]] pyvec<Event<To>> convert_duration_events(
-    const pyvec<Event<From>>& data,
-    const Score<From>&        context,
-    typename To::unit         min_dur = static_cast<typename To::unit>(0)
+template<TType To, template<class> class Event, TType From, typename S, typename Range>
+[[nodiscard]] vec<Event<To>> convert_duration_events(
+    const Range& data, const Score<From, S>& context, typename To::unit min_dur = 0
 ) {
-    const auto converter = details::make_time_converter<To>(context);
+    const auto converter = detail::make_time_converter<To>(context);
     return converter.template duration_vec<Event>(data, min_dur);
 }
 
-template<TType T>
-Score<Tick> resample(const Score<T>& score, i32 tpq, Tick::unit min_dur = 0);
+template<TType T, typename S>
+Score<Tick, S> resample(const Score<T, S>& score, i32 tpq, Tick::unit min_dur = 0);
 
-template<TType T>
-Score<T> to_shared(ScoreNative<T>&& score);
+namespace detail {
 
-template<TType T>
-Track<T> to_shared(TrackNative<T>&& track);
-
-template<TType T>
-ScoreNative<T> to_native(const Score<T>& score);
-
-template<TType T>
-TrackNative<T> to_native(const Track<T>& track);
-
-/*
- *  Conversion between shared and native
- */
-
-template<TType T>
-Track<T> to_shared(TrackNative<T>&& track) {
-    Track<T> new_track{std::move(track.name), track.program, track.is_drum};
-    new_track.notes       = std::make_shared<pyvec<Note<T>>>(std::move(track.notes));
-    new_track.controls    = std::make_shared<pyvec<ControlChange<T>>>(std::move(track.controls));
-    new_track.pedals      = std::make_shared<pyvec<Pedal<T>>>(std::move(track.pedals));
-    new_track.pitch_bends = std::make_shared<pyvec<PitchBend<T>>>(std::move(track.pitch_bends));
-    new_track.lyrics      = std::make_shared<pyvec<TextMeta<T>>>(std::move(track.lyrics));
-    return new_track;
+template<typename S, TType T>
+[[nodiscard]] Track<T, S> adopt_storage(Track<T>&& track) {
+    return {
+        std::move(track.name),
+        track.program,
+        track.is_drum,
+        S::adopt(std::move(track.notes)),
+        S::adopt(std::move(track.controls)),
+        S::adopt(std::move(track.pitch_bends)),
+        S::adopt(std::move(track.pedals)),
+        S::adopt(std::move(track.lyrics))
+    };
 }
 
-template<TType T>
-Score<T> to_shared(ScoreNative<T>&& score) {
-    Score<T> new_score{score.ticks_per_quarter};
-    new_score.tempos  = std::make_shared<pyvec<Tempo<T>>>(std::move(score.tempos));
-    new_score.markers = std::make_shared<pyvec<TextMeta<T>>>(std::move(score.markers));
-    new_score.time_signatures
-        = std::make_shared<pyvec<TimeSignature<T>>>(std::move(score.time_signatures));
-    new_score.key_signatures
-        = std::make_shared<pyvec<KeySignature<T>>>(std::move(score.key_signatures));
-    new_score.tracks->reserve(score.tracks.size());
-    // clang-format off
-    for (auto& track : score.tracks) {
-        new_score.tracks->push_back(
-            std::make_shared<Track<T>>(std::move(to_shared(std::move(track))
-        )));
+template<typename S, TType T>
+[[nodiscard]] Score<T, S> adopt_storage(Score<T>&& score) {
+    if constexpr (std::is_same_v<S, ValueStorage>) {
+        return std::move(score);
+    } else {
+        vec<typename Score<T, S>::track_handle> tracks;
+        tracks.reserve(score.tracks.size());
+        for (auto& track : score.tracks) {
+            tracks.push_back(S::adopt_track(adopt_storage<S>(std::move(track))));
+        }
+        return {
+            score.ticks_per_quarter,
+            S::adopt_tracks(std::move(tracks)),
+            S::adopt(std::move(score.time_signatures)),
+            S::adopt(std::move(score.key_signatures)),
+            S::adopt(std::move(score.tempos)),
+            S::adopt(std::move(score.markers))
+        };
     }
-    // clang-format on
-    return new_score;
 }
 
-template<TType T>
-TrackNative<T> to_native(const Track<T>& track) {
-    TrackNative<T> new_track{track.name, track.program, track.is_drum};
-    new_track.notes       = std::move(track.notes->collect());
-    new_track.controls    = std::move(track.controls->collect());
-    new_track.pedals      = std::move(track.pedals->collect());
-    new_track.pitch_bends = std::move(track.pitch_bends->collect());
-    new_track.lyrics      = std::move(track.lyrics->collect());
-    return new_track;
-}
-
-template<TType T>
-ScoreNative<T> to_native(const Score<T>& score) {
-    ScoreNative<T> new_score{score.ticks_per_quarter};
-    new_score.time_signatures = std::move(score.time_signatures->collect());
-    new_score.key_signatures  = std::move(score.key_signatures->collect());
-    new_score.tempos          = std::move(score.tempos->collect());
-    new_score.markers         = std::move(score.markers->collect());
-
-    new_score.tracks.reserve(score.tracks->size());
-    for (const shared<Track<T>>& track : *score.tracks) {
-        new_score.tracks.emplace_back(std::move(to_native(*track)));
-    }
-    return new_score;
-}
-
+}   // namespace detail
 }   // namespace symusic
-
-
-
-#endif   // LIBSYMUSIC_CONVERSION_H

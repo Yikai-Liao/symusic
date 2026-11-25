@@ -109,7 +109,7 @@ inline Second::unit tick_to_second(
     std::vector<Tempo<Quarter>> quarter_tempos;
     for (const auto& tempo : tempos) {
         Quarter::unit quarter_time = tick_to_quarter(tempo.time, tpq);
-        quarter_tempos.push_back(Tempo<Quarter>(quarter_time, tempo.mspq));
+        quarter_tempos.push_back(detail::make_event<Tempo<Quarter>>(quarter_time, tempo.mspq));
     }
 
     // Convert tick to quarter

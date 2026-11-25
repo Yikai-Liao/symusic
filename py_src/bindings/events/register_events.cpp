@@ -8,7 +8,7 @@
 
 namespace nb = nanobind;
 
-namespace symusic {
+namespace symusic::py {
 
 void bind_note_family_types(nb::module_& m);
 void bind_controller_family_types(nb::module_& m);
@@ -18,4 +18,4 @@ void bind_event_types(nb::module_& m) {
     bind_controller_family_types(m);
 }
 
-}   // namespace symusic
+}   // namespace symusic::py

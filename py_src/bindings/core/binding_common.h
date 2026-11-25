@@ -8,7 +8,7 @@
 
 #include "symusic.h"
 
-namespace symusic {
+namespace symusic::py {
 
 /// Validate and clamp the pitch range tuple provided from Python.
 inline std::pair<u8, u8> validate_pitch_range(const std::pair<i64, i64>& range) {
@@ -23,4 +23,11 @@ inline std::pair<u8, u8> validate_pitch_range(const std::pair<i64, i64>& range) 
     return {static_cast<u8>(range.first), static_cast<u8>(range.second)};
 }
 
-}   // namespace symusic
+template<typename Binder>
+void bind_units(nanobind::module_& module, Binder bind) {
+    bind.template operator()<Tick>(module, "Tick");
+    bind.template operator()<Quarter>(module, "Quarter");
+    bind.template operator()<Second>(module, "Second");
+}
+
+}   // namespace symusic::py
