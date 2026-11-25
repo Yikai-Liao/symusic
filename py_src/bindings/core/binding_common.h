@@ -20,16 +20,6 @@ void bind_scalar_property(nb::class_<Value>& type, const char* name, Field field
     );
 }
 
-template<class Value, class Operation>
-auto edit(nb::handle self, bool inplace, Operation operation) {
-    return transform<Value>(self, inplace, [&](const auto& ptr) {
-        using Native = typename std::remove_cvref_t<decltype(ptr)>::element_type;
-        auto result  = inplace ? ptr : std::make_shared<Native>(ptr->deepcopy());
-        operation(*result, UnitOf<decltype(ptr)>{});
-        return Value(std::move(result));
-    });
-}
-
 template<class Roll, class Value>
 void bind_pianoroll(nb::class_<Value>& type, const char* doc) {
     type.def(
@@ -87,104 +77,90 @@ void bind_transformations(
 ) {
     type.def(
             "sort",
-            [](nb::handle self, bool reverse, bool inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto) {
-                    object.sort_inplace(reverse);
-                });
+            [](const Value& self, bool reverse) {
+                self.visit([&](const auto& ptr) { ptr->sort(reverse); });
             },
             "reverse"_a = false,
-            "inplace"_a = true,
-            nb::sig("def sort(self, reverse: bool = False, inplace: bool = True) -> typing.Self"),
+            nb::sig("def sort(self, reverse: bool = False) -> None"),
             sort_doc
     )
         .def(
             "clip",
-            [](nb::handle self, nb::handle start, nb::handle end, bool clip_end, bool inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto unit) {
-                    using T = decltype(unit);
-                    object.clip_inplace(read_time<T>(start), read_time<T>(end), clip_end);
+            [](const Value& self, nb::handle start, nb::handle end, bool clip_end) {
+                return self.visit([&](const auto& ptr) {
+                    using T = UnitOf<decltype(ptr)>;
+                    return Value(
+                        std::make_shared<typename std::remove_cvref_t<decltype(ptr)>::element_type>(
+                            ptr->clip(read_time<T>(start), read_time<T>(end), clip_end)
+                        )
+                    );
                 });
             },
             "start"_a,
             "end"_a,
             "clip_end"_a = false,
-            "inplace"_a  = false,
             nb::sig(
-                "def clip(self, start: int | float, end: int | float, clip_end: bool = False, "
-                "inplace: bool = False) -> typing.Self"
+                "def clip(self, start: int | float, end: int | float, clip_end: bool = False) -> "
+                "typing.Self"
             ),
             clip_doc
         )
         .def(
             "adjust_time",
-            [](nb::handle          self,
+            [](const Value&        self,
                const nb::iterable& original_times,
-               const nb::iterable& new_times,
-               bool                inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto unit) {
-                    using T = decltype(unit);
-                    ops::adjust_time_inplace(
-                        object, read_times<T>(original_times), read_times<T>(new_times)
-                    );
+               const nb::iterable& new_times) {
+                self.visit([&](const auto& ptr) {
+                    using T = UnitOf<decltype(ptr)>;
+                    ops::adjust_time(*ptr, read_times<T>(original_times), read_times<T>(new_times));
                 });
             },
             "original_times"_a,
             "new_times"_a,
-            "inplace"_a = false,
             nb::sig(
                 "def adjust_time(self, original_times: collections.abc.Iterable[int | float], "
-                "new_times: collections.abc.Iterable[int | float], inplace: bool = False) -> "
-                "typing.Self"
+                "new_times: collections.abc.Iterable[int | float]) -> None"
             ),
             adjust_doc
         )
         .def(
             "shift_time",
-            [](nb::handle self, nb::handle offset, bool inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto unit) {
-                    object.shift_time_inplace(read_time<decltype(unit)>(offset));
+            [](const Value& self, nb::handle offset) {
+                self.visit([&](const auto& ptr) {
+                    ptr->shift_time(read_shift_offset<UnitOf<decltype(ptr)>>(offset));
                 });
             },
             "offset"_a,
-            "inplace"_a = false,
-            nb::sig(
-                "def shift_time(self, offset: int | float, inplace: bool = False) -> typing.Self"
-            ),
+            nb::sig("def shift_time(self, offset: int | float) -> None"),
             time_doc
         )
         .def(
             "shift_pitch",
-            [](nb::handle self, i8 offset, bool inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto) {
-                    object.shift_pitch_inplace(offset);
+            [](const Value& self, nb::handle offset) {
+                self.visit([&](const auto& ptr) {
+                    ptr->shift_pitch(read_int32(offset, "offset"));
                 });
             },
             "offset"_a,
-            "inplace"_a = false,
-            nb::sig("def shift_pitch(self, offset: int, inplace: bool = False) -> typing.Self"),
+            nb::sig("def shift_pitch(self, offset: int) -> None"),
             pitch_doc
         )
         .def(
             "shift_velocity",
-            [](nb::handle self, i8 offset, bool inplace) {
-                return edit<Value>(self, inplace, [&](auto& object, auto) {
-                    object.shift_velocity_inplace(offset);
+            [](const Value& self, nb::handle offset) {
+                self.visit([&](const auto& ptr) {
+                    ptr->shift_velocity(read_int32(offset, "offset"));
                 });
             },
             "offset"_a,
-            "inplace"_a = false,
-            nb::sig("def shift_velocity(self, offset: int, inplace: bool = False) -> typing.Self"),
+            nb::sig("def shift_velocity(self, offset: int) -> None"),
             velocity_doc
         );
 }
 
 template<class Value>
 void bind_queries(
-    nb::class_<Value>& type,
-    const char*        start_doc,
-    const char*        end_doc,
-    const char*        note_num_doc,
-    const char*        empty_doc
+    nb::class_<Value>& type, const char* start_doc, const char* end_doc, const char* empty_doc
 ) {
     type.def(
             "start",
@@ -199,13 +175,6 @@ void bind_queries(
                 return self.visit([](const auto& ptr) { return TimeNumber(ptr->end()); });
             },
             end_doc
-        )
-        .def(
-            "note_num",
-            [](const Value& self) {
-                return self.visit([](const auto& ptr) { return ptr->note_num(); });
-            },
-            note_num_doc
         )
         .def(
             "empty",

@@ -22,6 +22,6 @@ def test_multilang_file_read(filepath):
     safe_path = ascii(str(abs_path))
     try:
         score = Score(abs_path)
-        assert score.note_num() > 0 or len(score.tracks) > 0
+        assert score.note_count() > 0 or len(score.tracks) > 0
     except Exception as exc:
         pytest.fail(f"Failed to read file {safe_path}: {exc}")

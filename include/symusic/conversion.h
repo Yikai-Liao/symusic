@@ -10,7 +10,7 @@ namespace symusic {
 
 template<TType To, TType From, typename S>
 Score<To, S> convert(
-    const Score<From, S>& score, typename To::unit min_dur = static_cast<typename To::unit>(0)
+    const Score<From, S>& score, typename To::unit min_duration = static_cast<typename To::unit>(0)
 );
 
 template<TType To, TType From, typename S>
@@ -37,14 +37,16 @@ template<TType To, template<class> class Event, TType From, typename S, typename
 
 template<TType To, template<class> class Event, TType From, typename S, typename Range>
 [[nodiscard]] vec<Event<To>> convert_duration_events(
-    const Range& data, const Score<From, S>& context, typename To::unit min_dur = 0
+    const Range& data, const Score<From, S>& context, typename To::unit min_duration = 0
 ) {
     const auto converter = detail::make_time_converter<To>(context);
-    return converter.template duration_vec<Event>(data, min_dur);
+    return converter.template duration_vec<Event>(data, min_duration);
 }
 
 template<TType T, typename S>
-Score<Tick, S> resample(const Score<T, S>& score, i32 tpq, Tick::unit min_dur = 0);
+Score<Tick, S> resample(
+    const Score<T, S>& score, i32 ticks_per_quarter, Tick::unit min_duration = 0
+);
 
 namespace detail {
 
@@ -57,7 +59,6 @@ template<typename S, TType T>
         S::adopt(std::move(track.notes)),
         S::adopt(std::move(track.controls)),
         S::adopt(std::move(track.pitch_bends)),
-        S::adopt(std::move(track.pedals)),
         S::adopt(std::move(track.lyrics))
     };
 }

@@ -3,28 +3,28 @@
 
 namespace symusic {
 
-template vec<u8>                        Track<Tick, py::SharedStorage>::dump_zpp_bytes() const;
-template Track<Tick, py::SharedStorage> Track<Tick, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                        Track<Tick, py::SharedStorage>::serialize() const;
+template Track<Tick, py::SharedStorage> Track<Tick, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
-template vec<u8> Track<Quarter, py::SharedStorage>::dump_zpp_bytes() const;
-template Track<Quarter, py::SharedStorage> Track<Quarter, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                           Track<Quarter, py::SharedStorage>::serialize() const;
+template Track<Quarter, py::SharedStorage> Track<Quarter, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
-template vec<u8>                          Track<Second, py::SharedStorage>::dump_zpp_bytes() const;
-template Track<Second, py::SharedStorage> Track<Second, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                          Track<Second, py::SharedStorage>::serialize() const;
+template Track<Second, py::SharedStorage> Track<Second, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
-template vec<u8>                        Score<Tick, py::SharedStorage>::dump_zpp_bytes() const;
-template Score<Tick, py::SharedStorage> Score<Tick, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                        Score<Tick, py::SharedStorage>::serialize() const;
+template Score<Tick, py::SharedStorage> Score<Tick, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
-template vec<u8> Score<Quarter, py::SharedStorage>::dump_zpp_bytes() const;
-template Score<Quarter, py::SharedStorage> Score<Quarter, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                           Score<Quarter, py::SharedStorage>::serialize() const;
+template Score<Quarter, py::SharedStorage> Score<Quarter, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
-template vec<u8>                          Score<Second, py::SharedStorage>::dump_zpp_bytes() const;
-template Score<Second, py::SharedStorage> Score<Second, py::SharedStorage>::parse_zpp_bytes(
+template vec<u8>                          Score<Second, py::SharedStorage>::serialize() const;
+template Score<Second, py::SharedStorage> Score<Second, py::SharedStorage>::deserialize(
     std::span<const u8>
 );
 

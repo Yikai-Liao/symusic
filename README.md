@@ -20,19 +20,20 @@ Wheels cover CPython 3.10 and newer on Linux, macOS and Windows, and PyPy 3.11 o
 
 ```python
 import pickle
-from symusic import Score
+from symusic import Score, Second
 
 score = Score("song.mid")  # format from the extension, time in ticks
 print(score)  # tracks and event counts
 
-shifted = score.shift_pitch(2)  # returns a new score
-score.shift_time(480, inplace=True)  # or mutates in place
+shifted = score.copy()
+shifted.shift_pitch(2)
+score.shift_time(480)
 
-seconds = score.to("second")  # "tick", "quarter" or "second"
-notes = seconds.tracks[0].notes.numpy()  # dict of NumPy arrays
+seconds = score.to(Second)
+notes = seconds.tracks[0].notes.to_numpy()  # dict of NumPy arrays
 roll = score.tracks[0].pianoroll(modes=["onset", "frame"], pitch_range=(0, 128))
 
-score.dump_midi("out.mid")
+score.dump("out.mid")
 restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 ```
 
@@ -40,7 +41,7 @@ restored = pickle.loads(pickle.dumps(score))  # exact binary round trip
 
 - **I/O:** MIDI read and write; ABC through the bundled `abc2midi` and `midi2abc`; pickle support.
 - **Time units:** every score, track and event exists in `Tick`, `Quarter` and `Second`, converted through the tempo map.
-- **Transformations:** shift time, pitch and velocity; clip, trim, sort, filter, resample and adjust time, each as a copy or in place.
+- **Transformations:** shift time, pitch and velocity, sort and adjust time in place; filter, clip, trim and resample into new objects.
 - **Analysis:** beat and downbeat grids, structure-of-arrays NumPy export and import, and piano rolls.
 - **Synthesis:** Offline SoundFont 2/3 rendering with `Synthesizer`.
 - **Typing:** generated stubs with generic types, so type checkers distinguish `Score[Tick]` from `Score[Second]`.

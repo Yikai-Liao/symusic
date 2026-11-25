@@ -7,12 +7,12 @@ import symusic
 from symusic import _core
 
 EXPECTED_MEMBERS = {
-    "Score": {"tracks", "tempos", "copy", "clip", "dump_midi", "pianoroll"},
+    "Score": {"tracks", "tempos", "copy", "clip", "dump", "pianoroll"},
     "Track": {"notes", "controls", "copy", "clip", "trim"},
     "Note": {"time", "duration", "pitch", "copy", "shift_time"},
-    "KeySignature": {"time", "key", "tonality", "copy"},
+    "KeySignature": {"time", "key", "minor", "copy"},
     "TimeSignature": {"time", "numerator", "denominator", "copy"},
-    "Tempo": {"time", "qpm", "mspq", "copy"},
+    "Tempo": {"time", "qpm", "microseconds_per_quarter", "copy"},
     "ControlChange": {"time", "number", "value", "copy"},
     "Pedal": {"time", "duration", "copy", "shift_time"},
     "PitchBend": {"time", "value", "copy", "shift_time"},
@@ -65,7 +65,18 @@ def test_stub_exposes_runtime_classes():
     score_methods = [
         node for node in classes["Score"].body if isinstance(node, ast.FunctionDef)
     ]
-    assert len([node for node in score_methods if node.name == "dump_midi"]) == 1
+    dump = [node for node in score_methods if node.name == "dump"]
+    assert [ast.unparse(node.args.args[1].annotation) for node in dump] == [
+        "_Path",
+        "BinaryIO",
+    ]
+    assert [ast.unparse(node.args.kwonlyargs[0].annotation) for node in dump] == [
+        "_FileFormat | None",
+        "_FileFormat",
+    ]
+    assert isinstance(dump[0].args.kw_defaults[0], ast.Constant)
+    assert dump[0].args.kw_defaults[0].value is None
+    assert dump[1].args.kw_defaults[0] is None
     assert len([node for node in score_methods if node.name == "__repr__"]) == 1
 
     pianoroll = [node for node in score_methods if node.name == "pianoroll"]
@@ -155,3 +166,15 @@ def test_stubgen_patterns_match_without_shadowing():
             f"line {lineno}: pattern {expr!r} is completely shadowed by an earlier rule"
         )
         claimed |= active
+
+
+def test_event_list_copy_has_no_options():
+    stub = Path(_core.__file__).with_name("_core.pyi")
+    for node in ast.parse(stub.read_text()).body:
+        if isinstance(node, ast.ClassDef) and node.name.endswith("List"):
+            copy_method = next(
+                method
+                for method in node.body
+                if isinstance(method, ast.FunctionDef) and method.name == "__copy__"
+            )
+            assert ast.unparse(copy_method.args) in {"self", "self, /"}, node.name

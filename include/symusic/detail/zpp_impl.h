@@ -41,7 +41,17 @@ constexpr auto serialize_zeroed_padding(auto& archive, const E& data, const Memb
 template<TimeEvent E>
     requires(std::is_trivially_copyable_v<E> && !std::is_const_v<E>)
 constexpr auto serialize(auto& archive, E& data) {
-    return archive(zpp::bits::as_bytes(data));
+    auto result = archive(zpp::bits::as_bytes(data));
+    if constexpr (std::same_as<decltype(result), zpp::bits::errc> && requires { data.minor; }) {
+        // Inspect the byte representation before using the deserialized bool.
+        if (!zpp::bits::failure(result)) {
+            u8 mode{};
+            static_assert(sizeof(data.minor) == sizeof(mode));
+            std::memcpy(&mode, &data.minor, sizeof(mode));
+            if (mode > 1) return decltype(result){std::errc::invalid_argument};
+        }
+    }
+    return result;
 }
 
 template<TimeEvent E>
@@ -84,7 +94,7 @@ inline constexpr size_t min_zpp_size = sizeof(E);
 template<TType T>
 inline constexpr size_t min_zpp_size<TextMeta<T>> = sizeof(typename T::unit) + sizeof(ZppSize);
 template<TType T>
-inline constexpr size_t min_zpp_size<Track<T>> = 2 * sizeof(u8) + 6 * sizeof(ZppSize);
+inline constexpr size_t min_zpp_size<Track<T>> = 2 * sizeof(u8) + 5 * sizeof(ZppSize);
 template<TType T>
 inline constexpr size_t min_zpp_size<Score<T>> = sizeof(i32) + 5 * sizeof(ZppSize);
 
@@ -161,7 +171,6 @@ constexpr auto serialize_track(auto& archive, Track& data, auto& drum_flag) {
         ZppContainer{S::get(data.notes)},
         ZppContainer{S::get(data.controls)},
         ZppContainer{S::get(data.pitch_bends)},
-        ZppContainer{S::get(data.pedals)},
         ZppContainer{S::get(data.lyrics)}
     );
 }
@@ -230,7 +239,7 @@ namespace symusic {
 namespace detail {
 
 inline constexpr std::array<u8, 4> kZppMagic{'S', 'Y', 'M', 'Z'};
-inline constexpr u8                kZppVersion = 1;
+inline constexpr u8                kZppVersion = 2;
 
 template<class T>
 auto archive_zpp_state(auto& archive, T& data) {
@@ -277,22 +286,22 @@ T deserialize_zpp(std::span<const u8> buffer) {
 }   // namespace detail
 
 template<TType T, typename S>
-vec<u8> Track<T, S>::dump_zpp_bytes() const {
+vec<u8> Track<T, S>::serialize() const {
     return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
-Track<T, S> Track<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
+Track<T, S> Track<T, S>::deserialize(std::span<const u8> bytes) {
     return detail::adopt_storage<S>(detail::deserialize_zpp<Track<T>>(bytes));
 }
 
 template<TType T, typename S>
-vec<u8> Score<T, S>::dump_zpp_bytes() const {
+vec<u8> Score<T, S>::serialize() const {
     return detail::serialize_zpp(*this);
 }
 
 template<TType T, typename S>
-Score<T, S> Score<T, S>::parse_zpp_bytes(std::span<const u8> bytes) {
+Score<T, S> Score<T, S>::deserialize(std::span<const u8> bytes) {
     return detail::adopt_storage<S>(detail::deserialize_zpp<Score<T>>(bytes));
 }
 

@@ -18,12 +18,12 @@ int main(int argc, char* argv[]) {
 
     const auto filename = program.get<std::string>("midi_path");
     try {
-        auto s = Score<Tick>::parse<DataFormat::MIDI>(read_file(filename));
+        auto s = Score<Tick>::from_midi(read_file(filename));
         std::cout << "Score1: " << s.to_string() << std::endl;
         // dump to midi bytes
-        auto midi_bytes = s.dumps<DataFormat::MIDI>();
+        auto midi_bytes = s.to_midi();
         // reload from midi bytes
-        auto s2 = Score<Tick>::parse<DataFormat::MIDI>(midi_bytes);
+        auto s2 = Score<Tick>::from_midi(midi_bytes);
         std::cout << "Score2: " << s2.to_string() << std::endl;
     } catch (const char* e) {
         std::cout << e << std::endl;

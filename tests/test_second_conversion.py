@@ -59,11 +59,11 @@ def test_second_conversion(midi_path: Path):
             continue
         track_tick.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
         track_sec.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
-        notes_tick = track_tick.notes.numpy()
+        notes_tick = track_tick.notes.to_numpy()
         start_tick = notes_tick["time"]
         end_tick = start_tick + notes_tick["duration"]
 
-        notes_sec = track_sec.notes.numpy()
+        notes_sec = track_sec.notes.to_numpy()
         start_sec = notes_sec["time"]
         end_sec = start_sec + notes_sec["duration"]
 
@@ -86,7 +86,7 @@ def test_second_conversion(midi_path: Path):
 
 
 def test_quarter_parse_matches_tick_conversion(tmp_path):
-    score_tick = Score(480)
+    score_tick = Score(ticks_per_quarter=480)
     track = Track("quarter-check", 0, False)
     track.notes.append(Note(0, 480, 60, 80))
     track.notes.append(Note(480, 960, 64, 80))
@@ -95,7 +95,7 @@ def test_quarter_parse_matches_tick_conversion(tmp_path):
     score_tick.tempos.append(Tempo(960, 60))
 
     midi_path = tmp_path / "quarter_time_check.mid"
-    score_tick.dump_midi(midi_path)
+    score_tick.dump(midi_path)
 
     quarter_direct = Score(midi_path, ttype=Quarter)
     quarter_from_tick = Score(midi_path, ttype=Tick).to(Quarter)
@@ -189,7 +189,7 @@ def test_issue90_first_notes_have_expected_relative_durations():
 
 @pytest.mark.parametrize("tempo_at_zero", [False, True])
 def test_negative_tempo_boundaries(tempo_at_zero):
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     # Supply the tempo events out of order to exercise the sorted boundary list.
     score.tempos = [Tempo(480, 60), Tempo(-480, 60), Tempo(-960, 240)]
     if tempo_at_zero:

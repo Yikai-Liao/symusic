@@ -5,7 +5,7 @@ description: Read, write, edit and analyze symbolic music with the symusic Pytho
 
 # symusic
 
-symusic is a C++ library with a Python binding for symbolic music. A `Score` holds global tempo, signature and marker events and a list of `Track` objects with notes, control changes, pitch bends, pedals and lyrics. Every object exists in three time units: ticks, quarter notes and seconds.
+symusic is a C++ library with a Python binding for symbolic music. A `Score` holds global tempo, signature and marker events and a list of `Track` objects with notes, control changes, pitch bends and lyrics. Every object exists in three time units: ticks, quarter notes and seconds.
 
 ## Pages
 
@@ -28,9 +28,9 @@ Exact signatures and docstrings are in the installed package's type stubs, `symu
 ## Rules that prevent most mistakes
 
 - Keep one time unit per score. Events, tracks and scores of different units cannot be mixed; create everything with the same `ttype` or convert with `to`.
-- Pass `min_dur=1` when converting to ticks or resampling, so short notes do not get duration 0.
-- Transformations return a copy unless you pass `inplace=True`; `sort` and `filter` on lists work in place by default.
-- `score.copy()` is deep; `copy.copy(score)`, slices and `notes.copy()` share events with the original.
-- Write the sustain pedal as control change 64 in `controls`; `pedals` is derived on read and not written.
+- Pass `min_duration=1` when converting to ticks or resampling, so short notes do not get duration 0.
+- Editing methods mutate and return `None`. Use `.copy()` to edit an independent copy.
+- `score.copy()` and `notes.copy()` are deep; `copy.copy(score)`, `copy.copy(notes)` and slices share events with the original.
+- Write sustain with control change 64 in `controls`. `Track.pedals()` derives completed regions from those events.
 - Do not transpose drum tracks; their pitch selects the instrument.
-- Use `numpy()` and `from_numpy` for bulk work instead of looping over events in Python.
+- Use `to_numpy()` and `from_numpy` for bulk work instead of looping over events in Python.

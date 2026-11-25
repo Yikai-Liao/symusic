@@ -24,7 +24,8 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
     track.notes.push_back(detail::make_event<Note<Tick>>(720, 120, 64, 100));   // Quarter beat
 
     track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));   // Volume
-    track.pedals.push_back(detail::make_event<Pedal<Tick>>(0, 960));   // Two beats pedal
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 64, 127));
+    track.controls.push_back(detail::make_event<ControlChange<Tick>>(960, 64, 0));
 
     tick_score.tracks.push_back(track);
 
@@ -50,8 +51,8 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         REQUIRE(quarter_score.tracks.at(0).notes.at(2).duration == 0.25f);   // Quarter beat
 
         // Verify other events conversion
-        REQUIRE(quarter_score.tracks.at(0).pedals.at(0).time == 0.0f);
-        REQUIRE(quarter_score.tracks.at(0).pedals.at(0).duration == 2.0f);   // Two beats
+        REQUIRE(quarter_score.tracks.at(0).pedals().at(0).time == 0.0f);
+        REQUIRE(quarter_score.tracks.at(0).pedals().at(0).duration == 2.0f);   // Two beats
 
         // Verify global events conversion
         REQUIRE(quarter_score.tempos.at(0).time == 0.0f);
@@ -82,9 +83,9 @@ TEST_CASE("Test conversion between different time types", "[conversion][time_uni
         );   // 0.125 seconds (quarter beat)
 
         // Verify other events conversion
-        REQUIRE(second_score.tracks.at(0).pedals.at(0).time == Catch::Approx(0.0f));
+        REQUIRE(second_score.tracks.at(0).pedals().at(0).time == Catch::Approx(0.0f));
         REQUIRE(
-            second_score.tracks.at(0).pedals.at(0).duration == Catch::Approx(1.0f)
+            second_score.tracks.at(0).pedals().at(0).duration == Catch::Approx(1.0f)
         );   // 1 second (two beats)
 
         // Verify global events conversion
@@ -198,8 +199,14 @@ TEST_CASE("Test low-level time conversion helpers", "[conversion][helpers]") {
         REQUIRE(second_tempos.size() == 2);
         REQUIRE(second_tempos[0].time == Catch::Approx(0.0f));
         REQUIRE(second_tempos[1].time == Catch::Approx(0.375f));
-        REQUIRE(second_tempos[0].mspq == Tempo<Tick>::from_qpm(0, 120.0).mspq);
-        REQUIRE(second_tempos[1].mspq == Tempo<Tick>::from_qpm(0, 60.0).mspq);
+        REQUIRE(
+            second_tempos[0].microseconds_per_quarter
+            == Tempo<Tick>::from_qpm(0, 120.0).microseconds_per_quarter
+        );
+        REQUIRE(
+            second_tempos[1].microseconds_per_quarter
+            == Tempo<Tick>::from_qpm(0, 60.0).microseconds_per_quarter
+        );
     }
 
     SECTION("Duration event conversion handles tempo crossings and minimum durations") {

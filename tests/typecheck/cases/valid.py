@@ -1,11 +1,13 @@
 # pyright: strict
 from collections.abc import Iterator, MutableSequence, Sequence
 from os import PathLike
+from typing import BinaryIO
 
 from symusic import (
     ControlChange,
     Note,
     NoteList,
+    Pedal,
     Quarter,
     Score,
     Second,
@@ -21,32 +23,40 @@ seconds = Score(ttype=Second)
 assert_type(reveal_type(ticks), Score[Tick])
 assert_type(reveal_type(seconds), Score[Second])
 assert_type(reveal_type(ticks.to(Second)), Score[Second])
-assert_type(seconds.to(Tick, min_dur=1), Score[Tick])
+assert_type(seconds.to(Tick, min_duration=1), Score[Tick])
 assert_type(Score("input.mid", ttype=Quarter), Score[Quarter])
-assert_type(Score.from_midi(b"", ttype=Second), Score[Second])
+assert_type(Score.from_midi(b"", ttype=Second, strict=False), Score[Second])
+assert_type(Score.from_abc("X:1", ttype=Quarter, strict=False), Score[Quarter])
 abc_score = Score.from_abc("X:1", ttype=Quarter, tune=1)
 assert_type(abc_score, Score[Quarter])
-assert_type(Score.from_abc_file("score.abc"), Score[Tick])
-assert_type(Score.from_file("input.mid"), Score[Tick])
+assert_type(Score("score.abc", format="abc"), Score[Tick])
+assert_type(Score("input.mid"), Score[Tick])
+assert_type(Score("input.mid", strict=False), Score[Tick])
+ticks.dump("output.mid")
 assert_type(ticks.tracks, TrackList[Tick])
+assert_type(seconds.tracks.filter(lambda track: not track.is_drum), TrackList[Second])
 assert_type(seconds.tracks[0], Track[Second])
 assert_type(ticks.tracks[0].notes, NoteList[Tick])
+assert_type(
+    seconds.tracks[0].notes.filter(lambda note: note.time > 0), NoteList[Second]
+)
 assert_type(seconds.ttype, type[Second])
 assert_type(ticks.tracks[0].notes[0].time, int)
 assert_type(seconds.tracks[0].notes[0].duration, float)
 assert_type(seconds.tracks[0].notes[0].end, float)
 assert_type(seconds.tracks[0].controls[0].time, float)
 assert_type(ticks.tracks[0].controls[0], ControlChange[Tick])
+assert_type(ticks.tracks[0].pedals(), tuple[Pedal[Tick], ...])
 assert_type(ticks.tempos[0].time, int)
 assert_type(ticks.clip(0, 1), Score[Tick])
 ticks.pianoroll()
 assert_type(ticks.trim(0, 1, start_mode="truncate", end_mode="retain"), Score[Tick])
-assert_type(seconds.shift_time(0.5), Score[Second])
+assert_type(seconds.shift_time(0.5), None)
 assert_type(seconds.tracks[0].trim(0.0, 1.0), Track[Second])
 assert_type(ticks.copy(), Score[Tick])
-assert_type(ticks.resample(480, min_dur=1), Score[Tick])
-assert_type(ticks.to(Quarter).resample(480, min_dur=1), Score[Tick])
-assert_type(seconds.resample(480, min_dur=1), Score[Tick])
+assert_type(ticks.resample(480, min_duration=1), Score[Tick])
+assert_type(ticks.to(Quarter).resample(480, min_duration=1), Score[Tick])
+assert_type(seconds.resample(480, min_duration=1), Score[Tick])
 assert_type(iter(seconds.tracks[0].notes), Iterator[Note[Second]])
 assert_type(ticks.tracks[0].notes[:1], NoteList[Tick])
 assert_type(NoteList(ttype=Quarter), NoteList[Quarter])
@@ -86,9 +96,16 @@ assert_type(notes, NoteList[Tick])
 
 
 def abc_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
-    assert_type(Score.from_file(text), Score[Tick])
-    assert_type(Score.from_file(binary), Score[Tick])
-    assert_type(Score.from_abc_file(binary), Score[Tick])
-    assert_type(abc_score.dumps_abc(warn=True), str)
-    Score.from_file(text).dump_abc(binary)
-    Score.from_abc_file(binary).dump_abc(text)
+    assert_type(Score(text), Score[Tick])
+    assert_type(Score(binary), Score[Tick])
+    assert_type(Score(binary, format="abc"), Score[Tick])
+    assert_type(abc_score.to_abc(), str)
+    Score(text).dump(binary, format="abc")
+    Score(binary, format="abc").dump(text, format="abc")
+
+
+def read_and_write_midi(source: BinaryIO, target: BinaryIO) -> None:
+    assert_type(Score(source, format="midi"), Score[Tick])
+    score = Score(source, ttype=Quarter, format="midi", strict=False)
+    assert_type(score, Score[Quarter])
+    score.dump(path_or_file=target, format="midi")

@@ -35,7 +35,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_midi.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -48,8 +48,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.ticks_per_quarter == 480);
@@ -57,7 +56,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         REQUIRE(read_score.tracks.at(0).name == "Piano");
         REQUIRE(read_score.tracks.at(0).notes.size() == 3);
         REQUIRE(read_score.tempos.size() == 1);
-        REQUIRE(read_score.tempos.at(0).mspq == 500000);
+        REQUIRE(read_score.tempos.at(0).microseconds_per_quarter == 500000);
         REQUIRE(read_score.time_signatures.size() == 1);
         REQUIRE(read_score.time_signatures.at(0).numerator == 4);
         REQUIRE(read_score.time_signatures.at(0).denominator == 4);
@@ -94,7 +93,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_multitrack.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -107,8 +106,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the read score matches the original
         REQUIRE(read_score.tracks.size() == 3);
@@ -162,7 +160,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
 
         // Write the score to a MIDI file
         fs::path             midi_path = temp_dir / "test_controllers.mid";
-        std::vector<uint8_t> midi_data = score.dumps<DataFormat::MIDI>();
+        std::vector<uint8_t> midi_data = score.to_midi();
 
         std::ofstream file(midi_path, std::ios::binary);
         file.write(reinterpret_cast<const char*>(midi_data.data()), midi_data.size());
@@ -175,8 +173,7 @@ TEST_CASE("Test MIDI File I/O", "[symusic][io][midi]") {
         );
         in_file.close();
 
-        Score<Tick> read_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(read_data));
+        Score<Tick> read_score = Score<Tick>::from_midi(std::span<const uint8_t>(read_data));
 
         // Verify the controller events were preserved
         REQUIRE(read_score.tracks.at(0).controls.size() == 6);

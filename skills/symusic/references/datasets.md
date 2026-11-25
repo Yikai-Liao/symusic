@@ -18,7 +18,7 @@ def features(path):
         score = Score(path, ttype=Second)
     except (OSError, RuntimeError, ValueError) as error:
         return path.name, None, str(error)
-    return path.name, {"notes": score.note_num(), "seconds": score.end()}, None
+    return path.name, {"notes": score.note_count(), "seconds": score.end()}, None
 
 
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
 - The `if __name__ == "__main__":` guard is required on Windows and macOS, where worker processes start by importing the script.
 - A corrupt or truncated MIDI file raises `RuntimeError`; a path with an unknown extension raises `ValueError`. Catch both in the worker so one bad file does not stop the run.
-- Files that store data bytes above 127, common in some scraped collections, load with `sanitize_data=True`; see [files.md](files.md#reading-midi).
+- Files that store data bytes above 127, common in some scraped collections, load with `Score(path, strict=False)`; see [files.md](files.md#reading-midi).
 - To parse a dataset once and reuse it, store the pickled scores (see [files.md](files.md#pickle)) instead of the MIDI files.
 
 ## Cleaning
@@ -39,15 +39,15 @@ if __name__ == "__main__":
 from symusic import Score
 
 score = Score("song.mid")
-score.tracks = [t for t in score.tracks if not t.is_drum and t.note_num() > 0]
+score.tracks = [t for t in score.tracks if not t.is_drum and t.notes]
 for track in score.tracks:
-    track.notes.filter(lambda n: n.duration > 0 and n.velocity > 0)
+    track.notes = track.notes.filter(lambda n: n.duration > 0 and n.velocity > 0)
 score.sort()
 ```
 
 - Assigning a filtered Python list to `score.tracks` keeps the global tempos, signatures and markers. The tracks are shared with the list you assign, not copied.
-- `notes.filter` and `score.sort` work in place. `filter` calls the Python function once per note; for large lists, a mask over `notes.numpy()` passed to `Note.from_numpy` avoids that cost.
-- `score.empty()` is false for a score that has tempo events but no notes; check `score.note_num() == 0` to skip files without notes.
+- `score.sort` works in place; `notes.filter` returns a new list. `filter` calls the Python function once per note; for large lists, a mask over `notes.to_numpy()` passed to `NoteList.from_numpy` avoids that cost.
+- `score.empty()` is false for a score that has tempo events but no notes; check `score.note_count() == 0` to skip files without notes.
 
 ## Segmenting
 
@@ -63,7 +63,7 @@ segments = []
 for i in range(0, len(downbeats) - bars, bars):
     start, end = downbeats[i], downbeats[i + bars]
     segment = score.clip(start, end, clip_end=False)
-    segment.shift_time(-start, inplace=True)
+    segment.shift_time(-start)
     segments.append(segment)
 print(len(segments), segments[0])
 ```
@@ -84,7 +84,7 @@ offset = random.randint(max(-6, -low), min(5, 127 - high))
 transposed = score.copy()
 for track in transposed.tracks:
     if not track.is_drum:
-        track.shift_pitch(offset, inplace=True)
+        track.shift_pitch(offset)
 ```
 
 - Transpose pitched tracks only: drum tracks use pitch to choose the instrument.

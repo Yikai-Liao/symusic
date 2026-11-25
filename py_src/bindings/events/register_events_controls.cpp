@@ -9,7 +9,7 @@ void bind_controller_family_types(nb::module_& m) {
         m,
         "Tempo",
         "TempoList",
-        "Tempo(time, qpm=None, mspq=None, *, ttype=Tick)\n\nA tempo change.",
+        "Tempo(time, qpm=None, microseconds_per_quarter=None, *, ttype=Tick)\n\nA tempo change.",
         event_indices<Tempo>,
         [](auto& type) {
             type.def(
@@ -17,23 +17,28 @@ void bind_controller_family_types(nb::module_& m) {
                     [](UnitValue<Tempo>*  self,
                        nb::handle         time,
                        std::optional<f64> qpm,
-                       std::optional<i32> mspq,
+                       nb::handle         microseconds_per_quarter,
                        nb::handle         marker) {
                         new (self) UnitValue<Tempo>(with_unit(marker, [&](auto unit) {
-                            using T    = decltype(unit);
-                            auto event = std::make_shared<Tempo<T>>(
-                                detail::make_event<Tempo<T>>(read_time<T>(time), mspq.value_or(0))
+                            using T          = decltype(unit);
+                            using E          = Tempo<T>;
+                            const auto start = event_input<E, 0>(time);
+                            if (!qpm && microseconds_per_quarter.is_none())
+                                throw std::invalid_argument(
+                                    "qpm or microseconds_per_quarter must be specified"
+                                );
+                            auto event = std::make_shared<E>(
+                                qpm ? E::from_qpm(start, *qpm) :
+                                      detail::make_event<E>(
+                                          start, event_input<E, 1>(microseconds_per_quarter)
+                                      )
                             );
-                            if (qpm)
-                                event->set_qpm(*qpm);
-                            else if (!mspq)
-                                throw std::invalid_argument("qpm or mspq must be specified");
                             return UnitValue<Tempo>(std::move(event));
                         }));
                     },
                     "time"_a,
-                    "qpm"_a  = nb::none(),
-                    "mspq"_a = nb::none(),
+                    "qpm"_a                      = nb::none(),
+                    "microseconds_per_quarter"_a = nb::none(),
                     nb::kw_only(),
                     "ttype"_a = nb::type<Tick>(),
                     kEventTempoInitDoc

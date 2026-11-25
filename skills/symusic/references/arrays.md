@@ -4,16 +4,16 @@ symusic turns event lists into one NumPy array per field, and tick scores and tr
 
 ## Event lists as arrays
 
-`numpy()` on an event list returns a dict of arrays, one per field. `from_numpy` on the event class builds a list back:
+`to_numpy()` on an event list returns a dict of arrays, one per field. `from_numpy` on the event list class builds a list back:
 
 ```python
-from symusic import Note, Score
+from symusic import NoteList, Score
 
 score = Score("song.mid")
-arrays = score.tracks[0].notes.numpy()
+arrays = score.tracks[0].notes.to_numpy()
 print({name: a.dtype for name, a in arrays.items()})
 
-notes = Note.from_numpy(**arrays, ttype=score.ttype)
+notes = NoteList.from_numpy(**arrays, ttype=score.ttype)
 assert notes == score.tracks[0].notes
 ```
 
@@ -23,14 +23,14 @@ assert notes == score.tracks[0].notes
 | `Pedal` | `time`, `duration` |
 | `ControlChange` | `time`, `number`, `value` |
 | `PitchBend` | `time`, `value` |
-| `Tempo` | `time`, `mspq` |
+| `Tempo` | `time`, `microseconds_per_quarter` |
 | `TimeSignature` | `time`, `numerator`, `denominator` |
-| `KeySignature` | `time`, `key`, `tonality` |
+| `KeySignature` | `time`, `key`, `minor` |
 
 - `time` and `duration` are `int32` in ticks and `float32` in quarters and seconds; `pitch` and `velocity` are `int8`.
 - The arrays are copies; changing them does not change the score.
-- `from_numpy` takes the same keys as keyword arguments plus `ttype`; the arrays must have equal length.
-- `TextMeta` lists (lyrics and markers) have no `numpy`.
+- `from_numpy` takes the same keys as keyword arguments plus `ttype`. The arrays must be one-dimensional CPU arrays of equal length.
+- `TextMeta` lists (lyrics and markers) have no `to_numpy`.
 
 Arrays make statistics over a whole score short:
 
@@ -40,10 +40,10 @@ from symusic import Score, Second
 
 score = Score("song.mid", ttype=Second)
 pitched = [t for t in score.tracks if not t.is_drum]
-pitches = np.concatenate([t.notes.numpy()["pitch"] for t in pitched])
+pitches = np.concatenate([t.notes.to_numpy()["pitch"] for t in pitched])
 histogram = np.bincount(pitches, minlength=128)
 print("most used pitch:", histogram.argmax())
-print("notes per second:", score.note_num() / score.end())
+print("notes per second:", score.note_count() / score.end())
 ```
 
 `get_beats()` and `get_downbeats()` return arrays in the score's unit, derived from the time signatures, up to the end of the score. As in pretty_midi, compound meters, whose numerator is 6, 9, 12 or another multiple of 3 above 3, count one beat per three notes of the denominator: 6/8 has two dotted-quarter beats and 6/4 two dotted-half beats, while 3/8 counts every eighth note. Onsets map to beats with `np.searchsorted`:
@@ -54,18 +54,18 @@ from symusic import Quarter, Score
 
 score = Score("song.mid", ttype=Quarter)
 beats = score.get_beats()
-onsets = score.tracks[0].notes.numpy()["time"]
+onsets = score.tracks[0].notes.to_numpy()["time"]
 beat_index = np.searchsorted(beats, onsets, side="right") - 1
 ```
 
 ## Piano rolls
 
-`Score.pianoroll` and `Track.pianoroll` exist only on tick scores and tracks, and the time axis has one column per tick, so resample to a coarse grid first. `resample(tpq=6)` gives six columns per quarter note, which holds sixteenth notes and eighth-note triplets; `min_dur=1` keeps notes from rounding to zero length.
+`Score.pianoroll` and `Track.pianoroll` exist only on tick scores and tracks, and the time axis has one column per tick, so resample to a coarse grid first. `resample(6)` gives six columns per quarter note, which holds sixteenth notes and eighth-note triplets; `min_duration=1` keeps notes from rounding to zero length.
 
 ```python
 from symusic import Score
 
-grid = Score("song.mid").resample(tpq=6, min_dur=1)
+grid = Score("song.mid").resample(6, min_duration=1)
 roll = grid.pianoroll(
     modes=["onset", "frame"], pitch_range=(21, 109), encode_velocity=True
 )

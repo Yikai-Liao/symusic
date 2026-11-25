@@ -76,6 +76,16 @@ typename T::unit read_time(nb::handle value) {
     }
 }
 
+template<TType T>
+typename T::unit read_shift_offset(nb::handle value) {
+    if constexpr (std::same_as<T, Tick>) {
+        if (PyFloat_Check(value.ptr())) {
+            detail::require_finite_shift_offset(nb::cast<f64>(value));
+        }
+    }
+    return read_time<T>(value);
+}
+
 using TimeNumber = std::variant<i32, f32>;
 
 template<class Value, class... Extra>
@@ -104,11 +114,5 @@ auto unit_class(
     return type;
 }
 
-template<class Value, class Function>
-nb::object transform(nb::handle python_self, bool inplace, Function&& function) {
-    const auto& self   = nb::cast<const Value&>(python_self);
-    Value       result = self.visit(std::forward<Function>(function));
-    return inplace ? nb::borrow(python_self) : nb::cast(std::move(result));
-}
 
 }   // namespace symusic::py

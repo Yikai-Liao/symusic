@@ -53,6 +53,10 @@ struct SharedStorage {
         events.sort(projection, reverse);
     }
 
+    static void stable_sort(auto& events, auto projection, bool reverse) {
+        sort(events, projection, reverse);
+    }
+
     static void keep(auto& events, size_t destination, size_t source) {
         *(events.pbegin() + destination) = *(events.pbegin() + source);
     }

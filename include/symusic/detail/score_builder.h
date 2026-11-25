@@ -43,7 +43,7 @@ public:
         size_t        index = 0;
     };
 
-    explicit ScoreBuilder(i32 tpq) : score(tpq) {}
+    explicit ScoreBuilder(i32 ticks_per_quarter) : score(ticks_per_quarter) {}
 
     Track<T>* find_track(const Key& key) {
         if (last_track && last_key == key) return last_track;
@@ -64,7 +64,9 @@ public:
 
     NoteHandle begin_note(Track<T>& track, unit time, i8 pitch, i8 velocity) {
         if (track.notes.empty()) note_tracks.push_back(&track);
-        track.notes.push_back(make_event<Note<T>>(time, -1, pitch, velocity));
+        auto& note = track.notes.emplace_back(time, 0, pitch, velocity);
+        // An unpaired note stays private to the builder and is discarded at finish_group().
+        note.duration = -1;
         return {&track.notes, track.notes.size() - 1};
     }
 

@@ -9,7 +9,7 @@ def make_tick_score(
     tempos: list[tuple[float, float]] | None = None,
     time_signatures: list[tuple[float, int, int]] | None = None,
 ) -> Score:
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     track = Track("Beats", 0, False)
     track.notes.append(Note(0, round(end_quarters * 480), 60, 100))
     score.tracks.append(track)

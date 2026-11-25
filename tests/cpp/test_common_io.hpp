@@ -2,11 +2,13 @@
 #ifndef SYMUSIC_TEST_COMMON_IO_HPP
 #define SYMUSIC_TEST_COMMON_IO_HPP
 
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 #include "symusic.h"
+#include "symusic/detail/file_error.h"
 #include "symusic/io/common.h"
 #include "catch2/catch_test_macros.hpp"
 using namespace symusic;
@@ -72,11 +74,18 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
 
         REQUIRE(score_file_format(path, "") == DataFormat::MIDI);
         REQUIRE(score_file_format("test.abc", "") == DataFormat::ABC);
-        REQUIRE(score_file_format(path, "ABC") == DataFormat::ABC);
+        REQUIRE(score_file_format(path, "abc") == DataFormat::ABC);
         REQUIRE_THROWS_AS(score_file_format("test.bin", ""), std::invalid_argument);
         REQUIRE(read_score_file(path) == data);
         REQUIRE_THROWS_AS(read_score_file(temp_dir / "missing.mid"), fs::filesystem_error);
         REQUIRE_THROWS_AS(read_score_file(temp_dir), fs::filesystem_error);
+    }
+
+    SECTION("Normalize a directory write-open error") {
+        REQUIRE(detail::write_open_error(temp_dir, EACCES) == std::errc::is_a_directory);
+        const auto missing = temp_dir / "missing" / "out.mid";
+        REQUIRE(detail::write_open_error(missing, ENOENT) == std::errc::no_such_file_or_directory);
+        REQUIRE(detail::write_open_error(missing, EACCES) == std::errc::permission_denied);
     }
 
     SECTION("Read and Roundtrip Fixture MIDI from Disk") {
@@ -86,21 +95,20 @@ TEST_CASE("Test Common File I/O Functions", "[symusic][io][common]") {
         const auto fixture_data = read_file(fixture_path);
         REQUIRE(fixture_data.size() > 14);
 
-        const Score<Tick> original_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(fixture_data));
+        const Score<Tick> original_score = read_score(fixture_path);
         REQUIRE(original_score.ticks_per_quarter > 0);
         REQUIRE_FALSE(original_score.tracks.empty());
 
         const fs::path roundtrip_path = temp_dir / "issue_91_roundtrip.mid";
-        write_file(roundtrip_path, original_score.dumps<DataFormat::MIDI>());
+        write_file(roundtrip_path, original_score.to_midi());
 
         const auto        roundtrip_data = read_file(roundtrip_path);
         const Score<Tick> roundtrip_score
-            = Score<Tick>::parse<DataFormat::MIDI>(std::span<const uint8_t>(roundtrip_data));
+            = Score<Tick>::from_midi(std::span<const uint8_t>(roundtrip_data));
 
         REQUIRE(roundtrip_score.ticks_per_quarter == original_score.ticks_per_quarter);
         REQUIRE(roundtrip_score.tracks.size() == original_score.tracks.size());
-        REQUIRE(roundtrip_score.note_num() == original_score.note_num());
+        REQUIRE(roundtrip_score.note_count() == original_score.note_count());
     }
 
     // Clean up the temporary directory

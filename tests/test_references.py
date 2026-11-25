@@ -6,7 +6,9 @@ event alive after the list is modified, sorted, cleared or deleted.
 
 import copy
 import gc
+import math
 import operator
+import struct
 
 import pytest
 from symusic import Note, Quarter, Score, Second, TextMeta, Tick, Track
@@ -96,7 +98,7 @@ def test_ref_survives_setitem(ttype):
 def test_ref_follows_sort(ttype):
     notes = make_track(ttype).notes
     note = notes[0]
-    notes.sort(key=lambda n: n.time, reverse=True, inplace=True)
+    notes.sort(key=lambda n: n.time, reverse=True)
     assert notes[3].pitch == 60
     note.pitch = 5
     assert notes[3].pitch == 5
@@ -107,11 +109,13 @@ def test_ref_follows_sort(ttype):
 def test_ref_survives_filter(ttype):
     notes = make_track(ttype).notes
     kept, dropped = notes[3], notes[0]
-    notes.filter(lambda n: n.pitch > 60, inplace=True)
-    assert len(notes) == 3
+    selected = notes.filter(lambda n: n.pitch > 60)
+    assert len(notes) == 4
+    assert len(selected) == 3
     assert dropped.pitch == 60
     kept.pitch = 5
-    assert notes[2].pitch == 5
+    assert selected[2].pitch == 5
+    assert notes[3].pitch == 5
 
 
 @pytest.mark.parametrize("ttype", TTYPES)
@@ -132,7 +136,7 @@ def test_ref_survives_parent_deletion(ttype):
 
 @pytest.mark.parametrize("ttype", TTYPES)
 def test_ref_survives_score_deletion(ttype):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(make_track(ttype))
     track = score.tracks[0]
     note = track.notes[2]
@@ -147,7 +151,7 @@ def test_ref_survives_score_deletion(ttype):
 
 @pytest.mark.parametrize("ttype", TTYPES)
 def test_track_ref_aliases_in_score(ttype):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     score.tracks.append(make_track(ttype))
     track = score.tracks[0]
     track.name = "renamed"
@@ -164,7 +168,7 @@ def test_track_ref_aliases_in_score(ttype):
 @pytest.mark.parametrize("ttype", TTYPES)
 def test_shallow_copy_shares_events(ttype):
     track = make_track(ttype)
-    shallow = track.copy(deep=False)
+    shallow = copy.copy(track)
     shallow.notes[0].pitch = 5
     assert track.notes[0].pitch == 5
     deep = copy.deepcopy(track)
@@ -186,20 +190,22 @@ def test_ref_survives_list_replacement(ttype):
 def test_score_equality_shares_tracks(ttype):
     score = Score(ttype=ttype)
     track = Track(ttype=ttype, notes=[Note(0, 1, 60, 80, ttype=ttype)])
-    track.notes[0].time = float("nan")
     score.tracks.append(track)
 
     other = Score(ttype=ttype)
     other.tracks.append(track)
-    assert score == score.copy(deep=False)
+    assert score == copy.copy(score)
     assert score == other
-    assert score != score.copy(deep=True)
+    independent = score.copy()
+    track.notes[0].time = 2
+    assert score == other
+    assert score != independent
 
 
 @pytest.mark.parametrize("ttype", TTYPES)
 @pytest.mark.parametrize("reverse", [False, True])
 def test_track_list_default_order(ttype, reverse):
-    score = Score(480, ttype=ttype)
+    score = Score(ticks_per_quarter=480, ttype=ttype)
     a_name, z_name = "a" * 64, "z" * 64
     note = Note(0, 1, 60, 80, ttype=ttype)
     ordered = [
@@ -221,7 +227,7 @@ def test_track_list_default_order(ttype, reverse):
 
 @pytest.mark.parametrize("reverse", [False, True])
 def test_track_list_default_order_stable_ties(reverse):
-    score = Score(480)
+    score = Score(ticks_per_quarter=480)
     first = Track("a", notes=[Note(0, 1, 60, 80)])
     second = Track("a", notes=[Note(0, 1, 61, 80)])
     other = Track("z")
@@ -238,11 +244,16 @@ def test_track_list_default_order_stable_ties(reverse):
     ("compare", "equal"), [(operator.eq, True), (operator.ne, False)]
 )
 def test_track_nan_identity(ttype, compare, equal):
-    track = make_track(ttype)
-    track.notes[0].time = float("nan")
+    track = Track(notes=[Note(1.25, 1, 60, ttype=ttype)], ttype=ttype)
+    unit, data = track.__getstate__()
+    time = struct.pack("=f", 1.25)
+    assert data.count(time) == 1
+    track = Track.__new__(Track)
+    track.__setstate__((unit, data.replace(time, struct.pack("=f", math.nan))))
+    assert math.isnan(track.notes[0].time)
 
     assert compare(track, track) is equal
-    assert compare(track, track.copy(deep=True)) is not equal
+    assert compare(track, track.copy()) is not equal
 
 
 @pytest.mark.parametrize("ttype", [Quarter, Second])
@@ -251,11 +262,16 @@ def test_track_nan_identity(ttype, compare, equal):
 )
 def test_score_nan_identity(ttype, compare, equal):
     score = Score(ttype=ttype)
-    score.markers.append(TextMeta(0, "marker", ttype=ttype))
-    score.markers[0].time = float("nan")
+    score.markers.append(TextMeta(1.25, "marker", ttype=ttype))
+    unit, data = score.__getstate__()
+    time = struct.pack("=f", 1.25)
+    assert data.count(time) == 1
+    score = Score.__new__(Score)
+    score.__setstate__((unit, data.replace(time, struct.pack("=f", math.nan))))
+    assert math.isnan(score.markers[0].time)
 
     assert compare(score, score) is equal
-    assert compare(score, score.copy(deep=True)) is not equal
+    assert compare(score, score.copy()) is not equal
 
 
 def test_list_iterators_stay_exhausted():
@@ -271,7 +287,6 @@ def test_list_iterators_stay_exhausted():
 @pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_track_list_equality_shares_tracks(ttype):
     track = Track(notes=[Note(0, 1, 60, ttype=ttype)], ttype=ttype)
-    track.notes[0].time = float("nan")
     score = Score(ttype=ttype)
     other = Score(ttype=ttype)
     score.tracks.append(track)
@@ -279,4 +294,7 @@ def test_track_list_equality_shares_tracks(ttype):
 
     assert score.tracks == other.tracks
     assert score.tracks == [track]
-    assert score.tracks != score.tracks.copy(deep=True)
+    independent = score.tracks.copy()
+    track.notes[0].time = 2
+    assert score.tracks == other.tracks
+    assert score.tracks != independent

@@ -14,35 +14,45 @@ namespace symusic {
  */
 
 // Tick to Quarter conversion
-inline Quarter::unit tick_to_quarter(Tick::unit tick_val, int tpq) {
-    return static_cast<Quarter::unit>(tick_val) / static_cast<Quarter::unit>(tpq);
+inline Quarter::unit tick_to_quarter(Tick::unit tick_val, int ticks_per_quarter) {
+    return static_cast<Quarter::unit>(tick_val) / static_cast<Quarter::unit>(ticks_per_quarter);
 }
 
 // Quarter to Tick conversion
-inline Tick::unit quarter_to_tick(Quarter::unit quarter_val, int tpq) {
-    return static_cast<Tick::unit>(std::round(quarter_val * static_cast<Quarter::unit>(tpq)));
+inline Tick::unit quarter_to_tick(Quarter::unit quarter_val, int ticks_per_quarter) {
+    return static_cast<Tick::unit>(
+        std::round(quarter_val * static_cast<Quarter::unit>(ticks_per_quarter))
+    );
 }
 
 // Quarter to Second conversion with constant tempo
-inline Second::unit quarter_to_second(Quarter::unit quarter_val, int mspq) {
-    return static_cast<Second::unit>(quarter_val * static_cast<Second::unit>(mspq) / 1000000.0);
+inline Second::unit quarter_to_second(Quarter::unit quarter_val, int microseconds_per_quarter) {
+    return static_cast<Second::unit>(
+        quarter_val * static_cast<Second::unit>(microseconds_per_quarter) / 1000000.0
+    );
 }
 
 // Second to Quarter conversion with constant tempo
-inline Quarter::unit second_to_quarter(Second::unit second_val, int mspq) {
-    return static_cast<Quarter::unit>(second_val * 1000000.0 / static_cast<Quarter::unit>(mspq));
+inline Quarter::unit second_to_quarter(Second::unit second_val, int microseconds_per_quarter) {
+    return static_cast<Quarter::unit>(
+        second_val * 1000000.0 / static_cast<Quarter::unit>(microseconds_per_quarter)
+    );
 }
 
 // Tick to Second conversion with constant tempo
-inline Second::unit tick_to_second(Tick::unit tick_val, int tpq, int mspq) {
-    Quarter::unit quarter_val = tick_to_quarter(tick_val, tpq);
-    return quarter_to_second(quarter_val, mspq);
+inline Second::unit tick_to_second(
+    Tick::unit tick_val, int ticks_per_quarter, int microseconds_per_quarter
+) {
+    Quarter::unit quarter_val = tick_to_quarter(tick_val, ticks_per_quarter);
+    return quarter_to_second(quarter_val, microseconds_per_quarter);
 }
 
 // Second to Tick conversion with constant tempo
-inline Tick::unit second_to_tick(Second::unit second_val, int tpq, int mspq) {
-    Quarter::unit quarter_val = second_to_quarter(second_val, mspq);
-    return quarter_to_tick(quarter_val, tpq);
+inline Tick::unit second_to_tick(
+    Second::unit second_val, int ticks_per_quarter, int microseconds_per_quarter
+) {
+    Quarter::unit quarter_val = second_to_quarter(second_val, microseconds_per_quarter);
+    return quarter_to_tick(quarter_val, ticks_per_quarter);
 }
 
 // Quarter to Second conversion with variable tempo
@@ -64,12 +74,12 @@ inline Second::unit quarter_to_second(
         for (size_t j = 0; j < i; j++) {
             Quarter::unit segment_duration
                 = (j + 1 < tempos.size()) ? (tempos[j + 1].time - tempos[j].time) : 0;
-            base_time += quarter_to_second(segment_duration, tempos[j].mspq);
+            base_time += quarter_to_second(segment_duration, tempos[j].microseconds_per_quarter);
         }
     }
 
     // Add the time from the current tempo segment
-    return base_time + quarter_to_second(quarter_diff, tempos[i].mspq);
+    return base_time + quarter_to_second(quarter_diff, tempos[i].microseconds_per_quarter);
 }
 
 // Second to Quarter conversion with variable tempo
@@ -82,8 +92,9 @@ inline Quarter::unit second_to_quarter(
     tempo_boundaries_seconds.push_back(0);
 
     for (size_t i = 1; i < tempos.size(); i++) {
-        Quarter::unit quarter_diff     = tempos[i].time - tempos[i - 1].time;
-        Second::unit  segment_duration = quarter_to_second(quarter_diff, tempos[i - 1].mspq);
+        Quarter::unit quarter_diff = tempos[i].time - tempos[i - 1].time;
+        Second::unit  segment_duration
+            = quarter_to_second(quarter_diff, tempos[i - 1].microseconds_per_quarter);
         tempo_boundaries_seconds.push_back(tempo_boundaries_seconds.back() + segment_duration);
     }
 
@@ -96,24 +107,26 @@ inline Quarter::unit second_to_quarter(
 
     // Calculate time in quarters for this segment
     Second::unit  second_diff  = second_val - tempo_boundaries_seconds[i];
-    Quarter::unit quarter_diff = second_to_quarter(second_diff, tempos[i].mspq);
+    Quarter::unit quarter_diff = second_to_quarter(second_diff, tempos[i].microseconds_per_quarter);
 
     return tempos[i].time + quarter_diff;
 }
 
 // Tick to Second conversion with variable tempo
 inline Second::unit tick_to_second(
-    Tick::unit tick_val, int tpq, const std::vector<Tempo<Tick>>& tempos
+    Tick::unit tick_val, int ticks_per_quarter, const std::vector<Tempo<Tick>>& tempos
 ) {
     // Convert tempos from Tick to Quarter
     std::vector<Tempo<Quarter>> quarter_tempos;
     for (const auto& tempo : tempos) {
-        Quarter::unit quarter_time = tick_to_quarter(tempo.time, tpq);
-        quarter_tempos.push_back(detail::make_event<Tempo<Quarter>>(quarter_time, tempo.mspq));
+        Quarter::unit quarter_time = tick_to_quarter(tempo.time, ticks_per_quarter);
+        quarter_tempos.push_back(
+            detail::make_event<Tempo<Quarter>>(quarter_time, tempo.microseconds_per_quarter)
+        );
     }
 
     // Convert tick to quarter
-    Quarter::unit quarter_val = tick_to_quarter(tick_val, tpq);
+    Quarter::unit quarter_val = tick_to_quarter(tick_val, ticks_per_quarter);
 
     // Convert quarter to second with variable tempo
     return quarter_to_second(quarter_val, quarter_tempos);

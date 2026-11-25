@@ -4,13 +4,13 @@ Model output, generated music and converted data all end the same way: create a 
 
 ## From events
 
-Build in the unit that suits the source; quarters are natural for generated rhythms. `dump_midi` converts to ticks when it writes.
+Build in the unit that suits the source; quarters are natural for generated rhythms. `dump` converts to ticks when it writes.
 
 ```python
 from symusic import ControlChange, Note, Quarter, Score, Tempo, TimeSignature, Track
 
 q = Quarter
-score = Score(480, ttype=q)
+score = Score(ticks_per_quarter=480, ttype=q)
 score.tempos.append(Tempo(0.0, qpm=100, ttype=q))
 score.time_signatures.append(TimeSignature(0.0, 3, 4, ttype=q))
 
@@ -27,15 +27,15 @@ for beat in range(6):
     )
 
 score.tracks.extend([melody, drums])
-score.dump_midi("generated.mid")
+score.dump("generated.mid")
 ```
 
 - Every event, track and score must use the same `ttype`; mixing units raises `TypeError`.
-- `Score(480)` sets the resolution that the file gets. Choose one that represents every duration you generate: 480 holds sixteenth notes, triplets and quintuplets exactly.
+- `Score(ticks_per_quarter=480)` sets the resolution that the file gets. Choose one that represents every duration you generate: 480 holds sixteenth notes, triplets and quintuplets exactly.
 - Add tempos and time signatures yourself; without them players assume 120 quarter notes per minute and 4/4.
 - Set `is_drum=True` for percussion. Its notes choose instruments by pitch (36 is a bass drum, 42 a closed hi-hat), and the track is written to channel 10.
-- Write the sustain pedal as control change 64 in `controls`. `pedals` is not written to MIDI.
-- `dump_midi` orders events by time itself, so the lists need not be sorted. Call `score.sort()` if your own code relies on list order.
+- Write sustain as control change 64 in `controls`.
+- `dump` orders events by time itself, so the lists need not be sorted. Call `score.sort()` if your own code relies on list order.
 
 ## From arrays
 
@@ -43,11 +43,11 @@ For model output already in arrays, `from_numpy` builds a whole list in one call
 
 ```python
 import numpy as np
-from symusic import Note, Quarter, Score, Tick, Track
+from symusic import NoteList, Quarter, Score, Tick, Track
 
 onsets = np.arange(16) * 0.25  # quarters
 pitches = np.array([60, 64, 67, 72] * 4)
-notes = Note.from_numpy(
+notes = NoteList.from_numpy(
     time=onsets,
     duration=np.full(16, 0.25),
     pitch=pitches,
@@ -55,14 +55,14 @@ notes = Note.from_numpy(
     ttype=Quarter,
 )
 
-score = Score(480, ttype=Quarter)
+score = Score(ticks_per_quarter=480, ttype=Quarter)
 track = Track("arpeggio", ttype=Quarter)
 track.notes = notes
 score.tracks.append(track)
-score.to(Tick, min_dur=1).dump_midi("arpeggio.mid")
+score.to(Tick, min_duration=1).dump("arpeggio.mid")
 ```
 
-Converting to ticks with `min_dur=1` before writing keeps very short generated notes from rounding to zero length; see [time_units.md](time_units.md).
+Converting to ticks with `min_duration=1` before writing keeps very short generated notes from rounding to zero length; see [time_units.md](time_units.md).
 
 ## From another score
 
@@ -76,5 +76,5 @@ variant = original.copy()
 variant.tracks = [t for t in variant.tracks if t.is_drum]
 for tempo in variant.tempos:
     tempo.qpm *= 1.25
-variant.dump_midi("drums_faster.mid")
+variant.dump("drums_faster.mid")
 ```

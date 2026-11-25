@@ -33,7 +33,7 @@ int main(const int argc, const char* argv[]) {
     auto library_path = program.get<std::string>("--library");
 
     const auto        data  = read_file(midi_path);
-    const auto        score = Score<Second>::parse<DataFormat::MIDI>(data);
+    const auto        score = Score<Second>::from_midi(data);
     const Synthesizer synth(library_path, sf_path, {.sample_rate = sample_rate});
     const auto        audio = synth.render(score, stereo);
     const auto        bytes = std::span(

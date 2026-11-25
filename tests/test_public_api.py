@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import symusic
 from symusic import (
+    KeySignature,
     Note,
     NoteList,
     Pedal,
@@ -88,21 +89,40 @@ def test_removed_forms():
         Score().to("second")
     with pytest.raises(TypeError):
         Score(Score())
+    with pytest.raises(TypeError, match="ticks_per_quarter"):
+        Score(960)
     with pytest.raises(TypeError):
-        Score.from_file("x.mid", fmt="mid")
+        Score().to_abc(warn=True)
+    with pytest.raises(TypeError):
+        Score("input.mid", sanitize_data=True)
+    assert not hasattr(Score, "from_file")
 
 
 def test_checked_python_inputs(tmp_path):
     with pytest.raises(ValueError, match="ticks_per_quarter"):
-        Score(0)
-    with pytest.raises(OverflowError):
+        Score(ticks_per_quarter=0)
+    with pytest.raises(ValueError, match="format"):
+        Score(None, format="midi")
+    with pytest.raises(ValueError, match="ticks_per_quarter"):
+        Score(tmp_path / "missing.mid", ticks_per_quarter=480)
+    with pytest.raises(ValueError, match="time"):
         Note(2**31, 1, 60)
     with pytest.raises(TypeError):
         Note(0.5, 1, 60)
     with pytest.raises(FileNotFoundError):
         Score(tmp_path / "missing.mid")
     with pytest.raises(IsADirectoryError):
-        Score.from_file(tmp_path, format="midi")
+        Score(tmp_path, format="midi")
+
+
+def test_score_checks_format_before_reading(tmp_path):
+    path = tmp_path / "missing.unknown"
+    with pytest.raises(ValueError, match="format"):
+        Score(path)
+    with pytest.raises(ValueError, match="format"):
+        Score(path, format="unknown")
+    with pytest.raises(FileNotFoundError):
+        Score(path, format="midi")
 
 
 @pytest.mark.skipif(
@@ -116,7 +136,7 @@ def test_midi_file_preserves_permission_error(tmp_path):
         pytest.skip("the test process can read files without read permission")
     assert path.is_file()
     with pytest.raises(PermissionError) as error:
-        Score.from_file(path)
+        Score(path)
     assert error.value.errno == errno.EACCES
     assert error.value.filename == str(path)
 
@@ -141,16 +161,15 @@ def test_public_callable_signatures():
 
 
 def test_unsupported_text_columns():
-    with pytest.raises(NotImplementedError):
-        TextMeta.from_numpy(np.array([0]), np.array(["text"]))
+    assert not hasattr(TextMeta, "from_numpy")
     with pytest.raises(RuntimeError):
         TextMetaList.from_numpy()
 
 
 def test_pedal_start():
     pedal = Pedal(1, 2)
-    pedal.start = 3
-    assert pedal.time == 3
+    assert not hasattr(pedal, "start")
+    assert pedal.end == 3
 
 
 @pytest.mark.parametrize(
@@ -199,3 +218,189 @@ def test_mutable_sequence_operations(make_item):
     assert items == [second]
     items.clear()
     assert not items
+
+
+@pytest.mark.parametrize("format_name", ["midi", "abc"])
+def test_score_binary_file_and_explicit_format(tmp_path, format_name):
+    from io import BytesIO
+
+    score = Score(ticks_per_quarter=480)
+    score.tracks.append(Track(notes=[Note(0, 480, 60, 80)]))
+    stream = BytesIO()
+    with pytest.raises(ValueError, match="format"):
+        score.dump(stream)
+    assert score.dump(stream, format=format_name) is None
+    stream.seek(0)
+    with pytest.raises(ValueError, match="format"):
+        Score(stream)
+    assert Score(stream, format=format_name).note_count() == 1
+    path = tmp_path / "score.data"
+    score.dump(path, format=format_name)
+    assert Score(path, format=format_name).note_count() == 1
+
+
+def test_score_file_write_errors(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        Score().dump(tmp_path / "missing" / "out.mid")
+    with pytest.raises(ValueError, match="format"):
+        Score().dump(tmp_path / "out.mid", format="unknown")
+
+
+@pytest.mark.parametrize("name", ["output.mid", "output.abc"])
+def test_score_dump_to_directory(tmp_path, name):
+    directory = tmp_path / name
+    directory.mkdir()
+    with pytest.raises(IsADirectoryError) as exc:
+        Score().dump(directory)
+    assert exc.value.errno == errno.EISDIR
+    assert exc.value.filename == str(directory)
+
+
+def test_copy_protocol_and_hashes():
+    import copy
+    from collections.abc import MutableSequence
+
+    score = Score()
+    score.tracks.append(Track(notes=[Note(0, 1, 60)]))
+    track = score.tracks[0]
+    notes = track.notes
+    for item in (score, track, notes, notes[0], score.tracks):
+        assert item.__hash__ is None
+        assert item.copy() == copy.deepcopy(item)
+        with pytest.raises(TypeError):
+            item.copy(deep=False)
+    assert isinstance(notes, MutableSequence)
+    assert isinstance(score.tracks, MutableSequence)
+    independent = notes.copy()
+    shallow = copy.copy(notes)
+    shallow[0].pitch = 61
+    assert notes[0].pitch == 61
+    assert independent[0].pitch == 60
+    with pytest.raises(TypeError):
+        notes.__copy__(False)
+    assert notes.sort() is None
+
+
+def test_to_numpy_uses_field_names_and_bool_minor():
+    from symusic import KeySignature, KeySignatureList
+
+    signatures = KeySignatureList([KeySignature(0, -3, True)])
+    arrays = signatures.to_numpy()
+    assert set(arrays) == {"time", "key", "minor"}
+    assert arrays["minor"].dtype == np.dtype(bool)
+    assert KeySignatureList.from_numpy(**arrays) == signatures
+    assert signatures[0].minor is True
+    assert not hasattr(signatures, "numpy")
+
+
+@pytest.mark.parametrize("stride", [2, -2])
+def test_key_signature_from_strided_booleans(stride):
+    from symusic import KeySignature, KeySignatureList
+
+    signatures = KeySignatureList(
+        [
+            KeySignature(0, -3, True),
+            KeySignature(1, 2, False),
+            KeySignature(2, 1, False),
+            KeySignature(3, 0, True),
+        ]
+    )
+    arrays = {name: column[::stride] for name, column in signatures.to_numpy().items()}
+    assert KeySignatureList.from_numpy(**arrays) == signatures[::stride]
+
+
+def test_key_signature_from_numpy_checks_integer_minor():
+    from symusic import KeySignatureList
+
+    columns = {"time": np.array([0, 1]), "key": np.array([-3, 2])}
+    signatures = KeySignatureList.from_numpy(**columns, minor=np.array([1, 0]))
+    assert [signature.minor for signature in signatures] == [True, False]
+    with pytest.raises(ValueError, match="minor"):
+        KeySignatureList.from_numpy(**columns, minor=np.array([1, 2]))
+
+
+@pytest.mark.parametrize("offset", [8, 2**80])
+def test_shift_range_failure_does_not_partially_mutate(offset):
+    score = Score()
+    score.tracks.extend(
+        [
+            Track(notes=[Note(0, 1, 60, 60)]),
+            Track(notes=[Note(0, 1, 125, 125)]),
+        ]
+    )
+    previous = score.copy()
+    for operation in (score.shift_pitch, score.shift_velocity):
+        with pytest.raises(ValueError, match=r"pitch|velocity|offset"):
+            operation(offset)
+        assert score == previous
+
+
+def test_resample_keyword_boundary():
+    with pytest.raises(TypeError):
+        Score().resample(ticks_per_quarter=480)
+    with pytest.raises(TypeError):
+        Score().resample(480, 1)
+
+
+def test_unknown_pianoroll_mode():
+    with pytest.raises(ValueError, match="Unknown"):
+        Score().pianoroll(["unknown"])
+
+
+@pytest.mark.parametrize("value", [-1, 128, 2**80])
+def test_program_range_is_checked(value):
+    with pytest.raises(ValueError, match="program"):
+        Track(program=value)
+    track = Track()
+    with pytest.raises(ValueError, match="program"):
+        track.program = value
+    assert track.program == 0
+
+
+def test_numpy_integer_columns_validate_before_narrowing():
+    arrays = {
+        "time": np.array([0]),
+        "duration": np.array([1]),
+        "pitch": np.array([60]),
+        "velocity": np.array([80]),
+    }
+    assert NoteList.from_numpy(**arrays)[0] == Note(0, 1, 60, 80)
+    arrays["pitch"][0] = 316
+    with pytest.raises(ValueError, match="pitch"):
+        NoteList.from_numpy(**arrays)
+
+
+@pytest.mark.parametrize("pitch", [[60], np.array([[60]])], ids=["list", "2d"])
+def test_numpy_rejects_invalid_column_shape(pitch):
+    with pytest.raises(TypeError, match=r"pitch.*1-D CPU array"):
+        NoteList.from_numpy(
+            time=np.array([0]),
+            duration=np.array([1]),
+            pitch=pitch,
+            velocity=np.array([80]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "is_drum"),
+    [("Piano", False), ("Kit's cymbal", True), ("Both '\" quotes\\\n\t\0中", False)],
+)
+def test_track_repr_quotes_name(name, is_drum):
+    track = Track(name=name, program=3, is_drum=is_drum, ttype=Quarter)
+    assert repr(track) == (
+        f"Track(ttype='Quarter', program=3, is_drum={is_drum!r}, name={name!r}, "
+        "notes=0, lyrics=0)"
+    )
+
+
+@pytest.mark.parametrize(("minor", "expected"), [(False, "False"), (True, "True")])
+def test_key_signature_repr_bool(minor, expected):
+    assert f"minor={expected}" in repr(KeySignature(0, 0, minor))
+
+
+def test_score_repr_quotes_time_unit():
+    score = Score(ticks_per_quarter=480, ttype=Second)
+    assert repr(score) == (
+        "Score(ttype='Second', ticks_per_quarter=480, begin=0, end=0, tracks=0, "
+        "notes=0, time_sig=0, key_sig=0, markers=0)"
+    )
