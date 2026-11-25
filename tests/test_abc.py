@@ -142,6 +142,23 @@ def test_abc_tune_zero_skips_broken_tune():
     assert [note.pitch for note in score.tracks[0].notes] == [69]
 
 
+def test_abc_tune_zero_keeps_midi_macro():
+    first = "X:1\nK:C\nC|\n\n"
+    definitions = (
+        "%%MidiOff\n%%MIDIdef higher transpose 3\n%%MidiOn\n"
+        "%%MIDIdef higher transpose 2\n"
+    )
+    selected = "X:{reference}\nM:4/4\nL:1/4\nK:C\n%%MIDIx higher\nC D E F|\n"
+
+    def pitches(reference):
+        abc = first + definitions + selected.format(reference=reference)
+        score = Score.from_abc(abc, tune=reference)
+        return [note.pitch for track in score.tracks for note in track.notes]
+
+    assert pitches(7) == [62, 64, 66, 67]
+    assert pitches(0) == [62, 64, 66, 67]
+
+
 def test_abc_tune_zero_ignores_text_blocks():
     text = (
         "%%begintext\nX:0\n%%endtext\n"
@@ -318,6 +335,32 @@ def test_abc_stress_instruction_comment(tmp_path, monkeypatch, absolute):
     assert b" stress comment" in midi
 
 
+@WINDOWS_STRESS_BUG
+def test_abc_stress_trailing_directive(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("stress.txt").write_text("4\n95 1\n80 1\n85 1\n80 1\n95 1\n")
+    run = subprocess.run
+
+    def enable_stress(args, **kwargs):
+        return run([*args, "-BF"], **kwargs)
+
+    monkeypatch.setattr(_abc.subprocess, "run", enable_stress)
+    header = "X:1\nM:4/4\nL:1/4\nR:reel\nK:C\n"
+    music = "C D E F|"
+    directive = "MIDI ptstress stress.txt"
+    standalone = Score.from_abc(f"{header}{music}\n%%{directive}\n{music}\n")
+    trailing = Score.from_abc(f"{header}{music} %%{directive}\n{music}\n")
+    comment = Score.from_abc(f"{header}{music} %{directive}\n{music}\n")
+    plain = Score.from_abc(f"{header}{music}\n{music}\n")
+
+    def velocities(score):
+        return [note.velocity for note in score.tracks[0].notes]
+
+    assert velocities(trailing)[4:] == velocities(standalone)[4:]
+    assert velocities(comment) == velocities(plain)
+    assert velocities(trailing)[4:] != velocities(plain)[4:]
+
+
 def test_dump_abc_roundtrip(tmp_path: Path):
     score = make_roundtrip_score()
     output_dir = tmp_path / "abc output"
@@ -339,6 +382,23 @@ def test_dump_abc_roundtrip(tmp_path: Path):
     assert loaded_with_factory.note_num() == score.note_num()
     assert len(loaded_with_ctor.tracks) == 1
     assert len(loaded_with_factory.tracks) == 1
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="requires POSIX trailing slash semantics"
+)
+def test_dump_abc_preserves_trailing_slash(tmp_path):
+    path = tmp_path / "existing.abc"
+    original = b"Existing file"
+    path.write_bytes(original)
+    score = make_roundtrip_score()
+
+    with pytest.raises((IsADirectoryError, NotADirectoryError)):
+        score.dump_abc(f"{path}/")
+    assert path.read_bytes() == original
+
+    score.dump_abc(str(path))
+    assert path.read_bytes() == score.dumps_abc().encode("utf-8")
 
 
 @pytest.mark.parametrize(
@@ -533,12 +593,27 @@ def test_partial_midi_is_rejected(monkeypatch):
     assert list_symusic_temp_dirs() == before
 
 
-def test_core_score_keeps_abc_methods(tmp_path):
+@pytest.mark.parametrize(
+    ("ttype", "score_type"),
+    [
+        ("tick", core.ScoreTick),
+        ("quarter", core.ScoreQuarter),
+        ("second", core.ScoreSecond),
+    ],
+)
+def test_core_score_keeps_abc_methods(tmp_path, ttype, score_type):
     path = tmp_path / "score.abc"
-    score = core.ScoreQuarter.from_abc(make_roundtrip_abc_text())
-    assert type(score) is core.ScoreQuarter
+    score = score_type.from_abc(make_roundtrip_abc_text())
+    assert type(score) is score_type
     score.dump_abc(path)
-    assert core.ScoreQuarter.from_file(path).note_num() == score.note_num()
+    assert path.read_bytes() == score.dumps_abc().encode("utf-8")
+    for loaded in (
+        score_type.from_abc_file(path),
+        score_type.from_file(path),
+        Score.from_file(path, ttype),
+    ):
+        assert type(loaded) is score_type
+        assert loaded.note_num() == score.note_num()
 
 
 @pytest.mark.parametrize("path_type", [str, bytes])
@@ -664,5 +739,30 @@ else:
     raise AssertionError("MIDI reader accepted a named pipe")
 
 assert ScoreTick.from_file(sys.argv[2]).note_num() == 3
+"""
+    subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires a POSIX FIFO")
+def test_concrete_midi_constructor_rejects_named_pipe(tmp_path):
+    fifo = tmp_path / "input.mid"
+    os.mkfifo(fifo)
+    midi = tmp_path / "regular.mid"
+    make_roundtrip_score().dump_midi(midi)
+    program = """
+import sys
+from symusic.core import ScoreTick, ScoreQuarter, ScoreSecond
+
+for score_type in (ScoreTick, ScoreQuarter, ScoreSecond):
+    score = score_type(sys.argv[2])
+    assert type(score) is score_type
+    assert score.note_num() == 3
+    try:
+        score_type(sys.argv[1])
+    except RuntimeError as error:
+        assert "path must refer to a regular file" in str(error)
+        assert sys.argv[1] in str(error)
+    else:
+        raise AssertionError("MIDI constructor accepted a named pipe")
 """
     subprocess.run([sys.executable, "-c", program, fifo, midi], check=True, timeout=5)

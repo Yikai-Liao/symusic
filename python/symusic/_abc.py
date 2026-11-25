@@ -34,8 +34,8 @@ _MAX_REFERENCE = (_REFERENCE_TRUNCATION_THRESHOLD - 1) * 10 + 9
 _INCLUDE = re.compile(rb"(?:^|(?<=[\r\n]))%%abc-include[ \t\v\f]*(\S+)")
 _STRESS = re.compile(
     rb"(?P<prefix>"
-    rb"(?:(?:^|(?<=[\r\n]))[ \t]*(?:%%MIDI|(?P<instruction>I[ \t]*:[ \t]*MIDI))"
-    rb"|(?P<inline>\[I:)[ \t]*MIDI)"
+    rb"(?:(?:^|(?<=[\r\n]))[ \t]*(?P<instruction>I[ \t]*:[ \t]*MIDI)"
+    rb"|%%MIDI|(?P<inline>\[I:)[ \t]*MIDI)"
     rb"[ \t]+ptstress[ \t]+)"
     # parsemusic cuts the line at the first percent sign before parsing inline fields.
     rb"(?P<argument>(?(inline)[^\]%\r\n]+(?=\])|[^\r\n]+))"
@@ -50,6 +50,7 @@ _STRESS = re.compile(
 _TUNE_LINE = re.compile(
     rb"(?:^|(?<=[\r\n]))(?:"
     rb"[ \t]*X[ \t]*:(?![:|])[ \t]*(?P<reference>[0-9]*)"
+    rb"|(?P<midi_definition>[ \t]*%%MIDIdef(?![A-Za-z]))"
     rb"|(?i:%%MidiOff|%%MidiOn)|%%(?:begin|end)ps(?=[\r\n]|$)"
     rb"|[^\r\n]*?%%(?:begin|end)text)[^\r\n]*"
 )
@@ -169,6 +170,8 @@ def _isolate_tune(data: bytes, tune: int, workdir: Path, includes: set[bytes]) -
     reference = str(tune).encode("ascii")
     ignored = False
     first = selected = None
+    end = len(data)
+    midi_definitions = []
     for line in _TUNE_LINE.finditer(data):
         content = line[0]
         # Mirror parseabc.c's single ignore_line flag: parseline applies
@@ -181,17 +184,27 @@ def _isolate_tune(data: bytes, tune: int, workdir: Path, includes: set[bytes]) -
             ignored = True
         if content[:8].lower() == b"%%midion":
             ignored = False
-        if not ignored and line["reference"] is not None:
+        if ignored:
+            continue
+        if line["reference"] is not None:
             if first is None:
                 first = line.start()
             if selected is not None:
-                return data[:first] + data[selected : line.start()]
+                end = line.start()
+                break
             digits = line["reference"]
             if digits and (digits.lstrip(b"0") or b"0") == reference:
                 selected = line.start()
+        elif (
+            line["midi_definition"] is not None
+            and first is not None
+            and selected is None
+        ):
+            # abc2midi records these definitions even while skipping an earlier tune.
+            midi_definitions.append(content + b"\n")
 
     if selected is not None:
-        return data[:first] + data[selected:]
+        return data[:first] + b"".join(midi_definitions) + data[selected:end]
     msg = f"ABC tune X:{tune} was not found"
     raise ValueError(msg)
 

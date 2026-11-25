@@ -8,10 +8,12 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include <fmt/format.h>
+#include <fmt/std.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/filesystem.h>
@@ -158,6 +160,9 @@ nb::object convert_score(
 
 template<TType T>
 shared<Score<T>> midi2score(const std::filesystem::path& path) {
+    if (!std::filesystem::is_regular_file(path)) {
+        throw std::runtime_error(fmt::format("path must refer to a regular file, got {}", path));
+    }
     auto     data = read_file(path);
     Score<T> s    = parse<DataFormat::MIDI, Score<T>>(data, false);
     return std::make_shared<Score<T>>(std::move(s));

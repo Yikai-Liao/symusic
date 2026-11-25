@@ -27,7 +27,8 @@ __all__ = [
     "Track",
 ]
 
-install_score_file_methods()
+_SCORE_TYPES = (core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
+install_score_file_methods(_SCORE_TYPES)
 
 # The public names Score, Note, ... are instances of the factory classes below. Calling one
 # dispatches on ``ttype`` to the class of that unit in symusic.core, such as ScoreTick, and
@@ -468,7 +469,7 @@ class TrackFactory:
 class ScoreFactory:
     """``Score(x=960, ttype="tick", ...)`` loads or creates a score."""
 
-    __core_classes = CoreClasses(core.ScoreTick, core.ScoreQuarter, core.ScoreSecond)
+    __core_classes = CoreClasses(*_SCORE_TYPES)
 
     def __call__(
         self,

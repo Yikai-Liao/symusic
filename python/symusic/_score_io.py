@@ -8,7 +8,7 @@ import pathlib
 import stat
 from typing import TYPE_CHECKING
 
-from . import _abc, core
+from . import _abc
 
 if TYPE_CHECKING:
     import typing_extensions
@@ -91,9 +91,11 @@ class _FileMethods:
 
     def dump_abc(self, path: _FilePath, warn: bool = False) -> None:
         """Write ABC to a file. With ``warn=True``, report converter diagnostics."""
-        pathlib.Path(os.fsdecode(path)).write_bytes(
-            self.dumps_abc(warn).encode("utf-8")
-        )
+        destination = os.fsdecode(path)
+        data = self.dumps_abc(warn).encode("utf-8")
+        # pathlib strips trailing separators before opening a file.
+        with open(destination, "wb") as file:  # noqa: PTH123
+            file.write(data)
 
     def dumps_abc(self, warn: bool = False) -> str:
         """Return ABC text. With ``warn=True``, report converter diagnostics."""
@@ -103,10 +105,10 @@ class _FileMethods:
         return _abc.write_abc(self.dumps_midi(), warn)
 
 
-def install_score_file_methods() -> None:
+def install_score_file_methods(score_types: tuple[type[object], ...]) -> None:
     """Keep the same score types for construction, copying, conversion and pickle."""
     for name, method in vars(_FileMethods).items():
         if name.startswith("_"):
             continue
-        for score_type in (core.ScoreTick, core.ScoreQuarter, core.ScoreSecond):
+        for score_type in score_types:
             setattr(score_type, name, method)
