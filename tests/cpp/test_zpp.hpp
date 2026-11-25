@@ -302,17 +302,20 @@ TEST_CASE("ZPP score bytes match the versioned layout", "[symusic][io][zpp]") {
     const auto check = []<TType T>(typename T::unit step, std::string_view golden) {
         constexpr u8 kExpectedZppVersion = 1;
         Score<T>     score(480);
-        auto         track = std::make_shared<Track<T>>("Kit", 9, true);
-        track->notes->emplace_back(step, 2 * step, 61, 83);
-        track->controls->emplace_back(3 * step, 7, 101);
-        track->pitch_bends->emplace_back(4 * step, -1234);
-        track->pedals->emplace_back(5 * step, 3 * step);
-        track->lyrics->emplace_back(6 * step, "la");
-        score.tracks->push_back(track);
-        score.time_signatures->emplace_back(7 * step, 3, 8);
-        score.key_signatures->emplace_back(8 * step, -2, 1);
-        score.tempos->emplace_back(9 * step, 500000);
-        score.markers->emplace_back(10 * step, "A");
+        Track<T>     track;
+        track.name    = "Kit";
+        track.program = 9;
+        track.is_drum = true;
+        track.notes.push_back(detail::make_event<Note<T>>(step, 2 * step, 61, 83));
+        track.controls.push_back(detail::make_event<ControlChange<T>>(3 * step, 7, 101));
+        track.pitch_bends.push_back(detail::make_event<PitchBend<T>>(4 * step, -1234));
+        track.pedals.push_back(detail::make_event<Pedal<T>>(5 * step, 3 * step));
+        track.lyrics.push_back(detail::make_event<TextMeta<T>>(6 * step, "la"));
+        score.tracks.push_back(track);
+        score.time_signatures.push_back(detail::make_event<TimeSignature<T>>(7 * step, 3, 8));
+        score.key_signatures.push_back(detail::make_event<KeySignature<T>>(8 * step, -2, 1));
+        score.tempos.push_back(detail::make_event<Tempo<T>>(9 * step, 500000));
+        score.markers.push_back(detail::make_event<TextMeta<T>>(10 * step, "A"));
 
         const auto bytes = score.template dumps<DataFormat::ZPP>();
         REQUIRE(bytes.at(4) == kExpectedZppVersion);
