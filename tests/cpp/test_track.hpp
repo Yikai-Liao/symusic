@@ -8,6 +8,11 @@
 
 using namespace symusic;
 
+template<typename T>
+concept HasDefaultKey = requires(const T& track) { track.default_key(); };
+
+static_assert(!HasDefaultKey<Track<Tick>>);
+
 TEST_CASE("Test Track class basic functionality", "[track]") {
     // Test default constructor
     Track<Tick> track;
@@ -168,14 +173,6 @@ TEST_CASE("Test Track manipulation methods", "[track]") {
     track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(0, "Do"));
     track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(100, "Re"));
     track.lyrics.push_back(detail::make_event<TextMeta<Tick>>(200, "Mi"));
-
-    SECTION("default_key() method") {
-        auto key = track.default_key();
-        REQUIRE(std::get<0>(key) == track.is_drum);
-        REQUIRE(std::get<1>(key) == track.program);
-        REQUIRE(std::get<2>(key) == track.name);
-        REQUIRE(std::get<3>(key) == track.notes.size());
-    }
 
     SECTION("copy() and deepcopy() methods") {
         // Test shallow copy

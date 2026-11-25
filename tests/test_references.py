@@ -6,9 +6,10 @@ event alive after the list is modified, sorted, cleared or deleted.
 
 import copy
 import gc
+import operator
 
 import pytest
-from symusic import Note, Score, Track
+from symusic import Note, Score, TextMeta, Track
 
 TTYPES = ["tick", "quarter", "second"]
 
@@ -193,3 +194,51 @@ def test_score_equality_shares_tracks(ttype):
     assert score == score.copy(deep=False)
     assert score == other
     assert score != score.copy(deep=True)
+
+
+@pytest.mark.parametrize("ttype", TTYPES)
+@pytest.mark.parametrize("reverse", [False, True])
+def test_track_list_default_order(ttype, reverse):
+    score = Score(480, ttype=ttype)
+    a_name, z_name = "a" * 64, "z" * 64
+    note = Note(0, 1, 60, 80, ttype)
+    ordered = [
+        Track(a_name, 0, False, ttype=ttype),
+        Track(a_name, 0, False, notes=[note], ttype=ttype),
+        Track(z_name, 0, False, ttype=ttype),
+        Track(a_name, 1, False, ttype=ttype),
+        Track(a_name, 0, True, ttype=ttype),
+    ]
+    expected = ordered[::-1] if reverse else ordered
+    shuffled = [ordered[i] for i in (4, 2, 1, 3, 0)]
+    score.tracks = shuffled[::-1] if reverse else shuffled
+
+    assert not score.tracks.is_sorted(reverse=reverse)
+    score.tracks.sort(reverse=reverse)
+    assert list(score.tracks) == expected
+    assert score.tracks.is_sorted(reverse=reverse)
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize(
+    ("compare", "equal"), [(operator.eq, True), (operator.ne, False)]
+)
+def test_track_nan_identity(ttype, compare, equal):
+    track = make_track(ttype)
+    track.notes[0].time = float("nan")
+
+    assert compare(track, track) is equal
+    assert compare(track, track.copy(deep=True)) is not equal
+
+
+@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize(
+    ("compare", "equal"), [(operator.eq, True), (operator.ne, False)]
+)
+def test_score_nan_identity(ttype, compare, equal):
+    score = Score(ttype=ttype)
+    score.markers.append(TextMeta(0, "marker", ttype))
+    score.markers[0].time = float("nan")
+
+    assert compare(score, score) is equal
+    assert compare(score, score.copy(deep=True)) is not equal

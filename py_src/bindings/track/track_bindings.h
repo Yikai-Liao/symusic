@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <nanobind/nanobind.h>
@@ -284,6 +285,14 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             nb::sig("def pianoroll(self, modes: typing.Iterable[str] = ('frame','onset'), pitch_range: typing.Tuple[int,int] = (0, 128), encode_velocity: bool = False) -> numpy.ndarray"));
     }
 
+    const auto default_less = [](const self_t& a, const self_t& b) {
+        const auto key = [](const auto& track) {
+            return std::tuple(
+                track->is_drum, track->program, std::string_view(track->name), track->note_num()
+            );
+        };
+        return key(a) < key(b);
+    };
     const auto list_name = name + "List";
     const auto vec_sig = fmt::format("class {}(typing.List[symusic.core.{}])", list_name, name);
     auto track_vec = bind_shared_vector_copy<vec<self_t>>(m, (name + "List").c_str(), nb::sig(vec_sig.c_str()))
@@ -298,12 +307,11 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             return ans;
         }, nb::arg("function"), nb::arg("inplace") = true, kTrackVecFilterDoc,
            nb::sig(fmt::format("def filter(self, function: typing.Callable, inplace: bool = True) -> {}", list_name).c_str()))
-        .def("sort", [](vec_t& self, const nb::object& key, const bool reverse,  const bool inplace) {
+        .def("sort", [default_less](vec_t& self, const nb::object& key, const bool reverse,  const bool inplace) {
             auto ans = inplace ? self : std::make_shared<vec<self_t>>(self->begin(), self->end());
             if(key.is_none()) {
-                auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
-                if (reverse) gfx::timsort(ans->rbegin(), ans->rend(), cmp);
-                else gfx::timsort(ans->begin(), ans->end(), cmp);
+                if (reverse) gfx::timsort(ans->rbegin(), ans->rend(), default_less);
+                else gfx::timsort(ans->begin(), ans->end(), default_less);
             } else {
                 auto key_ = nb::cast<nb::callable>(key);
                 auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
@@ -312,11 +320,10 @@ auto bind_track(nb::module_& m, const std::string& name_) {
             }   return ans;
         }, nb::arg("key") = nb::none(), nb::arg("reverse") = false, nb::arg("inplace") = true, kTrackVecSortDoc,
            nb::sig(fmt::format("def sort(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, inplace: bool = True) -> {}", list_name).c_str()))
-        .def("is_sorted", [](const vec_t& self, const nb::object& key, const bool reverse) {
+        .def("is_sorted", [default_less](const vec_t& self, const nb::object& key, const bool reverse) {
             if(key.is_none()) {
-                auto cmp = [](const self_t& a, const self_t& b) { return a->default_key() < b->default_key(); };
-                if (reverse) return std::is_sorted(self->rbegin(), self->rend(), cmp);
-                else return std::is_sorted(self->begin(), self->end(), cmp);
+                if (reverse) return std::is_sorted(self->rbegin(), self->rend(), default_less);
+                else return std::is_sorted(self->begin(), self->end(), default_less);
             } else {
                 auto key_ = nb::cast<nb::callable>(key);
                 auto cmp = [&](const self_t& a, const self_t& b) { return key_(a) < key_(b); };
@@ -327,7 +334,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
            nb::sig("def is_sorted(self, key: typing.Optional[typing.Callable] = None, reverse: bool = False, /) -> bool"))
         .def("adjust_time", [](vec_t& self, const vec<unit>& original_times, const vec<unit>& new_times, const bool inplace) {
             auto ans = inplace ? self : clone_track_vector(self);
-            ops::details::adjust_track_times(*ans, original_times, new_times);
+            detail::adjust_track_times(*ans, original_times, new_times);
             return ans;
         }, nb::arg("original_times"), nb::arg("new_times"), nb::arg("inplace") = false, kTrackVecAdjustDoc,
            nb::sig(fmt::format("def adjust_time(self, original_times: typing.Iterable[{}], new_times: typing.Iterable[{}], inplace: bool = False) -> {}", flavor.scalar_label, flavor.scalar_label, list_name).c_str()))

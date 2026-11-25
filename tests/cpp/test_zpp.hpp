@@ -6,6 +6,7 @@
 #include <iterator>
 #include <new>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include "fmt/format.h"
@@ -193,6 +194,14 @@ std::vector<uint8_t> dumps_vec_in_filled_storage(unsigned char fill, F make, siz
 
 }   // namespace
 
+TEST_CASE("ZPP round trip for a vector containing an empty score", "[symusic][io][zpp]") {
+    const vec<Score<Tick>> scores{Score<Tick>(480)};
+    auto                   bytes = dumps<DataFormat::ZPP>(scores);
+    REQUIRE(parse<DataFormat::ZPP, vec<Score<Tick>>>(bytes) == scores);
+    bytes.pop_back();
+    REQUIRE_THROWS_AS((parse<DataFormat::ZPP, vec<Score<Tick>>>(bytes)), std::invalid_argument);
+}
+
 TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") {
     SECTION("Padded events") {
         const auto check = [](auto make, size_t payload) {
@@ -229,7 +238,7 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             score.ticks_per_quarter = 480;
             score.time_signatures.push_back(detail::make_event<TimeSignature<Tick>>(0, 3, 4));
             score.key_signatures.push_back(detail::make_event<KeySignature<Tick>>(0, -2, 1));
-            auto track = Track<Tick>();
+            auto& track = score.tracks.emplace_back();
             for (int i = 0; i < 3; ++i)
                 track.notes.push_back(detail::make_event<Note<Tick>>(i * 10, 5, 60 + i, 80));
             track.controls.push_back(detail::make_event<ControlChange<Tick>>(0, 7, 100));
@@ -243,13 +252,27 @@ TEST_CASE("ZPP output does not depend on struct padding", "[symusic][io][zpp]") 
             dirty(track.controls, 6);
             dirty(score.time_signatures, 6);
             dirty(score.key_signatures, 6);
-            score.tracks.push_back(track);
             return score;
         };
         const auto first  = build(0xAA).dumps<DataFormat::ZPP>();
         const auto second = build(0x55).dumps<DataFormat::ZPP>();
-        REQUIRE(first == second);
         REQUIRE(Score<Tick>::parse<DataFormat::ZPP>(first) == build(0x00));
+
+        // Header, TPQ, track count, empty name length, program, drum flag, note count.
+        constexpr size_t note_offset = 5 + sizeof(i32) + 3 * sizeof(u32) + 2 * sizeof(u8);
+        const auto       images      = std::span(first);
+        for (size_t i = 0; i < 3; ++i) {
+            const auto note
+                = images.subspan(note_offset + i * sizeof(Note<Tick>), sizeof(Note<Tick>));
+            REQUIRE(note[10] == 0);
+            REQUIRE(note[11] == 0);
+        }
+        const auto control = images.subspan(
+            note_offset + 3 * sizeof(Note<Tick>) + sizeof(u32), sizeof(ControlChange<Tick>)
+        );
+        REQUIRE(control[6] == 0);
+        REQUIRE(control[7] == 0);
+        REQUIRE(first == second);
     }
 
     SECTION("Padding bytes are zero and the layout is unchanged") {

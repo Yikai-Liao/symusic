@@ -85,6 +85,8 @@ template<TType T>
 inline constexpr size_t min_zpp_size<TextMeta<T>> = sizeof(typename T::unit) + sizeof(ZppSize);
 template<TType T>
 inline constexpr size_t min_zpp_size<Track<T>> = 2 * sizeof(u8) + 6 * sizeof(ZppSize);
+template<TType T>
+inline constexpr size_t min_zpp_size<Score<T>> = sizeof(i32) + 5 * sizeof(ZppSize);
 
 template<class Container>
 struct ZppContainer {

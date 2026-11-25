@@ -17,12 +17,41 @@ template<symusic::DataFormat F>
 concept ScoreCanDump
     = requires(const symusic::Score<symusic::Tick>& score) { score.template dumps<F>(); };
 
+template<DataFormat F>
+concept FreeScoreCanParse = requires { symusic::parse<F, Score<Tick>>({}); };
+
+template<DataFormat F>
+concept FreeScoreCanParseWithSanitization = requires { symusic::parse<F, Score<Tick>>({}, true); };
+
+template<DataFormat F>
+concept FreeScoreCanDump = requires(const Score<Tick>& score) { symusic::dumps<F>(score); };
+
 static_assert(ScoreCanParse<symusic::DataFormat::MIDI>);
 static_assert(ScoreCanParse<symusic::DataFormat::ZPP>);
 static_assert(!ScoreCanParse<symusic::DataFormat::ABC>);
 static_assert(ScoreCanDump<symusic::DataFormat::MIDI>);
 static_assert(ScoreCanDump<symusic::DataFormat::ZPP>);
 static_assert(!ScoreCanDump<symusic::DataFormat::ABC>);
+
+static_assert(!FreeScoreCanParse<DataFormat::ABC>);
+static_assert(!FreeScoreCanParseWithSanitization<DataFormat::ABC>);
+static_assert(!FreeScoreCanDump<DataFormat::ABC>);
+
+TEST_CASE("Free score serialization supports MIDI and ZPP", "[score][io]") {
+    Score<Tick> score(480);
+    auto&       track = score.tracks.emplace_back("Piano", 0, false);
+    track.notes.push_back(detail::make_event<Note<Tick>>(120, 240, 60, 90));
+
+    const auto midi        = symusic::dumps<DataFormat::MIDI>(score);
+    const auto parsed_midi = symusic::parse<DataFormat::MIDI, Score<Tick>>(midi);
+    REQUIRE(parsed_midi.ticks_per_quarter == 480);
+    REQUIRE(parsed_midi.tracks.size() == 1);
+    REQUIRE(parsed_midi.tracks.front().notes == track.notes);
+    REQUIRE(symusic::parse<DataFormat::MIDI, Score<Tick>>(midi, true) == parsed_midi);
+
+    const auto zpp = symusic::dumps<DataFormat::ZPP>(score);
+    REQUIRE(symusic::parse<DataFormat::ZPP, Score<Tick>>(zpp) == score);
+}
 
 TEST_CASE("Test Score class functionality", "[score]") {
     // Create a Score for testing

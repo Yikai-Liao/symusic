@@ -43,10 +43,6 @@ struct Track {
     [[nodiscard]] Track deepcopy() const;
     bool                operator==(const Track& other) const;
 
-    auto default_key() const {
-        return std::tuple(is_drum, program, std::string_view(name), note_num());
-    }
-
     template<DataFormat F>
         requires(F == DataFormat::ZPP)
     [[nodiscard]] static Track parse(std::span<const u8> bytes) {
