@@ -6,8 +6,7 @@ import pytest
 import symusic
 from symusic import _core
 
-
-EXPECTED_METHODS = {
+EXPECTED_MEMBERS = {
     "Score": {"tracks", "tempos", "copy", "clip", "dump_midi", "pianoroll"},
     "Track": {"notes", "controls", "copy", "clip", "trim"},
     "Note": {"time", "duration", "pitch", "copy", "shift_time"},
@@ -18,16 +17,22 @@ EXPECTED_METHODS = {
     "Pedal": {"time", "duration", "copy", "shift_time"},
     "PitchBend": {"time", "value", "copy", "shift_time"},
     "TextMeta": {"time", "text", "copy", "shift_time"},
-    "PyVec": {"append", "__getitem__", "filter", "sort", "adjust_time"},
 }
 
 
-def _method_names(class_node: ast.ClassDef) -> set[str]:
-    return {
-        node.name
-        for node in class_node.body
-        if isinstance(node, ast.FunctionDef) and node.name != "__init__"
+EXPECTED_LIST_METHODS = {"append", "__getitem__", "filter", "sort", "adjust_time"}
+
+
+def _member_names(class_node: ast.ClassDef) -> set[str]:
+    methods = {
+        node.name for node in class_node.body if isinstance(node, ast.FunctionDef)
     }
+    attributes = {
+        node.target.id
+        for node in class_node.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+    }
+    return methods | attributes
 
 
 def test_stub_exposes_runtime_classes():
@@ -51,13 +56,11 @@ def test_stub_exposes_runtime_classes():
         elif name in {"Score", "Track", "Note", "Tempo"}:
             assert [ast.unparse(base) for base in node.bases] == ["Generic[_Unit]"]
 
-    for name, methods in EXPECTED_METHODS.items():
-        if name == "PyVec":
-            for list_name, node in classes.items():
-                if list_name.endswith("List"):
-                    assert methods <= _method_names(node), list_name
-        else:
-            assert methods <= _method_names(classes[name]), name
+    for name, members in EXPECTED_MEMBERS.items():
+        assert members <= _member_names(classes[name]), name
+    for name, node in classes.items():
+        if name.endswith("List"):
+            assert _member_names(node) >= EXPECTED_LIST_METHODS, name
 
     score_methods = [
         node for node in classes["Score"].body if isinstance(node, ast.FunctionDef)
@@ -93,25 +96,31 @@ def test_stub_exposes_runtime_classes():
         0.0,
     ]
 
-
     trim_mode = next(
         node.value
         for node in module.body
         if isinstance(node, ast.Assign)
-        and any(isinstance(target, ast.Name) and target.id == "_TrimMode" for target in node.targets)
+        and any(
+            isinstance(target, ast.Name) and target.id == "_TrimMode"
+            for target in node.targets
+        )
     )
     assert ast.unparse(trim_mode.value) in {"Literal", "typing.Literal"}
     assert ast.literal_eval(trim_mode.slice) == ("remove", "truncate", "retain")
     for name in ("Score", "Track"):
         trim_methods = [
-            node for node in classes[name].body
+            node
+            for node in classes[name].body
             if isinstance(node, ast.FunctionDef) and node.name == "trim"
         ]
         assert len(trim_methods) == 3
         for method in trim_methods:
-            annotations = {arg.arg: ast.unparse(arg.annotation) for arg in method.args.args if arg.annotation}
+            annotations = {
+                arg.arg: ast.unparse(arg.annotation)
+                for arg in method.args.args
+                if arg.annotation
+            }
             assert annotations["start_mode"] == annotations["end_mode"] == "_TrimMode"
-
 
 
 def test_stubgen_patterns_match_without_shadowing():

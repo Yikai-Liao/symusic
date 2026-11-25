@@ -10,7 +10,7 @@ namespace symusic::py {
 
 inline nanobind::str decode_path(const std::filesystem::path& path) {
     const auto& native = path.native();
-    const auto length = static_cast<Py_ssize_t>(native.size());
+    const auto  length = static_cast<Py_ssize_t>(native.size());
 #ifdef _WIN32
     return nanobind::steal<nanobind::str>(PyUnicode_FromWideChar(native.data(), length));
 #else

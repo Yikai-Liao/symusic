@@ -86,7 +86,7 @@ DataFormat score_file_format(const std::filesystem::path& path, std::string form
 
 vec<u8> read_score_file(const std::filesystem::path& path) {
     std::error_code error;
-    const auto status = std::filesystem::status(path, error);
+    const auto      status = std::filesystem::status(path, error);
     if (error) { throw std::filesystem::filesystem_error("Cannot read score", path, error); }
     if (std::filesystem::is_directory(status)) {
         throw std::filesystem::filesystem_error(
@@ -94,9 +94,12 @@ vec<u8> read_score_file(const std::filesystem::path& path) {
         );
     }
     if (!std::filesystem::is_regular_file(status)) {
-        throw std::runtime_error(fmt::format(
-            "Cannot seek to the end of the file: path must refer to a regular file, got {}", path
-        ));
+        throw std::runtime_error(
+            fmt::format(
+                "Cannot seek to the end of the file: path must refer to a regular file, got {}",
+                path
+            )
+        );
     }
     return read_file(path);
 }

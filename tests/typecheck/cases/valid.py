@@ -1,5 +1,6 @@
 # pyright: strict
 from collections.abc import Iterator, MutableSequence, Sequence
+from os import PathLike
 
 from symusic import (
     ControlChange,
@@ -82,3 +83,12 @@ edit_notes(notes)
 assert_type(reversed(notes), Iterator[Note[Tick]])
 notes += [Note(0, 1, 60)]
 assert_type(notes, NoteList[Tick])
+
+
+def abc_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
+    assert_type(Score.from_file(text), Score[Tick])
+    assert_type(Score.from_file(binary), Score[Tick])
+    assert_type(Score.from_abc_file(binary), Score[Tick])
+    assert_type(abc_score.dumps_abc(warn=True), str)
+    Score.from_file(text).dump_abc(binary)
+    Score.from_abc_file(binary).dump_abc(text)

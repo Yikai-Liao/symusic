@@ -158,7 +158,9 @@ def test_render_mono_downmix(synth: Synthesizer, score: Score) -> None:
 
 
 @pytest.mark.parametrize("unit", [Tick, Quarter, Second])
-def test_render_time_units(synth: Synthesizer, score: Score, unit: type[Tick] | type[Quarter] | type[Second]) -> None:
+def test_render_time_units(
+    synth: Synthesizer, score: Score, unit: type[Tick] | type[Quarter] | type[Second]
+) -> None:
     np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
 
 

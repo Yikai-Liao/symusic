@@ -11,6 +11,7 @@ int main() {
     note.pitch                          = 60;
     note.velocity                       = 90;
     // Force a link to the out-of-line render specialization without requiring a SoundFont.
-    const auto volatile render = &symusic::Synthesizer::render<symusic::Tick>;
+    const auto volatile render
+        = &symusic::Synthesizer::render<symusic::Tick, symusic::ValueStorage>;
     return score.end() == 360 && render != nullptr ? 0 : 1;
 }

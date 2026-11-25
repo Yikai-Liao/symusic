@@ -251,7 +251,9 @@ inline void bind_score(nb::module_& module) {
             "dump_abc",
             [](const ScoreValue& self, const std::filesystem::path& path, bool warn) {
                 self.visit([&](const auto& ptr) {
-                    abc_io("write_abc_file")(decode_path(path), python_bytes(ptr->dump_midi_bytes()), warn);
+                    abc_io("write_abc_file")(
+                        decode_path(path), python_bytes(ptr->dump_midi_bytes()), warn
+                    );
                 });
             },
             "path"_a,

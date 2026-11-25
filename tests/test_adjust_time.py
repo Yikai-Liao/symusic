@@ -110,9 +110,7 @@ def test_repeated_new_anchor():
     score = Score(480)
     score.tracks.append(Track(notes=[Note(1, 1, 60, 80)]))
     adjusted = score.adjust_time([0, 1, 2, 3], [0, 1, 1, 3])
-    assert [(note.time, note.duration) for note in adjusted.tracks[0].notes] == [
-        (1, 0)
-    ]
+    assert [(note.time, note.duration) for note in adjusted.tracks[0].notes] == [(1, 0)]
 
 
 def test_adjust_time_checks_both_note_endpoints():
