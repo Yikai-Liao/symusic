@@ -15,6 +15,9 @@ MYPY_SUPPORTED = platform.python_implementation() != "PyPy"
 MYPY_SKIP_REASON = "mypy checks run on the CPython CI jobs"
 
 POSITIVE_SAMPLE = """
+    from os import PathLike
+    from typing_extensions import assert_type
+
     from symusic import Score
     import symusic.core as core
     import symusic.types as smt
@@ -30,6 +33,16 @@ POSITIVE_SAMPLE = """
     tick_track_copy: core.Track[core.Tick] = tick_track.copy()
     tick_note_copy: core.Note[core.Tick] = tick_note.copy()
     tick_pitch: int = tick_note.pitch
+    abc_score = core.ScoreQuarter.from_abc("X:1", tune=1)
+    assert_type(abc_score, core.ScoreQuarter)
+    abc_file: core.Score[core.Tick] = tick_score.from_abc_file("score.abc")
+    abc_text: str = abc_score.dumps_abc(warn=True)
+    tick_score.dump_abc("out.abc")
+
+    def file_paths(text: PathLike[str], binary: PathLike[bytes]) -> None:
+        core.ScoreTick.from_file(text).dump_abc(binary)
+        core.ScoreTick.from_abc_file(binary).dump_abc(text)
+        core.ScoreTick.from_file(binary)
 
     second_score: core.Score[core.Second] = core.ScoreSecond(480)
     second_track: core.Track[core.Second] = second_score.tracks[0]
@@ -94,6 +107,7 @@ NEGATIVE_SAMPLE = """
     tick.get_beats(0.5)
     tick.trim(0, 10, start_mode="unknown")
     tick.trim(0, 10, end_mode="unknown")
+    tick.from_abc("X:1", tune="7")
     second.pianoroll()
     wrong_unit: core.Score[core.Tick] = core.ScoreSecond(480)
 """
@@ -134,5 +148,9 @@ def test_complete_typing_contract(tmp_path: Path) -> None:
     assert 'incompatible type "float"; expected "int"' in result.stdout
     assert 'Argument "start_mode" to "trim"' in result.stdout
     assert 'Argument "end_mode" to "trim"' in result.stdout
+    assert any(
+        'Argument "tune" to "from_abc"' in line and 'incompatible type "str"' in line
+        for line in result.stdout.splitlines()
+    ), result.stdout
     assert "Invalid self argument" in result.stdout
     assert "Incompatible types in assignment" in result.stdout

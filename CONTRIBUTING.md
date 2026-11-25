@@ -118,7 +118,7 @@ Python runtime dependencies are listed in `pyproject.toml` and kept few. Add one
 | Code conventions | [`docs/development/conventions.md`](docs/development/conventions.md) |
 | User guide and agent skill | [`skills/symusic/`](https://github.com/Yikai-Liao/symusic/tree/main/skills/symusic); the website reads the pages through the `docs/guide` symlink |
 | Website | `docs/` (Sphinx + MyST, published on [Read the Docs](https://symusic.readthedocs.io/)) |
-| Python API reference | Docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/`; they reach users through the generated `core.pyi` |
+| Python API reference | Compiled methods: docstrings at the binding site, written with `nb::doc` or `R"pbdoc(...)pbdoc"` in `py_src/bindings/`. Methods written in Python, such as the ABC file methods: docstrings in their module, such as `python/symusic/_score_io.py`. Both reach users through the generated `core.pyi` |
 | Planned work and accepted debt | [`ROADMAP.md`](ROADMAP.md) |
 
 The guide pages are read three ways: as the agent skill, on GitHub and on the website. Write them in CommonMark with GitHub tables, and link only to other pages in `skills/symusic/` or to absolute URLs; a relative link that leaves the directory resolves differently through the `docs/guide` symlink. Sphinx and MyST syntax (directives, roles, `(label)=` targets, `toctree`, `include`) belongs only in the website's own pages under `docs/`, because agents and GitHub show it as raw text.

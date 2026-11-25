@@ -1,0 +1,2 @@
+# These methods come from the Python mixin attached by lift_generic_stubs.py.
+^symusic\.core\.Score(Tick|Quarter|Second)\.(from_file|from_abc(_file)?|dumps?_abc)$:
