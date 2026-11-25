@@ -25,7 +25,7 @@ Each entry starts with the error message or symptom and links to the page that e
 - **`TypeError` on `Score(480)`.** Pass the resolution by keyword with `Score(ticks_per_quarter=480)`.
 - **`ValueError: ttype must be Tick, Quarter or Second`.** `ttype` takes the markers `Tick`, `Quarter` and `Second` imported from `symusic`, not strings such as `"tick"`.
 - **`ValueError: pitch must be in 0..127, got 128` from `shift_pitch` or `shift_velocity`.** The shift would move a value outside 0–127. The call changes nothing; see [data_model.md](data_model.md#transformations).
-- **`ValueError: symusic::ops::adjust_time: ...`.** The anchor lists differ in length, have fewer than two entries, or violate the required ordering. Original times must increase strictly, and new times must be nondecreasing.
+- **`ValueError: symusic::ops::adjust_time: ...`.** The anchor lists differ in length, have fewer than two entries, contain a non-finite value, or violate the required ordering; see [data_model.md](data_model.md#transformations).
 - **Notes have duration 0 after `to(Tick)`, `resample` or a MIDI round trip.** Durations shorter than half a tick round to 0. Pass `min_duration=1`; see [time_units.md](time_units.md#conversion-rules).
 - **Editing a pedal snapshot.** Change control 64 in `controls` to change sustain. [MIDI writing](files.md#writing-midi) uses these controls.
 - **A loaded track has lyrics but no notes.** Lyrics stay on their own track only when the MIDI track contains no notes; otherwise they attach to the note-bearing track; see [files.md](files.md#reading-midi).
