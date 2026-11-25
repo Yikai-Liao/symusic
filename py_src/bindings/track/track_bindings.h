@@ -286,12 +286,7 @@ auto bind_track(nb::module_& m, const std::string& name_) {
     }
 
     const auto default_less = [](const self_t& a, const self_t& b) {
-        const auto key = [](const auto& track) {
-            return std::tuple(
-                track->is_drum, track->program, std::string_view(track->name), track->note_num()
-            );
-        };
-        return key(a) < key(b);
+        return detail::track_sort_key(*a) < detail::track_sort_key(*b);
     };
     const auto list_name = name + "List";
     const auto vec_sig = fmt::format("class {}(typing.List[symusic.core.{}])", list_name, name);

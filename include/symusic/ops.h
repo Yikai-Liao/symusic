@@ -9,9 +9,15 @@
 #include <cmath>
 #include <functional>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_set>
 
 namespace symusic::detail {
+template<TType T, typename S>
+auto track_sort_key(const Track<T, S>& track) {
+    return std::tuple(track.is_drum, track.program, track.name, track.note_num());
+}
+
 // Comparisons on event ends use a wide intermediate (i64 for Tick) so that an event whose end
 // exceeds the tick range compares correctly instead of throwing or overflowing. Only values
 // written back to an event go through narrow_time.
@@ -56,13 +62,8 @@ namespace symusic::ops {
 
 template<TType T, typename S = ValueStorage>
 void sort_tracks(typename S::template Tracks<Track<T, S>>& tracks, bool reverse = false) {
-    auto projection = [](const auto& handle) {
-        const auto& track = S::get(handle);
-        return std::tuple(
-            track.is_drum, track.program, std::string_view(track.name), track.note_num()
-        );
-    };
-    auto& values = S::get(tracks);
+    auto  projection = [](const auto& handle) { return detail::track_sort_key(S::get(handle)); };
+    auto& values     = S::get(tracks);
     if (reverse) {
         std::ranges::sort(values, std::ranges::greater{}, projection);
     } else {

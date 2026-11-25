@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "catch2/catch_test_macros.hpp"
+#include "symusic/ops.h"
 #include "symusic/track.h"
 #include "symusic/event.h"
 
@@ -12,6 +13,29 @@ template<typename T>
 concept HasDefaultKey = requires(const T& track) { track.default_key(); };
 
 static_assert(!HasDefaultKey<Track<Tick>>);
+
+TEST_CASE("Track sort key owns the name", "[track]") {
+    Track<Tick> track(std::string(64, 'a'), 0, false);
+    const auto  key    = detail::track_sort_key(track);
+    track.name.front() = 'z';
+    REQUIRE(std::get<2>(key) == std::string(64, 'a'));
+}
+
+TEST_CASE("Default track sort field precedence", "[track]") {
+    const Track<Tick> empty("a", 0, false);
+    Track<Tick>       with_note("a", 0, false);
+    with_note.notes.push_back(detail::make_event<Note<Tick>>(0, 1, 60, 80));
+    const Track<Tick> later_name("z", 0, false);
+    const Track<Tick> later_program("a", 1, false);
+    const Track<Tick> drums("a", 0, true);
+    vec<Track<Tick>>  tracks{drums, later_name, with_note, later_program, empty};
+
+    ops::sort_tracks<Tick>(tracks);
+    REQUIRE(tracks == vec<Track<Tick>>{empty, with_note, later_name, later_program, drums});
+
+    ops::sort_tracks<Tick>(tracks, true);
+    REQUIRE(tracks == vec<Track<Tick>>{drums, later_program, later_name, with_note, empty});
+}
 
 TEST_CASE("Test Track class basic functionality", "[track]") {
     // Test default constructor

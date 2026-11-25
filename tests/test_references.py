@@ -219,6 +219,20 @@ def test_track_list_default_order(ttype, reverse):
     assert score.tracks.is_sorted(reverse=reverse)
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_track_list_default_order_stable_ties(reverse):
+    score = Score(480)
+    first = Track("a", notes=[Note(0, 1, 60, 80)])
+    second = Track("a", notes=[Note(0, 1, 61, 80)])
+    other = Track("z")
+    score.tracks = [first, other, second]
+
+    score.tracks.sort(reverse=reverse)
+
+    expected = [other, first, second] if reverse else [first, second, other]
+    assert list(score.tracks) == expected
+
+
 @pytest.mark.parametrize("ttype", ["quarter", "second"])
 @pytest.mark.parametrize(
     ("compare", "equal"), [(operator.eq, True), (operator.ne, False)]
