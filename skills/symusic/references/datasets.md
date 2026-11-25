@@ -16,7 +16,7 @@ from symusic import Score, Second
 def features(path):
     try:
         score = Score(path, ttype=Second)
-    except (RuntimeError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         return path.name, None, str(error)
     return path.name, {"notes": score.note_num(), "seconds": score.end()}, None
 
