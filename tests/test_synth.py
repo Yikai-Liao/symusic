@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import ctypes
 import math
 import os
 import struct
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -141,6 +144,14 @@ def test_render_shape_and_dtype(synth: Synthesizer, score: Score, stereo: bool) 
     # The 0.5 s note ends at frame 11025, dispatched at the next 64-frame block.
     assert audio.shape == (11072 + SAMPLE_RATE, 2 if stereo else 1)
     assert np.abs(audio).max() > 0.01
+
+
+def test_render_mono_downmix(synth: Synthesizer, score: Score) -> None:
+    score.tracks[0].controls.append(ControlChange(0, 10, 100))
+    stereo = synth.render(score)
+    mono = synth.render(score, stereo=False)
+    assert np.max(np.abs(stereo[:, 0] - stereo[:, 1])) > 0.01
+    np.testing.assert_allclose(mono[:, 0], stereo.mean(axis=1), atol=1e-6)
 
 
 @pytest.mark.parametrize("unit", ["tick", "quarter", "second"])
@@ -352,6 +363,28 @@ def test_render_missing_soundfont(soundfont, score, tmp_path):
     assert error.value.filename == str(path)
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires POSIX named pipes")
+def test_render_fifo_soundfont(tmp_path):
+    path = tmp_path / "pipe.sf2"
+    os.mkfifo(path)
+    # Bound the wait even if native code blocks while opening the pipe.
+    program = """
+import errno
+import sys
+from symusic import Score, Synthesizer
+
+path = sys.argv[1]
+try:
+    Synthesizer(path).render(Score())
+except OSError as error:
+    assert error.errno == errno.EINVAL, error
+    assert error.filename == path, error
+else:
+    raise AssertionError("Expected rendering with a FIFO to raise OSError")
+"""
+    subprocess.run([sys.executable, "-c", program, str(path)], check=True, timeout=5)
+
+
 @pytest.mark.skipif(
     os.name == "nt", reason="chmod does not revoke read access on Windows"
 )
@@ -370,12 +403,20 @@ def test_render_unreadable_soundfont(soundfont, score, tmp_path):
         path.chmod(0o600)
 
 
-def test_render_malformed_soundfont(score, tmp_path):
+def test_render_malformed_soundfont(score, tmp_path, capfd):
     path = tmp_path / "malformed.sf2"
     path.write_bytes(b"invalid SoundFont")
+    synth = Synthesizer(path)
     with pytest.raises(RuntimeError, match="Cannot load SoundFont") as error:
-        Synthesizer(path).render(score)
+        synth.render(score)
     assert str(path) in str(error.value)
+    assert capfd.readouterr() == ("", "")
+    assert "RIFF" in str(error.value)
+
+    runtime = ctypes.CDLL(str(_library.library_path()))
+    runtime.fluid_log.argtypes = (ctypes.c_int, ctypes.c_char_p)
+    runtime.fluid_log(1, b"unrelated FluidSynth error")  # FLUID_ERR
+    assert capfd.readouterr() == ("", "")
 
 
 @pytest.mark.parametrize("unit", ["tick", "quarter", "second"])

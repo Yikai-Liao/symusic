@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <limits>
 #include <mutex>
+#include <string_view>
 #include <tuple>
 
 #include <fmt/format.h>
@@ -29,8 +30,18 @@ std::string path_as_utf8(const std::filesystem::path& path) {
     return {reinterpret_cast<const char*>(utf8.data()), utf8.size()};
 }
 
-[[noreturn]] void throw_soundfont_load_error(const std::filesystem::path& path) {
+[[noreturn]] void throw_soundfont_load_error(
+    const std::filesystem::path& path, std::string_view diagnostic
+) {
     // FluidSynth reports one status for both file access and format errors.
+    const auto status = std::filesystem::status(path);
+    if (std::filesystem::exists(status) && !std::filesystem::is_regular_file(status)) {
+        const auto error = std::filesystem::is_directory(status) ? std::errc::is_a_directory :
+                                                                   std::errc::invalid_argument;
+        throw std::filesystem::filesystem_error(
+            "soundfont must point to a regular file", path, std::make_error_code(error)
+        );
+    }
 #ifdef _WIN32
     std::FILE* file       = nullptr;
     const int  open_error = _wfopen_s(&file, path.c_str(), L"rb");
@@ -53,7 +64,14 @@ std::string path_as_utf8(const std::filesystem::path& path) {
                                        std::make_error_code(std::errc::io_error);
         throw std::filesystem::filesystem_error("Cannot read SoundFont", path, code);
     }
-    throw std::runtime_error(fmt::format("Cannot load SoundFont at {}", path_as_utf8(path)));
+    throw std::runtime_error(
+        fmt::format(
+            "Cannot load SoundFont: soundfont must be loadable by FluidSynth, got {}{}{}",
+            path_as_utf8(path),
+            diagnostic.empty() ? "" : ": ",
+            diagnostic
+        )
+    );
 }
 
 class SharedLibrary {
@@ -126,12 +144,26 @@ public:
 struct FluidSettings;
 struct FluidSynth;
 
+constexpr int kFluidError      = 1;   // FLUID_ERR
 constexpr int kMaxChannels     = 256;
 constexpr int kMidiKeys        = 128;
 constexpr int kDrumBank        = 128;
 constexpr int kPitchBendCenter = 8192;
 constexpr int kAllNotesOff     = 123;
 constexpr int kOmniOff         = 124;
+
+thread_local std::array<char, 1024>* soundfont_diagnostic = nullptr;
+
+extern "C" {
+
+using FluidLogFunction = void (*)(int, const char*, void*);
+
+void capture_fluid_error(int, const char* message, void*) noexcept {
+    if (soundfont_diagnostic && (*soundfont_diagnostic)[0] == '\0') {
+        std::snprintf(soundfont_diagnostic->data(), soundfont_diagnostic->size(), "%s", message);
+    }
+}
+}
 
 enum class EventKind { Control, PitchBend, NoteOff, NoteOn };
 
@@ -271,6 +303,18 @@ struct Synthesizer::Backend {
         load(fluid_synth_get_internal_bufsize, "fluid_synth_get_internal_bufsize");
         load(fluid_synth_set_interp_method, "fluid_synth_set_interp_method");
         load(fluid_synth_write_float, "fluid_synth_write_float");
+        FluidLogFunction (*fluid_set_log_function)(int, FluidLogFunction, void*);
+        load(fluid_set_log_function, "fluid_set_log_function");
+        const std::lock_guard lock(lifecycle_mutex);
+        if (live_backends == 0) {
+            fluid_set_log_function(kFluidError, capture_fluid_error, nullptr);
+        }
+        ++live_backends;
+    }
+
+    ~Backend() {
+        const std::lock_guard lock(lifecycle_mutex);
+        --live_backends;
     }
 
     template<typename F>
@@ -297,6 +341,9 @@ struct Synthesizer::Backend {
     };
 
     FluidLibrary library;
+
+    inline static std::mutex lifecycle_mutex;
+    inline static size_t     live_backends = 0;
 
     FluidSettings* (*new_fluid_settings)();
     void (*delete_fluid_settings)(FluidSettings*);
@@ -407,20 +454,23 @@ struct Synthesizer::Backend {
 
         // Initialization uses shared tables. SoundFont teardown can free a cached
         // sample before a concurrent load finishes acquiring its reference.
-        static std::mutex lifecycle_mutex;
-        const auto        destroy_synth = [this](FluidSynth* state) {
+        const auto destroy_synth = [this](FluidSynth* state) {
             const std::lock_guard lock(lifecycle_mutex);
             delete_fluid_synth(state);
         };
         std::unique_ptr<FluidSynth, decltype(destroy_synth)> synth(nullptr, destroy_synth);
         int                                                  font_id;
+        std::array<char, 1024>                               diagnostic{};
         {
             const std::lock_guard lock(lifecycle_mutex);
             synth.reset(new_fluid_synth(settings.get()));
             if (!synth) { throw std::runtime_error("Cannot initialize FluidSynth"); }
-            font_id = fluid_synth_sfload(synth.get(), path_as_utf8(soundfont).c_str(), 0);
+            const auto filename  = path_as_utf8(soundfont);
+            soundfont_diagnostic = &diagnostic;
+            font_id              = fluid_synth_sfload(synth.get(), filename.c_str(), 0);
+            soundfont_diagnostic = nullptr;
         }
-        if (font_id < 0) { throw_soundfont_load_error(soundfont); }
+        if (font_id < 0) { throw_soundfont_load_error(soundfont, diagnostic.data()); }
         auto* state = synth.get();
         check(fluid_synth_set_interp_method(state, -1, 4), "set fourth-order interpolation");
         const int block_size = fluid_synth_get_internal_bufsize(state);

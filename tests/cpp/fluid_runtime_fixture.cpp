@@ -47,6 +47,9 @@ int fluid_synth_sfload(FluidSynth*, const char*, int) {
     --sample_cache_operations;
     return overlaps_teardown ? -1 : 0;
 }
+using FluidLogFunction = void (*)(int, const char*, void*);
+FluidLogFunction fluid_set_log_function(int, FluidLogFunction, void*) { return nullptr; }
+
 int fluid_synth_set_channel_type(FluidSynth*, int, int) { return 0; }
 int fluid_synth_program_select(FluidSynth*, int, int, int, int) { return 0; }
 int fluid_synth_noteon(FluidSynth*, int, int, int) { return 0; }
