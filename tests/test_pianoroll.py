@@ -266,5 +266,7 @@ def test_pianoroll_rejects_negative_encoded_velocity():
 @pytest.mark.parametrize("pitch_range", [(-1, 60), (0, 129), (60, 60), (61, 60)])
 def test_pianoroll_rejects_invalid_pitch_range(simple_track, simple_score, pitch_range):
     for source in (simple_track, simple_score):
-        with pytest.raises(ValueError, match=r"Pitch range .* is invalid"):
+        with pytest.raises(
+            ValueError, match=r"pitch_range must be within \[0, 128\] with low < high"
+        ):
             source.pianoroll(pitch_range=pitch_range)

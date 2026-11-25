@@ -17,11 +17,15 @@ from symusic import (
     Note,
     Pedal,
     PitchBend,
+    Quarter,
     Score,
+    Second,
     Tempo,
     TextMeta,
+    Tick,
     TimeSignature,
     Track,
+    TrackList,
 )
 
 
@@ -312,15 +316,15 @@ def test_numpy_integration():
         assert pianoroll[0, pitch, time] == 80  # Velocity value
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_list_equals_python_list(ttype):
-    note = Note(0, 1, 60, 100, ttype)
+    note = Note(0, 1, 60, 100, ttype=ttype)
     track = Track("a", 0, False, notes=[note], ttype=ttype)
     other = Track("b", 0, False, ttype=ttype)
 
     assert track.notes == [note]
-    assert track.notes != [Note(0, 1, 61, 100, ttype)]
-    assert type(track.notes)([track.notes[0]]) == [note]
+    assert track.notes != [Note(0, 1, 61, 100, ttype=ttype)]
+    assert type(track.notes)([track.notes[0]], ttype=ttype) == [note]
 
     tracks = Score(480, ttype=ttype).tracks
     tracks.append(track)
@@ -329,7 +333,7 @@ def test_list_equals_python_list(ttype):
     assert tracks != []
 
 
-def _from_other_score() -> Score:
+def _score_for_conversion() -> Score:
     score = Score(480)
     score.tempos.append(Tempo(0, 120.0))
     track = Track(name="t", program=0, is_drum=False)
@@ -339,31 +343,23 @@ def _from_other_score() -> Score:
     return score
 
 
-def test_score_from_other_copy_is_independent():
-    original = _from_other_score()
-    for copy in (Score(original), Score.from_other(original)):
-        assert copy == original
-        assert copy is not original
-        copy.tracks[0].notes[0].pitch = 1
-        assert original.tracks[0].notes[0].pitch == 60
-
-
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_score_from_other_matches_to(ttype):
-    original = _from_other_score()
-    assert Score(original, ttype=ttype) == original.to(ttype)
-    assert Score.from_other(original, ttype=ttype) == original.to(ttype)
+def test_score_conversion_is_independent():
+    original = _score_for_conversion()
+    duplicate = original.to(Tick)
+    assert duplicate == original
+    assert duplicate is not original
+    duplicate.tracks[0].notes[0].pitch = 1
+    assert original.tracks[0].notes[0].pitch == 60
 
 
 @pytest.mark.parametrize(
-    ("ttype", "min_dur"), [("tick", 100), ("quarter", 2.0), ("second", 0.5)]
+    ("ttype", "min_dur"), [(Tick, 100), (Quarter, 2.0), (Second, 0.5)]
 )
-def test_score_from_other_forwards_min_dur(ttype, min_dur):
-    original = _from_other_score()
-    expected = original.to(ttype, min_dur=min_dur)
-    assert expected != original.to(ttype)
-    assert Score(original, ttype=ttype, min_dur=min_dur) == expected
-    assert Score.from_other(original, ttype=ttype, min_dur=min_dur) == expected
+def test_score_conversion_enforces_minimum_duration(ttype, min_dur):
+    original = _score_for_conversion()
+    converted = original.to(ttype, min_dur=min_dur)
+    assert converted != original.to(ttype)
+    assert converted.tracks[0].notes[0].duration == min_dur
 
 
 if __name__ == "__main__":
@@ -377,11 +373,11 @@ def test_flat_key_degree():
     assert "degree=19" in repr(KeySignature(0, -1, 1))
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_note_end_binding(ttype):
     from symusic import Note
 
-    note = Note(1, 2, 60, 80, ttype)
+    note = Note(1, 2, 60, 80, ttype=ttype)
     assert note.end == 3
     assert not hasattr(note, "ent_time")
 
@@ -411,9 +407,90 @@ def test_note_shift_rejects_midi_range(name, offset):
     assert getattr(note, name) == 60
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
-def test_score_and_track_class_docstrings(ttype):
-    score = Score(ttype=ttype)
-    track = Track(ttype=ttype)
-    assert type(score).__doc__.startswith("A score:")
-    assert type(track).__doc__.startswith("A part:")
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
+def test_track_constructor_copies_event_lists(ttype):
+    source = Track(ttype=ttype)
+    events = {
+        "notes": Note(1, 2, 60, 80, ttype=ttype),
+        "controls": ControlChange(1, 7, 80, ttype=ttype),
+        "pitch_bends": PitchBend(1, 2, ttype=ttype),
+        "pedals": Pedal(1, 2, ttype=ttype),
+    }
+    for field, event in events.items():
+        getattr(source, field).append(event)
+    lists = {field: getattr(source, field) for field in events}
+    track = Track(ttype=ttype, **lists)
+    from_iterables = Track(
+        ttype=ttype, **{field: iter(items) for field, items in lists.items()}
+    )
+    assert from_iterables == track
+
+    for field, event in events.items():
+        original = lists[field]
+        owned = getattr(track, field)
+        assert owned.ttype is ttype
+        original[0].time = 3
+        assert owned[0].time == 1
+        original.clear()
+        assert list(owned) == [event]
+        owned.append(event)
+        assert len(original) == 0
+        original.append(event)
+        owned.clear()
+        assert list(original) == [event]
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+@pytest.mark.parametrize("nan_time", [False, True])
+@pytest.mark.parametrize("operation", ["count", "contains", "remove"])
+def test_track_list_matches_identity_and_value(ttype, nan_time, operation):
+    track = Track(notes=[Note(1, 2, 60, 80, ttype=ttype)], ttype=ttype)
+    tracks = TrackList([track], ttype=ttype)
+    if nan_time:
+        track.notes[0].time = float("nan")
+    target = track if nan_time else Track(track)
+
+    if operation == "count":
+        assert tracks.count(target) == 1
+    elif operation == "contains":
+        assert target in tracks
+    else:
+        tracks.remove(target)
+        assert len(tracks) == 0
+
+
+@pytest.mark.parametrize("ttype", [Quarter, Second])
+@pytest.mark.parametrize("nan_time", [False, True])
+@pytest.mark.parametrize("operation", ["count", "contains", "remove"])
+def test_note_list_matches_identity_and_value(ttype, nan_time, operation):
+    note = Note(1, 2, 60, 80, ttype=ttype)
+    notes = Track(notes=[note, note], ttype=ttype).notes
+    target = notes[0] if nan_time else note.copy()
+    if nan_time:
+        target.time = float("nan")
+    assert notes.index(target) == 0
+
+    if operation == "count":
+        assert notes.count(target) == (1 if nan_time else 2)
+    elif operation == "contains":
+        assert target in notes
+    else:
+        notes.remove(target)
+        assert list(notes) == [note]
+
+
+@pytest.mark.parametrize(
+    "selection", [slice(2048), slice(1, None, 2), slice(None, None, -2)]
+)
+def test_track_list_slice_deletion(selection):
+    original = [Track(str(i)) for i in range(4096)]
+    tracks = TrackList(original)
+    expected = original.copy()
+
+    del tracks[selection]
+    del expected[selection]
+
+    assert [track.name for track in tracks] == [track.name for track in expected]
+    for track, reference in zip(tracks, expected, strict=True):
+        reference.program = 1
+        assert track.program == 1

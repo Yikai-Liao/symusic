@@ -7,9 +7,9 @@ symusic is a C++20 library for note-level symbolic music with a nanobind Python 
 | Layer | Location | Owns |
 |---|---|---|
 | Core library | `include/symusic/`, `src/` | Data model, transformations, time conversion, MIDI and pickle I/O, piano rolls, synthesis glue |
-| Binding | `py_src/` | The `symusic.core` extension: one class per C++ type and time unit, docstrings, NumPy and pickle bridges |
-| Python package | `python/symusic/` | Public constructors (`symusic.factory`), typing aliases (`symusic.types`), SoundFont downloads (`symusic.soundfont`), ABC conversion (`symusic._abc`) |
-| Type stubs | `scripts/lift_generic_stubs.py`, `py_src/CMakeLists.txt`, `cmake/LiftStubs.cmake.in` | `symusic/core.pyi`, generated at install time |
+| Binding | `py_src/` | The private `symusic._core` extension binds one class per concept and handles NumPy and pickle |
+| Python package | `python/symusic/` | Public exports in `symusic`, SoundFont downloads in `symusic.soundfont`, and ABC conversion in `symusic._abc` |
+| Type stubs | `scripts/core_stubgen.pattern`, `py_src/CMakeLists.txt` | `symusic/_core.pyi`, generated at install time |
 
 Dependencies point downward only: the Python package calls the binding, the binding calls the core, and the core has no Python dependency. Algorithms belong in the core so that C++ users and every time unit share them; the binding adapts types and arguments, and the Python layer handles public dispatch and the ABC subprocesses.
 
@@ -61,7 +61,7 @@ ABC already works this way: `abc2midi` renders ABC to MIDI, which enters through
 
 ## Python typing
 
-The extension registers concrete classes per unit (`ScoreTick`, `NoteQuarterList`, ...) and generic placeholders (`Score`, `Note`, `PyVec`, ...) that only exist for type checkers and raise `TypeError` when instantiated (`py_src/bindings/core/module.cpp`). At install time nanobind writes `core.raw.pyi`; `scripts/lift_generic_stubs.py` rewrites it into `core.pyi` so that concrete classes appear as specializations of the generics. Cross builds consume that generated file from a native build of the same revision through `SYMUSIC_PYTHON_STUB`, because the host cannot import the target extension. The experimental wheel workflow regenerates it on the target and compares declaration syntax trees, ignoring demangler whitespace around C++ template delimiters. `tests/typecheck/` checks the result with mypy. `symusic.factory` gives users unit-agnostic constructors such as `Score(path, ttype="tick")` and makes `isinstance(x, Score)` match every unit.
+The extension binds one generic Python class per concept. Each instance holds a variant of shared C++ handles for `Tick`, `Quarter`, and `Second`. Construct with `Score(ttype=Second)` and annotate with `Score[Second]`. nanobind generates `_core.pyi` at installation using `scripts/core_stubgen.pattern` for unit-dependent types. Cross builds consume the stub from a native build of the same revision through `SYMUSIC_PYTHON_STUB`. The experimental wheel workflow regenerates it on the target and compares declaration syntax trees. `tests/typecheck/` checks the installed stubs with mypy and pyright.
 
 ## Contracts
 
@@ -81,7 +81,7 @@ Known violations of memory safety at extreme values are tracked in the [roadmap]
 
 1. Implement it in the core for all time units, in the form the [code conventions](../development/conventions.md#design-rules) give for a modifying or producing operation.
 2. Bind it in the matching `py_src/bindings/<area>/` file, with a docstring at the binding site.
-3. Extend `symusic.factory` only if construction or dispatch changes.
+3. Export new public concepts from `symusic`.
 4. Reinstall (`pip install .`) to regenerate the stubs, and add C++ and Python tests at the new boundary.
 5. Update the guide page in `skills/symusic/references/` that owns the area, with a runnable example when the feature is public.
 

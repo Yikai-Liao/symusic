@@ -25,7 +25,13 @@ struct Score {
     typename S::template List<TextMeta<T>>      markers         = S::adopt(vec<TextMeta<T>>{});
 
     Score() = default;
-    explicit Score(i32 tpq) : ticks_per_quarter(tpq) {}
+    explicit Score(i32 tpq) : ticks_per_quarter(tpq) {
+        if (tpq <= 0) {
+            throw std::invalid_argument(
+                "ticks_per_quarter must be positive, got " + std::to_string(tpq)
+            );
+        }
+    }
     Score(
         i32                                         tpq,
         typename S::template Tracks<track_type>     tracks,

@@ -1,6 +1,6 @@
 #include "../core/binding_prelude.h"
 #include "synthesizer_bindings.h"
-#include "utils/storage.h"
+#include "utils/python_helpers.h"
 
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/filesystem.h>
@@ -42,7 +42,10 @@ blocks. The configured release tail follows the final event block.
 
 nb::module_& bind_synthesizer(nb::module_& m) {
     nb::class_<Synthesizer>(
-        m, "Synthesizer", "Render scores offline with a local SF2 or SF3 SoundFont."
+        m,
+        "Synthesizer",
+        "Synthesizer(soundfont, *, sample_rate=44100, polyphony=256, reverb=False, chorus=False, "
+        "tail_seconds=1.0)\n\nRender scores offline with a local SF2 or SF3 SoundFont."
     )
         .def(
             "__init__",
@@ -69,26 +72,12 @@ nb::module_& bind_synthesizer(nb::module_& m) {
         )
         .def(
             "render",
-            render<Tick>,
-            nb::arg("score"),
+            [](const Synthesizer& synth, const UnitValue<Score>& score, bool stereo) {
+                return score.visit([&](const auto& ptr) { return render(synth, ptr, stereo); });
+            },
+            "score"_a,
             nb::kw_only(),
-            nb::arg("stereo") = true,
-            kRenderDoc
-        )
-        .def(
-            "render",
-            render<Quarter>,
-            nb::arg("score"),
-            nb::kw_only(),
-            nb::arg("stereo") = true,
-            kRenderDoc
-        )
-        .def(
-            "render",
-            render<Second>,
-            nb::arg("score"),
-            nb::kw_only(),
-            nb::arg("stereo") = true,
+            "stereo"_a = true,
             kRenderDoc
         );
     return m;

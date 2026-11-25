@@ -1,118 +1,25 @@
-"""Score file methods installed on the existing extension types."""
+"""Connect Score's ABC methods to the bundled converters."""
 
-from __future__ import annotations
-
-import errno
-import os
-import pathlib
-import stat
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TypeVar
 
 from . import _abc
 
-if TYPE_CHECKING:
-    import typing_extensions
-
-_FilePath = str | bytes | os.PathLike[str] | os.PathLike[bytes]
-_MIDI_EXTENSIONS = {".mid", ".midi", ".MID", ".MIDI"}
+_Score = TypeVar("_Score")
 
 
-class _FileMethods:
-    @classmethod
-    def from_file(
-        cls,
-        path: _FilePath,
-        format: str | None = None,  # noqa: A002
-        sanitize_data: bool = False,
-        *,
-        tune: int | None = None,
-    ) -> typing_extensions.Self:
-        """Read MIDI or ABC, selecting the format by extension or explicit name."""
-        if not isinstance(sanitize_data, bool):
-            msg = "sanitize_data must be a bool"
-            raise TypeError(msg)
-        path = os.fsdecode(path)
-        if format is not None and not isinstance(format, str):
-            msg = "format must be a string or None"
-            raise TypeError(msg)
-        if format:
-            file_format = format.lower()
-        else:
-            suffix = pathlib.Path(path).suffix
-            if suffix in _MIDI_EXTENSIONS:
-                file_format = "midi"
-            else:
-                file_format = "abc" if suffix == ".abc" else ""
-
-        if file_format in {"midi", "mid"}:
-            if tune is not None:
-                msg = "tune is only supported for ABC input"
-                raise ValueError(msg)
-            mode = os.stat(path).st_mode  # noqa: PTH116
-            if stat.S_ISDIR(mode):
-                error = errno.EISDIR
-                raise IsADirectoryError(error, os.strerror(error), path)
-            if not stat.S_ISREG(mode):
-                msg = "Cannot seek to the end of the file"
-                raise RuntimeError(msg)
-            with open(path, "rb") as midi_file:  # noqa: PTH123
-                if not midi_file.seekable():
-                    msg = "Cannot seek to the end of the file"
-                    raise RuntimeError(msg)
-                return cls.from_midi(midi_file.read(), sanitize_data)
-        if file_format == "abc":
-            if sanitize_data:
-                msg = "sanitize_data is only supported for MIDI input"
-                raise ValueError(msg)
-            return cls.from_abc_file(path, tune=tune)
-        msg = "Unknown file format"
-        raise ValueError(msg)
-
-    @classmethod
-    def from_abc(cls, abc: str, *, tune: int | None = None) -> typing_extensions.Self:
-        """Read the given ABC tune by its ``X:`` number. Default to the first tune."""
-        if not isinstance(abc, str):
-            msg = "abc must be a string"
-            raise TypeError(msg)
-        return _abc.parse_abc(abc.encode("utf-8"), tune, cls.from_midi)
-
-    @classmethod
-    def from_abc_file(
-        cls,
-        path: _FilePath,
-        *,
-        tune: int | None = None,
-    ) -> typing_extensions.Self:
-        """Read an ABC file, selecting an ``X:`` number or defaulting to the first tune."""
-        path = os.fsdecode(path)
-        mode = os.stat(path).st_mode  # noqa: PTH116
-        if not stat.S_ISREG(mode) and not stat.S_ISDIR(mode):
-            msg = "Cannot seek to the end of the file"
-            raise RuntimeError(msg)
-        with open(path, "rb") as abc_file:  # noqa: PTH123
-            data = abc_file.read()
-        return _abc.parse_abc(data, tune, cls.from_midi)
-
-    def dump_abc(self, path: _FilePath, warn: bool = False) -> None:
-        """Write ABC to a file. With ``warn=True``, report converter diagnostics."""
-        destination = os.fsdecode(path)
-        data = self.dumps_abc(warn).encode("utf-8")
-        # pathlib strips trailing separators before opening a file.
-        with open(destination, "wb") as file:  # noqa: PTH123
-            file.write(data)
-
-    def dumps_abc(self, warn: bool = False) -> str:
-        """Return ABC text. With ``warn=True``, report converter diagnostics."""
-        if not isinstance(warn, bool):
-            msg = "warn must be a bool"
-            raise TypeError(msg)
-        return _abc.write_abc(self.dumps_midi(), warn)
+def read_abc(
+    data: bytes, tune: int | None, parse_midi: Callable[[bytes], _Score]
+) -> _Score:
+    return _abc.parse_abc(data, tune, parse_midi)
 
 
-def install_score_file_methods(score_types: tuple[type[object], ...]) -> None:
-    """Keep the same score types for construction, copying, conversion and pickle."""
-    for name, method in vars(_FileMethods).items():
-        if name.startswith("_"):
-            continue
-        for score_type in score_types:
-            setattr(score_type, name, method)
+def write_abc(midi: bytes, warn: bool) -> str:
+    return _abc.write_abc(midi, warn)
+
+
+def write_abc_file(path: str, midi: bytes, warn: bool) -> None:
+    data = write_abc(midi, warn).encode("utf-8")
+    # pathlib strips trailing separators before opening a file.
+    with open(path, "wb") as file:  # noqa: PTH123
+        file.write(data)

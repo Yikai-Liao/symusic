@@ -1,16 +1,11 @@
 //
-// Entry point of the nanobind module symusic.core.
+// Entry point of the nanobind module symusic._core.
 //
 
-#include <random>
-#include <string>
-
 #include "binding_prelude.h"
-#include <fmt/format.h>
-#include <nanobind/typing.h>
 
 #include "../../utils/filesystem_error.h"
-#include "../../utils/python_helpers.h"
+#include "utils/storage.h"
 #include "binding_registration.h"
 #include "../synth/synthesizer_bindings.h"
 
@@ -20,42 +15,7 @@ namespace nb = nanobind;
 
 namespace symusic::py {
 
-constexpr const char* kTime_UnitTickDoc
-    = R"pbdoc(MIDI ticks, as ``int``; ``ticks_per_quarter`` ticks make a quarter note.)pbdoc";
-constexpr const char* kTime_UnitQuarterDoc = R"pbdoc(Quarter notes, as a 32-bit ``float``.)pbdoc";
-constexpr const char* kTime_UnitSecondDoc
-    = R"pbdoc(Seconds, as a 32-bit ``float``; conversion follows the tempo map.)pbdoc";
-
-namespace typing_detail {
-struct ScoreTypingPlaceholder {};
-struct PyVecTypingPlaceholder {};
-struct TrackTypingPlaceholder {};
-struct NoteTypingPlaceholder {};
-struct KeySignatureTypingPlaceholder {};
-struct TimeSignatureTypingPlaceholder {};
-struct TempoTypingPlaceholder {};
-struct ControlChangeTypingPlaceholder {};
-struct PedalTypingPlaceholder {};
-struct PitchBendTypingPlaceholder {};
-struct TextMetaTypingPlaceholder {};
-}   // namespace typing_detail
-
-template<typename Placeholder>
-void define_time_generic(nb::module_& m, const char* name) {
-    const auto sig = fmt::format("class {}(typing.Generic[TimeUnitT])", name);
-    const auto doc = fmt::format(
-        "Generic typing placeholder for {0}. Use {0}Tick, {0}Quarter, or {0}Second instead.", name
-    );
-    const auto msg = fmt::format(
-        "symusic.core.{0} is a typing helper. Instantiate {0}Tick, {0}Quarter, or {0}Second "
-        "instead.",
-        name
-    );
-
-    nb::class_<Placeholder>(m, name, nb::is_generic(), nb::sig(sig.c_str()), doc.c_str())
-        .def("__init__", [msg](Placeholder*) { throw nb::type_error(msg.c_str()); });
-}
-NB_MODULE(core, m) {
+NB_MODULE(_core, m) {
     register_filesystem_error_translator();
 #ifndef MEM_LEAK_WARNING
     nb::set_leak_warnings(false);
@@ -64,76 +24,9 @@ NB_MODULE(core, m) {
     m.attr("_nanobind_mem_leak_warning") = true;
 #endif
 
-    m.attr("_MIDI2ABC") = std::string("");
-
-    auto time_unit_t    = nb::type_var("TimeUnitT");
-    auto event_t        = nb::type_var("EventT");
-    m.attr("TimeUnitT") = time_unit_t;
-    m.attr("EventT")    = event_t;
-
-    nb::class_<typing_detail::ScoreTypingPlaceholder>(
-        m, "Score", nb::is_generic(), nb::sig("class Score(typing.Generic[TimeUnitT])")
-    )
-        .def("__init__", [](typing_detail::ScoreTypingPlaceholder*) {
-            throw nb::type_error(
-                "symusic.core.Score is a typing helper. Instantiate ScoreTick, "
-                "ScoreQuarter, or ScoreSecond instead."
-            );
-        });
-
-    nb::class_<typing_detail::PyVecTypingPlaceholder>(
-        m, "PyVec", nb::is_generic(), nb::sig("class PyVec(typing.Generic[EventT])")
-    )
-        .def("__init__", [](typing_detail::PyVecTypingPlaceholder*) {
-            throw nb::type_error(
-                "symusic.core.PyVec is a typing helper. Instantiate concrete event list types "
-                "(e.g., NoteTickList)."
-            );
-        });
-
-    define_time_generic<typing_detail::TrackTypingPlaceholder>(m, "Track");
-    define_time_generic<typing_detail::NoteTypingPlaceholder>(m, "Note");
-    define_time_generic<typing_detail::KeySignatureTypingPlaceholder>(m, "KeySignature");
-    define_time_generic<typing_detail::TimeSignatureTypingPlaceholder>(m, "TimeSignature");
-    define_time_generic<typing_detail::TempoTypingPlaceholder>(m, "Tempo");
-    define_time_generic<typing_detail::ControlChangeTypingPlaceholder>(m, "ControlChange");
-    define_time_generic<typing_detail::PedalTypingPlaceholder>(m, "Pedal");
-    define_time_generic<typing_detail::PitchBendTypingPlaceholder>(m, "PitchBend");
-    define_time_generic<typing_detail::TextMetaTypingPlaceholder>(m, "TextMeta");
-
-    auto tick = nb::class_<Tick>(m, "Tick", kTime_UnitTickDoc)
-                    .def(nb::init<>())
-                    .def("__repr__", [](const Tick&) { return "symusic.core.Tick"; })
-                    .def("is_time_unit", [](const Tick&) { return true; })
-                    .def("__getstate__", [](const Tick&) { return nb::bytes(""); })
-                    .def("__setstate__", [](Tick& self, const nb::bytes&) { new (&self) Tick(); });
-
-    auto quarter
-        = nb::class_<Quarter>(m, "Quarter", kTime_UnitQuarterDoc)
-              .def(nb::init<>())
-              .def("__repr__", [](const Quarter&) { return "symusic.core.Quarter"; })
-              .def("is_time_unit", [](const Quarter&) { return true; })
-              .def("__getstate__", [](const Quarter&) { return nb::bytes(""); })
-              .def("__setstate__", [](Quarter& self, const nb::bytes&) { new (&self) Quarter(); });
-
-    auto second
-        = nb::class_<Second>(m, "Second", kTime_UnitSecondDoc)
-              .def(nb::init<>())
-              .def("__repr__", [](const Second&) { return "symusic.core.Second"; })
-              .def("is_time_unit", [](const Second&) { return true; })
-              .def("__getstate__", [](const Second&) { return nb::bytes(""); })
-              .def("__setstate__", [](Second& self, const nb::bytes&) { new (&self) Second(); });
-
-    tick.def("__eq__", [](const Tick&, const nb::object& other) {
-        return nb::isinstance<Tick>(other);
-    });
-    quarter.def("__eq__", [](const Quarter&, const nb::object& other) {
-        return nb::isinstance<Quarter>(other);
-    });
-    second.def("__eq__", [](const Second&, const nb::object& other) {
-        return nb::isinstance<Second>(other);
-    });
-
+    nb::class_<Tick>(m, "Tick", "Tick()\n\nMIDI ticks.").def(nb::init<>());
+    nb::class_<Quarter>(m, "Quarter", "Quarter()\n\nQuarter notes.").def(nb::init<>());
+    nb::class_<Second>(m, "Second", "Second()\n\nSeconds on the tempo map.").def(nb::init<>());
     bind_event_types(m);
     bind_track_types(m);
     bind_score_types(m);

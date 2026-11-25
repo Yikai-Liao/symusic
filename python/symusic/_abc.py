@@ -19,7 +19,9 @@ _Score = TypeVar("_Score")
 
 
 class ABCConversionWarning(UserWarning):
-    """Diagnostics from an ABC converter that produced a usable result."""
+    """ABCConversionWarning(*args)
+
+    Diagnostics from an ABC converter that produced a usable result."""
 
 
 _BIN = Path(__file__).resolve().parent / "_vendor" / "abcmidi"

@@ -6,7 +6,7 @@ A `Score` holds global events and a list of `Track` objects; each `Track` holds 
 
 | Attribute | Content |
 |---|---|
-| `ticks_per_quarter`, alias `tpq` | MIDI resolution, kept in every time unit |
+| `ticks_per_quarter` | MIDI resolution, kept in every time unit |
 | `tempos` | `Tempo` events |
 | `time_signatures` | `TimeSignature` events |
 | `key_signatures` | `KeySignature` events |
@@ -20,9 +20,8 @@ The global lists apply to every track. Create a score with:
 | `Score(path)`, `Score.from_file(path)` | Load a MIDI or ABC file |
 | `Score.from_midi(data)`, `Score.from_abc(text)` | Load from bytes or a string |
 | `Score(960)`, `Score.from_tpq(960)` | An empty score with 960 ticks per quarter |
-| `Score(other, ttype="second")`, `Score.from_other(other, ttype)` | A deep copy of `other`, converted like `other.to(ttype)` |
 
-All of them take `ttype`, default `"tick"`.
+All constructors take the `ttype` keyword, which defaults to `Tick`. Use `other.to(Second)` to copy and convert a score.
 
 ## Track
 
@@ -38,16 +37,16 @@ All of them take `ttype`, default `"tick"`.
 | `lyrics` | `TextMeta` events |
 
 ```python
-from symusic import Note, Score, Track
+from symusic import Note, Quarter, Score, Track
 
-score = Score(480, ttype="quarter")
-bass = Track("bass", program=33, ttype="quarter")
-bass.notes.append(Note(0.0, 1.0, 40, 90, ttype="quarter"))
+score = Score(480, ttype=Quarter)
+bass = Track("bass", program=33, ttype=Quarter)
+bass.notes.append(Note(0.0, 1.0, 40, 90, ttype=Quarter))
 score.tracks.append(bass)
 print(score)
 ```
 
-`Track(name, program, is_drum, notes, controls, pitch_bends, pedals, ttype)` copies the lists it receives. A track must have the unit of the score it joins; appending a quarter track to a tick score raises `TypeError`.
+`Track(name, program, is_drum, notes, controls, pitch_bends, pedals, *, ttype=Tick)` copies the lists it receives. A track must have the unit of the score it joins; appending a quarter track to a tick score raises `ValueError`.
 
 ## Events
 
@@ -62,8 +61,8 @@ print(score)
 | `TimeSignature` | `time`, `numerator`, `denominator` | `Score.time_signatures` | `time` |
 | `KeySignature` | `time`, `key`, `tonality` | `Score.key_signatures` | `time` |
 
-- Every constructor takes the fields in table order, then `ttype`: `Note(0, 480, 60, 100)`, `ControlChange(0, 64, 127, ttype="quarter")`.
-- `Note` and `Pedal` also have `start` (the same as `time`) and `end` (`time + duration`). `Note.empty()` is true when the duration or the velocity is 0 or less.
+- Every constructor takes the fields in table order, then `ttype`: `Note(0, 480, 60, 100)`, `ControlChange(0, 64, 127, ttype=Quarter)`.
+- `Note` and `Pedal` also have `end` (`time + duration`). `Pedal.start` is an alias for its `time`. `Note.empty()` is true when the duration or the velocity is 0 or less.
 - `pitch` and `velocity` are stored in 8 bits. A value outside −128..127 raises `TypeError`; symusic does not enforce the MIDI range 0–127.
 - `Tempo` stores microseconds per quarter note (`mspq`, an integer); `qpm` (quarter notes per minute) is computed from it and can be set. Create one with `Tempo(0, qpm=100)` or `Tempo(0, mspq=600000)`.
 - `KeySignature.key` counts sharps (positive) or flats (negative); `tonality` is 0 for major and 1 for minor.
@@ -71,7 +70,7 @@ print(score)
 
 ## Event lists
 
-Every list attribute is a typed list, such as `NoteTickList`. It supports indexing, slicing, `len`, iteration, `del`, `append`, `extend`, `insert`, `pop`, `remove`, `clear` and `count`, plus:
+Every list attribute is a typed list, such as `NoteList[Tick]`. Event and track lists implement `collections.abc.MutableSequence`, including slicing, reverse iteration, and in-place extension with `+=`. They also provide:
 
 | Method | Effect |
 |---|---|

@@ -9,9 +9,9 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Loading files
 
-- **`ValueError: Unknown file format`.** The extension is not one of `.mid`, `.midi`, `.MID`, `.MIDI` or `.abc`. Pass `fmt="midi"` or `fmt="abc"`; see [files.md](files.md#loading).
-- **`ValueError: ... is not a file`.** The path does not exist or is a directory.
-- **`TypeError: Invalid type: <class 'bytes'>`.** `Score(...)` takes a path, a tick count or another score. Load bytes with `Score.from_midi(data)` and ABC text with `Score.from_abc(text)`.
+- **`ValueError: Unknown file format`.** The extension is not one of `.mid`, `.midi`, `.MID`, `.MIDI` or `.abc`. Pass `format="midi"` or `format="abc"`; see [files.md](files.md#loading).
+- **`FileNotFoundError` or `IsADirectoryError`.** The path does not exist or names a directory.
+- **`TypeError: Invalid type: <class 'bytes'>`.** `Score(...)` takes a path or a tick count. Load bytes with `Score.from_midi(data)` and ABC text with `Score.from_abc(text)`.
 - **`RuntimeError: MiniMidi: ...`.** The MIDI file is truncated or corrupt. In a dataset, catch the error and skip the file; see [datasets.md](datasets.md#parallel-loading).
 - **`RuntimeError: Get control_value=168`, `Get pitch_bend=...` or similar.** The file contains a data byte above 127. Load it with `sanitize_data=True`; see [files.md](files.md#reading-midi).
 - **`RuntimeError: Division type is not ticks per quarter`.** The file uses SMPTE time division, which symusic does not read.
@@ -19,19 +19,20 @@ Each entry starts with the error message or symptom and links to the page that e
 
 ## Building and editing scores
 
-- **`TypeError: append(): incompatible function arguments` naming `NoteQuarter`, `TrackTick` or another unit.** The object you add has a different time unit from the list. Create events with the list's `ttype`, or convert the source with `to`; see [time_units.md](time_units.md).
+- **`ValueError: Time units must match`.** The object you add has a different time unit from the list. Create events with the list's `ttype`, or convert the source with `to`; see [time_units.md](time_units.md).
 - **`TypeError: __init__(): incompatible function arguments` when creating a `Note`.** A pitch or velocity outside −128..127 does not fit the 8-bit field, or a time has the wrong type for the unit; see [data_model.md](data_model.md#events).
+- **`TypeError: __init__(): incompatible function arguments` when passing a score to `Score(...)`.** Copy a score with `score.copy()` and convert it with `score.to(ttype)`.
 - **`TypeError: ... unexpected keyword argument 'tpq'`.** Pass the resolution positionally, `Score(480)`, or call `Score.from_tpq(480)`.
-- **`ValueError: ttype must be Tick, Quarter, Second or string`.** The unit name is misspelled; use `"tick"`, `"quarter"` or `"second"`.
+- **`ValueError: ttype must be Tick, Quarter or Second`.** `ttype` takes the markers `Tick`, `Quarter` and `Second` imported from `symusic`, not strings such as `"tick"`.
 - **`ValueError: Overflow while adding ...`.** `shift_pitch` or `shift_velocity` pushed a value outside −128..127; see [data_model.md](data_model.md#transformations).
-- **`ValueError: symusic::ops::adjust_time: ...`.** The anchor lists differ in length, have fewer than two entries, contain a non-finite value, or violate the required ordering; see [data_model.md](data_model.md#transformations).
-- **Notes have duration 0 after `to("tick")`, `resample` or a MIDI round trip.** Durations shorter than half a tick round to 0. Pass `min_dur=1`; see [time_units.md](time_units.md#conversion-rules).
+- **`ValueError: symusic::ops::adjust_time: ...`.** The anchor lists differ in length, have fewer than two entries, or violate the required ordering. Original times must increase strictly, and new times must be nondecreasing.
+- **Notes have duration 0 after `to(Tick)`, `resample` or a MIDI round trip.** Durations shorter than half a tick round to 0. Pass `min_dur=1`; see [time_units.md](time_units.md#conversion-rules).
 - **Editing `pedals` does not change the written file.** MIDI stores the sustain pedal as control change 64 in `controls`; see [files.md](files.md#writing-midi).
 - **A loaded track has lyrics but no notes.** Lyrics stay on their own track only when the MIDI track contains no notes; otherwise they attach to the note-bearing track; see [files.md](files.md#reading-midi).
 
 ## Arrays and piano rolls
 
-- **`AttributeError: ... has no attribute 'pianoroll'`.** Piano rolls exist only for tick scores and tracks. Convert with `to("tick")` or `resample`; see [arrays.md](arrays.md#piano-rolls).
+- **`ValueError: Time units must match` from `pianoroll`.** Piano rolls are computed only for tick scores and tracks. Convert with `to(Tick)` or `resample`; see [arrays.md](arrays.md#piano-rolls).
 - **`ValueError: Pitch range [...) is invalid` or `No such pianoroll mode called ...`.** See the rules in [arrays.md](arrays.md#piano-rolls).
 - **Looping over notes in Python is slow.** Every element read from an event list creates a Python object. Use `numpy()` instead; see [arrays.md](arrays.md).
 

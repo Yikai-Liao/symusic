@@ -1,2 +1,465 @@
-# These methods come from the Python mixin attached by lift_generic_stubs.py.
-^symusic\.core\.Score(Tick|Quarter|Second)\.(from_file|from_abc(_file)?|dumps?_abc)$:
+# Unit-dependent types and Python-level protocols that stubgen cannot infer.
+^symusic\._core\.__prefix__$:
+    \from typing import ClassVar, Generic, Literal, NoReturn, TypeVar, overload
+    \from collections.abc import Callable, Iterable, Iterator
+    \from numpy import ndarray
+    \from typing_extensions import Self
+    \from os import PathLike
+    _Unit = TypeVar("_Unit", "Tick", "Quarter", "Second")
+    _Target = TypeVar("_Target", "Tick", "Quarter", "Second")
+    _Item = TypeVar("_Item")
+    _Items = TypeVar("_Items")
+    _Path = str | bytes | PathLike[str] | PathLike[bytes]
+    _TrimMode = Literal["remove", "truncate", "retain"]
+
+    class _TimeField:
+        @overload
+        def __get__(self, obj: Note[Tick] | Pedal[Tick] | Tempo[Tick] | ControlChange[Tick] | PitchBend[Tick] | TimeSignature[Tick] | KeySignature[Tick] | TextMeta[Tick], owner: type | None = None, /) -> int: ...
+        @overload
+        def __get__(self, obj: Note[Quarter] | Pedal[Quarter] | Tempo[Quarter] | ControlChange[Quarter] | PitchBend[Quarter] | TimeSignature[Quarter] | KeySignature[Quarter] | TextMeta[Quarter], owner: type | None = None, /) -> float: ...
+        @overload
+        def __get__(self, obj: Note[Second] | Pedal[Second] | Tempo[Second] | ControlChange[Second] | PitchBend[Second] | TimeSignature[Second] | KeySignature[Second] | TextMeta[Second], owner: type | None = None, /) -> float: ...
+        @overload
+        def __get__(self, obj: None, owner: type, /) -> _TimeField: ...
+        @overload
+        def __set__(self, obj: Note[Tick] | Pedal[Tick] | Tempo[Tick] | ControlChange[Tick] | PitchBend[Tick] | TimeSignature[Tick] | KeySignature[Tick] | TextMeta[Tick], value: int, /) -> None: ...
+        @overload
+        def __set__(self, obj: Note[Quarter] | Pedal[Quarter] | Tempo[Quarter] | ControlChange[Quarter] | PitchBend[Quarter] | TimeSignature[Quarter] | KeySignature[Quarter] | TextMeta[Quarter], value: float, /) -> None: ...
+        @overload
+        def __set__(self, obj: Note[Second] | Pedal[Second] | Tempo[Second] | ControlChange[Second] | PitchBend[Second] | TimeSignature[Second] | KeySignature[Second] | TextMeta[Second], value: float, /) -> None: ...
+
+    class _ListField(Generic[_Item, _Items]):
+        def __get__(self, obj: object, owner: type | None = None, /) -> _Items: ...
+        def __set__(self, obj: object, value: _Items | Iterable[_Item], /) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)\.(time|duration|end)$:
+    \2: _TimeField
+
+^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|NoteList|PedalList|TempoList|ControlChangeList|PitchBendList|TimeSignatureList|KeySignatureList|TextMetaList|TrackList)\.ttype$:
+    @property
+    def ttype(self) -> type[_Unit]: ...
+
+^symusic\._core\.(Score|Track)\.tracks$:
+    tracks: _ListField[Track[_Unit], TrackList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.notes$:
+    notes: _ListField[Note[_Unit], NoteList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.controls$:
+    controls: _ListField[ControlChange[_Unit], ControlChangeList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.pitch_bends$:
+    pitch_bends: _ListField[PitchBend[_Unit], PitchBendList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.pedals$:
+    pedals: _ListField[Pedal[_Unit], PedalList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.lyrics$:
+    lyrics: _ListField[TextMeta[_Unit], TextMetaList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.markers$:
+    markers: _ListField[TextMeta[_Unit], TextMetaList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.time_signatures$:
+    time_signatures: _ListField[TimeSignature[_Unit], TimeSignatureList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.key_signatures$:
+    key_signatures: _ListField[KeySignature[_Unit], KeySignatureList[_Unit]]
+
+^symusic\._core\.(Score|Track)\.tempos$:
+    tempos: _ListField[Tempo[_Unit], TempoList[_Unit]]
+
+^symusic\._core\.Score\.__init__$:
+    @overload
+    def __init__(self: Score[Tick], ticks_per_quarter: int = 960, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: Score[_Unit], ticks_per_quarter: int = 960, *, ttype: type[_Unit]) -> None: ...
+    @overload
+    def __init__(self: Score[Tick], path: _Path, *, ttype: type[Tick] = Tick, format: str | None = None, sanitize_data: bool = False, tune: int | None = None) -> None: ...
+    @overload
+    def __init__(self: Score[_Unit], path: _Path, *, ttype: type[_Unit], format: str | None = None, sanitize_data: bool = False, tune: int | None = None) -> None: ...
+
+^symusic\._core\.Track\.__init__$:
+    @overload
+    def __init__(self: Track[_Unit], other: Track[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: Track[Tick], name: str = "", program: int = 0, is_drum: bool = False, notes: Iterable[Note[Tick]] | None = None, controls: Iterable[ControlChange[Tick]] | None = None, pitch_bends: Iterable[PitchBend[Tick]] | None = None, pedals: Iterable[Pedal[Tick]] | None = None, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: Track[_Unit], name: str = "", program: int = 0, is_drum: bool = False, notes: Iterable[Note[_Unit]] | None = None, controls: Iterable[ControlChange[_Unit]] | None = None, pitch_bends: Iterable[PitchBend[_Unit]] | None = None, pedals: Iterable[Pedal[_Unit]] | None = None, *, ttype: type[_Unit]) -> None: ...
+
+^symusic\._core\.Note\.__init__$:
+    @overload
+    def __init__(self: Note[_Unit], other: Note[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: Note[Tick], time: int, duration: int, pitch: int, velocity: int = 0, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: Note[Quarter], time: float, duration: float, pitch: int, velocity: int = 0, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: Note[Second], time: float, duration: float, pitch: int, velocity: int = 0, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.Pedal\.__init__$:
+    @overload
+    def __init__(self: Pedal[_Unit], other: Pedal[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: Pedal[Tick], time: int, duration: int, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: Pedal[Quarter], time: float, duration: float, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: Pedal[Second], time: float, duration: float, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.Tempo\.__init__$:
+    @overload
+    def __init__(self: Tempo[_Unit], other: Tempo[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: Tempo[Tick], time: int, qpm: float | None = None, mspq: int | None = None, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: Tempo[Quarter], time: float, qpm: float | None = None, mspq: int | None = None, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: Tempo[Second], time: float, qpm: float | None = None, mspq: int | None = None, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.ControlChange\.__init__$:
+    @overload
+    def __init__(self: ControlChange[_Unit], other: ControlChange[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: ControlChange[Tick], time: int, number: int, value: int, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: ControlChange[Quarter], time: float, number: int, value: int, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: ControlChange[Second], time: float, number: int, value: int, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.PitchBend\.__init__$:
+    @overload
+    def __init__(self: PitchBend[_Unit], other: PitchBend[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: PitchBend[Tick], time: int, value: int, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: PitchBend[Quarter], time: float, value: int, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: PitchBend[Second], time: float, value: int, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.TimeSignature\.__init__$:
+    @overload
+    def __init__(self: TimeSignature[_Unit], other: TimeSignature[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: TimeSignature[Tick], time: int, numerator: int, denominator: int, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: TimeSignature[Quarter], time: float, numerator: int, denominator: int, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: TimeSignature[Second], time: float, numerator: int, denominator: int, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.KeySignature\.__init__$:
+    @overload
+    def __init__(self: KeySignature[_Unit], other: KeySignature[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: KeySignature[Tick], time: int, key: int, tonality: int, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: KeySignature[Quarter], time: float, key: int, tonality: int, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: KeySignature[Second], time: float, key: int, tonality: int, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.TextMeta\.__init__$:
+    @overload
+    def __init__(self: TextMeta[_Unit], other: TextMeta[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: TextMeta[Tick], time: int, text: str, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: TextMeta[Quarter], time: float, text: str, *, ttype: type[Quarter]) -> None: ...
+    @overload
+    def __init__(self: TextMeta[Second], time: float, text: str, *, ttype: type[Second]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__init__$:
+    @overload
+    def __init__(self: \1List[_Unit], other: \1List[_Unit], /) -> None: ...
+    @overload
+    def __init__(self: \1List[Tick], items: Iterable[\1[Tick]] | None = None, *, ttype: type[Tick] = Tick) -> None: ...
+    @overload
+    def __init__(self: \1List[_Unit], items: Iterable[\1[_Unit]] | None = None, *, ttype: type[_Unit]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__iter__$:
+    def __iter__(self) -> Iterator[\1[_Unit]]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__reversed__$:
+    def __reversed__(self) -> Iterator[\1[_Unit]]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__iadd__$:
+    def __iadd__(self, items: Iterable[\1[_Unit]], /) -> Self: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__getitem__$:
+    @overload
+    def __getitem__(self, index: int) -> \1[_Unit]: ...
+    @overload
+    def __getitem__(self, index: slice) -> \1List[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.__setitem__$:
+    @overload
+    def __setitem__(self, index: int, item: \1[_Unit]) -> None: ...
+    @overload
+    def __setitem__(self, index: slice, items: Iterable[\1[_Unit]]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.(append|remove)$:
+    def \2(self, item: \1[_Unit]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.count$:
+    def count(self, item: \1[_Unit]) -> int: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.insert$:
+    def insert(self, index: int, item: \1[_Unit]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.pop$:
+    def pop(self, index: int = -1) -> \1[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.extend$:
+    def extend(self, items: Iterable[\1[_Unit]]) -> None: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.filter$:
+    def filter(self, function: Callable[[\1[_Unit]], bool], inplace: bool = True) -> \1List[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.sort$:
+    def sort(self, key: Callable[[\1[_Unit]], object] | None = None, reverse: bool = False, inplace: bool = True) -> \1List[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\.is_sorted$:
+    def is_sorted(self, key: Callable[[\1[_Unit]], object] | None = None, reverse: bool = False) -> bool: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|Track)List\._Iterator$:
+
+^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|NoteList|PedalList|TempoList|ControlChangeList|PitchBendList|TimeSignatureList|KeySignatureList|TextMetaList|TrackList)\.shift_time$:
+    @overload
+    def shift_time(self: \1[Tick], offset: int, inplace: bool = False) -> \1[Tick]: ...
+    @overload
+    def shift_time(self: \1[Quarter], offset: float, inplace: bool = False) -> \1[Quarter]: ...
+    @overload
+    def shift_time(self: \1[Second], offset: float, inplace: bool = False) -> \1[Second]: ...
+
+^symusic\._core\.(Score|Track)\.clip$:
+    @overload
+    def clip(self: \1[Tick], start: int, end: int, clip_end: bool = False, inplace: bool = False) -> \1[Tick]: ...
+    @overload
+    def clip(self: \1[Quarter], start: float, end: float, clip_end: bool = False, inplace: bool = False) -> \1[Quarter]: ...
+    @overload
+    def clip(self: \1[Second], start: float, end: float, clip_end: bool = False, inplace: bool = False) -> \1[Second]: ...
+
+^symusic\._core\.(Score)\.trim$:
+    @overload
+    def trim(self: \1[Tick], start: int, end: int, min_overlap: int = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Score[Tick]: ...
+    @overload
+    def trim(self: \1[Quarter], start: float, end: float, min_overlap: float = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Score[Quarter]: ...
+    @overload
+    def trim(self: \1[Second], start: float, end: float, min_overlap: float = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Score[Second]: ...
+
+^symusic\._core\.(Track)\.trim$:
+    @overload
+    def trim(self: \1[Tick], start: int, end: int, min_overlap: int = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Track[Tick]: ...
+    @overload
+    def trim(self: \1[Quarter], start: float, end: float, min_overlap: float = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Track[Quarter]: ...
+    @overload
+    def trim(self: \1[Second], start: float, end: float, min_overlap: float = 0, start_mode: _TrimMode = "remove", end_mode: _TrimMode = "remove", inplace: bool = False) -> Track[Second]: ...
+
+^symusic\._core\.(Score|Track|NoteList|PedalList|TempoList|ControlChangeList|PitchBendList|TimeSignatureList|KeySignatureList|TextMetaList|TrackList)\.adjust_time$:
+    @overload
+    def adjust_time(self: \1[Tick], original_times: Iterable[int], new_times: Iterable[int], inplace: bool = False) -> \1[Tick]: ...
+    @overload
+    def adjust_time(self: \1[Quarter], original_times: Iterable[float], new_times: Iterable[float], inplace: bool = False) -> \1[Quarter]: ...
+    @overload
+    def adjust_time(self: \1[Second], original_times: Iterable[float], new_times: Iterable[float], inplace: bool = False) -> \1[Second]: ...
+
+^symusic\._core\.(Score|Track)\.(start|end)$:
+    @overload
+    def \2(self: \1[Tick]) -> int: ...
+    @overload
+    def \2(self: \1[Quarter]) -> float: ...
+    @overload
+    def \2(self: \1[Second]) -> float: ...
+
+^symusic\._core\.(Score)\.(get_beats|get_downbeats)$:
+    @overload
+    def \2(self: \1[Tick], start_time: int = 0) -> ndarray: ...
+    @overload
+    def \2(self: \1[Quarter], start_time: float = 0) -> ndarray: ...
+    @overload
+    def \2(self: \1[Second], start_time: float = 0) -> ndarray: ...
+
+^symusic\._core\.(Score|Track)\.pianoroll$:
+    def pianoroll(self: \1[Tick], modes: Iterable[str] = ("frame", "onset"), pitch_range: tuple[int, int] = (0, 128), encode_velocity: bool = False) -> ndarray: ...
+
+^symusic\._core\.Score\.resample$:
+    def resample(self, tpq: int, min_dur: int | None = None) -> Score[Tick]: ...
+
+^symusic\._core\.Score\.to$:
+    @overload
+    def to(self, ttype: type[Tick], min_dur: int | None = None) -> Score[Tick]: ...
+    @overload
+    def to(self, ttype: type[Quarter], min_dur: float | None = None) -> Score[Quarter]: ...
+    @overload
+    def to(self, ttype: type[Second], min_dur: float | None = None) -> Score[Second]: ...
+    @overload
+    def to(self, ttype: type[_Target], min_dur: None = None) -> Score[_Target]: ...
+
+^symusic\._core\.Score\.dump_midi$:
+    def dump_midi(self, path: _Path) -> None: ...
+
+^symusic\._core\.Score\.dump_abc$:
+    def dump_abc(self, path: _Path, warn: bool = False) -> None: ...
+
+^symusic\._core\.Synthesizer\.render$:
+    def render(self, score: Score[_Unit], *, stereo: bool = True) -> ndarray: ...
+
+^symusic\._core\.Score\.from_tpq$:
+    @overload
+    @staticmethod
+    def from_tpq(tpq: int = 960, *, ttype: type[Tick] = Tick) -> Score[Tick]: ...
+    @overload
+    @staticmethod
+    def from_tpq(tpq: int = 960, *, ttype: type[_Target]) -> Score[_Target]: ...
+
+^symusic\._core\.Score\.from_file$:
+    @overload
+    @staticmethod
+    def from_file(path: _Path, *, ttype: type[Tick] = Tick, format: str | None = None, sanitize_data: bool = False, tune: int | None = None) -> Score[Tick]: ...
+    @overload
+    @staticmethod
+    def from_file(path: _Path, *, ttype: type[_Target], format: str | None = None, sanitize_data: bool = False, tune: int | None = None) -> Score[_Target]: ...
+
+^symusic\._core\.Score\.from_midi$:
+    @overload
+    @staticmethod
+    def from_midi(data: bytes, *, ttype: type[Tick] = Tick, sanitize_data: bool = False) -> Score[Tick]: ...
+    @overload
+    @staticmethod
+    def from_midi(data: bytes, *, ttype: type[_Target], sanitize_data: bool = False) -> Score[_Target]: ...
+
+^symusic\._core\.Score\.from_abc$:
+    @overload
+    @staticmethod
+    def from_abc(abc: str, *, ttype: type[Tick] = Tick, tune: int | None = None) -> Score[Tick]: ...
+    @overload
+    @staticmethod
+    def from_abc(abc: str, *, ttype: type[_Target], tune: int | None = None) -> Score[_Target]: ...
+
+^symusic\._core\.Score\.from_abc_file$:
+    @overload
+    @staticmethod
+    def from_abc_file(path: _Path, *, ttype: type[Tick] = Tick, tune: int | None = None) -> Score[Tick]: ...
+    @overload
+    @staticmethod
+    def from_abc_file(path: _Path, *, ttype: type[_Target], tune: int | None = None) -> Score[_Target]: ...
+
+^symusic\._core\.Note(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, duration: ndarray, pitch: ndarray, velocity: ndarray, *, ttype: type[Tick] = Tick) -> NoteList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, duration: ndarray, pitch: ndarray, velocity: ndarray, *, ttype: type[_Target]) -> NoteList[_Target]: ...
+
+^symusic\._core\.Pedal(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, duration: ndarray, *, ttype: type[Tick] = Tick) -> PedalList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, duration: ndarray, *, ttype: type[_Target]) -> PedalList[_Target]: ...
+
+^symusic\._core\.Tempo(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, mspq: ndarray, *, ttype: type[Tick] = Tick) -> TempoList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, mspq: ndarray, *, ttype: type[_Target]) -> TempoList[_Target]: ...
+
+^symusic\._core\.ControlChange(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, number: ndarray, value: ndarray, *, ttype: type[Tick] = Tick) -> ControlChangeList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, number: ndarray, value: ndarray, *, ttype: type[_Target]) -> ControlChangeList[_Target]: ...
+
+^symusic\._core\.PitchBend(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, value: ndarray, *, ttype: type[Tick] = Tick) -> PitchBendList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, value: ndarray, *, ttype: type[_Target]) -> PitchBendList[_Target]: ...
+
+^symusic\._core\.TimeSignature(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, numerator: ndarray, denominator: ndarray, *, ttype: type[Tick] = Tick) -> TimeSignatureList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, numerator: ndarray, denominator: ndarray, *, ttype: type[_Target]) -> TimeSignatureList[_Target]: ...
+
+^symusic\._core\.KeySignature(List)?\.from_numpy$:
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, key: ndarray, tonality: ndarray, *, ttype: type[Tick] = Tick) -> KeySignatureList[Tick]: ...
+    @overload
+    @staticmethod
+    def from_numpy(time: ndarray, key: ndarray, tonality: ndarray, *, ttype: type[_Target]) -> KeySignatureList[_Target]: ...
+
+^symusic\._core\.TextMeta\.from_numpy$:
+    @staticmethod
+    def from_numpy(time: ndarray, text: ndarray, *, ttype: type[Tick] | type[Quarter] | type[Second] = Tick) -> NoReturn: ...
+
+^symusic\._core\.TextMetaList\.from_numpy$:
+    @staticmethod
+    def from_numpy() -> NoReturn: ...
+
+^symusic\._core\.Pedal\.start$:
+    start: _TimeField
+
+^symusic\._core\.Note\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["duration"], Literal["pitch"], Literal["velocity"]]] = ("time", "duration", "pitch", "velocity")
+
+^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|TrackList)\.copy$:
+    def copy(self, deep: bool = True) -> \1[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)List\.copy$:
+    def copy(self) -> \1List[_Unit]: ...
+
+^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta|TrackList)\.__copy__$:
+    def __copy__(self) -> \1[_Unit]: ...
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)List\.__copy__$:
+    def __copy__(self, deep: bool = True) -> \1List[_Unit]: ...
+
+^symusic\._core\.(Score|Track|Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature|TextMeta)(List)?\.__deepcopy__$:
+    def __deepcopy__(self, memo: object | None = None, _nil: object | None = None) -> \1\2[_Unit]: ...
+
+^symusic\._core\.(Score|Track)\.sort$:
+    def sort(self, reverse: bool = False, inplace: bool = True) -> \1[_Unit]: ...
+
+^symusic\._core\.(Score|Track|Note)\.(shift_pitch|shift_velocity)$:
+    def \2(self, offset: int, inplace: bool = False) -> \1[_Unit]: ...
+
+^symusic\._core\.Pedal\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["duration"]]] = ("time", "duration")
+
+^symusic\._core\.PitchBend\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["value"]]] = ("time", "value")
+
+^symusic\._core\.Tempo\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["mspq"]]] = ("time", "mspq")
+
+^symusic\._core\.TextMeta\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["text"]]] = ("time", "text")
+
+^symusic\._core\.ControlChange\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["number"], Literal["value"]]] = ("time", "number", "value")
+
+^symusic\._core\.KeySignature\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["key"], Literal["tonality"]]] = ("time", "key", "tonality")
+
+^symusic\._core\.TimeSignature\.__match_args__$:
+    __match_args__: ClassVar[tuple[Literal["time"], Literal["numerator"], Literal["denominator"]]] = ("time", "numerator", "denominator")
+
+^symusic\._core\.(Note|Pedal|Tempo|ControlChange|PitchBend|TimeSignature|KeySignature)List\.numpy$:
+    def numpy(self) -> dict[str, ndarray]: ...
+
+^symusic\._core\.TextMetaList\.numpy$:
+    def numpy(self) -> NoReturn: ...
+
+^symusic\._core\.Synthesizer\.__init__$:
+    def __init__(self, soundfont: _Path, *, sample_rate: int = 44100, polyphony: int = 256, reverb: bool = False, chorus: bool = False, tail_seconds: float = 1.0) -> None: ...

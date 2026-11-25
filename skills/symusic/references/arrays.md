@@ -36,9 +36,9 @@ Arrays make statistics over a whole score short:
 
 ```python
 import numpy as np
-from symusic import Score
+from symusic import Score, Second
 
-score = Score("song.mid", ttype="second")
+score = Score("song.mid", ttype=Second)
 pitched = [t for t in score.tracks if not t.is_drum]
 pitches = np.concatenate([t.notes.numpy()["pitch"] for t in pitched])
 histogram = np.bincount(pitches, minlength=128)
@@ -50,9 +50,9 @@ print("notes per second:", score.note_num() / score.end())
 
 ```python
 import numpy as np
-from symusic import Score
+from symusic import Quarter, Score
 
-score = Score("song.mid", ttype="quarter")
+score = Score("song.mid", ttype=Quarter)
 beats = score.get_beats()
 onsets = score.tracks[0].notes.numpy()["time"]
 beat_index = np.searchsorted(beats, onsets, side="right") - 1

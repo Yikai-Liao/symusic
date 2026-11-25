@@ -68,6 +68,18 @@ def _():
     return lambda: symusic.Score.from_midi(data)
 
 
+@scenario("note_attribute_access", 60)
+def _():
+    notes = list(_load(PIANO).tracks[0].notes)[:4096]
+    return lambda: sum(note.time for note in notes)
+
+
+@scenario("note_list_iteration", 60)
+def _():
+    notes = _load(PIANO).tracks[0].notes[:4096]
+    return lambda: list(notes)
+
+
 @scenario("midi_dump_bytes", 4)
 def _():
     score = _load(PIANO)
@@ -83,25 +95,25 @@ def _():
 @scenario("to_quarter", 100)
 def _():
     score = _load(PIANO)
-    return lambda: score.to("quarter")
+    return lambda: score.to(getattr(symusic, "Quarter", "quarter"))
 
 
 @scenario("to_second", 60)
 def _():
     score = _load(PIANO)
-    return lambda: score.to("second")
+    return lambda: score.to(getattr(symusic, "Second", "second"))
 
 
 @scenario("quarter_to_tick", 20)
 def _():
-    score = _load(PIANO).to("quarter")
-    return lambda: score.to("tick")
+    score = _load(PIANO).to(getattr(symusic, "Quarter", "quarter"))
+    return lambda: score.to(getattr(symusic, "Tick", "tick"))
 
 
 @scenario("second_to_tick", 15)
 def _():
-    score = _load(PIANO).to("second")
-    return lambda: score.to("tick")
+    score = _load(PIANO).to(getattr(symusic, "Second", "second"))
+    return lambda: score.to(getattr(symusic, "Tick", "tick"))
 
 
 @scenario("resample", 20)

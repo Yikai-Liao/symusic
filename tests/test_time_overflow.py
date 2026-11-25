@@ -11,9 +11,12 @@ from symusic import (
     Note,
     Pedal,
     PitchBend,
+    Quarter,
     Score,
+    Second,
     Tempo,
     TextMeta,
+    Tick,
     TimeSignature,
     Track,
 )
@@ -26,25 +29,25 @@ INT_MIN = -(2**31)
 
 def tick_score(*notes: Note) -> Score:
     score = Score(480)
-    score.tracks.append(Track(notes=list(notes), ttype="tick"))
+    score.tracks.append(Track(notes=list(notes), ttype=Tick))
     return score
 
 
 def test_end_overflow():
-    assert Note(INT_MAX - 5, 5, 60, 80, "tick").end == INT_MAX
+    assert Note(INT_MAX - 5, 5, 60, 80, ttype=Tick).end == INT_MAX
     with pytest.raises(OverflowError):
-        _ = Note(INT_MAX - 5, 6, 60, 80, "tick").end
+        _ = Note(INT_MAX - 5, 6, 60, 80, ttype=Tick).end
     with pytest.raises(OverflowError):
-        _ = Pedal(INT_MAX, 1, "tick").end
+        _ = Pedal(INT_MAX, 1, ttype=Tick).end
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_end_float_units_do_not_raise(ttype: str):
-    assert Note(3.0e38, 3.0e38, 60, 80, ttype).end == math.inf
+    assert Note(3.0e38, 3.0e38, 60, 80, ttype=ttype).end == math.inf
 
 
 def test_end_setter_overflow():
-    note = Note(INT_MIN, 1, 60, 80, "tick")
+    note = Note(INT_MIN, 1, 60, 80, ttype=Tick)
     with pytest.raises(OverflowError):
         note.end = INT_MAX
     assert note.duration == 1
@@ -53,25 +56,25 @@ def test_end_setter_overflow():
 @pytest.mark.parametrize("make", [Note, Pedal])
 def test_shift_time_overflow(make):
     args = (INT_MAX, 1, 60, 80) if make is Note else (INT_MAX, 1)
-    event = make(*args, "tick")
+    event = make(*args, ttype=Tick)
     with pytest.raises(OverflowError):
         event.shift_time(1)
     with pytest.raises(OverflowError):
         event.shift_time(1, inplace=True)
-    assert event.start == INT_MAX
-    assert event.shift_time(-1).start == INT_MAX - 1
+    assert event.time == INT_MAX
+    assert event.shift_time(-1).time == INT_MAX - 1
 
 
 def test_shift_time_event_is_applied():
-    note = Note(10, 5, 60, 80, "tick")
-    assert note.shift_time(5).start == 15
-    assert note.start == 10
-    assert note.shift_time(5, inplace=True).start == 15
-    assert note.start == 15
+    note = Note(10, 5, 60, 80, ttype=Tick)
+    assert note.shift_time(5).time == 15
+    assert note.time == 10
+    assert note.shift_time(5, inplace=True).time == 15
+    assert note.time == 15
 
 
 def test_track_score_overflow():
-    note = Note(INT_MAX, 1, 60, 80, "tick")
+    note = Note(INT_MAX, 1, 60, 80, ttype=Tick)
     score = tick_score(note)
     with pytest.raises(OverflowError):
         score.tracks[0].end()
@@ -80,31 +83,34 @@ def test_track_score_overflow():
     with pytest.raises(OverflowError):
         score.shift_time(1)
     with pytest.raises(OverflowError):
-        score.to("second")
+        score.to(Second)
     with pytest.raises(OverflowError):
         score.dumps_midi()
 
 
 def test_clip_trim_extreme():
     track = Track(
-        notes=[Note(INT_MAX - 10, 100, 60, 80, "tick"), Note(0, 10, 60, 80, "tick")],
-        ttype="tick",
+        notes=[
+            Note(INT_MAX - 10, 100, 60, 80, ttype=Tick),
+            Note(0, 10, 60, 80, ttype=Tick),
+        ],
+        ttype=Tick,
     )
     clipped = track.clip(0, INT_MAX, clip_end=True)
-    assert [n.start for n in clipped.notes] == [0]
+    assert [n.time for n in clipped.notes] == [0]
 
     trimmed = track.trim(0, INT_MAX, start_mode="retain", end_mode="truncate")
-    assert sorted((n.start, n.duration) for n in trimmed.notes) == [
+    assert sorted((n.time, n.duration) for n in trimmed.notes) == [
         (0, 10),
         (INT_MAX - 10, 10),
     ]
 
-    assert track.trim(0, INT_MAX).notes[0].start == 0
+    assert track.trim(0, INT_MAX).notes[0].time == 0
     assert len(track.trim(0, INT_MAX).notes) == 1
 
 
 def test_adjust_time_overflow():
-    track = Track(notes=[Note(0, 1, 60, 80, "tick")], ttype="tick")
+    track = Track(notes=[Note(0, 1, 60, 80, ttype=Tick)], ttype=Tick)
     with pytest.raises(OverflowError):
         track.adjust_time([0, 1], [INT_MIN, INT_MAX])
 
@@ -118,7 +124,7 @@ def test_adjust_time_anchors_at_tick_limits():
     ]
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_adjust_time_wide_float_anchors(ttype):
     score = Score(480, ttype=ttype)
     control = ControlChange(2e38, 1, 64, ttype=ttype)
@@ -129,7 +135,7 @@ def test_adjust_time_wide_float_anchors(ttype):
     assert adjusted.tracks[0].controls[0].time == control.time
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 @pytest.mark.parametrize("inplace", [False, True])
 @pytest.mark.parametrize("target", ["score", "tracks"])
 def test_adjust_time_float_duration_overflow(ttype, inplace, target):
@@ -165,8 +171,8 @@ def test_adjust_time_shared_track():
 
     score.tracks.adjust_time([0, 10], [1, 11], inplace=True)
 
-    assert [track.notes[0].start for track in score.tracks] == [3, 3]
-    assert note.start == 3
+    assert [track.notes[0].time for track in score.tracks] == [3, 3]
+    assert note.time == 3
 
 
 def _spacer() -> bytes:
@@ -194,38 +200,42 @@ def test_midi_duration_in_range():
 
 def test_second_conversion_at_range_edges():
     score = tick_score(
-        Note(INT_MAX, 0, 60, 80, "tick"), Note(-480, 480, 60, 80, "tick")
+        Note(INT_MAX, 0, 60, 80, ttype=Tick), Note(-480, 480, 60, 80, ttype=Tick)
     )
     score.tempos.append(Tempo(0, mspq=500000))
-    notes = score.to("second").tracks[0].notes
-    assert notes[1].start == pytest.approx(-0.5)
+    notes = score.to(Second).tracks[0].notes
+    assert notes[1].time == pytest.approx(-0.5)
     assert notes[1].duration == pytest.approx(0.5)
     assert notes[0].duration == 0
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 @pytest.mark.parametrize("bad", [1.0e10, -1.0e10, math.inf, -math.inf])
 def test_to_tick_out_of_range(ttype: str, bad: float):
     score = Score(480, ttype=ttype)
-    score.tracks.append(Track(notes=[Note(bad, 1.0, 60, 80, ttype)], ttype=ttype))
+    score.tracks.append(Track(notes=[Note(bad, 1.0, 60, 80, ttype=ttype)], ttype=ttype))
     with pytest.raises(OverflowError):
-        score.to("tick")
+        score.to(Tick)
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_to_tick_nan(ttype: str):
     score = Score(480, ttype=ttype)
-    score.tracks.append(Track(notes=[Note(math.nan, 1.0, 60, 80, ttype)], ttype=ttype))
+    score.tracks.append(
+        Track(notes=[Note(math.nan, 1.0, 60, 80, ttype=ttype)], ttype=ttype)
+    )
     with pytest.raises(ValueError, match="NaN"):
-        score.to("tick")
+        score.to(Tick)
 
 
 def test_to_tick_zero_mspq():
-    score = Score(480, ttype="second")
-    score.tempos.append(Tempo(0.0, mspq=0, ttype="second"))
-    score.tracks.append(Track(notes=[Note(1.0, 1.0, 60, 80, "second")], ttype="second"))
+    score = Score(480, ttype=Second)
+    score.tempos.append(Tempo(0.0, mspq=0, ttype=Second))
+    score.tracks.append(
+        Track(notes=[Note(1.0, 1.0, 60, 80, ttype=Second)], ttype=Second)
+    )
     with pytest.raises((OverflowError, ValueError)):
-        score.to("tick")
+        score.to(Tick)
 
 
 @pytest.mark.parametrize("qpm", [0, -1, -math.inf, math.inf, math.nan, 1e300, 1e9])
@@ -251,11 +261,15 @@ def test_tempo_qpm_bounds():
 
 @pytest.mark.parametrize("time", [1_000_000, -1_000_000])
 def test_resample_extreme_factor(time: int):
-    score = tick_score(Note(time, 10, 60, 80, "tick"))
+    score = tick_score(Note(time, 10, 60, 80, ttype=Tick))
     with pytest.raises(OverflowError):
         score.resample(INT_MAX)
     assert (
-        tick_score(Note(2, 480, 60, 80, "tick")).resample(960).tracks[0].notes[0].start
+        tick_score(Note(2, 480, 60, 80, ttype=Tick))
+        .resample(960)
+        .tracks[0]
+        .notes[0]
+        .time
         == 4
     )
 
@@ -282,15 +296,17 @@ def test_midi_rejects_negative_start(collection, kind, event):
         score.dumps_midi()
 
 
-@pytest.mark.parametrize("ttype", ["quarter", "second"])
+@pytest.mark.parametrize("ttype", [Quarter, Second])
 def test_midi_rejects_negative_start_before_rounding(ttype):
     score = Score(480, ttype=ttype)
-    score.tracks.append(Track(notes=[Note(-0.0001, 1, 60, 80, ttype)], ttype=ttype))
+    score.tracks.append(
+        Track(notes=[Note(-0.0001, 1, 60, 80, ttype=ttype)], ttype=ttype)
+    )
     with pytest.raises(ValueError, match="note time"):
         score.dumps_midi()
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 def test_midi_duration_overflow(ttype):
     # The note-off follows nine valid deltas but exceeds the signed tick range.
     body = bytes.fromhex("00 90 3c 40") + _spacer() * 8
@@ -299,7 +315,7 @@ def test_midi_duration_overflow(ttype):
         Score.from_midi(build_single_track_midi(body), ttype=ttype)
 
 
-@pytest.mark.parametrize("ttype", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
 @pytest.mark.parametrize("tpq", [-1, 0, 32768, 65536])
 def test_midi_rejects_invalid_division(ttype, tpq):
     score = Score(480, ttype=ttype)

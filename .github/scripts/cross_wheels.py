@@ -1,6 +1,6 @@
 """Build experimental cp312-abi3 wheels on Linux and check their target stubs.
 
-The native build supplies core.pyi from the same source revision. Cross builds
+The native build supplies _core.pyi from the same source revision. Cross builds
 use target Python headers/libraries and explicit wheel tags; target runners
 then regenerate the stub and test the installed wheel without rebuilding it.
 """
@@ -80,7 +80,7 @@ def build(args: argparse.Namespace) -> None:
             Python_INCLUDE_DIR=python_root / "include",
             Python_LIBRARY=python_root / "libs" / "python312.lib",
             Python_SABI_LIBRARY=python_root / "libs" / "python3.lib",
-            # Windows imports core.pyd; an abi3.pyd suffix is not recognized.
+            # Windows imports _core.pyd; an abi3.pyd suffix is not recognized.
             SKBUILD_SOSABI="",
             # Use the SDK's C++ library and CRT headers, as native MSVC does.
             CMAKE_C_FLAGS="-stdlib=platform",
@@ -138,29 +138,27 @@ def stub_api(text: str) -> str:
 def check_stubs() -> None:
     import symusic
 
-    installed = Path(symusic.__file__).with_name("core.pyi")
+    installed = Path(symusic.__file__).with_name("_core.pyi")
     with tempfile.TemporaryDirectory() as temp:
-        raw = Path(temp) / "core.raw.pyi"
-        lifted = Path(temp) / "core.pyi"
+        generated = Path(temp) / "_core.pyi"
         run(
             sys.executable,
             ROOT / "3rdparty/nanobind/src/stubgen.py",
             "-m",
-            "symusic.core",
+            "symusic._core",
             "-p",
             ROOT / "scripts/core_stubgen.pattern",
             "-o",
-            raw,
+            generated,
         )
-        run(sys.executable, ROOT / "scripts/lift_generic_stubs.py", raw, lifted)
         expected = installed.read_text(encoding="utf-8")
-        actual = lifted.read_text(encoding="utf-8")
+        actual = generated.read_text(encoding="utf-8")
         if stub_api(expected) != stub_api(actual):
             diff = difflib.unified_diff(
                 expected.splitlines(),
                 actual.splitlines(),
-                fromfile="wheel/core.pyi",
-                tofile="target/core.pyi",
+                fromfile="wheel/_core.pyi",
+                tofile="target/_core.pyi",
                 lineterm="",
             )
             sys.exit("\n".join(diff))

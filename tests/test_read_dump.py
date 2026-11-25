@@ -19,15 +19,15 @@ def test_load_dump(midi_path: Path, tmp_path: Path):
     midi2 = Score(dump_path)  # Loading it back
 
     # Sorting MIDI and tracks events, as after dump the order might have changed
-    midi1.tempos.sort(key=lambda x: (x.time, x.tempo))
-    midi2.tempos.sort(key=lambda x: (x.time, x.tempo))
+    midi1.tempos.sort(key=lambda x: (x.time, x.qpm))
+    midi2.tempos.sort(key=lambda x: (x.time, x.qpm))
     midi1.markers.sort(key=lambda x: (x.time, x.text))
     midi2.markers.sort(key=lambda x: (x.time, x.text))
     for track1, track2 in zip(midi1.tracks, midi2.tracks, strict=True):
         times = track1.notes.numpy()["time"]
         assert bool(np.all(np.diff(times) >= 0))
-        track1.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
-        track2.notes.sort(key=lambda x: (x.start, x.pitch, x.end, x.velocity))
+        track1.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
+        track2.notes.sort(key=lambda x: (x.time, x.pitch, x.end, x.velocity))
         track1.controls.sort(key=lambda x: (x.time, x.number, x.value))
         track2.controls.sort(key=lambda x: (x.time, x.number, x.value))
         track1.pitch_bends.sort(key=lambda x: (x.time, x.value))

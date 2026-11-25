@@ -17,9 +17,12 @@ from symusic import (
     Note,
     Pedal,
     PitchBend,
+    Quarter,
     Score,
+    Second,
     Synthesizer,
     Tempo,
+    Tick,
     Track,
 )
 from symusic._vendor.fluidsynth import _library
@@ -154,8 +157,10 @@ def test_render_mono_downmix(synth: Synthesizer, score: Score) -> None:
     np.testing.assert_allclose(mono[:, 0], stereo.mean(axis=1), atol=1e-6)
 
 
-@pytest.mark.parametrize("unit", ["tick", "quarter", "second"])
-def test_render_time_units(synth: Synthesizer, score: Score, unit: str) -> None:
+@pytest.mark.parametrize("unit", [Tick, Quarter, Second])
+def test_render_time_units(
+    synth: Synthesizer, score: Score, unit: type[Tick] | type[Quarter] | type[Second]
+) -> None:
     np.testing.assert_array_equal(synth.render(score.to(unit)), synth.render(score))
 
 
@@ -170,7 +175,7 @@ def test_render_tempo_changes(synth, score):
     score.tempos.extend([Tempo(0, 120), Tempo(480, 60)])
     score.tracks[0].notes[0].duration = 960
     expected = math.ceil(1.5 * SAMPLE_RATE / 64) * 64 + SAMPLE_RATE
-    for unit in ("tick", "quarter", "second"):
+    for unit in (Tick, Quarter, Second):
         assert synth.render(score.to(unit)).shape == (expected, 2)
 
 
@@ -271,7 +276,7 @@ def test_same_key_retrigger(synth: Synthesizer, score: Score) -> None:
 
 
 def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
-    seconds = score.to("second")
+    seconds = score.to(Second)
     seconds.tracks[0].notes[0].duration = 0.00001
     audio = Synthesizer(soundfont, sample_rate=SAMPLE_RATE, tail_seconds=0).render(
         seconds
@@ -282,7 +287,7 @@ def test_short_note_gets_one_block(soundfont: Path, score: Score) -> None:
 
 @pytest.mark.parametrize(("duration", "velocity"), [(0, 100), (0.5, 0)])
 def test_invalid_silent_note_time(synth, score, duration, velocity):
-    seconds = score.to("second")
+    seconds = score.to(Second)
     note = seconds.tracks[0].notes[0]
     note.time = -0.25
     note.duration = duration
@@ -419,7 +424,7 @@ def test_render_malformed_soundfont(score, tmp_path, capfd):
     assert capfd.readouterr() == ("", "")
 
 
-@pytest.mark.parametrize("unit", ["tick", "quarter", "second"])
+@pytest.mark.parametrize("unit", [Tick, Quarter, Second])
 def test_render_rejects_negative_duration(synth, score, unit):
     score = score.to(unit)
     score.tracks[0].notes[0].duration = -1
@@ -430,7 +435,7 @@ def test_render_rejects_negative_duration(synth, score, unit):
 
 
 def test_second_duration_validation_follows_scheduler_order(synth, score):
-    seconds = score.to("second")
+    seconds = score.to(Second)
     note = seconds.tracks[0].notes[0]
     note.pitch = -1
     note.duration = -1

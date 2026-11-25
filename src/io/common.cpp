@@ -1,9 +1,14 @@
+#include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 
 #include "fmt/core.h"
+#include "fmt/std.h"
 
 #include "symusic/io/common.h"
 
@@ -62,35 +67,65 @@ vec<u8> read_file_contents(FILE* file) {
 }
 }   // namespace
 
-vec<u8> read_file(const std::string& path) {
-#ifndef _WIN32
-    FILE* fp = fopen(path.c_str(), "rb");
-    if (fp == nullptr) { throw std::runtime_error(fmt::format("File not found file: {}", path)); }
-#else   // deal with utf-8 path on windows
-    FILE*         fp    = nullptr;
-    const auto    wpath = to_utf16(path);
-    const errno_t err   = _wfopen_s(&fp, wpath.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(fmt::format("File not found file (error:{}): {}", err, path));
+DataFormat score_file_format(const std::filesystem::path& path, std::string format) {
+    if (format.empty()) {
+        const auto extension = path.extension();
+        if (extension == ".mid" || extension == ".midi" || extension == ".MID"
+            || extension == ".MIDI")
+            return DataFormat::MIDI;
+        if (extension == ".abc") return DataFormat::ABC;
+    } else {
+        std::transform(format.begin(), format.end(), format.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (format == "midi" || format == "mid") return DataFormat::MIDI;
+        if (format == "abc") return DataFormat::ABC;
     }
+    throw std::invalid_argument("Unknown file format");
+}
+
+vec<u8> read_score_file(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto      status = std::filesystem::status(path, error);
+    if (error) { throw std::filesystem::filesystem_error("Cannot read score", path, error); }
+    if (std::filesystem::is_directory(status)) {
+        throw std::filesystem::filesystem_error(
+            "Cannot read score", path, std::make_error_code(std::errc::is_a_directory)
+        );
+    }
+    if (!std::filesystem::is_regular_file(status)) {
+        throw std::runtime_error(
+            fmt::format(
+                "Cannot seek to the end of the file: path must refer to a regular file, got {}",
+                path
+            )
+        );
+    }
+    return read_file(path);
+}
+
+vec<u8> read_file(const std::string& path) {
+#ifdef _WIN32
+    return read_file(std::filesystem::path(to_utf16(path)));
+#else
+    return read_file(std::filesystem::path(path));
 #endif
-    return read_file_contents(fp);
 }
 
 vec<u8> read_file(const std::filesystem::path& path) {
-#ifndef _WIN32
-    // On non-Windows, fallback to the string version for now.
-    return read_file(path.string());
+#ifdef _WIN32
+    FILE*      fp    = nullptr;
+    const auto error = _wfopen_s(&fp, path.c_str(), L"rb");
 #else
-    FILE*         fp  = nullptr;
-    const errno_t err = _wfopen_s(&fp, path.c_str(), L"rb");
-    if (err != 0 || fp == nullptr) {
-        throw std::runtime_error(
-            fmt::format("File not found file (error:{}): {}", err, path_to_utf8(path))
+    FILE*      fp    = fopen(path.c_str(), "rb");
+    const auto error = errno;
+#endif
+    if (fp == nullptr) {
+        throw std::filesystem::filesystem_error(
+            "Cannot open file for reading", path, std::error_code(error, std::generic_category())
         );
     }
     return read_file_contents(fp);
-#endif
 }
 
 void write_file(const std::string& path, const std::span<const u8> buffer) {

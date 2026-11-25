@@ -25,11 +25,11 @@ jobs:
       - name: Generate stubs from the host extension
         run: |
           uv pip install . --config-settings-package symusic:cmake.define.SYMUSIC_FAST_BUILD=ON
-          python -c 'import shutil, symusic; from pathlib import Path; shutil.copyfile(Path(symusic.__file__).with_name("core.pyi"), "${{ runner.temp }}/core.pyi")'
+          python -c 'import shutil, symusic; from pathlib import Path; shutil.copyfile(Path(symusic.__file__).with_name("_core.pyi"), "${{ runner.temp }}/_core.pyi")'
       - uses: actions/upload-artifact@v7
         with:
           name: cross-wheel-stubs
-          path: ${{ runner.temp }}/core.pyi
+          path: ${{ runner.temp }}/_core.pyi
 
   build:
     needs: host
@@ -69,7 +69,7 @@ jobs:
         run: >-
           python .github/scripts/cross_wheels.py build --target "$TARGET"
           --toolchain "$XCLANG/lib/cmake/xclang/toolchain.cmake"
-          --stub "$RUNNER_TEMP/stubs/core.pyi" --work-dir "$RUNNER_TEMP/cross-build"
+          --stub "$RUNNER_TEMP/stubs/_core.pyi" --work-dir "$RUNNER_TEMP/cross-build"
           --out-dir "$RUNNER_TEMP/wheels"
       - name: Audit Linux compatibility
         if: contains(matrix.target, 'linux')
@@ -110,7 +110,7 @@ jobs:
           activate-environment: true
       - name: Install wheel and verify stubs on Python 3.12
         run: |
-          uv pip install "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pretty_midi
+          uv pip install "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pyright pretty_midi
           python .github/scripts/cross_wheels.py check-stubs
           python -m pytest tests --ignore=tests/cmake -n auto -p no:cacheprovider
       - name: Test the same wheel on Python 3.15
@@ -118,5 +118,5 @@ jobs:
           uv venv -p 3.15 "$RUNNER_TEMP/python315"
           interpreter="$RUNNER_TEMP/python315/bin/python"
           if [ "$RUNNER_OS" = Windows ]; then interpreter="$RUNNER_TEMP/python315/Scripts/python.exe"; fi
-          uv pip install --python "$interpreter" "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pretty_midi
+          uv pip install --python "$interpreter" "$RUNNER_TEMP"/wheels/*.whl pytest-cov 'pytest-xdist[psutil]' mypy pyright pretty_midi
           "$interpreter" -m pytest tests --ignore=tests/cmake -n auto -p no:cacheprovider
