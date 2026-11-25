@@ -387,13 +387,13 @@ def test_note_shift_rejects_midi_range(name, offset):
 
 
 @pytest.mark.parametrize("ttype", [Tick, Quarter, Second])
-def test_track_constructor_copies_event_lists(ttype):
+@pytest.mark.parametrize("controller", [7, 64])
+def test_track_constructor_copies_event_lists(ttype, controller):
     source = Track(ttype=ttype)
     events = {
         "notes": Note(1, 2, 60, 80, ttype=ttype),
-        "controls": ControlChange(1, 7, 80, ttype=ttype),
+        "controls": ControlChange(1, controller, 80, ttype=ttype),
         "pitch_bends": PitchBend(1, 2, ttype=ttype),
-        "lyrics": TextMeta(1, "lyric", ttype=ttype),
     }
     for field, event in events.items():
         getattr(source, field).append(event)

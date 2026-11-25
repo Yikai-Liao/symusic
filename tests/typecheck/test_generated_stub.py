@@ -65,7 +65,18 @@ def test_stub_exposes_runtime_classes():
     score_methods = [
         node for node in classes["Score"].body if isinstance(node, ast.FunctionDef)
     ]
-    assert len([node for node in score_methods if node.name == "dump"]) == 1
+    dump = [node for node in score_methods if node.name == "dump"]
+    assert [ast.unparse(node.args.args[1].annotation) for node in dump] == [
+        "_Path",
+        "BinaryIO",
+    ]
+    assert [ast.unparse(node.args.kwonlyargs[0].annotation) for node in dump] == [
+        "_FileFormat | None",
+        "_FileFormat",
+    ]
+    assert isinstance(dump[0].args.kw_defaults[0], ast.Constant)
+    assert dump[0].args.kw_defaults[0].value is None
+    assert dump[1].args.kw_defaults[0] is None
     assert len([node for node in score_methods if node.name == "__repr__"]) == 1
 
     pianoroll = [node for node in score_methods if node.name == "pianoroll"]
