@@ -17,9 +17,6 @@
 [submodule "3rdparty/abcmidi"]
 	path = 3rdparty/abcmidi
 	url = https://github.com/sshlien/abcmidi.git
-[submodule "3rdparty/prestosynth"]
-	path = 3rdparty/prestosynth
-	url = https://github.com/lzqlzzq/prestosynth.git
 [submodule "3rdparty/pyvec"]
 	path = 3rdparty/pyvec
 	url = https://github.com/Yikai-Liao/pyvec.git
@@ -30,3 +27,15 @@
 [submodule "3rdparty/Catch2"]
 	path = 3rdparty/Catch2
 	url = https://github.com/catchorg/Catch2.git
+[submodule "3rdparty/fluidsynth"]
+	path = 3rdparty/fluidsynth
+	url = https://github.com/FluidSynth/fluidsynth.git
+[submodule "3rdparty/libsndfile"]
+	path = 3rdparty/libsndfile
+	url = https://github.com/libsndfile/libsndfile.git
+[submodule "3rdparty/ogg"]
+	path = 3rdparty/ogg
+	url = https://github.com/xiph/ogg.git
+[submodule "3rdparty/vorbis"]
+	path = 3rdparty/vorbis
+	url = https://github.com/xiph/vorbis.git

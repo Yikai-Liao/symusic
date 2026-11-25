@@ -55,6 +55,8 @@ The test lanes use the commands in [CONTRIBUTING.md](../CONTRIBUTING.md#validate
 
 Packaging changes build a single wheel in PRs, so the [release steps](../CONTRIBUTING.md#releasing) start with a manual full **Wheels** run and a manual **CI** run with `compatibility` enabled.
 
+Each wheel includes FluidSynth, libsndfile and the abcmidi converters. Linux and macOS repair resolve the libraries within the wheel. Windows repair also scans the bundled DLLs for external dependencies. Release CI attaches the sdist, which contains the corresponding native sources and build recipes, to the GitHub release.
+
 The full build keeps every interpreter for one platform in the same job. It builds separate wheels for CPython 3.10/3.11 and supported PyPy targets, then builds one `cp312-abi3` wheel and reuses it for tests on 3.13, 3.14 and 3.15. Splitting those interpreters into separate jobs would lose reuse.
 
 ## Compiler caches

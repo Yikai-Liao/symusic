@@ -3,7 +3,6 @@ if(POLICY CMP0137)
     # LTO probes need the cross-toolchain variables in their test project.
     cmake_policy(SET CMP0137 NEW)
 endif()
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum supported macOS version")
 project(symusic LANGUAGES C CXX)
 
@@ -41,11 +40,11 @@ target_include_directories(symusic
     PRIVATE 3rdparty/zpp_bits
 )
 target_compile_features(symusic PUBLIC cxx_std_20)
+find_package(Threads REQUIRED)
 target_link_libraries(symusic PUBLIC
     $<BUILD_INTERFACE:fmt::fmt-header-only>
     $<BUILD_INTERFACE:minimidi>
-    $<BUILD_INTERFACE:prestosynth>
-    $<INSTALL_INTERFACE:symusic::prestosynth>
+    PRIVATE Threads::Threads ${CMAKE_DL_LIBS}
 )
 target_compile_definitions(symusic INTERFACE $<INSTALL_INTERFACE:FMT_HEADER_ONLY>)
 add_library(symusic::symusic ALIAS symusic)

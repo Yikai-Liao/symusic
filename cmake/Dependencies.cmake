@@ -23,4 +23,3 @@ endmacro()
 
 symusic_add_dependency(fmt)
 symusic_add_dependency(minimidi)
-symusic_add_dependency(prestosynth)

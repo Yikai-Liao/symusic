@@ -64,32 +64,4 @@ using Score = symusic::Score<T, SharedStorage>;
 template<TType T>
 using Track = symusic::Track<T, SharedStorage>;
 
-// Synthesis consumes the C++ value model at its existing boundary.
-template<TType T>
-symusic::Score<T> copy_score_values(const Score<T>& source) {
-    const auto        copy = [](const auto& field) { return field->collect(); };
-    symusic::Score<T> result(
-        source.ticks_per_quarter,
-        {},
-        copy(source.time_signatures),
-        copy(source.key_signatures),
-        copy(source.tempos),
-        copy(source.markers)
-    );
-    result.tracks.reserve(source.tracks->size());
-    for (const auto& track : *source.tracks) {
-        result.tracks.emplace_back(
-            track->name,
-            track->program,
-            track->is_drum,
-            copy(track->notes),
-            copy(track->controls),
-            copy(track->pitch_bends),
-            copy(track->pedals),
-            copy(track->lyrics)
-        );
-    }
-    return result;
-}
-
 }   // namespace symusic::py

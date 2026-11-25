@@ -65,10 +65,10 @@ Render audio with a SoundFont; see [synthesis.md](synthesis.md):
 
 <!-- docs-test: skip, downloads a SoundFont -->
 ```python
-from symusic import Synthesizer, dump_wav
+from symusic import BuiltInSF3, Synthesizer
 
-audio = Synthesizer(sample_rate=44100).render(score)
-dump_wav("out.wav", audio, sample_rate=44100)
+soundfont = BuiltInSF3.musescore_general().download()
+audio = Synthesizer(soundfont).render(score)
 ```
 
 [datasets.md](datasets.md) puts these together into a dataset pipeline, and [building_scores.md](building_scores.md) creates scores from model output.

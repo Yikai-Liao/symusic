@@ -49,7 +49,6 @@ classifiers = [
 
 dependencies = [
     "numpy",
-    "pySmartDL",
     "platformdirs"
 ]
 
@@ -66,6 +65,8 @@ ninja.version = ">=1.11"
 # The extension uses the stable ABI from 3.12 on, so one cp312-abi3 wheel covers
 # every later CPython; older versions still get version-specific wheels.
 wheel.py-api = "cp312"
+# These pinned headers are tracked upstream but match upstream ignore rules.
+sdist.include = ["3rdparty/libsndfile/include/sndfile.h", "3rdparty/vorbis/symbian/config.h"]
 
 [[tool.scikit-build.overrides]]
 if.platform-system = "^win32$"
@@ -84,7 +85,6 @@ build.tool-args = []
 
 [tool.scikit-build.cmake.define]
 SYMUSIC_BUILD_PYTHON = "ON"
-CMAKE_POLICY_VERSION_MINIMUM = "3.5"
 
 [tool.scikit-build.metadata]
 version.provider = "scikit_build_core.metadata.regex"
@@ -127,8 +127,9 @@ MACOSX_DEPLOYMENT_TARGET = "13.0"
 environment = { CMAKE_GENERATOR = "Ninja" }
 # cmd's `cd` does not change drives without /d.
 test-command = "cd /d {project} && pytest tests -n auto -p no:cacheprovider"
-# The extension links no external DLLs; skip delvewheel.
-repair-wheel-command = ""
+# Inspect the vendored DLLs for external dependencies, preserving DLLs
+# already inside the wheel at their installed paths.
+repair-wheel-command = "delvewheel repair --ignore-existing --analyze-existing -w {dest_dir} {wheel}"
 
 [tool.ruff]
 target-version = "py310"
