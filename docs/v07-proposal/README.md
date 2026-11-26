@@ -15,6 +15,6 @@
 | [migration.md](migration.md) | Full 46-entry 0.6 → 0.7 migration table (34 Python + 12 C++ Core), highlighting silent traps. |
 | [rfc-136.md](rfc-136.md) | Five open downstream feedback questions tracked in Issue #136. |
 | [cpp-core.md](cpp-core.md) | Layered multi-binding architecture, Native C++ 0.7 API alignment, 7 verified `07/pr6-api` defects, and empirical C++17 downgrade feasibility (`zpp_bits` as sole C++20 blocker). |
-| [cpp-boundaries.md](cpp-boundaries.md) | Module boundaries across `minimidi` (Tier-1/Tier-2 SMF), NoteOn/NoteOff pairing, Python-only `pyvec` (`Arena{chunks, externals}`, `is_contiguous()`/`compact()`), `symusic::abc`, and `assets/soundfonts.json` / `Synthesizer`. |
+| [cpp-boundaries.md](cpp-boundaries.md) | Module boundaries across `minimidi` (Tier-1 SMF), NoteOn/NoteOff pairing, `pinvec` (tentative rename from `pyvec`: monotonic 3-state, zero-cycle `TaggedPtr`, `make_pinned`, C++/Rust monorepo), `symusic::abc`, and `assets/soundfonts.json` / `Synthesizer`. |
 | [cpp-engineering.md](cpp-engineering.md) | Unified 7-rule C++ style contract (`symusic` · `minimidi` · `pyvec`), C++-first multi-binding repo layout, 4-tier universal CMake consumption, and `tessera-order` docs ownership matrix. |
 | [cpp-roadmap.md](cpp-roadmap.md) | PR `#129–#134` stack summary, implemented vs remaining 0.7 scope, and 4-wave zero-conflict rollout plan. |
