@@ -33,6 +33,7 @@ exclude_patterns: list[str] = [
     "Thumbs.db",
     ".DS_Store",
     "README.md",
+    "v07-proposal",
 ]
 
 html_theme = "furo"
