@@ -1,16 +1,16 @@
-# Native C++ API & C++17 Feasibility
+# Native C++ API & C++17 Downgrade
 
-symusic 0.7 establishes a C++-first core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `pyvec`, zero `libcurl`/TLS, and zero GPL linkage.
+symusic 0.7 establishes a C++-first **C++17** core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `pinvec`, zero `zpp_bits`, zero `libcurl`/TLS, and zero GPL linkage.
 
 ## Layered Architecture
 
 ```text
-bindings/python (nanobind + pyvec SharedStorage + SYMZ v2 pickle)
-bindings/c (C99 ABI)   bindings/js (WASM/N-API)   bindings/go (cgo)   C++ (find_package)
-        │                          │                       │                  │
-        └──────────────────────────┴───────────┬───────────┴──────────────────┘
-                                               ▼
-                     symusic::symusic  (Pure C++ Core · ValueStorage)
+bindings/python (nanobind + pinvec SharedStorage + private SYMZ v3 pickle)
+bindings/c (C99 ABI)   bindings/js (pinvec / WASM / N-API)   bindings/go (cgo)   C++ (find_package)
+        │                              │                             │                   │
+        └──────────────────────────────┴──────────────┬──────────────┴───────────────────┘
+                                                      ▼
+                       symusic::symusic  (Pure C++17 Core · ValueStorage)
               Score<T> · Track · detail/event_fields.h · EventColumns<E> · Pianoroll
           ┌─────────────────────┬─────────────────────────┬─────────────────────────┐
           ▼                     ▼                         ▼                         ▼
@@ -20,13 +20,13 @@ bindings/c (C99 ABI)   bindings/js (WASM/N-API)   bindings/go (cgo)   C++ (find_
 
 ## Native C++ API Alignment
 
-Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./rfc-136.md)) while keeping idioms genuinely native C++:
+Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./rfc-136.md)) while keeping idioms genuinely native C++17:
 
-| Area | Current (`07/pr6-api`) | Proposed Native C++ 0.7 |
+| Area | Current (`07/pr6-api`) | Finalized Native C++ 0.7 |
 |---|---|---|
-| Score defaults & naming | `Score<T, S = ValueStorage>`, `TextMeta<T>`, `get_beats()` / `get_downbeats()` | `Score<T = Tick, S = ValueStorage>`, `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
-| `Note` fields & defaults | `i8` pitch/velocity, default `velocity = 0`, redundant `start()` | `u8` pitch/velocity, default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`) |
-| `Tempo` construction | `Tempo(0, 120)` silently means `120 µs/quarter` (500,000 QPM trap!) | Explicit `Tempo::from_qpm(t, 120.0)` and `Tempo::from_mspq(t, 500000)` |
+| Defaults & naming | `Score<T, S = ValueStorage>`, `Tempo<T>`, `TextMeta<T>`, `get_beats()` / `get_downbeats()` | `Score<T = Tick, S = ValueStorage>`, `Tempo<T = Tick>`, `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
+| `Note` domains & defaults | `i8` pitch/velocity, default `velocity = 0`, redundant `start()` | `u8` storage (`0..255`), validated musical domain (`0..127`), default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`); MIDI wire export additionally encodes `velocity=0` as NoteOff and caps `ticks_per_quarter` to `1..32767` |
+| `Tempo` construction | `Tempo(0, 120)` silently means `120 µs/quarter` (500,000 QPM trap!) | Explicit `Tempo::from_qpm(t, 120.0)` and `Tempo::from_microseconds_per_quarter(t, 500000)` |
 | `trim` & `adjust_time` | String `start_mode`/`end_mode`; mutating free `void ops::adjust_time` | `enum class TrimMode { Remove, Truncate, Retain }` + `TrimOptions`; returning `score.adjust_time(orig, target)` taking `span` |
 | File I/O & members | `read_score()` free function only; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
 | `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
@@ -35,20 +35,20 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 > [!WARNING]
 > **7 verified defects caught during the `07/pr6-api` header audit**
 >
-> - **`std::numeric_limits<f32>::min()` instead of `lowest()`** in `ops::end` / `Track::end` / `Score::end` — breaks negative floating-point timestamps.
+> - **`std::numeric_limits<f32>::min()` instead of `lowest()`** in `Track::end` / `ops::end` (`Score::end()` already uses `lowest()`) — breaks negative floating-point timestamps (add regression test for all-negative + empty track returning `0`).
 > - **`HashDuration` typo** (`HasDuration`) in public concepts.
 > - **Global `fmt::formatter<std::shared_ptr<T>>`** specialization in `repr.h` — ODR hazard for any host project using `fmt`.
-> - **Unconstrained `auto` event constructors** silently convert `i64 > 2^53` through `f64`, losing precision.
+> - **`checked_event_field` compares via `f64`**, losing exact integer bounds checking for `i64 > 2^53`.
 > - **`read_score()` drops `MidiReadOptions`**, ignoring caller strict/clamp policy.
 > - **Unused `#include "pdqsort.h"`** leaked by `ops.h`.
-> - **`minimidi` `Message::channel()` on `0xFF` Meta events** masks low nibble (`0xF`), misassigning every lyric to channel 15.
+> - **`minimidi` `Message::channel()` on `0xFF` Meta events** masks the low nibble (`0xF`), misassigning lyrics to channel 15 on the no-notes fallback in `ScoreBuilder::finish_group`.
 
-## Empirical C++17 Downgrade Feasibility
+## Decision: Downgrade All 3 Repos to Strict C++17
 
 > [!TIP]
-> **Headline Verdict**
+> **Finalized Decision**
 >
-> `zpp_bits` (868 LOC, used **only** for Python pickle) is the **sole C++20-only dependency** in the entire stack. Replacing it with a ~150–200 LOC explicit little-endian `BinaryWriter`/`BinaryReader` in `bindings/python/` removes `serialize`/`deserialize` from C++ core, fixes padding/endianness/validation gaps, and lets all 3 repos target **C++17 with 0% runtime performance loss** (using a ~40-line `span<T>` with implicit `std::span` interop under C++20).
+> All three repositories (`pinvec`, `minimidi`, and `symusic`) will target **strict C++17** (`-std=c++17 -pedantic-errors`). `zpp_bits` (868 LOC, used **only** for Python pickle) is the **sole C++20 third-party dependency**; removing `zpp_bits` and `serialize()`/`deserialize()` from C++ core (C++ interchange uses MIDI; Python owns a private little-endian **`SYMZ v3`** pickle codec in `bindings/python/`) unblocks C++17 `FetchContent`, Go `cgo`, and Emscripten/WASM hosts. Runtime performance parity with C++20 is a **benchmark-gated requirement** in Wave 3.
 
 ### Third-Party Dependency C++ Floors
 
@@ -59,43 +59,39 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 | `pdqsort` | C++11 | Sorting |
 | `Catch2` | C++14 | C++ unit tests |
 | `nanobind` | C++17 | Python bindings |
-| **`zpp_bits`** | **C++20 (HARD BLOCKER)** | **Python pickle only — replace in `bindings/python/`** |
+| **`zpp_bits`** | **C++20 (REMOVED)** | **Python pickle only — replaced by private `SYMZ v3` LE codec in `bindings/python/`** |
 
-### Per-Repo C++17 Migration Effort
+### Per-Repo C++17 Lowering Scope
 
-| Repository | Current Floor | Migration Work | Runtime Cost |
-|---|---|---|---|
-| `pyvec` | Source is already C++17 (`CMakeLists.txt` mislabels `cxx_std_20`) | ~15 LOC CMake + hygiene fixes (`v0.1.0`) | 0% |
-| `minimidi` | Minor C++20 `concepts` + `std::span` (README already says C++17) | ~35 LOC `ByteSpan` (implicit `std::span` under C++20) + C++17 traits (`v0.10.0`) | 0% |
-| `symusic` | `zpp_bits` + minor `concepts` / `std::span` / designated initializers | ~150–200 LOC explicit LE binary codec in `bindings/python/` + ~40 LOC `span<T>` | 0% |
-
-### Strategic Options
-
-| Option | Assessment | Trade-off |
+| Repository | C++20 Constructs to Lower | Gate |
 |---|---|---|
-| **1. Full C++17 across all 3 repos** | **Recommended target** | Unlocks C++17 `FetchContent`, Go `cgo`, and Emscripten/WASM hosts; drops `zpp_bits`; 0% perf loss |
-| **2. Hybrid (C++17 headers + C++20 `.cpp`)** | **Not recommended** | Pays ~85% of refactor cost while still breaking C++17 `FetchContent` and `cgo` builds |
-| **3. Staged bridge** | **Pragmatic short-term** | Drop `minimidi` (`v0.10.0`) & `pyvec` (`v0.1.0`) to C++17 immediately; keep `symusic` C++20 through PRs `#129–#134`, then replace `zpp_bits` |
+| `pinvec` | Pure C++17 from day one (prototype already verified under `-std=c++17` + ASan/UBSan) | `-std=c++17 -pedantic-errors` + Bun PR bench |
+| `minimidi` | Minor `concepts` + `std::span` → ~35-LOC `ByteSpan` (implicit `std::span` interop under C++20) + C++17 traits | `-std=c++17 -pedantic-errors` |
+| `symusic` | Remove `zpp_bits` from core + lower internal C++20 language constructs in `origin/07/pr6-api` (`<=>` / defaulted `operator==`, `std::ranges`, `std::erase_if`, `std::in_range`, explicit template lambdas, abbreviated `auto` templates, `std::span` → ~40-LOC `span<T>`) | `-std=c++17 -pedantic-errors` + benchmark parity gate |
 
 ## C++ Before / After
 
-**0.7 Native C++ Proposal**
+**0.7 Native C++17 Proposal**
 
 ```cpp
 #include "symusic.h"
 using namespace symusic;
 
-auto score = Score<>::from_file(
-    "piece.mid", {.invalid_data_bytes = InvalidDataBytes::Clamp}
-);
+// Strict C++17: compiles cleanly under g++ -std=c++17 -pedantic-errors
+MidiReadOptions read_opts;
+read_opts.invalid_data_bytes = InvalidDataBytes::Clamp;
+auto score = Score<>::from_file("piece.mid", read_opts);
 
-auto tempo = Tempo<>::from_qpm(0, 120.0);           // no 500,000 QPM trap
-auto trimmed = score.trim(0, 1920, {.start_mode = TrimMode::Truncate});
+auto tempo = Tempo<>::from_qpm(0, 120.0);  // no 500,000 QPM trap
+TrimOptions<Tick> trim_opts;
+trim_opts.start_mode = TrimMode::Truncate;
+auto trimmed = score.trim(0, 1920, trim_opts);
 auto warped = trimmed.adjust_time(orig_span, new_span);
-auto resampled = warped.to<Second>().resample(480);  // single-step
+auto resampled = warped.resample(480);     // direct resampling, no extra f32 pass
 
-// System-search FluidSynth or in-memory SoundFont span<const u8>
-auto synth = Synthesizer::create("gm.sf3", {.sample_rate = 44100});
+SynthSettings synth_opts;
+synth_opts.sample_rate = 44100;
+auto synth = Synthesizer::create("gm.sf3", synth_opts);
 AudioBuffer audio = synth.render(resampled, /*stereo=*/true);
 ```
 
@@ -129,9 +125,9 @@ using namespace symusic;
 
 auto bytes = read_file("piece.mid");
 auto shared = Score<Tick>::parse<DataFormat::MIDI>(bytes);
-ScoreNative<Tick> score = shared.to_native();
+ScoreNative<Tick> score = to_native(shared);  // free function in 0.6
 
-score.clip_inplace(0, 1920);
+shared.clip_inplace(0, 1920);
 NoteArr<Tick> cols(score.tracks[0].notes);
 auto midi_out = score.dumps<DataFormat::MIDI>();
 
