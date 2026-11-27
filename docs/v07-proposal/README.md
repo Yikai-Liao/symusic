@@ -12,7 +12,7 @@
 | Document | Scope |
 |---|---|
 | [python-api.md](python-api.md) | Python 0.7 public surface, `Tick`/`Quarter`/`Second`, generic `EventList[Note[Tick]]`, CQS split, uniform two-level reference model, CC64 pedals, FluidSynth & `download_soundfont()`. |
-| [migration.md](migration.md) | Full 56-entry 0.6 → 0.7 migration table (42 Python + 14 C++ Core), highlighting silent traps. |
+| [migration.md](migration.md) | Full 60-entry 0.6 → 0.7 migration table (46 Python + 14 C++ Core), highlighting silent traps. |
 | [rfc-136.md](rfc-136.md) | Five open downstream feedback questions tracked in Issue #136. |
 | [cpp-core.md](cpp-core.md) | Layered multi-binding architecture, Native C++ 0.7 API alignment, 7 verified `07/pr6-api` defects, and the decision to stay on C++20. |
 | [cpp-boundaries.md](cpp-boundaries.md) | Module boundaries across `minimidi` (Tier-1 SMF), NoteOn/NoteOff pairing, `anchorvec` (renamed from `pyvec`: monotonic 3-state, zero-cycle `TaggedPtr`, `make_pinned`, C++/Rust monorepo), `symusic::abc`, and `assets/soundfonts.json` / `Synthesizer`. |

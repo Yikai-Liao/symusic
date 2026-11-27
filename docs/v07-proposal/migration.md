@@ -1,11 +1,11 @@
 # 0.6 → 0.7 Migration Reference
 
-All **56 changes** (42 Python + 14 C++ Core). Rows marked **Deprecated** are the most used 0.6 forms: they still work in 0.7 with a `FutureWarning` that names the replacement, and 0.8 removes them. Every other old form is removed in 0.7.
+All **60 changes** (46 Python + 14 C++ Core). Rows marked **Deprecated** are the most used 0.6 forms: they still work in 0.7 with a `FutureWarning` that names the replacement, and 0.8 removes them. Every other old form is removed in 0.7.
 
 > [!TIP]
 > For interactive filtering and search, see the live preview site: https://symusic-v07-lyk.edge.randallflare.com/migration
 
-## Python 0.6 → 0.7 (42 Changes)
+## Python 0.6 → 0.7 (46 Changes)
 
 | Severity | Category | 0.6 | 0.7 | Notes |
 |---|---|---|---|---|
@@ -51,6 +51,10 @@ All **56 changes** (42 Python + 14 C++ Core). Rows marked **Deprecated** are the
 | **Silent trap** | Imports & Types | `{note}`<br>`cache[score] = ...` | `{id(note)}`<br>`cache[id(score)] = ...` | Events, tracks, scores and lists compare by value and are mutable, so they are unhashable (`__hash__ = None`, as for `list`). Using one in a `set` or as a `dict` key raises `TypeError`. |
 | Breaking | Imports & Types | `x.__use_count()` | — | The `__use_count` debugging method is removed from events, tracks, scores and lists. |
 | **Silent trap** | Constructors & I/O | `pickle.loads(v06_score_bytes)` | `# In 0.6: score.dump_midi("tmp.mid")`<br>`# In 0.7: Score.from_file("tmp.mid")` | Pickles are for inter-process transport, not archival storage. 0.7 uses a private Python LE codec with a versioned `SYMZ v3` header and rejects 0.6 payloads. Re-exporting via MIDI migrates musical content, but note MIDI does not preserve arbitrary `Second` timestamps, negative times, or shared object references. |
+| **Silent trap** | Imports & Types | `isinstance(x.ttype, Tick)`<br>`x.ttype == TimeUnit.tick`<br>`x.ttype.is_time_unit()` | `x.ttype is Tick` | `.ttype` now returns the non-instantiable marker class (`Tick`, `Quarter`, or `Second`) itself instead of an instance, and `is_time_unit()` is removed. Silent trap: `isinstance(x.ttype, Tick)` does not raise—it silently returns `False` (`isinstance(Tick, Tick)` is `False`). Use `x.ttype is Tick` (or `== Tick`), and pass `x.ttype` directly as `ttype=x.ttype`. |
+| **Silent trap** | Constructors & I/O | `except ValueError:  # missing file`<br>`except RuntimeError:  # bad MIDI / I/O` | `except FileNotFoundError:  # OSError`<br>`except symusic.ParseError:  # ValueError` | Silent trap for error handlers: 0.6 raised `ValueError` for a missing file in `Score.from_file()` and `RuntimeError` for malformed MIDI, out-of-range MIDI bytes, or file I/O errors. 0.7 raises `OSError` subclasses chosen by `errno` (`FileNotFoundError`, `IsADirectoryError`, `PermissionError`, ...) for file I/O and `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC or strict-mode data-byte rejections. See the [error contract](../development/conventions.md#errors). |
+| Breaking | Events & Pedals | `Note(0, -1, 200)`<br>`TimeSignature(0, 3, 5)`<br>`note.pitch = 200` | Valid musical ranges (`ValueError`) | 0.6 silently accepted out-of-range field values (negative `duration`, `pitch < 0`, non-power-of-two `denominator`, `fifths` outside `-7..7`, `ticks_per_quarter <= 0`) or raised `TypeError` when a value overflowed its C++ integer type (`pitch=200`). 0.7 validates every field's musical domain on constructors, setters, `from_numpy`, readers, and `shift_*`, raising `ValueError` (and `OverflowError` for time arithmetic overflow). |
+| Breaking | Synthesis & SoundFont | `Synthesizer(sf_path=p)`<br>`Synthesizer(p, 44100)` | `Synthesizer(soundfont=p)`<br>`Synthesizer(p, sample_rate=44100)` | `sf_path` is renamed to `soundfont`, and all options after `soundfont` (`sample_rate`, `polyphony`, `reverb`, `chorus`, `tail_seconds`) are keyword-only. Passing `sf_path=` or a positional `sample_rate` raises `TypeError`. |
 
 ## C++ Core 0.6 → 0.7 (14 Changes)
 
