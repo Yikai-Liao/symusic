@@ -20,14 +20,14 @@ These apply in every layer and decide most of the questions below.
 | Entity | Style | Example |
 |---|---|---|
 | Types, concepts, enums | `PascalCase` | `TimeSignature`, `TimeEvent`, `PianorollMode` |
-| Functions, variables, data members | `snake_case` | `shift_time`, `ticks_per_quarter` |
+| Functions, variables, data members | `snake_case` | `shift_time`, `min_duration` |
 | Enumerators | `PascalCase` | `PianorollMode::Onset`, `DataFormat::ABC` |
 | Constants | `k` + `PascalCase` | `kSortDoc` |
 | Template parameters | `PascalCase`; `T` for the time unit | `template<TType T>`, `template<TimeEvent E>` |
 | Macros | `SYMUSIC_UPPER_CASE` | `SYMUSIC_COLD` |
 | Files | `snake_case.h` / `.cpp` | `time_conversion.h` |
 
-Identifiers never start with an underscore followed by a capital letter or contain a double underscore (`_Ty`, `__COUNT`): the standard reserves them. Following [one form per operation](#design-rules), a modifying method is a plain verb returning `void` (`void shift_time(unit offset)`), and a producing method is `const` and returns the new value (`Score<T> clip(unit start, unit end) const`). There are no `_inplace` names. A second, copying form is added only when a measurement shows that fusing the copy with the transformation is clearly faster than copying first; it is named `foo_copy` and its comment cites the measurement. A predicate reads as a question (`empty`, `is_sorted`).
+Identifiers never start with an underscore followed by a capital letter or contain a double underscore (`_Ty`, `__COUNT`): the standard reserves them. Following [one form per operation](#design-rules), a modifying method is a plain verb returning `void` (`void shift_time(unit offset)`), and a producing method is `const` and returns the new value (`Score<T> clip(unit start, unit end) const`). There are no `_inplace` names. A second, copying form is added only when a measurement shows that fusing the copy with the transformation is clearly faster than copying first; it is named `foo_copy` and its comment cites the measurement. A predicate reads as a question: boolean query methods on symusic domain types use the `is_` prefix across C++ and all bindings (`is_empty`, `is_silent`, `is_sorted`), while underlying STL sequence containers (`std::vector`, `anchorvec`) keep `.empty()`.
 
 ### Namespaces and headers
 
@@ -116,14 +116,14 @@ Comments state invariants, units, ownership and the reason for a non-obvious cho
 
 These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.md#07-api) changes.
 
-- **One name per thing.** No aliases (`tpq` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`). A deprecated form is the only exception, and only for one release.
+- **One name per thing.** No aliases (`ticks_per_quarter` for `tpq`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`). A deprecated form is the only exception, and only for one release.
 - **Deprecation.** A removed form survives one minor release only when it is heavily used, maps one to one onto its replacement with the same result, and lives in one function or attribute. A value accepted across the API, such as a unit string, gets no shim, nor does a form whose 0.6 result 0.7 deliberately changes. Each call emits a `FutureWarning`, which Python shows by default where it hides `DeprecationWarning` raised in imported modules, with `stacklevel` pointing at the caller and a message naming the replacement and the release that removes it: `"Score(path) is deprecated and will be removed in 0.8; use Score.from_file(path)"`.
 - **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them: a list's `copy()` is shallow like `list.copy()`, and `copy()` on a score, track or event equals `copy.deepcopy`. A list type implements `collections.abc.MutableSequence`. A mutable type that compares by value is unhashable.
 - **Closed sets are typed.** A parameter that takes one of a fixed set of values (a time unit, a mode, a format) is an enum or a `Literal` in the stubs, and an unknown value raises `ValueError`.
 - **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.
 - **Explicit side effects.** Reading an attribute or calling a query does not download, write files or print. Network and file access happen in functions whose name says so.
 - **PEP 8 names.** Functions, methods and attributes are `snake_case`; classes are `PascalCase`; a trailing underscore appears only to avoid a keyword.
-- **Words, not abbreviations.** A name is spelled out (`ticks_per_quarter`, `min_duration`, `microseconds_per_quarter`) unless the abbreviation is the term that the main symbolic-music libraries use verbatim for the same thing, as `qpm` is. `ttype` predates the rule and stays, matching the C++ concept `TType`. C++ uses the same names.
+- **Words, not abbreviations.** A name is spelled out (`min_duration`, `note_count`, `track_count`, `soundfont`, `format`) unless it is an established MIDI timing unit (`tpq`, `qpm`, `mspq`) or `ttype` (which predates the rule and matches the C++ concept `TType`). Document that `mspq` is *microseconds* per quarter (default `500_000`). C++ uses the same names.
 - **Stable keyword names.** A keyword argument has the same name as the C++ parameter and the guide's description of it, and a time-valued argument is in the unit of the object it is called on.
 
 The Python package follows Ruff's rules from `pyproject.toml` and annotates every public function; `ruff format` owns its layout.

@@ -6,7 +6,7 @@ One C++20 engineering contract across `symusic`, `minimidi`, and `anchorvec`, pa
 
 | Pillar | Enforceable Contract (`symusic` · `minimidi` · `anchorvec`) |
 |---|---|
-| Naming | `PascalCase` types, `snake_case` functions, variables and data members, `kPascalCase` constants (the [naming table](../development/conventions.md#names)); no `get_` prefix; STL `.empty()` on containers; English-only code, comments, and logs |
+| Naming | `PascalCase` types, `snake_case` functions, variables and data members, `kPascalCase` constants (the [naming table](../development/conventions.md#names)); no `get_` prefix; uniform `is_*` predicates (`is_empty()`, `is_silent()`, `is_sorted()`) across C++ and all bindings (STL `.empty()` only on sequence containers like `std::vector` / `anchorvec`); English-only code, comments, and logs |
 | Namespace & Headers | Internal headers live under `<lib>/detail/`; no `using namespace` in headers; no global `fmt::formatter<std::shared_ptr<T>>` or `namespace std` injection; strict IWYU |
 | Ownership & Parameters | Pure `ValueStorage` (`std::vector`) by default; non-owning views (`span`, `string_view`) and explicit owning `const std::filesystem::path&` for filesystem paths; aggregate `*Options` structs instead of boolean flag chains |
 | Error Taxonomy | The [error contract](../development/conventions.md#errors) owns the list: `std::invalid_argument`, domain `ParseError`, `std::overflow_error`, `std::out_of_range` (indexes only), `std::filesystem::filesystem_error` and `std::runtime_error`; `std::range_error`, `std::ios_base::failure` and bare `std::exception` are banned; zero exceptions across `extern "C"` |

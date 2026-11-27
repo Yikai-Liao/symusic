@@ -96,7 +96,7 @@ resampled = sec.resample(480, min_duration=1)  # single-step quantization
 
 if not resampled.is_empty():
     beats = resampled.beats(start=0)
-    print(resampled.ticks_per_quarter, resampled.note_count())
+    print(resampled.tpq, resampled.note_count())
     resampled.to_file("out.mid")
 ```
 
@@ -128,7 +128,7 @@ from symusic import (
 
 # Small Tick lists: pass a plain list directly (no redundant EventList / ttype=Tick)
 score: Score[Tick] = Score(
-    ticks_per_quarter=960,
+    tpq=960,
     tempos=[Tempo(0, 120.0)],
     key_signatures=[KeySignature(0, 0, minor=False)],
     markers=[TextEvent(0, "Intro")],
@@ -184,7 +184,7 @@ from symusic import EventList, Note, Tick
 cols = track.notes.to_numpy()
 intervals = np.diff(cols["pitch"])
 
-us_per_q = score.tempos.to_numpy()["microseconds_per_quarter"]
+mspq = score.tempos.to_numpy()["mspq"]
 # from_numpy() accepts 1D ArrayLike / ndarray and validates ranges before narrowing
 rebuilt: EventList[Note[Tick]] = EventList.from_numpy(Note, **cols, ttype=Tick)
 ```
@@ -239,8 +239,8 @@ symusic.dump_wav("out.wav", audio, 44100)
 | Area | 0.7 Contract |
 |---|---|
 | Exceptions | Defined once in the [error contract](../development/conventions.md#errors). Summary: `ValueError` for invalid values, modes and ranges; `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC; `OverflowError` for time arithmetic outside the unit's type; `IndexError` only for list indexes; an `OSError` subclass chosen by `errno` for file I/O; `TypeError` for the wrong kind of object, including an event whose `ttype` differs from the list's; `RuntimeError` for a failed external tool or a missing FluidSynth library |
-| Resolution | `ticks_per_quarter` is read-only after construction. Assigning it would reinterpret every tick, while `resample(ticks_per_quarter)` keeps musical positions; only the second is offered |
-| Numeric domains & MIDI wire | In-memory fields validate musical ranges (`0..127`, `ticks_per_quarter >= 1`); MIDI export additionally enforces SMF limits (`ticks_per_quarter` in `1..32767`; `Note(..., velocity=0)` encodes as MIDI NoteOff on export) |
+| Resolution | `tpq` is read-only after construction. Assigning it would reinterpret every tick, while `resample(tpq)` keeps musical positions; only the second is offered (reading `ticks_per_quarter` is deprecated in 0.7 and removed in 0.8) |
+| Numeric domains & MIDI wire | In-memory fields validate musical ranges (`0..127`, `tpq >= 1`); MIDI export additionally enforces SMF limits (`tpq` in `1..32767`; `Note(..., velocity=0)` encodes as MIDI NoteOff on export) |
 | Strict MIDI & ABC | Rejects 7-bit MIDI channel data bytes `> 127` by default (`strict=False` clamps channel data bytes only); ABC converter warnings emit public `ABCConversionWarning` |
 | Binary streams | Require explicit `format`, remain caller-closed, handle short writes, typed with structural protocols |
 | Concurrency & reentrancy | Targets standard GIL CPython (free-threaded `3.13t`/`3.14t` deferred until per-container locking); `sort(key=...)` and Python callbacks enforce a reentrancy guard (`ValueError` on structural mutation during callback) |
