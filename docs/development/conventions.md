@@ -10,7 +10,7 @@ These apply in every layer and decide most of the questions below.
 - **The core owns complete operations.** An operation that Python and C++ users both need, including its validation, lives in the core and is callable as a single function. The binding converts arguments and results, dispatches on the time unit, and adds nothing else; the Python package re-exports it and adds only what has no C++ counterpart, such as SoundFont downloads.
 - **Validate at the boundary, then trust the type.** Values from files, Python or the user are checked once where they enter, and arithmetic that can leave a type's range is checked where it happens (see [integers and time](#integers-and-time)). No API documents a precondition that the caller must keep for memory safety.
 - **Language features before macros.** Templates, concepts, `if constexpr`, fold expressions and ordinary functions express repetition. A macro is acceptable only for what the language cannot do (see [macros](#macros)).
-- **One form per operation.** An operation either modifies its object or builds a different one, never both by option. Modifying operations (`sort`, `filter`, `shift_time`, `shift_pitch`, `shift_velocity`, `adjust_time`) mutate in place and return nothing; producing operations (`clip`, `trim`, `to`, `resample`, `pianoroll`, `copy`) leave the object unchanged and return the result. To transform a copy, copy first. C++ and Python use the same names and the same split.
+- **One form per operation.** An operation either modifies its object or builds a different one, never both by option. Modifying operations (`sort`, `shift_time`, `shift_pitch`, `shift_velocity`) mutate in place and return nothing; producing operations (`filtered`, `clip`, `trim`, `adjust_time`, `to`, `resample`, `pianoroll`, `copy`) leave the object unchanged and return the result. To transform a copy, copy first. C++ and Python use the same names and the same split.
 - **Write the interface comment first.** For a new public function or type, state what it hides, what the caller must know and how it fails. If that needs a description of the internal steps, change the design before writing the body.
 
 ## C++
@@ -63,13 +63,15 @@ Throw standard exceptions; nanobind maps them to Python built-ins, and that mapp
 
 | C++ | Python | Use for |
 |---|---|---|
-| `std::invalid_argument` | `ValueError` | An argument or file value outside its valid set, NaN |
-| `std::overflow_error` | `OverflowError` | A result outside the target integer type |
-| `std::out_of_range` | `IndexError` | An index outside a container |
-| `std::runtime_error` | `RuntimeError` | Malformed input files, failed external tools |
-| `std::filesystem::filesystem_error` | `OSError` subclass by error code (`FileNotFoundError`, `PermissionError`, ...) | A missing or unreadable file, a failed write |
+| `std::invalid_argument` | `ValueError` | An argument or field value outside its valid set: a range, an unknown mode or format, NaN, non-increasing `adjust_time` anchors |
+| `symusic::ParseError` (derives from `std::runtime_error`) | `symusic.ParseError` (derives from `ValueError`) | Malformed MIDI or ABC input, including a data byte above 127 when `strict` is set and an `abc2midi` run that exits with an error status |
+| `std::overflow_error` | `OverflowError` | A time or other arithmetic result outside the target type, as in `shift_time` or a conversion to `Tick` |
+| `std::out_of_range` | `IndexError` | An index outside a container, and nothing else; a field range is `std::invalid_argument` |
+| `std::filesystem::filesystem_error` | `OSError` subclass by error code (`FileNotFoundError`, `PermissionError`, `IsADirectoryError`, ...) | A missing or unreadable file, a failed write |
+| `std::runtime_error` | `RuntimeError` | An external tool that cannot start or is killed by a signal, a FluidSynth library that cannot be loaded |
+| `std::bad_alloc` | `MemoryError` | Allocation failure; never thrown explicitly |
 
-nanobind maps the first four itself; `filesystem_error` derives from `std::runtime_error`, so one exception translator in `py_src/utils/` maps it by its error code, as `OSError` does for `errno`. Type mismatches are rejected by nanobind as `TypeError`; the core does not throw for them. A message names the parameter or field, the constraint and the received value: `"qpm must be positive and finite, got -1"`. The core never prints to stdout or stderr; it throws, or returns what the caller needs to report.
+The core throws no other types: no `std::range_error`, no `std::ios_base::failure`, no bare `std::exception`. nanobind maps `invalid_argument`, `overflow_error`, `out_of_range`, `runtime_error` and `bad_alloc` itself. The binding adds two translators in `py_src/utils/`: `nb::exception<symusic::ParseError>(m, "ParseError", PyExc_ValueError)`, which nanobind tries before its built-in mapping, and one for `filesystem_error` that calls `OSError(errno, strerror, filename)`, so Python picks the subclass from `errno`; the core reports file errors with `std::errc` values (`generic_category`) so that `errno` is the same on every platform. The binding itself raises `TypeError` for the wrong kind of object (nanobind does this for argument types), for an event whose `ttype` differs from the list it is inserted into, and for a text stream where a binary one is required; the core does not throw for these. An exception raised by a Python callback (`sort(key=...)`, `filtered(f)`) propagates unchanged and leaves the receiver as it was; changing a list's structure from inside such a callback raises `ValueError`, as `list.sort` does. Mutators give the strong guarantee: if they throw, the object is unchanged. A message names the parameter or field, the constraint and the received value: `"qpm must be positive and finite, got -1"`. The core never prints to stdout or stderr; it throws, or returns what the caller needs to report.
 
 ### Language rules
 
@@ -114,7 +116,7 @@ Comments state invariants, units, ownership and the reason for a non-obvious cho
 These rules decide the Python surface of new APIs and the [0.7 API](../ROADMAP.md#07-api) changes.
 
 - **One name per thing.** No aliases (`tpq` for `ticks_per_quarter`), no alternative spellings, no second keyword for the same argument (`fmt` and `format`).
-- **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them. A list type implements `collections.abc.MutableSequence`. A mutable type that compares by value is unhashable.
+- **Python protocols before custom methods.** Use `len`, iteration, `==`, `copy.copy`/`copy.deepcopy`, pickling and `repr` with their standard meaning; a `copy` method, where one exists, agrees with them: a list's `copy()` is shallow like `list.copy()`, and `copy()` on a score, track or event equals `copy.deepcopy`. A list type implements `collections.abc.MutableSequence`. A mutable type that compares by value is unhashable.
 - **Closed sets are typed.** A parameter that takes one of a fixed set of values (a time unit, a mode, a format) is an enum or a `Literal` in the stubs, and an unknown value raises `ValueError`.
 - **No `inplace` parameter.** Methods follow [one form per operation](#design-rules): a modifying method returns `None`, as `list.sort` does, and a producing method returns a new object. Neither returns `self` for chaining.
 - **Explicit side effects.** Reading an attribute or calling a query does not download, write files or print. Network and file access happen in functions whose name says so.

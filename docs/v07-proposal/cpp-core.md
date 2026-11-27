@@ -1,6 +1,6 @@
-# Native C++ API & C++17 Downgrade
+# Native C++ API & Language Standard
 
-symusic 0.7 establishes a C++-first **C++17** core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `pinvec`, zero `zpp_bits`, zero `libcurl`/TLS, and zero GPL linkage.
+symusic 0.7 establishes a C++-first **C++20** core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `pinvec`, zero `zpp_bits`, zero `libcurl`/TLS, and zero GPL linkage.
 
 ## Layered Architecture
 
@@ -10,7 +10,7 @@ bindings/c (C99 ABI)   bindings/js (pinvec / WASM / N-API)   bindings/go (cgo)  
         │                              │                             │                   │
         └──────────────────────────────┴──────────────┬──────────────┴───────────────────┘
                                                       ▼
-                       symusic::symusic  (Pure C++17 Core · ValueStorage)
+                       symusic::symusic  (Pure C++20 Core · ValueStorage)
               Score<T> · Track · detail/event_fields.h · EventColumns<E> · Pianoroll
           ┌─────────────────────┬─────────────────────────┬─────────────────────────┐
           ▼                     ▼                         ▼                         ▼
@@ -20,15 +20,15 @@ bindings/c (C99 ABI)   bindings/js (pinvec / WASM / N-API)   bindings/go (cgo)  
 
 ## Native C++ API Alignment
 
-Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./rfc-136.md)) while keeping idioms genuinely native C++17:
+Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./rfc-136.md)) while keeping idioms genuinely native C++20:
 
 | Area | Current (`07/pr6-api`) | Finalized Native C++ 0.7 |
 |---|---|---|
 | Defaults & naming | `Score<T, S = ValueStorage>`, `Tempo<T>`, `TextMeta<T>`, `get_beats()` / `get_downbeats()` | `Score<T = Tick, S = ValueStorage>`, `Tempo<T = Tick>`, `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
-| `Note` domains & defaults | `i8` pitch/velocity, default `velocity = 0`, redundant `start()` | `u8` storage (`0..255`), validated musical domain (`0..127`), default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`); MIDI wire export additionally encodes `velocity=0` as NoteOff and caps `ticks_per_quarter` to `1..32767` |
-| `Tempo` construction | `Tempo(0, 120)` silently means `120 µs/quarter` (500,000 QPM trap!) | Explicit `Tempo::from_qpm(t, 120.0)` and `Tempo::from_microseconds_per_quarter(t, 500000)` |
+| `Note` domains & defaults | `i8` pitch/velocity; the constructor with arguments requires `velocity`, and default construction sets it to `0`; redundant `start()` | `i8` storage, validated musical domain (`0..127`), default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`); MIDI wire export additionally encodes `velocity=0` as NoteOff and caps `ticks_per_quarter` to `1..32767` |
+| `Tempo` construction | `Tempo::from_qpm(t, 120.0)` exists, but brace initialization `Tempo<Tick>{0, 120}` silently means `120 µs/quarter` (500,000 QPM) | Keep `Tempo::from_qpm(t, 120.0)` and add `Tempo::from_microseconds_per_quarter(t, 500000)`, so every construction names its unit |
 | `trim` & `adjust_time` | String `start_mode`/`end_mode`; mutating free `void ops::adjust_time` | `enum class TrimMode { Remove, Truncate, Retain }` + `TrimOptions`; returning `score.adjust_time(orig, target)` taking `span` |
-| File I/O & members | `read_score()` free function only; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
+| File I/O & members | Free `read_score(path, format, decode_abc)` and `read_score_file(path)` returning bytes; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
 | `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
 | Emptiness idiom | `Score::empty()`, `Track::empty()`, `Note::empty()` | Keep STL `.empty()` on containers (bound to `.is_empty()` in Python); rename `Note::empty()` → `is_silent()` |
 
@@ -38,61 +38,45 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 > - **`std::numeric_limits<f32>::min()` instead of `lowest()`** in `Track::end` / `ops::end` (`Score::end()` already uses `lowest()`) — breaks negative floating-point timestamps (add regression test for all-negative + empty track returning `0`).
 > - **`HashDuration` typo** (`HasDuration`) in public concepts.
 > - **Global `fmt::formatter<std::shared_ptr<T>>`** specialization in `repr.h` — ODR hazard for any host project using `fmt`.
-> - **`checked_event_field` compares via `f64`**, losing exact integer bounds checking for `i64 > 2^53`.
-> - **`read_score()` drops `MidiReadOptions`**, ignoring caller strict/clamp policy.
+> - **`checked_event_field` compares via `f64`.** Every current destination field's bounds are exact in `f64`, so no input is misjudged today; a future `i64` destination would lose exact bounds checking above `2^53`. Compare integers with `std::in_range` instead.
+> - **`read_score()` cannot accept `MidiReadOptions`**: its MIDI branch always uses the defaults, so a file reader cannot opt out of strict parsing.
 > - **Unused `#include "pdqsort.h"`** leaked by `ops.h`.
 > - **`minimidi` `Message::channel()` on `0xFF` Meta events** masks the low nibble (`0xF`), misassigning lyrics to channel 15 on the no-notes fallback in `ScoreBuilder::finish_group`.
 
-## Decision: Downgrade All 3 Repos to Strict C++17
+## Decision: Stay on C++20
 
 > [!TIP]
 > **Finalized Decision**
 >
-> All three repositories (`pinvec`, `minimidi`, and `symusic`) will target **strict C++17** (`-std=c++17 -pedantic-errors`). `zpp_bits` (868 LOC, used **only** for Python pickle) is the **sole C++20 third-party dependency**; removing `zpp_bits` and `serialize()`/`deserialize()` from C++ core (C++ interchange uses MIDI; Python owns a private little-endian **`SYMZ v3`** pickle codec in `bindings/python/`) unblocks C++17 `FetchContent`, Go `cgo`, and Emscripten/WASM hosts. Runtime performance parity with C++20 is a **benchmark-gated requirement** in Wave 3.
+> `symusic`, `minimidi` and `pinvec` stay on **C++20** (`cxx_std_20`). Lowering to C++17 would help only hosts that cannot compile C++20: Android NDK r23–r25, whose libc++ lacks `std::ranges::sort`, hosts pinned to `/std:c++17` such as ROS 2 and older JUCE projects, and old Xcode toolchains. The planned C ABI, JS/WASM and Go `cgo` bindings consume a compiled library and do not depend on its language standard. The cost would be rewriting about 178 constrained template parameters, 23 `requires` clauses and 125 `std::span` uses at #134.
+>
+> Lowering later stays possible without breaking callers as long as public signatures do not change. The one exception is vocabulary types in signatures: `std::span` must either stay or be replaced before 0.7 freezes the API, so that choice is settled now: public signatures keep `std::span`.
 
-### Third-Party Dependency C++ Floors
-
-| Dependency | Minimum Standard | Role |
-|---|---|---|
-| `utf8.h` | C++98 | UTF-8 validation |
-| `fmt` | C++11 | String formatting |
-| `pdqsort` | C++11 | Sorting |
-| `Catch2` | C++14 | C++ unit tests |
-| `nanobind` | C++17 | Python bindings |
-| **`zpp_bits`** | **C++20 (REMOVED)** | **Python pickle only — replaced by private `SYMZ v3` LE codec in `bindings/python/`** |
-
-### Per-Repo C++17 Lowering Scope
-
-| Repository | C++20 Constructs to Lower | Gate |
-|---|---|---|
-| `pinvec` | Pure C++17 from day one (prototype already verified under `-std=c++17` + ASan/UBSan) | `-std=c++17 -pedantic-errors` + Bun PR bench |
-| `minimidi` | Minor `concepts` + `std::span` → ~35-LOC `ByteSpan` (implicit `std::span` interop under C++20) + C++17 traits | `-std=c++17 -pedantic-errors` |
-| `symusic` | Remove `zpp_bits` from core + lower internal C++20 language constructs in `origin/07/pr6-api` (`<=>` / defaulted `operator==`, `std::ranges`, `std::erase_if`, `std::in_range`, explicit template lambdas, abbreviated `auto` templates, `std::span` → ~40-LOC `span<T>`) | `-std=c++17 -pedantic-errors` + benchmark parity gate |
+`zpp_bits` (6,058-line header) is still removed from the core, for a different reason: it serves only the Python pickle. C++ interchange uses MIDI, and Python owns a private little-endian **`SYMZ v3`** codec in its binding.
 
 ## C++ Before / After
 
-**0.7 Native C++17 Proposal**
+**0.7 Native C++20 Proposal (planned API)**
 
 ```cpp
-#include "symusic.h"
+#include <span>
+#include <symusic.h>
 using namespace symusic;
 
-// Strict C++17: compiles cleanly under g++ -std=c++17 -pedantic-errors
-MidiReadOptions read_opts;
-read_opts.invalid_data_bytes = InvalidDataBytes::Clamp;
-auto score = Score<>::from_file("piece.mid", read_opts);
+int main() {
+    auto score = Score<>::from_file("piece.mid", {.strict = false});
 
-auto tempo = Tempo<>::from_qpm(0, 120.0);  // no 500,000 QPM trap
-TrimOptions<Tick> trim_opts;
-trim_opts.start_mode = TrimMode::Truncate;
-auto trimmed = score.trim(0, 1920, trim_opts);
-auto warped = trimmed.adjust_time(orig_span, new_span);
-auto resampled = warped.resample(480);     // direct resampling, no extra f32 pass
+    auto tempo = Tempo<>::from_qpm(0, 120.0);  // names its unit
+    auto trimmed = score.trim(0, 1920, {.start_mode = TrimMode::Truncate});
 
-SynthSettings synth_opts;
-synth_opts.sample_rate = 44100;
-auto synth = Synthesizer::create("gm.sf3", synth_opts);
-AudioBuffer audio = synth.render(resampled, /*stereo=*/true);
+    const Tick::unit original[] = {0, 960, 1920};
+    const Tick::unit target[] = {0, 1200, 1920};
+    auto warped = trimmed.adjust_time(std::span(original), std::span(target));
+    auto resampled = warped.resample(480);  // one rounding step
+
+    auto synth = Synthesizer::create("gm.sf3", {.sample_rate = 44100});
+    AudioBuffer audio = synth.render(resampled, /*stereo=*/true);
+}
 ```
 
 **0.7 Current (PRs #129–#134)**

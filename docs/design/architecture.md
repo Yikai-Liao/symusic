@@ -34,7 +34,7 @@ Each container exists in two representations:
 
 ## Score and file formats
 
-`Score` is a performance model. It records what sounds and when: notes with onset, duration, pitch and velocity, controls, pitch bends, tempos, and the time and key signatures and text that MIDI carries. It does not record how the music is written: measures, voices, ties, enharmonic spelling and note types. MIDI stores the same kind of information, so MIDI is the format the model is shaped after and the only file format with a lossless round trip.
+`Score` is a performance model. It records what sounds and when: notes with onset, duration, pitch and velocity, controls, pitch bends, tempos, and the time and key signatures and text that MIDI carries. It does not record how the music is written: measures, voices, ties, enharmonic spelling and note types. MIDI stores the same kind of information, so MIDI is the format the model is shaped after and the only file format whose round trip preserves a `Score` (see [round trips](#contracts) for what it drops).
 
 A notation format relates to `Score` in two directions of different difficulty:
 

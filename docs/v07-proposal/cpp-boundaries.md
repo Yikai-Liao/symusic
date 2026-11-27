@@ -6,7 +6,7 @@ Clear ownership boundaries across **`minimidi`**, **`pinvec`**, and **`symusic`*
 
 **Conclusion:** Ship and freeze **Tier 1 (zero-alloc streaming)** for 0.7; defer **Tier 2 (lossless DOM)** freeze to **0.8+** until a real consumer exists. `symusic` links `minimidi` **`PRIVATE`** (once MIDI wire parsing moves out of public `detail/midi_impl.h` into private `.cpp` translation units) with zero vendor header leaks.
 
-- **Tier 1 (0.7 freeze):** `read_smf(ByteSpan, Visitor&, ReadOptions)` emits stack-allocated `EventView` records and applies `DataBytePolicy::{Strict, Clamp, Raw}` **strictly to 7-bit channel data bytes** (never mutating read-only input or arbitrary Meta payloads). `SmfWriter` / `TrackWriter` enforce every SMF wire limit in one authority.
+- **Tier 1 (0.7 freeze):** `read_smf(ByteSpan, Visitor&, ReadOptions)` emits stack-allocated `EventView` records and applies `ReadOptions::strict` (a `bool`, default `true`, the same name and default as symusic's `MidiReadOptions::strict`) **only to 7-bit channel data bytes**: `true` rejects bytes above 127 and `false` clamps them, never mutating read-only input or Meta payloads. Callers that need the raw bytes read them from `EventView`. `SmfWriter` / `TrackWriter` enforce every SMF wire limit in one authority.
 - **Explicit round-trip boundary:** Tier 1 preserves SMF wire messages faithfully; `symusic::Score` normalizes note-level musical performance.
 - **Wire-safety bugs fixed in `minimidi`:** buffer over-reads, `reinterpret_cast` type-punning UB, SMPTE union UB, EOT delta loss, `0xF7` continuation SysEx handling, `Message::channel()` on `0xFF` Meta events, and banning `std::ios_base::failure`.
 
@@ -23,20 +23,20 @@ Clear ownership boundaries across **`minimidi`**, **`pinvec`**, and **`symusic`*
 
 **Conclusion:** Isolate `pinvec` inside `bindings/python/` (and JS N-API/WASM bindings needing stable object handles). C++ core, C99 ABI, and Go (`cgo`) use pure `ValueStorage` (`std::vector`).
 
-- **Monotonic 3-state architecture:** `Flat` → `PagedDirect` (`kCap = 256` bitshift indexing) → `PagedIndirect`, **never implicitly demoting** — eliminates no-GIL TOCTOU use-after-free races.
+- **Monotonic 3-state architecture:** `Flat` → `PagedDirect` (`kCap = 256` bitshift indexing) → `PagedIndirect`, **never implicitly demoting**, so a handle taken in one mode is not invalidated by a later mode change. This removes one class of use-after-free; free-threaded Python still needs per-container locking for concurrent mutation.
 - **Zero strong reference cycles:** Leaf 4KB-class `AlignedPage` blocks never hold external references. External `shared_ptr<T>` pushes live in a list-owned `_ext_owners` vector + freelist referenced via a **Tagged Pointer (`bit 0 = 1`)** (`max(alignof(T), 2)` slot stride supports `alignof(T) == 1`). Passes self-reinsert (`a.push_back_shared(a.share(0))`) and cross-list (`a <-> b`) zero-leak ASan/UBSan tests, and releases deleted external objects immediately.
-- **O(1) `is_flat()` / `flat_data()`:** Returns non-null **only** in `Mode::Flat` — zero false positives after `reverse`, `sort`, `del`, or `[::2]`. `share(i)` is non-`const`, so `const PinVec` is lock-free thread-safe for concurrent reads.
-- **Source-level anti-fragmentation & clean C++17 STL API:** Companion `pinvec::make_pinned<T>` thread-local 4KB page pool for Python `Note(...)` / JS `new Note()` construction. Single zero-dependency header `<pinvec/pinvec.hpp>` dropping Pythonisms (`append`/`getitem`/`pypos`/`slice`) and bundled `timsort` (`if (std::is_sorted) return; std::stable_sort(...)`; skip premature `sort_with` hook in `v0.1`).
-- **Why no `contiguous()` in Python's public API:** In-place compaction would silently sever live external `Note` references, while conditional-copy creates unpredictable aliasing on mutable containers and leaks binding storage internals. Instead, Python `.copy()` returns an independent value snapshot (internally compacting cleanly), while bulk callers construct via `EventList.from_numpy(...)`.
+- **O(1) `is_flat()` / `flat_data()`:** Returns non-null **only** in `Mode::Flat` — zero false positives after `reverse`, `sort`, `del`, or `[::2]`. `share(i)` is non-`const`, so concurrent reads through a `const PinVec` are safe while no thread mutates it.
+- **Source-level anti-fragmentation & clean C++20 STL API:** Companion `pinvec::make_pinned<T>` thread-local 4KB page pool for Python `Note(...)` / JS `new Note()` construction. Single zero-dependency header `<pinvec/pinvec.hpp>` dropping Pythonisms (`append`/`getitem`/`pypos`/`slice`) and bundled `timsort` (`if (std::is_sorted) return; std::stable_sort(...)`; skip premature `sort_with` hook in `v0.1`).
+- **Why no `contiguous()` in Python's public API:** In-place compaction would silently sever live external `Note` references, while conditional-copy creates unpredictable aliasing on mutable containers and leaks binding storage internals. Instead, deep copies (`score.copy()`, `copy.deepcopy`) build fresh, compact storage, while bulk callers construct via `EventList.from_numpy(...)`.
 
-### Empirical C++17 `-O3` Prototype Benchmarks (ASan/UBSan 100% Pass)
+### Prototype Benchmarks (`-O3`; the prototype also passes ASan/UBSan)
 
 | Workload | PinVec V2 Result | Baseline Comparison |
 |---|---|---|
 | Bulk 200k `Note` (`adopt` + RAM) | **12.0 B/el**, `adopt` **0.02 µs** | Matches `std::vector`; **40% less RAM** vs old `pyvec` (20 B/el) |
 | 1-element slice retention | **4.1 KB** retained | vs **2.4 MB** (**580× reduction**) |
 | External 10k `shared_ptr` append + 200k scan / random / `PagedDirect` | Append **44.9 µs**, scan **241.6 µs**, random **1,664 µs**, `kCap=256` **262.2 µs** | **8.4× faster** than ExtTable hash (379.1 µs); **1.69× faster** scan (409.1 µs); **1.40× faster** random (2,336 µs); **1.25× faster** bitshift vs `kCap=339` div/mod (326.9 µs) |
-| Sort 200k (`is_sorted` + `std::stable_sort`) | Random **11.11 ms**, sorted **0.225 ms** | **38% faster** on random (14.86 ms) and **18% faster** on sorted (0.265 ms) vs `gfx::timsort` |
+| Sort 200k (`is_sorted` + `std::stable_sort`) | Random **11.11 ms**, sorted **0.225 ms** | **25% less time** on random (14.86 ms) and **15% less time** on sorted (0.265 ms) than `gfx::timsort` |
 
 ## 4. ABC & SoundFont / `Synthesizer` Across Bindings
 

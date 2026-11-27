@@ -1,6 +1,6 @@
 # PR Stack & Rollout Plan
 
-Implementation status across stacked PRs [#129–#134](https://github.com/Yikai-Liao/symusic/pulls) and the four-wave rollout to the C++17 multi-binding 0.7 ecosystem.
+Implementation status across stacked PRs [#129–#134](https://github.com/Yikai-Liao/symusic/pulls) and the four-wave rollout to the C++20 multi-binding ecosystem that 0.7 starts.
 
 ## 1. Stacked PRs (`#129`–`#134`)
 
@@ -17,17 +17,17 @@ Implementation status across stacked PRs [#129–#134](https://github.com/Yikai-
 
 | Area | Implemented in PRs `#129–#134` | Remaining 0.7 Scope (RFC `#136` & Ecosystem Plan) |
 |---|---|---|
-| Storage & Standard | `ValueStorage` / `SharedStorage`, `detail/*_impl.h`, `EventColumns<E>`, no `pyvec` / `*Native` / `MetaMacro.h` / `argparse.h` | `pinvec` 3-state zero-cycle `TaggedPtr` + `is_flat()` + `make_pinned<T>`, two-level Python reference model, `.copy()` value snapshot, remove `zpp_bits` → private `SYMZ v3` codec, strict C++17 + benchmark parity gate |
+| Storage & Standard | `ValueStorage` / `SharedStorage`, `detail/*_impl.h`, `EventColumns<E>`, no `pyvec` / `*Native` / `MetaMacro.h` / `argparse.h` | `pinvec` 3-state zero-cycle `TaggedPtr` + `is_flat()` + `make_pinned<T>`, two-level Python reference model, standard-library copy semantics, remove `zpp_bits` → private `SYMZ v3` codec |
 | Naming & Containers | `Score::from_midi` / `to_midi`, `note_count()`, `track_count()`, `microseconds_per_quarter`, `minor: bool`, `MidiReadOptions` | `TextEvent`, `beats(start=0)`, `from_file()` / `to_file()`, `download_soundfont()`, `Tempo::from_qpm`/`from_microseconds_per_quarter`, `TrimMode` enum, single generic `EventList[Note[Tick]]` |
-| Operations & Safety | No `*_inplace`, transactional `FieldUpdates`, CC64 `Track::pedals() const`, ~40% `clip` / ~30% `trim` speedups | Returning `adjust_time`, single-step `resample()`, `shift_*` once-per-event atomic rollback, reentrancy guard on callbacks, `Note` `u8` + `velocity=64`, fix all 7 verified header audit defects |
+| Operations & Safety | No `*_inplace`, transactional `FieldUpdates`, CC64 `Track::pedals() const`, ~40% `clip` / ~30% `trim` speedups | Returning `adjust_time`, `resample()` as a member (the Python binding already resamples in one step), stable `sort` (a C++ tessera sort implementation follows), `shift_*` once-per-event atomic rollback, reentrancy guard on callbacks, `Note` `velocity=64` default, read-only `ticks_per_quarter`, the [error contract](../development/conventions.md#errors), `strict` read option, fix all 7 verified header audit defects |
 | Synthesis & Packaging | Runtime-loaded FluidSynth (`dlopen` / `LoadLibraryExW`), `SynthSettings`, `AudioBuffer`, ABC subprocess, `symusic::symusic` | Private MIDI wire `.cpp` → `minimidi PRIVATE` + remove `vendor/`, CMake 3.21+ 4-tier deps & 4 CI consumer tests, optional `symusic::abc`, `assets/soundfonts.json`, minimal C99 ABI prototype |
 
 ## 3. 4-Wave Zero-Conflict Rollout
 
-1. **Wave 1 — Core PR Stack (`#129–#134`) + Unreleased Sub-Library Validation:** Land `#129–#134` on `main`, AND develop `pinvec` (C++17 single-header + dual C++/Rust layout + Bun PR bench) & `minimidi` (C++17 Tier-1 streaming) against real unpublished `symusic` Python + native consumers **before** tagging `v0.1.0` / `v0.10.0`.
-2. **Wave 2 — Finalized 0.7 API, Bug Fixes & Sub-Library Pin Bump:** Tag & adopt `pinvec v0.1.0` + `minimidi v0.10.0`; ship all remaining finalized 0.7 Python + Native C++ API items (`EventList[Note[Tick]]`, two-level reference model, `.copy()` value snapshot, `TextEvent`, `beats`/`downbeats`, `from_file`/`to_file`, single-step `resample`, `download_soundfont()`, `Tempo::from_qpm`/`from_microseconds_per_quarter`, `TrimMode`, callback reentrancy guard, `SYMZ v3` Python pickle codec, and all 7 verified defect fixes).
-3. **Wave 3 — C++17 Core Lowering & Universal CMake:** Move MIDI wire implementation out of public `detail/midi_impl.h` into private `.cpp` translation units (enabling `minimidi PRIVATE` + deleting `include/symusic/vendor/`), remove `zpp_bits` & lower C++20 constructs to strict C++17 (verified under `-std=c++17 -pedantic-errors` + benchmark parity gate), bump CMake to `3.21+`, wire 4-tier dependency resolution, and enable all 4 CI consumer smoke tests.
-4. **Wave 4 — Pure `git mv` Layout & `tessera-order` Governance:** Migrate cleanly to `bindings/python/`, `extras/`, `assets/soundfonts.json`, `conformance/semantics.md`, `docs/README.md`, and the minimal C99 ABI prototype (`bindings/c/`).
+1. **Wave 1 — Core PR Stack (`#129–#134`) + Unreleased Sub-Library Validation:** Land `#129–#134` on `main`, AND develop `pinvec` (C++20 single-header + dual C++/Rust layout + Bun PR bench) & `minimidi` (C++20 Tier-1 streaming, `ReadOptions::strict`) against real unpublished `symusic` Python + native consumers **before** tagging `v0.1.0` / `v0.10.0`.
+2. **Wave 2 — Finalized 0.7 API, Bug Fixes & Sub-Library Pin Bump:** Tag & adopt `pinvec v0.1.0` + `minimidi v0.10.0`; ship all remaining finalized 0.7 Python + Native C++ API items (`EventList[Note[Tick]]`, two-level reference model, standard-library copy semantics, stable `sort`, read-only `ticks_per_quarter`, `strict` read option, the error contract, `TextEvent`, `beats`/`downbeats`, `from_file`/`to_file`, single-step `resample`, `download_soundfont()`, `Tempo::from_qpm`/`from_microseconds_per_quarter`, `TrimMode`, callback reentrancy guard, `SYMZ v3` Python pickle codec in the current `py_src/` (it moves to `bindings/python/` in Wave 4), and all 7 verified defect fixes).
+3. **Wave 3 — Core Packaging & Universal CMake:** Move MIDI wire implementation out of public `detail/midi_impl.h` into private `.cpp` translation units (enabling `minimidi PRIVATE` + deleting `include/symusic/vendor/`), remove `zpp_bits` from the core, bump CMake to `3.21+`, wire 4-tier dependency resolution, and enable all 4 CI consumer smoke tests.
+4. **Wave 4 — Multi-Binding Layout & `tessera-order` Governance:** Move existing code into `bindings/python/` and `extras/` without behaviour changes, and add the new `assets/soundfonts.json`, `conformance/semantics.md`, `docs/README.md` and the minimal C99 ABI prototype (`bindings/c/`).
 
 > [!NOTE]
 > **Explicitly Deferred to 0.8+**

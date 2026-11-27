@@ -17,18 +17,19 @@ No `inplace=` flags anywhere. Operations are grouped explicitly by receiver muta
 
 | Category | Return | Operations | Contract |
 |---|---|---|---|
-| **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_*` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) **once per call** with atomic rollback on overflow |
-| **Returning transforms** | New object | `filtered()`, `clip()`, `trim()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new independent object (`notes.filter(f)` → `notes.filtered(f)`; use `notes[:] = [n for n in notes if f(n)]` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib) |
+| **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `sort()` is **stable**: events with equal keys keep their relative order, as `list.sort` does, so equal-time tempos and CC64 events keep their playback order. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_*` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) **once per call** with atomic rollback on overflow |
+| **Returning transforms** | New object | `filtered()`, `clip()`, `trim()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new object. `filtered(f)` returns a new list holding the **same** elements that `f` accepts, like `[n for n in notes if f(n)]`, so `notes.filtered(f)[0] is notes[0]` when the first note passes. Use `notes[:] = notes.filtered(f)` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib |
 
 ### Explicit Copy, Deepcopy & Reference Model
 
-Copy constructors (`Score(other)`, `Note(other)`) are removed. Copy and assignment semantics follow two crisp tables:
+Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the Python standard library: a list copy is shallow, as `list.copy()` is, and an object copy is deep, as `copy.deepcopy` is.
 
 | Copy Operation | Semantics |
 |---|---|
-| `x.copy()` | **Independent value snapshot** — produces an independent copy and intentionally detaches internal duplicate aliases (e.g. `[n, n]`) and cross-track shared lists |
-| `copy.copy(x)` | **Shallow structural copy** — new outer container/object sharing element and track references |
-| `copy.deepcopy(x)` | **Memo-preserving deep copy** — deep-copies the graph while preserving internal aliases inside the copied graph per Python stdlib `copy` |
+| `notes.copy()`, `notes[:]`, `copy.copy(notes)` (`EventList` / `TrackList`) | **Shallow** — a new list holding the same element objects |
+| `score.copy()`, `track.copy()`, `note.copy()` | **Deep** — identical to `copy.deepcopy(x)` |
+| `copy.copy(score)`, `copy.copy(track)` | **Shallow** — a new outer object sharing its lists and tracks |
+| `copy.deepcopy(x)` | **Deep, alias-preserving** — copies the whole graph and keeps aliases inside it (`[n, n]` copies to `[m, m]`), per Python stdlib `copy` |
 
 | Input Kind | Assignment / Insertion | Semantics |
 |---|---|---|
@@ -110,7 +111,10 @@ score: Score[Tick] = Score(
     ],
 )
 
-# Bulk or non-Tick construction: specify Note and ttype once via from_numpy
+# A non-Tick event names its unit; ttype is keyword-only and defaults to Tick
+intro = Note(0.0, 0.5, 60, ttype=Second)
+
+# Bulk construction: specify Note and ttype once via from_numpy
 sec_notes: EventList[Note[Second]] = EventList.from_numpy(
     Note,
     time=[0.0, 0.5],
@@ -138,7 +142,7 @@ track.notes = notes
 score.tracks.append(track)
 ```
 
-### NumPy SoA Round-Trip & `uint8` Safety
+### NumPy SoA Round-Trip
 
 **0.7 (After)**
 
@@ -146,9 +150,10 @@ score.tracks.append(track)
 import numpy as np
 from symusic import EventList, Note, Tick
 
-# to_numpy() returns independent copy snapshots (pitch & velocity are uint8)
+# to_numpy() returns independent copy snapshots; pitch and velocity stay int8,
+# so differences of 0..127 values (-127..127) never wrap
 cols = track.notes.to_numpy()
-intervals = np.diff(cols["pitch"].astype(np.int16))  # avoid uint8 wrap-around
+intervals = np.diff(cols["pitch"])
 
 us_per_q = score.tempos.to_numpy()["microseconds_per_quarter"]
 # from_numpy() accepts 1D ArrayLike / ndarray and validates ranges before narrowing
@@ -204,10 +209,11 @@ symusic.dump_wav("out.wav", audio, 44100)
 
 | Area | 0.7 Contract |
 |---|---|
-| Exceptions | `FileNotFoundError` / `OSError` for I/O; `TypeError` for wrong class / `ttype` / text stream / non-numeric `to_numpy()`; `ValueError` for ranges, unit mismatch, or malformed MIDI/ABC |
+| Exceptions | Defined once in the [error contract](../development/conventions.md#errors). Summary: `ValueError` for invalid values, modes and ranges; `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC; `OverflowError` for time arithmetic outside the unit's type; `IndexError` only for list indexes; an `OSError` subclass chosen by `errno` for file I/O; `TypeError` for the wrong kind of object, including an event whose `ttype` differs from the list's; `RuntimeError` for a failed external tool or a missing FluidSynth library |
+| Resolution | `ticks_per_quarter` is read-only after construction. Assigning it would reinterpret every tick, while `resample(ticks_per_quarter)` keeps musical positions; only the second is offered |
 | Numeric domains & MIDI wire | In-memory fields validate musical ranges (`0..127`, `ticks_per_quarter >= 1`); MIDI export additionally enforces SMF limits (`ticks_per_quarter` in `1..32767`; `Note(..., velocity=0)` encodes as MIDI NoteOff on export) |
 | Strict MIDI & ABC | Rejects 7-bit MIDI channel data bytes `> 127` by default (`strict=False` clamps channel data bytes only); ABC converter warnings emit public `ABCConversionWarning` |
 | Binary streams | Require explicit `format`, remain caller-closed, handle short writes, typed with structural protocols |
 | Concurrency & reentrancy | Targets standard GIL CPython (free-threaded `3.13t`/`3.14t` deferred until per-container locking); `sort(key=...)` and Python callbacks enforce a reentrancy guard (`ValueError` on structural mutation during callback) |
-| Python data model | `__eq__` returns `NotImplemented` for unknown types; `Tempo.__match_args__ == ("time", "qpm")`; escaped round-trippable `repr()`; `pianoroll()` is `Tick`-only |
-| Pickles (`SYMZ v3`) | Private Python little-endian codec carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); for inter-process transport only |
+| Python data model | Equality is by value and requires the same `ttype` (`Score[Tick] == Score[Quarter]` is always `False`); mutable types are unhashable (`__hash__ = None`); `__eq__` returns `NotImplemented` for unknown types; `Tempo.__match_args__ == ("time", "qpm")`; escaped round-trippable `repr()`; `pianoroll()` is `Tick`-only |
+| Pickles (`SYMZ v3`) | Private Python little-endian codec carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); for inter-process transport only. #134 writes `SYMZ v2` through `zpp_bits`; the private codec is a new layout and bumps the version to 3 |
