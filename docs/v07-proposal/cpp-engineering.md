@@ -1,17 +1,17 @@
 # Style Contract, Repo Layout & Universal CMake
 
-One C++20 engineering contract across `symusic`, `minimidi`, and `pinvec`, paired with a `tessera-order`-inspired repository layout, universal CMake consumption, and a minimal C99 ABI contract.
+One C++20 engineering contract across `symusic`, `minimidi`, and `anchorvec`, paired with a `tessera-order`-inspired repository layout, universal CMake consumption, and a minimal C99 ABI contract.
 
 ## 1. Unified C++ Style & Engineering Contract
 
-| Pillar | Enforceable Contract (`symusic` · `minimidi` · `pinvec`) |
+| Pillar | Enforceable Contract (`symusic` · `minimidi` · `anchorvec`) |
 |---|---|
 | Naming | `PascalCase` types, `snake_case` functions/variables, `kPascalCase` constants, `member_` private fields; no `get_` prefix; STL `.empty()` on containers; English-only code, comments, and logs |
 | Namespace & Headers | Internal headers live under `<lib>/detail/`; no `using namespace` in headers; no global `fmt::formatter<std::shared_ptr<T>>` or `namespace std` injection; strict IWYU |
 | Ownership & Parameters | Pure `ValueStorage` (`std::vector`) by default; non-owning views (`span`, `string_view`) and explicit owning `const std::filesystem::path&` for filesystem paths; aggregate `*Options` structs instead of boolean flag chains |
 | Error Taxonomy | The [error contract](../development/conventions.md#errors) owns the list: `std::invalid_argument`, domain `ParseError`, `std::overflow_error`, `std::out_of_range` (indexes only), `std::filesystem::filesystem_error` and `std::runtime_error`; `std::range_error`, `std::ios_base::failure` and bare `std::exception` are banned; zero exceptions across `extern "C"` |
 | Qualifiers & Safety | `[[nodiscard]]` on pure/returning APIs, `const`-correctness, `noexcept` where non-throwing, strict aliasing/alignment/lifetime discipline (`std::uninitialized_copy` + `std::launder`, no union or `reinterpret_cast` type punning, checked narrowing) |
-| Integer Aliases | Standalone `minimidi` and `pinvec` use standard `std::uint*_t` / `std::int*_t`; `symusic` keeps `u8..f64` inside `namespace symusic` and drops `using size_t` pollution |
+| Integer Aliases | Standalone `minimidi` and `anchorvec` use standard `std::uint*_t` / `std::int*_t`; `symusic` keeps `u8..f64` inside `namespace symusic` and drops `using size_t` pollution |
 | Unified Tooling | Identical `.clang-format` and `.clang-tidy` across all 3 repos; `-std=c++20 -pedantic-errors -Wall -Wextra -Wpedantic`; mandatory ASan + UBSan CI lanes |
 
 ## 2. C++-First Multi-Binding Directory Layout
@@ -23,8 +23,8 @@ include/symusic/            # Public C++20 headers + detail/*_impl.h (no vendor/
 src/                        # Core C++20 library + private MIDI wire TU + optional symusic::abc
 bindings/
   c/                        # C99 ABI (zero exceptions across extern "C")
-  python/                   # nanobind + pinvec SharedStorage + private SYMZ v3 pickle codec
-  js/                       # pinvec / WASM / N-API (deferred to 0.8+)
+  python/                   # nanobind + anchorvec SharedStorage + private SYMZ v3 pickle codec
+  js/                       # anchorvec / WASM / N-API (deferred to 0.8+)
   go/                       # cgo (deferred to 0.8+)
 extras/
   abcmidi/                  # Shared GPLv2 external converter recipe
@@ -46,7 +46,7 @@ cmake/                      # minimidi::minimidi install export + ConfigVersion.
 docs/ & AGENTS.md           # Wire-format contract, unified C++20 rules, agent routing
 ```
 
-**pinvec (C++ / Rust Dual Monorepo)**
+**anchorvec (C++ / Rust Dual Monorepo)**
 
 ```text
 CMakeLists.txt              # Root CMake entry for C++20 single-header library
@@ -54,10 +54,10 @@ Cargo.toml                  # Root Rust workspace
 LICENSE                     # Dual-licensed MIT OR Apache-2.0
 spec/                       # Shared invariants (3-state monotonicity, TaggedPtr, zero cycles)
 cpp/
-  include/pinvec/pinvec.hpp # Zero-dependency C++20 single header + make_pinned<T>
+  include/anchorvec/anchorvec.hpp # Zero-dependency C++20 single header + make_pinned<T>
   tests/                    # Self-reinsert, cross-list cycle, is_flat, ASan/UBSan suite
 rust/
-  pinvec/                   # Companion Rust crate with Miri CI verification
+  anchorvec/                   # Companion Rust crate with Miri CI verification
 bench/                      # Shared tessera-order-style Bun PR benchmark & plotting harness
 ```
 

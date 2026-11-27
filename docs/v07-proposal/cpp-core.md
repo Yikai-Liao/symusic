@@ -1,12 +1,12 @@
 # Native C++ API & Language Standard
 
-symusic 0.7 establishes a C++-first **C++20** core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `pinvec`, zero `zpp_bits`, zero `libcurl`/TLS, and zero GPL linkage.
+symusic 0.7 establishes a C++-first **C++20** core (`symusic::symusic`, default `ValueStorage`) shared across Python, C99, JS/WASM, and Go bindings—with zero `anchorvec`, zero `zpp_bits`, zero `libcurl`/TLS, and zero GPL linkage.
 
 ## Layered Architecture
 
 ```text
-bindings/python (nanobind + pinvec SharedStorage + private SYMZ v3 pickle)
-bindings/c (C99 ABI)   bindings/js (pinvec / WASM / N-API)   bindings/go (cgo)   C++ (find_package)
+bindings/python (nanobind + anchorvec SharedStorage + private SYMZ v3 pickle)
+bindings/c (C99 ABI)   bindings/js (anchorvec / WASM / N-API)   bindings/go (cgo)   C++ (find_package)
         │                              │                             │                   │
         └──────────────────────────────┴──────────────┬──────────────┴───────────────────┘
                                                       ▼
@@ -48,7 +48,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 > [!TIP]
 > **Finalized Decision**
 >
-> `symusic`, `minimidi` and `pinvec` stay on **C++20** (`cxx_std_20`). Lowering to C++17 would help only hosts that cannot compile C++20: Android NDK r23–r25, whose libc++ lacks `std::ranges::sort`, hosts pinned to `/std:c++17` such as ROS 2 and older JUCE projects, and old Xcode toolchains. The planned C ABI, JS/WASM and Go `cgo` bindings consume a compiled library and do not depend on its language standard. The cost would be rewriting about 178 constrained template parameters, 23 `requires` clauses and 125 `std::span` uses at #134.
+> `symusic`, `minimidi` and `anchorvec` stay on **C++20** (`cxx_std_20`). Lowering to C++17 would help only hosts that cannot compile C++20: Android NDK r23–r25, whose libc++ lacks `std::ranges::sort`, hosts pinned to `/std:c++17` such as ROS 2 and older JUCE projects, and old Xcode toolchains. The planned C ABI, JS/WASM and Go `cgo` bindings consume a compiled library and do not depend on its language standard. The cost would be rewriting about 178 constrained template parameters, 23 `requires` clauses and 125 `std::span` uses at #134.
 >
 > Lowering later stays possible without breaking callers as long as public signatures do not change. The one exception is vocabulary types in signatures: `std::span` must either stay or be replaced before 0.7 freezes the API, so that choice is settled now: public signatures keep `std::span`.
 

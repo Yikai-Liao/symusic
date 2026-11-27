@@ -1,6 +1,6 @@
 # Tri-Repo Module Boundaries
 
-Clear ownership boundaries across **`minimidi`**, **`pinvec`**, and **`symusic`** eliminate header leaks, reference cycles, duplicated policy, and license entanglement across all language bindings.
+Clear ownership boundaries across **`minimidi`**, **`anchorvec`**, and **`symusic`** eliminate header leaks, reference cycles, duplicated policy, and license entanglement across all language bindings.
 
 ## 1. `minimidi` — Standalone SMF Wire Library
 
@@ -19,19 +19,19 @@ Clear ownership boundaries across **`minimidi`**, **`pinvec`**, and **`symusic`*
 | Raw MIDI messages & `EventView::is_note_off()` | `minimidi` | MIDI 1.0 wire protocol defines only instant messages, never duration notes |
 | FIFO/LIFO overlap pairing, hanging-note policy, channel/program/drum grouping, `i32` overflow, CC64 sustain tracking | `symusic` | Performance-modeling policy tightly coupled to `ScoreBuilder` |
 
-## 3. `pinvec` (Tentative Rename from `pyvec`) — Zero-Cycle Binding Vector (Python & JS/WASM)
+## 3. `anchorvec` (Renamed from `pyvec`) — Zero-Cycle Binding Vector (Python & JS/WASM)
 
-**Conclusion:** Isolate `pinvec` inside `bindings/python/` (and JS N-API/WASM bindings needing stable object handles). C++ core, C99 ABI, and Go (`cgo`) use pure `ValueStorage` (`std::vector`).
+**Conclusion:** Isolate `anchorvec` inside `bindings/python/` (and JS N-API/WASM bindings needing stable object handles). C++ core, C99 ABI, and Go (`cgo`) use pure `ValueStorage` (`std::vector`).
 
 - **Monotonic 3-state architecture:** `Flat` → `PagedDirect` (`kCap = 256` bitshift indexing) → `PagedIndirect`, **never implicitly demoting**, so a handle taken in one mode is not invalidated by a later mode change. This removes one class of use-after-free; free-threaded Python still needs per-container locking for concurrent mutation.
 - **Zero strong reference cycles:** Leaf 4KB-class `AlignedPage` blocks never hold external references. External `shared_ptr<T>` pushes live in a list-owned `_ext_owners` vector + freelist referenced via a **Tagged Pointer (`bit 0 = 1`)** (`max(alignof(T), 2)` slot stride supports `alignof(T) == 1`). Passes self-reinsert (`a.push_back_shared(a.share(0))`) and cross-list (`a <-> b`) zero-leak ASan/UBSan tests, and releases deleted external objects immediately.
-- **O(1) `is_flat()` / `flat_data()`:** Returns non-null **only** in `Mode::Flat` — zero false positives after `reverse`, `sort`, `del`, or `[::2]`. `share(i)` is non-`const`, so concurrent reads through a `const PinVec` are safe while no thread mutates it.
-- **Source-level anti-fragmentation & clean C++20 STL API:** Companion `pinvec::make_pinned<T>` thread-local 4KB page pool for Python `Note(...)` / JS `new Note()` construction. Single zero-dependency header `<pinvec/pinvec.hpp>` dropping Pythonisms (`append`/`getitem`/`pypos`/`slice`) and bundled `timsort` (`if (std::is_sorted) return; std::stable_sort(...)`; skip premature `sort_with` hook in `v0.1`).
+- **O(1) `is_flat()` / `flat_data()`:** Returns non-null **only** in `Mode::Flat` — zero false positives after `reverse`, `sort`, `del`, or `[::2]`. `share(i)` is non-`const`, so concurrent reads through a `const AnchorVec` are safe while no thread mutates it.
+- **Source-level anti-fragmentation & clean C++20 STL API:** Companion `anchorvec::make_pinned<T>` thread-local 4KB page pool for Python `Note(...)` / JS `new Note()` construction. Single zero-dependency header `<anchorvec/anchorvec.hpp>` dropping Pythonisms (`append`/`getitem`/`pypos`/`slice`) and bundled `timsort` (`if (std::is_sorted) return; std::stable_sort(...)`; skip premature `sort_with` hook in `v0.1`).
 - **Why no `contiguous()` in Python's public API:** In-place compaction would silently sever live external `Note` references, while conditional-copy creates unpredictable aliasing on mutable containers and leaks binding storage internals. Instead, deep copies (`score.copy()`, `copy.deepcopy`) build fresh, compact storage, while bulk callers construct via `EventList.from_numpy(...)`.
 
 ### Prototype Benchmarks (`-O3`; the prototype also passes ASan/UBSan)
 
-| Workload | PinVec V2 Result | Baseline Comparison |
+| Workload | AnchorVec V2 Result | Baseline Comparison |
 |---|---|---|
 | Bulk 200k `Note` (`adopt` + RAM) | **12.0 B/el**, `adopt` **0.02 µs** | Matches `std::vector`; **40% less RAM** vs old `pyvec` (20 B/el) |
 | 1-element slice retention | **4.1 KB** retained | vs **2.4 MB** (**580× reduction**) |
