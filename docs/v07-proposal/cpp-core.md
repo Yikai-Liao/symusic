@@ -29,7 +29,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 | `Tempo` construction | `Tempo::from_qpm(t, 120.0)` exists, but brace initialization `Tempo<Tick>{0, 120}` silently means `120 µs/quarter` (500,000 QPM) | Keep `Tempo::from_qpm(t, 120.0)` and add `Tempo::from_microseconds_per_quarter(t, 500000)`, so every construction names its unit |
 | `clip`/`trim` & `adjust_time` | `clip(start, end, bool clip_end)`; `trim(start, end, min_overlap, start_mode, end_mode)` with string modes; mutating free `void ops::adjust_time` | `clip(start, end, const ClipOptions& = {})`; `ClipOptions` holds `head` (default `ClipMode::Drop`) and `tail` (default `ClipMode::Keep`) of `enum class ClipMode { Keep, Drop, Cut }`; `trim` and `min_overlap` go; returning `score.adjust_time(orig, target)` taking `span` |
 | File I/O & members | Free `read_score(path, format, decode_abc)` and `read_score_file(path)` returning bytes; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
-| `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
+| `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path`; `render(score, bool stereo = true)` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `render(score, AudioChannels)` with `enum class AudioChannels { Mono, Stereo }`; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
 | Emptiness idiom | `Score::empty()`, `Track::empty()`, `Note::empty()` | Keep STL `.empty()` on containers (bound to `.is_empty()` in Python); rename `Note::empty()` → `is_silent()` |
 
 > [!WARNING]
@@ -98,7 +98,7 @@ auto midi_out = window.to_midi();
 
 // Runtime-loaded FluidSynth (dlopen / LoadLibraryExW)
 Synthesizer synth(lib_path, "gm.sf3", SynthSettings{.sample_rate = 44100});
-AudioBuffer audio = synth.render(window, AudioChannels::Stereo);
+AudioBuffer audio = synth.render(window, /*stereo=*/true);
 ```
 
 **0.6 (Legacy)**
