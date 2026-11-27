@@ -58,6 +58,8 @@ All **60 changes** (46 Python + 14 C++ Core). Rows marked **Deprecated** are the
 
 ## C++ Core 0.6 → 0.7 (14 Changes)
 
+> For the complete C++20 public declarations (`SynthSettings`, `ClipOptions`, `MidiReadOptions`, events, `Track`, `Score`, `Pianoroll`, `Synthesizer`), see the [Finalized C++ 0.7 API Synopsis](cpp-core.md#finalized-c-07-api-synopsis).
+
 | Severity | Category | 0.6 | 0.7 | Notes |
 |---|---|---|---|---|
 | C++ Core | C++ Core & Storage | `ScoreNative<Tick>`<br>`to_native(shared) / to_shared(native)` | `Score<Tick>  // ValueStorage` | PR #131 (`include/symusic/storage.h`): Drops `pyvec` and `*Native` types from C++ core. Pure C++ (as well as C ABI, Go, and WASM) uses `ValueStorage` (`vec<Track<T>>`); Python (and optional Node N-API) bindings supply `SharedStorage` backed by `anchorvec`. |
