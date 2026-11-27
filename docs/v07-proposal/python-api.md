@@ -9,7 +9,7 @@ Every change in [RFC #136](https://github.com/Yikai-Liao/symusic/issues/136) rem
 | Public surface | `symusic.core`, `symusic.factory`, `symusic.types`, `symusic.soundfont` | Top-level `symusic` only; `symusic._core` & `symusic._soundfont` are private (`python -m symusic.skill` kept) |
 | Time units | Free-form `"tick"` / `"second"`, `TimeUnit.tick` | `ttype` accepts non-instantiable marker **class objects** (`type[Tick] \| type[Quarter] \| type[Second]`); `Score[Second]()` raises `TypeError` |
 | Containers | `NoteTickList`, `TempoTickList`, `TextMetaTickList`, … | Single generic `EventList[Note[Tick]]` + `TrackList[Tick]`; strict `MutableSequence` (never equates to plain `list` — use `not notes` or `list(notes) == expected`) |
-| Events & audio | `TextMeta`, `Soundfont`, `BuiltInSF2`/`BuiltInSF3`, `dump_wav()` | `TextEvent`, `Synthesizer`, and `download_soundfont(name="musescore_general_sf3", *, cache_dir=None, force=False) -> Path` |
+| Events & audio | `TextMeta`, `Soundfont`, `BuiltInSF2`/`BuiltInSF3`, `dump_wav()` | `TextEvent`, `Synthesizer`, `write_wav()` (zero-dep WAV; use `soundfile` for multi-format), and `download_soundfont(name="musescore_general_sf3", *, cache_dir=None, force=False) -> Path` |
 
 ## 2. Strict CQS Mutability, Copy & Reference Semantics
 
@@ -207,17 +207,18 @@ rebuilt = Note.from_numpy(arr["time"], arr["duration"], arr["pitch"], arr["veloc
 **0.7 (After)**
 
 ```python
-import numpy as np
-from scipy.io import wavfile
-from symusic import Score, Synthesizer, download_soundfont
+import soundfile as sf
+from symusic import Score, Synthesizer, download_soundfont, write_wav
 
 score = Score.from_file("piece.mid")
 # Idempotent cached + SHA-384 verified SoundFont preset (default: "musescore_general_sf3")
 synth = Synthesizer(download_soundfont(), sample_rate=44100)
 
 audio = synth.render(score, stereo=True)  # float32 (frames, channels); mono (frames, 1)
-pcm16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
-wavfile.write("out.wav", 44100, pcm16)
+# Recommended for multi-format audio output (WAV, FLAC, OGG, Opus, MP3):
+sf.write("out.flac", audio, 44100)
+# Or zero-extra-dependency WAV export for quick debugging:
+write_wav("out.wav", audio, 44100)  # encoding="pcm16" (default) or "float32"
 ```
 
 **0.6 (Before)**

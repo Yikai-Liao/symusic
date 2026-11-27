@@ -94,6 +94,7 @@ struct PianorollOptions {
 };
 
 enum class AudioChannels : u8 { Mono = 1, Stereo = 2 };
+enum class AudioEncoding : u8 { Pcm16, Float32 }; // WAV sample encoding (zero-dep MIT)
 
 // 1-to-1 with FluidSynth 2.6+ fluid_interp (FLUID_INTERP_7THORDER deprecated upstream)
 enum class SynthInterpolation : int {
@@ -386,10 +387,20 @@ public:
 };
 
 struct AudioBuffer {
-    vec<f32> samples;      // interleaved float32 frames
-    size_t   channels = 0; // 1 (Mono) or 2 (Stereo)
-    [[nodiscard]] size_t frames() const;
+    vec<f32> samples;          // interleaved float32 frames
+    size_t   channels    = 0;  // 1 (Mono) or 2 (Stereo)
+    int      sample_rate = 0;  // Hz (carried from SynthSettings::sample_rate)
+
+    [[nodiscard]] size_t  frames() const;
+    [[nodiscard]] vec<u8> to_wav(AudioEncoding encoding = AudioEncoding::Pcm16) const; // zero-dep MIT WAV bytes
 };
+
+// Zero-dependency MIT WAV file writer (shared across C++, C ABI, Python, Go, JS/WASM)
+void write_wav(
+    const std::filesystem::path& path,
+    const AudioBuffer&           audio,
+    AudioEncoding                encoding = AudioEncoding::Pcm16
+);
 
 class Synthesizer {
 public:
@@ -429,6 +440,7 @@ int main() {
 
     Synthesizer synth("gm.sf3", {.sample_rate = 44100, .interpolation = SynthInterpolation::Highest});
     AudioBuffer audio = synth.render(resampled, AudioChannels::Stereo);
+    write_wav("out.wav", audio);  // zero-dependency WAV (Pcm16 default; or audio.to_wav())
 }
 ```
 
