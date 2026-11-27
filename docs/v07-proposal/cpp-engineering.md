@@ -23,8 +23,8 @@ include/symusic/            # Public C++20 headers + detail/*_impl.h (no vendor/
 src/                        # Core C++20 library + private MIDI wire TU + optional symusic::abc
 bindings/
   c/                        # C99 ABI (zero exceptions across extern "C")
-  python/                   # nanobind + anchorvec SharedStorage + private SYMZ v3 pickle codec
-  js/                       # anchorvec / WASM / N-API (deferred to 0.8+)
+  python/                   # nanobind + anchorvec SharedStorage + private C++20 SYMZ v3 pickle codec
+  js/                       # WASM (ValueStorage + TypedArray) / Node N-API (deferred to 0.8+)
   go/                       # cgo (deferred to 0.8+)
 extras/
   abcmidi/                  # Shared GPLv2 external converter recipe

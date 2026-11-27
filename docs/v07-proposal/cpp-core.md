@@ -5,8 +5,8 @@ symusic 0.7 establishes a C++-first **C++20** core (`symusic::symusic`, default 
 ## Layered Architecture
 
 ```text
-bindings/python (nanobind + anchorvec SharedStorage + private SYMZ v3 pickle)
-bindings/c (C99 ABI)   bindings/js (anchorvec / WASM / N-API)   bindings/go (cgo)   C++ (find_package)
+bindings/python (nanobind + anchorvec SharedStorage + private C++20 SYMZ v3 pickle)
+bindings/c (C99 ABI)   bindings/js (WASM ValueStorage / N-API)   bindings/go (cgo)   C++ (find_package)
         │                              │                             │                   │
         └──────────────────────────────┴──────────────┬──────────────┴───────────────────┘
                                                       ▼
@@ -29,7 +29,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 | `Tempo` construction | `Tempo::from_qpm(t, 120.0)` exists, but brace initialization `Tempo<Tick>{0, 120}` silently means `120 µs/quarter` (500,000 QPM) | Keep `Tempo::from_qpm(t, 120.0)` and add `Tempo::from_mspq(t, 500000)` (`mspq` = microseconds per quarter), so every construction names its unit; static converters `qpm_to_mspq` / `mspq_to_qpm` |
 | `clip`/`trim` & `adjust_time` | `clip(start, end, bool clip_end)`; `trim(start, end, min_overlap, start_mode, end_mode)` with string modes; mutating free `void ops::adjust_time` | `clip(start, end, const ClipOptions& = {})`; `ClipOptions` holds `head` (default `ClipMode::Drop`) and `tail` (default `ClipMode::Keep`) of `enum class ClipMode { Keep, Drop, Cut }`; `trim` and `min_overlap` go; returning `score.adjust_time(orig, target)` taking `span` |
 | File I/O & members | Free `read_score(path, format, decode_abc)` and `read_score_file(path)` returning bytes; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
-| `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path`; `render(score, bool stereo = true)` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `render(score, AudioChannels)` with `enum class AudioChannels { Mono, Stereo }`; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
+| `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path`; `render(score, bool stereo = true)` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `render(score, AudioChannels)` (`Mono`, `Stereo`); `Synthesizer(soundfont, const SynthSettings& = {})` (+ `span<const u8>` via `fluid_sfloader_t`) moves optional `library_path` into `SynthSettings` (explicit absolute path → co-located/bundled FluidSynth → system fallback) and adds `gain = 0.2`, `interpolation` aligned to FluidSynth 2.6 (`SynthInterpolation::{None, Linear, FourthOrder, Mid, High, Highest}`, default `FourthOrder`), and `cpu_cores = 1` |
 | Emptiness idiom | `Score::empty()`, `Track::empty()`, `Note::empty()` | Uniform `is_*` predicates across C++ and all bindings: `Score::is_empty()`, `Track::is_empty()`, `Note::is_silent()` (only STL sequence containers like `std::vector` / `anchorvec` keep `.empty()`) |
 
 > [!WARNING]
@@ -52,7 +52,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 >
 > Lowering later stays possible without breaking callers as long as public signatures do not change. The one exception is vocabulary types in signatures: `std::span` must either stay or be replaced before 0.7 freezes the API, so that choice is settled now: public signatures keep `std::span`.
 
-`zpp_bits` (6,058-line header) is still removed from the core, for a different reason: it serves only the Python pickle. C++ interchange uses MIDI, and Python owns a private little-endian **`SYMZ v3`** codec in its binding.
+`zpp_bits` (6,058-line header) is still removed from the core, for a different reason: it serves only the Python pickle. C++ interchange uses MIDI, and `bindings/python/` owns a private C++20 little-endian **`SYMZ v3`** codec compiled into `symusic._core` (fast-pathing `anchorvec.is_flat()` bulk `memcpy` with zero runtime regression).
 
 ## C++ Before / After
 
@@ -74,7 +74,7 @@ int main() {
     auto warped = window.adjust_time(std::span(original), std::span(target));
     auto resampled = warped.resample(480);  // one rounding step
 
-    Synthesizer synth(lib_path, "gm.sf3", SynthSettings{.sample_rate = 44100});
+    Synthesizer synth("gm.sf3", {.sample_rate = 44100, .interpolation = SynthInterpolation::Highest});
     AudioBuffer audio = synth.render(resampled, AudioChannels::Stereo);
 }
 ```

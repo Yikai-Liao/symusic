@@ -22,7 +22,7 @@ No `inplace=` flags anywhere. Operations are grouped explicitly by receiver muta
 
 ### Explicit Copy, Deepcopy & Reference Model
 
-Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the Python standard library: a list copy is shallow, as `list.copy()` is, and an object copy is deep, as `copy.deepcopy` is.
+Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the Python standard library: a list copy is shallow, as `list.copy()` is, and an object copy is deep, as `copy.deepcopy` is. This shallow/deep and alias-preserving matrix is a **Python host-protocol contract** (matching `MutableSequence` and stdlib `copy`); `ValueStorage` bindings (C++, C ABI, Go, WASM) share CQS and deep domain-object cloning without shallow container sharing or alias-preserving memo graphs.
 
 | Copy Operation | Semantics |
 |---|---|
@@ -245,4 +245,4 @@ symusic.dump_wav("out.wav", audio, 44100)
 | Binary streams | Require explicit `format`, remain caller-closed, handle short writes, typed with structural protocols |
 | Concurrency & reentrancy | Targets standard GIL CPython (free-threaded `3.13t`/`3.14t` deferred until per-container locking); `sort(key=...)` and Python callbacks enforce a reentrancy guard (`ValueError` on structural mutation during callback) |
 | Python data model | Equality is by value and requires the same `ttype` (`Score[Tick] == Score[Quarter]` is always `False`); mutable types are unhashable (`__hash__ = None`); `__eq__` returns `NotImplemented` for unknown types; `Tempo.__match_args__ == ("time", "qpm")`; escaped round-trippable `repr()`; `pianoroll()` is `Tick`-only |
-| Pickles (`SYMZ v3`) | Private Python little-endian codec carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); for inter-process transport only. #134 writes `SYMZ v2` through `zpp_bits`; the private codec is a new layout and bumps the version to 3 |
+| Pickles (`SYMZ v3`) | Private C++20 little-endian codec compiled into `bindings/python/` carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); for inter-process transport only. #134 writes `SYMZ v2` through `zpp_bits`; the private codec is a new layout and bumps the version to 3 |
