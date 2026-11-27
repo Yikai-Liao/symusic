@@ -27,7 +27,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 | Defaults & naming | `Score<T, S = ValueStorage>`, `Tempo<T>`, `TextMeta<T>`, `get_beats()` / `get_downbeats()` | `Score<T = Tick, S = ValueStorage>`, `Tempo<T = Tick>`, `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
 | `Note` domains & defaults | `i8` pitch/velocity; the constructor with arguments requires `velocity`, and default construction sets it to `0`; redundant `start()` | `i8` storage, validated musical domain (`0..127`), default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`); MIDI wire export additionally encodes `velocity=0` as NoteOff and caps `ticks_per_quarter` to `1..32767` |
 | `Tempo` construction | `Tempo::from_qpm(t, 120.0)` exists, but brace initialization `Tempo<Tick>{0, 120}` silently means `120 µs/quarter` (500,000 QPM) | Keep `Tempo::from_qpm(t, 120.0)` and add `Tempo::from_microseconds_per_quarter(t, 500000)`, so every construction names its unit |
-| `trim` & `adjust_time` | String `start_mode`/`end_mode`; mutating free `void ops::adjust_time` | `enum class TrimMode { Remove, Truncate, Retain }` + `TrimOptions`; returning `score.adjust_time(orig, target)` taking `span` |
+| `clip`/`trim` & `adjust_time` | `clip(start, end, bool clip_end)`; `trim(start, end, min_overlap, start_mode, end_mode)` with string modes; mutating free `void ops::adjust_time` | `clip(start, end, const ClipOptions& = {})`; `ClipOptions` holds `head` (default `ClipMode::Drop`) and `tail` (default `ClipMode::Keep`) of `enum class ClipMode { Keep, Drop, Cut }`; `trim` and `min_overlap` go; returning `score.adjust_time(orig, target)` taking `span` |
 | File I/O & members | Free `read_score(path, format, decode_abc)` and `read_score_file(path)` returning bytes; free `convert` / `resample` / `pianoroll` | `Score::from_file(path, opts)` / `to_file(path)`, `to<To>()`, single-step `resample()`, `Tick`-only `pianoroll()` members |
 | `Pianoroll` & `Synthesizer` | `operator()` returns `T*`, non-`const get()`; `Synthesizer` requires absolute `library_path` | `operator()` returns `T&` (+ `const`), `const get()`, `span` view; `Synthesizer` adds system-search & in-memory `span<const u8>` (`fluid_sfloader_t`) |
 | Emptiness idiom | `Score::empty()`, `Track::empty()`, `Note::empty()` | Keep STL `.empty()` on containers (bound to `.is_empty()` in Python); rename `Note::empty()` → `is_silent()` |
@@ -67,11 +67,11 @@ int main() {
     auto score = Score<>::from_file("piece.mid", {.strict = false});
 
     auto tempo = Tempo<>::from_qpm(0, 120.0);  // names its unit
-    auto trimmed = score.trim(0, 1920, {.start_mode = TrimMode::Truncate});
+    auto window = score.clip(0, 1920, {.tail = ClipMode::Cut});  // cut notes at end
 
     const Tick::unit original[] = {0, 960, 1920};
     const Tick::unit target[] = {0, 1200, 1920};
-    auto warped = trimmed.adjust_time(std::span(original), std::span(target));
+    auto warped = window.adjust_time(std::span(original), std::span(target));
     auto resampled = warped.resample(480);  // one rounding step
 
     auto synth = Synthesizer::create("gm.sf3", {.sample_rate = 44100});

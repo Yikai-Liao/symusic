@@ -18,7 +18,7 @@ No `inplace=` flags anywhere. Operations are grouped explicitly by receiver muta
 | Category | Return | Operations | Contract |
 |---|---|---|---|
 | **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `sort()` is **stable**: events with equal keys keep their relative order, as `list.sort` does, so equal-time tempos and CC64 events keep their playback order. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_*` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) **once per call** with atomic rollback on overflow |
-| **Returning transforms** | New object | `filtered()`, `clip()`, `trim()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new object. `filtered(f)` returns a new list holding the **same** elements that `f` accepts, like `[n for n in notes if f(n)]`, so `notes.filtered(f)[0] is notes[0]` when the first note passes. Use `notes[:] = notes.filtered(f)` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib |
+| **Returning transforms** | New object | `filtered()`, `clip()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new object. `filtered(f)` returns a new list holding the **same** elements that `f` accepts, like `[n for n in notes if f(n)]`, so `notes.filtered(f)[0] is notes[0]` when the first note passes. Use `notes[:] = notes.filtered(f)` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib |
 
 ### Explicit Copy, Deepcopy & Reference Model
 
@@ -37,6 +37,33 @@ Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the
 | **Existing `EventList` / `TrackList`** | `track.notes = existing_list` (e.g. `EventList.from_numpy(...)`, `other.notes`) | **Shares the container reference with zero copy** (`track.notes += [n]` naturally preserves aliases; call `.copy()` for an independent snapshot) |
 | **Individual `Note` / `Track` objects** | `append`, `insert`, `setitem`, `track.notes = [n1, n2]`, `score.tracks = [t1]` | **References each object's underlying handle directly without copying** — consistent with indexing (`track.notes[0]`) and slicing (`track.notes[:]`) |
 
+### Clipping a Window
+
+`clip(start, end, /, *, head="drop", tail="keep")` returns the part of a score or track inside `[start, end)`. It replaces 0.6 `clip(start, end, clip_end=False)` and `trim(start, end, min_overlap, start_mode, end_mode)`.
+
+A note lying wholly inside the window is kept, and one wholly outside is dropped. A note can stick out of the window on either side: its **head** is the part before `start`, and its **tail** the part after `end`. `head` and `tail` decide what happens to a note that has one:
+
+| Value | The note is |
+|---|---|
+| `"drop"` | removed |
+| `"cut"` | shortened to start at `start` (`head`) or end at `end` (`tail`) |
+| `"keep"` | kept unchanged |
+
+```python
+score.clip(0, 1920)                           # notes starting in the window, unchanged, as in 0.6
+score.clip(0, 1920, tail="drop")              # only notes lying wholly inside: 0.6 clip_end=True
+score.clip(0, 1920, tail="cut")               # notes starting in the window, cut at end
+score.clip(0, 1920, head="cut", tail="cut")   # excerpt, cut at both ends
+```
+
+- The defaults keep the notes whose onset lies in the window, so cutting consecutive windows puts every note in exactly one of them. `tail="drop"` cannot be emulated by moving `end`, because notes with the same onset can end at different times.
+- A note ending at `start` or starting at `end` touches the window without entering it and is dropped. 0.6 `trim` with `end_mode="retain"` kept a note starting exactly at `end`; 0.7 does not.
+- A note with both a head and a tail follows both rules: either `"drop"` removes it, and each `"cut"` shortens its side.
+- A zero-duration note has neither a head nor a tail; it is kept when its time lies in `[start, end)`.
+- Events without a duration (controls, pitch bends, lyrics, markers) are kept when their time lies in `[start, end)`. On a score, the tempo, time signature and key signature in effect at `start` are kept and moved to `start`.
+- Times are not shifted; call `shift_time(-start)` on the result to move it to 0.
+- `min_overlap` is removed. To drop short fragments left by `"cut"`, filter the result, for example `track.notes = track.notes.filtered(lambda n: n.duration >= 10)`.
+
 ## 3. CC64 Sustain Pedals (Fixes #5)
 
 Control change 64 in `track.controls` is now the single source of truth for sustain:
@@ -48,7 +75,7 @@ track.controls (CC64 >= 64 press / < 64 release)
 ```
 
 - Order is preserved on equal timestamps, repeated presses merge, and unclosed presses are omitted.
-- `clip()` and `trim()` perform raw timestamp filtering on controls, so sustain regions crossing a window boundary can lose their press or release event (a future playable-excerpt helper can synthesize active CC64 / pitch-bend / tempo state at window start).
+- `clip()` selects controls by timestamp, so sustain regions crossing a window boundary can lose their press or release event (a future playable-excerpt helper can synthesize active CC64 / pitch-bend / tempo state at window start).
 
 ## 4. Before / After Workflows
 
