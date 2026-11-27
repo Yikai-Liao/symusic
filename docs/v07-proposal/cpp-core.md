@@ -74,8 +74,8 @@ int main() {
     auto warped = window.adjust_time(std::span(original), std::span(target));
     auto resampled = warped.resample(480);  // one rounding step
 
-    auto synth = Synthesizer::create("gm.sf3", {.sample_rate = 44100});
-    AudioBuffer audio = synth.render(resampled, /*stereo=*/true);
+    Synthesizer synth(lib_path, "gm.sf3", SynthSettings{.sample_rate = 44100});
+    AudioBuffer audio = synth.render(resampled, AudioChannels::Stereo);
 }
 ```
 
@@ -98,7 +98,7 @@ auto midi_out = window.to_midi();
 
 // Runtime-loaded FluidSynth (dlopen / LoadLibraryExW)
 Synthesizer synth(lib_path, "gm.sf3", SynthSettings{.sample_rate = 44100});
-AudioBuffer audio = synth.render(window, /*stereo=*/true);
+AudioBuffer audio = synth.render(window, AudioChannels::Stereo);
 ```
 
 **0.6 (Legacy)**

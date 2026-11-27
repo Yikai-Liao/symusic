@@ -34,7 +34,7 @@ Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the
 | Input Kind | Assignment / Insertion | Semantics |
 |---|---|---|
 | **Plain Python `list` / iterable** | `track.notes = [n1, n2]`, `score.tracks = [t1]`, passing a `list` to `Track(...)`/`Score(...)` | Creates a **new** `EventList`/`TrackList` and rebinds the attribute (detached from the Python `list` and any prior `old = track.notes` alias; use `track.notes.clear()` or `track.notes[:] = [...]` to mutate through aliases) |
-| **Existing `EventList` / `TrackList`** | `track.notes = existing_list` (e.g. `EventList.from_numpy(...)`, `other.notes`) | **Shares the container reference with zero copy** (`track.notes += [n]` naturally preserves aliases; call `.copy()` for an independent snapshot) |
+| **Existing `EventList` / `TrackList`** | `track.notes = existing_list` (e.g. `EventList.from_numpy(...)`, `other.notes`) | **Shares the container reference with zero copy** (`track.notes += [n]` naturally preserves aliases; `.copy()` gives a new list of the same elements, and `copy.deepcopy()` copies the elements too) |
 | **Individual `Note` / `Track` objects** | `append`, `insert`, `setitem`, `track.notes = [n1, n2]`, `score.tracks = [t1]` | **References each object's underlying handle directly without copying** — consistent with indexing (`track.notes[0]`) and slicing (`track.notes[:]`) |
 
 ### Clipping a Window
@@ -61,6 +61,8 @@ score.clip(0, 1920, head="cut", tail="cut")   # excerpt, cut at both ends
 - A note with both a head and a tail follows both rules: either `"drop"` removes it, and each `"cut"` shortens its side.
 - A zero-duration note has neither a head nor a tail; it is kept when its time lies in `[start, end)`.
 - Events without a duration (controls, pitch bends, lyrics, markers) are kept when their time lies in `[start, end)`. On a score, the tempo, time signature and key signature in effect at `start` are kept and moved to `start`.
+- With `head="keep"`, a kept note can start before `start`, where the result has no tempo, time signature or key signature; converting it to `Second` uses the default tempo there.
+- `start > end`, or a NaN bound, raises `ValueError`.
 - Times are not shifted; call `shift_time(-start)` on the result to move it to 0.
 - `min_overlap` is removed. To drop short fragments left by `"cut"`, filter the result, for example `track.notes = track.notes.filtered(lambda n: n.duration >= 10)`.
 
