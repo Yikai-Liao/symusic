@@ -30,5 +30,5 @@
 | Python API | Code that runs on 0.7 without a `FutureWarning` keeps working through every 1.x release. The four [deprecated forms](migration.md) warn in 0.7 and are removed in 0.8. |
 | C++ source API | Code that compiles against the 0.7 public headers keeps compiling through 1.x; `detail/` headers and namespaces are excluded. There is no C++ ABI promise: rebuild against each release. |
 | C ABI | Specified for 0.8+ Go/C consumers ([C ABI contract](cpp-engineering.md)); built and frozen alongside its first consumer. |
-| Pickles | Load only in the symusic version that wrote them; store scores as MIDI. |
+| Pickles | Load only in the symusic version that wrote them. Use MIDI (`to_midi` / `to_file`) for cross-version interchange, noting its [export boundaries](semantics.md#midi-export) (`Tick` quantization, no negative times or silent notes, no shared object aliases). |
 | Behaviour | The rules in [semantics.md](semantics.md) are part of the API. Changing a result that contradicts them is a bug fix, not a break. |

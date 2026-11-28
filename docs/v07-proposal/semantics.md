@@ -20,9 +20,9 @@ Storage stays 32-bit, because note lists dominate memory and a wider time field 
 | 600 s | 61 µs | 2.9 sample frames |
 | 3600 s | 244 µs | 11.7 sample frames |
 
-A `Quarter` time above 8192 quarters (68 minutes at 120 qpm) has a spacing above 1/1024 quarter, coarser than one tick at `tpq = 960`. Work that needs more, such as sample-accurate placement in an hour-long `Second` score, keeps `Tick` times.
+At `8192` quarters (68 minutes at 120 qpm) a `Quarter` time has a spacing of `1/1024` quarter (`0.9375` ticks at `tpq = 960`); from `16384` quarters (~137 minutes at 120 qpm) upward the spacing reaches `1/512` quarter (`1.875` ticks), coarser than one tick at `tpq = 960`. Work that needs uniform grid resolution across multi-hour timelines keeps `Tick` times (at 120 qpm and `tpq = 960`, one tick equals 25 sample frames at 48 kHz; choose `tpq` for the grid precision needed).
 
-Computation is wider than storage, so no step adds error beyond the final rounding:
+Intermediate computation runs in wider types to avoid `f32` narrowing before the final conversion or frame rounding:
 
 - Tempo-map arithmetic (conversion between units, beat positions) runs in `f64`.
 - Rendering maps a `Tick` time to a sample frame in `f64` directly, without passing through an `f32` second.
@@ -66,11 +66,10 @@ A `from_numpy` column follows the rule of its field, and every row is checked be
 | Event | Key |
 |---|---|
 | `Note` | `(time, duration, pitch, velocity)` |
-| `ControlChange` | `(time, number)` |
 | Every other event | `time` |
 | `Track` in a `TrackList` | `(is_drum, program, name, note count)` |
 
-The controller value is not part of the key, so a CC64 release and press at the same tick stay in the order they are played. Descending order (`reverse=True`, `SortOrder::Descending`) reverses the comparison and keeps equal keys in their original order, as `list.sort(reverse=True)` does. `Score.sort()` and `Track.sort()` sort every contained event list and keep the track order. A sort computes every key first and then reorders once, so a key function that raises leaves the list unchanged.
+Because `ControlChange` sorts stably by `time` alone (neither `number` nor `value` is part of the key), same-time controller sequences—a CC64 release and press, Bank Select MSB/LSB (`CC0`, `CC32`), or RPN/NRPN selection followed by Data Entry (`CC101`, `CC100`, `CC6`)—stay in the order they were written. Descending order (`reverse=True`, `SortOrder::Descending`) reverses the comparison and keeps equal keys in their original order, as `list.sort(reverse=True)` does. `Score.sort()` and `Track.sort()` sort every contained event list and keep the track order. A sort computes every key first and then reorders once, so a key function that raises leaves the list unchanged.
 
 ## Shifting
 
@@ -93,7 +92,7 @@ The controller value is not part of the key, so a CC64 release and press at the 
 - A note with both a head and a tail follows both rules: either `drop` removes it, and each `cut` shortens its side.
 - A zero-duration note has neither a head nor a tail; it is kept when its time lies in `[start, end)`.
 
-**Other events.** Controls, pitch bends, lyrics and markers are kept when their time lies in `[start, end)`. Tempos, time signatures and key signatures describe state, so the window keeps the state in effect where it begins. Let `t0` be `start`, or the earliest onset of a kept note if that is earlier, which happens only with `head = keep`. Each of the three lists keeps its events inside `(t0, end)` and gains, at time `t0`, the event in effect there: the last event at or before `t0`, taking the last in list order among equal times. A list with no event at or before `t0` gains nothing, and the default tempo applies there.
+**Other events.** Controls, pitch bends, lyrics and markers are kept when their time lies in `[start, end)`. Tempos, time signatures and key signatures describe timeline state across every kept note: let `t0` be `min(start, earliest kept note onset)` (earlier than `start` only with `head = keep`) and `t1` be `max(end, latest kept note end)` (later than `end` only with `tail = keep`). Each of the three lists keeps its events inside `(t0, t1)` and gains, at time `t0`, the event in effect there: the last event at or before `t0`, taking the last in list order among equal times. A list with no event at or before `t0` gains nothing, and the default tempo applies there. Carrying the active tempo at `t0` preserves durations inside `[t0, t1)`, not the score's absolute second offset from `0` when `t0 > 0`.
 
 **Edge cases.**
 
@@ -129,19 +128,18 @@ Python's copy protocols, `deepcopy` memo and identity rules are in [python-api.m
 
 **Values.** Export raises `ValueError` for a `tpq` outside `1..32767`, a tempo with `mspq` above `16777215`, or an event at a negative time.
 
-**Tracks and channels.** Each track becomes one MIDI track that starts with its program change at tick 0. Drum tracks use channel 9 (zero-based). Melodic tracks take the other fifteen channels (`0–8`, `10–15`) in track order, counting melodic tracks only, and wrap after fifteen. Names, lyrics and markers are written as UTF-8. Bank selects are ordinary controls (CC0, CC32) and are written as stored.
+**Tracks and channels.** Each track holding at least one exportable event (a non-silent note, control, pitch bend or lyric) becomes one MIDI track; tracks without exportable events write no channel messages and are omitted. Drum tracks use channel 9 (zero-based). Melodic tracks take the other fifteen channels (`0–8`, `10–15`) in track order, counting non-empty melodic tracks only, and wrap after fifteen. Names, lyrics and markers are written as UTF-8. At tick 0, any tick-0 Bank Select controls (`CC0`, `CC32`) on the track precede its initial `Program Change` (`track.program`); when `CC0` or `CC32` appears at a later tick `t > 0`, `Program Change` (`track.program`) is re-emitted immediately after that tick's Bank Select controls so external MIDI 1.0 players activate the bank just as `render()` does.
 
 **Notes.**
 
-- A velocity-0 note is skipped: SMF has no way to write it, because a NoteOn with velocity 0 means NoteOff.
-- A zero-duration note writes its NoteOn and NoteOff at the same tick.
-- At one tick, a track writes its non-note messages first, then NoteOffs, then NoteOns. A zero-duration note's NoteOn goes with the NoteOffs and its NoteOff with the NoteOns, so pairing on import restores it when no other note of the same pitch in that track is sounding across that tick.
+- Silent notes (`velocity == 0` or `duration == 0`, i.e. `note.is_silent()`) are skipped, matching `render()`: SMF encodes a velocity-0 NoteOn as NoteOff, and a zero-duration NoteOn/NoteOff pair would retrigger external synthesizers and split overlapping same-pitch notes under FIFO pairing.
+- At one tick, a track writes its non-note messages first (with Bank Selects followed by `Program Change` as above), then NoteOffs, then NoteOns.
 - The writer orders a copy of each list stably by time. The score need not be sorted, and events at equal times keep their list order.
 
-**Round trip.** Reading the file back with `from_midi` gives the source score, converted to `Tick` and without its velocity-0 notes, once both are sorted, when these hold:
+**Round trip.** Reading the file back with `from_midi` gives the source score, converted to `Tick` and without its silent notes (`is_silent()`), once both are sorted, when these hold:
 
-- Every track holds at least one event. A track without events writes no channel message and does not come back.
-- No two notes of the same pitch in one track overlap with one inside the other (including a zero-duration note placed while another note of that pitch is already sounding). The reader pairs NoteOn and NoteOff first-in first-out, so a nested note comes back with a different duration.
+- Every track holds at least one exportable event (a non-silent note, control, pitch bend or lyric). A track without exportable events writes no channel message and does not come back.
+- No two non-silent notes of the same pitch in one track overlap with one inside the other. The reader pairs NoteOn and NoteOff first-in first-out, so a nested note comes back with a different duration.
 
 Channel sharing does not break the round trip, because the reader groups notes per MIDI track. It matters to players that merge channels across tracks: with more than fifteen melodic tracks, some share a channel and its controller state, and drum tracks always share channel 9.
 
@@ -158,7 +156,7 @@ Channel sharing does not break the round trip, because the reader groups notes p
 
 - Axes are `(mode, pitch, time)` for a track and `(mode, track, pitch, time)` for a score. The mode axis follows the order of `modes`, by default `(frame, onset)`.
 - `pitch_range` is half-open, `[low, high)` with `0 <= low < high <= 128`; notes outside it are skipped.
-- The time axis has `end() + 1` cells. Any event at a negative time raises `ValueError`.
+- The time axis has `end() + 1` cells (`1` cell of zeros when empty). Any event at a negative time raises `ValueError`, and `end() == INT32_MAX` or a total cell count overflowing `size_t` raises `OverflowError`.
 - `onset` writes the cell at the note's time, `frame` fills `[time, end)`, and `offset` writes the cell at its end. A zero-duration note writes its onset and offset cells and no frame.
 - A cell holds `1`, or the velocity with `encode_velocity`. Velocity-0 notes are skipped. Where notes overlap, the later note in list order wins.
 
@@ -166,9 +164,9 @@ Channel sharing does not break the round trip, because the reader groups notes p
 
 `render(score)` synthesizes a score of any unit with the SoundFont and settings of its `Synthesizer`. A `Tick` or `Quarter` score is converted to sample frames in `f64` through its tempo map.
 
-**What sounds.** Each track renders on its own synthesizer channel, so tracks never share controller state; a score with more than 256 tracks that hold notes raises `ValueError`. Notes, controls (sustain, bank select, volume and the rest) and pitch bends are scheduled. A melodic track starts at bank `0`, updates its bank from CC0 and CC32 (`msb * 128 + lsb` once CC32 has been received, otherwise `msb`), and selects `(bank, program)`; when the SoundFont lacks that preset, it falls back to `(0, program)` and then `(0, 0)` (General MIDI fallback). A drum track always stays on percussion bank `128` regardless of CC0 or CC32 and selects `(128, program)`, falling back to `(128, 0)` (Standard Kit); if the SoundFont has no `(128, 0)` percussion preset, drum notes stay silent rather than playing a melodic instrument. Only a SoundFont with no melodic preset at `(0, 0)` when a melodic track renders fails with `ValueError`. Velocity-0 and zero-duration notes are skipped. An event at a negative time in any track or score list raises `ValueError`; shift the score first.
+**What sounds.** Each track renders on its own synthesizer channel, so tracks never share controller state; a score with more than 256 tracks that hold notes raises `ValueError`. Notes, controls (sustain, bank select, volume and the rest) and pitch bends are scheduled, with same-time Bank Selects (`CC0`, `CC32`) sent before `Program Change` (`track.program`) both at time 0 and whenever `CC0`/`CC32` changes mid-track, matching [MIDI export](#midi-export). A melodic track starts at bank `0`, updates its SoundFont bank from `CC0` (FluidSynth's default GS/SoundFont mapping `bank = CC0` in `0..127`; `CC32` is forwarded as a controller without shifting the SoundFont bank), and selects `(bank, program)`; when the SoundFont lacks that preset, it falls back to `(0, program)` and then `(0, 0)` (General MIDI fallback). A drum track always stays on percussion bank `128` regardless of `CC0` or `CC32` and selects `(128, program)`, falling back to `(128, 0)` (Standard Kit); if the SoundFont has no `(128, 0)` percussion preset, drum notes stay silent rather than playing a melodic instrument. Only a SoundFont with no melodic preset at `(0, 0)` when a melodic track renders fails with `ValueError`. Silent notes (`velocity == 0` or `duration == 0`) are skipped. An event at a negative time in any track or score list raises `ValueError`; shift the score first.
 
-**Timing.** The synthesizer processes audio in blocks whose size comes from FluidSynth (64 frames by default, 1.33 ms at 48 kHz). An event starts at the first block boundary at or after its exact frame, so it is late by less than one block, and a note sounds for at least one block unless cut earlier by `sample_frames`. A later release may tighten this bound without changing the API. Audible onset also depends on the instrument's attack, which is part of the SoundFont, not of scheduling.
+**Timing.** The synthesizer processes audio in blocks whose size comes from FluidSynth (64 frames by default, 1.33 ms at 48 kHz). An event is scheduled at `B × ceil(frame / B)`, so every onset is late by less than one block; a note ends at `max(B × ceil(off / B), on_scheduled + B)` unless cut earlier by `sample_frames` (lengthening a sub-block note to one block). Controllers and sustain pedals stay as written in the score—an unclosed `CC64 >= 64` press is not released automatically at `end()`, so notes held by it continue ringing or decaying through `tail_seconds`. A later release may tighten the block bound without changing the API. Audible onset also depends on the instrument's attack, which is part of the SoundFont, not of scheduling.
 
 **Length.**
 

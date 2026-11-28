@@ -24,8 +24,8 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 
 | Area | Current (`07/pr6-api`) | Finalized Native C++ 0.7 |
 |---|---|---|
-| Defaults & naming | `Score<T, S = ValueStorage>`, public mutable `Score::ticks_per_quarter`, `Tempo<T>` (`microseconds_per_quarter`), `TextMeta<T>`, `get_beats()` / `get_downbeats()` | `Score<T = Tick, S = ValueStorage>` as a `class` whose resolution is the read-only `tpq()` (set by the constructor; only `resample()` produces a different one), `Tempo<T = Tick>` (`mspq`), `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
-| Event constructors & `Note` defaults | `i8` pitch/velocity; constructors take the storage types, so `Note(0, 480, 300, 64)` wraps; the constructor with arguments requires `velocity`, and default construction sets it to `0`; redundant `start()` | Checked constructors: `Tick` times and durations arrive as `i64` (with floating-point overloads `= delete`d, throwing `std::overflow_error` outside `i32`), `Quarter`/`Second` times and durations arrive as `f64` (`std::invalid_argument` on NaN/Inf, `std::overflow_error` outside finite `f32`), and musical integers arrive as `i64` (`pitch` and `velocity` `0..127`, `duration >= 0`). `i8` storage, default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`). Fields stay public; assigning one is unchecked, and every encoder validates what it writes. MIDI export skips velocity-0 notes, which SMF cannot encode, and rejects a `tpq` outside `1..32767` ([MIDI export](./semantics.md#midi-export)) |
+| Defaults & naming | `Score<T, S = ValueStorage>`, public mutable `Score::ticks_per_quarter`, `Tempo<T>` (`microseconds_per_quarter`), `TextMeta<T>`, `get_beats()` / `get_downbeats()` | Single-parameter `Score<T = Tick>` and `Track<T = Tick>` (backed by `detail::BasicScore<T, S>` / `detail::BasicTrack<T, S>` so the storage policy never enters public C++ signatures), `Score` as a `class` whose resolution is the read-only `tpq()` (set by the constructor; only `resample()` produces a different one), `Tempo<T = Tick>` (`mspq`), `TextEvent<T>`, `beats(start=0)` / `downbeats(start=0)` |
+| Event constructors & `Note` defaults | `i8` pitch/velocity; constructors take the storage types, so `Note(0, 480, 300, 64)` wraps; the constructor with arguments requires `velocity`, and default construction sets it to `0`; redundant `start()` | Checked wide inputs across constructors and scalar time methods (`shift_time`, `clip`, `beats`, `downbeats`, `to`, `resample`, `convert_time`): `Tick` times and durations arrive as `i64` (with floating-point overloads `= delete`d, throwing `std::overflow_error` outside `i32`), `Quarter`/`Second` times and durations arrive as `f64` (`std::invalid_argument` on NaN/Inf, `std::overflow_error` outside finite `f32`), and musical integers arrive as `i64` (`pitch` and `velocity` `0..127`, `duration >= 0`). `i8` storage, default `velocity = 64` (`0x40`), drop `start()` (keep `.time`, `.end()`). Fields stay public; assigning one is unchecked, and every encoder validates what it writes. MIDI export skips silent notes (`velocity == 0` or `duration == 0`) and rejects a `tpq` outside `1..32767` ([MIDI export](./semantics.md#midi-export)) |
 | `Tempo` construction | `Tempo::from_qpm(t, 120.0)` exists, but brace initialization `Tempo<Tick>{0, 120}` silently means `120 µs/quarter` (500,000 QPM) | `Tempo` has no two-number constructor, so `Tempo<Tick>{0, 120}` no longer compiles. Every construction names its unit: `Tempo::from_qpm(t, 120.0)` or `Tempo::from_mspq(t, 500000)` (`mspq` = microseconds per quarter); static converters `qpm_to_mspq` / `mspq_to_qpm` |
 | `clip`/`trim` & `adjust_time` | `clip(start, end, bool clip_end)`; `trim(start, end, min_overlap, start_mode, end_mode)` with string modes; mutating free `void ops::adjust_time` | `clip(start, end, const ClipOptions& = {})`; `ClipOptions` holds `head` (default `ClipMode::Drop`) and `tail` (default `ClipMode::Keep`) of `enum class ClipMode { Keep, Drop, Cut }`; `trim`, `min_overlap` and mutating `ops::*` helpers go; returning `score.adjust_time(orig, target)` taking `span`. Both follow [clip](./semantics.md#clip) and [adjust_time](./semantics.md#warping-time) |
 | File I/O, free helpers & members | Free `read_file`/`write_file`, `read_score(path, format, decode_abc)` and `read_score_file(path)` returning bytes; free `convert` / `resample` / `pianoroll`; public `repr.h` pulling `<fmt/...>` | Minimal public header surface: `Score::from_midi(bytes, opts)` / `to_midi()` and `Score::from_file(path, opts)` / `to_file(path)` (MIDI only; raw `read_file`/`write_file`, `read_score`, `serialize`/`deserialize`, and `<fmt/...>` leave public headers). ABC is free functions in the optional `symusic::abc` adapter ([boundaries](./cpp-boundaries.md)). Members `to<To>()` (explicitly instantiated for all `3 × 3` unit pairs), single-step `resample()`, `Tick`-only `pianoroll()`; free `sort_tracks`, `sort_events`, `is_sorted`, `convert_time`, `convert_times`, and `events_from_columns` serve `std::vector`/`std::span` |
@@ -58,7 +58,7 @@ Reconciling `origin/07/pr6-api` headers with finalized Python 0.7 ([RFC #136](./
 
 ## Finalized C++ 0.7 API Synopsis
 
-Complete public C++20 declarations for every finalized and changed type in `namespace symusic` (pure `ValueStorage` default; `SharedStorage` lives in `bindings/python/`). `Tick`, `Quarter` and `Second` are the only time units, and `ValueStorage` plus the binding's private `SharedStorage` the only storages: the template parameters are not extension points, and other arguments are unsupported even where they compile. The behaviour behind each declaration is in [semantics.md](./semantics.md).
+Complete public C++20 declarations for every finalized and changed type in `namespace symusic`. `Tick`, `Quarter` and `Second` are the only time units (`T` is not a user extension point, and other arguments are unsupported even where they compile). Storage-generic `detail::BasicTrack<T, S>` and `detail::BasicScore<T, S>` stay internal (`detail::ValueStorage` for C++, C ABI, Go and JS; `py::SharedStorage` in `bindings/python/`), so public `symusic::Track<T = Tick>` and `symusic::Score<T = Tick>` take a single template parameter `T` and expose `vec<E>` / `vec<Track<T>>` directly without leaking a storage parameter into caller code. The behaviour behind each declaration is in [semantics.md](./semantics.md).
 
 ### Time Units, Concepts, Enums & Options
 
@@ -72,8 +72,6 @@ struct Second  : TimeUnit<f32> {};
 template<typename T> concept TType       = std::is_base_of_v<TimeUnit<typename T::unit>, T>;
 template<typename T> concept TimeEvent   = std::is_base_of_v<TimeStamp<typename T::ttype>, T>;
 template<typename T> concept HasDuration = requires(T t) { { t.duration } -> std::convertible_to<typename T::unit>; }; // fixes HashDuration
-
-struct ValueStorage; // default storage policy (std::vector<E>, tracks by value)
 
 class ParseError     : public std::runtime_error { using std::runtime_error::runtime_error; };
 class CancelledError : public std::runtime_error { using std::runtime_error::runtime_error; };
@@ -267,39 +265,44 @@ struct TextEvent : TimeStamp<T> { // renamed from TextMeta
 };
 
 template<TimeEvent E>
-void shift_time(E& event, typename E::unit offset);
+void shift_time(E& event, time_input_t<typename E::ttype> offset);
+template<TimeEvent E, std::floating_point U>
+    requires std::same_as<typename E::ttype, Tick>
+void shift_time(E&, U) = delete;
 
 } // namespace symusic
 ```
 
 ### `Track` & `Score` (`track.h`, `score.h`)
 
-No `*_inplace` methods, no `trim()`, no `ScoreNative`/`TrackNative`, no `serialize()`/`deserialize()`, no `copy()`. Mutators return `void` with the strong exception guarantee; transforms are `[[nodiscard]] const` and return a fresh value that shares nothing with the receiver, even when nothing changes (`to<Tick>()` on a `Tick` score, `resample()` to the same `tpq`).
+No `*_inplace` methods, no `trim()`, no `ScoreNative`/`TrackNative`, no `serialize()`/`deserialize()`, no `copy()`. In headers, `Track<T = Tick>` and `Score<T = Tick>` alias `detail::BasicTrack<T, detail::ValueStorage>` and `detail::BasicScore<T, detail::ValueStorage>` (shown expanded below as callers use them); template definitions live in repo-private `src/*_impl.h` and are explicitly instantiated per unit. Mutators return `void` with the strong exception guarantee; transforms are `[[nodiscard]] const` and return a fresh value that shares nothing with the receiver, even when nothing changes (`to<Tick>()` on a `Tick` score, `resample()` to the same `tpq`).
 
 ```cpp
 namespace symusic {
 
-template<TType T = Tick, typename S = ValueStorage>
+// Public single-parameter alias: using Track = detail::BasicTrack<T, detail::ValueStorage>;
+template<TType T = Tick>
 struct Track {
-    using ttype        = T;
-    using unit         = typename T::unit;
-    using storage_type = S;
+    using ttype = T;
+    using unit  = typename T::unit;
 
-    std::string                                 name;
-    u8                                          program = 0; // 0..127
-    bool                                        is_drum = false;
-    typename S::template List<Note<T>>          notes;
-    typename S::template List<ControlChange<T>> controls;
-    typename S::template List<PitchBend<T>>     pitch_bends;
-    typename S::template List<TextEvent<T>>     lyrics;      // stored pedals removed
+    std::string            name;
+    u8                     program = 0; // 0..127
+    bool                   is_drum = false;
+    vec<Note<T>>           notes;
+    vec<ControlChange<T>>  controls;
+    vec<PitchBend<T>>      pitch_bends;
+    vec<TextEvent<T>>      lyrics;      // stored pedals removed
 
     Track() = default;
     Track(std::string name, i64 program = 0, bool is_drum = false);
-    Track(std::string name, i64 program, bool is_drum,
-          typename S::template List<Note<T>>          notes,
-          typename S::template List<ControlChange<T>> controls,
-          typename S::template List<PitchBend<T>>     pitch_bends,
-          typename S::template List<TextEvent<T>>     lyrics);
+    Track(std::string           name,
+          i64                   program,
+          bool                  is_drum,
+          vec<Note<T>>          notes,
+          vec<ControlChange<T>> controls,
+          vec<PitchBend<T>>     pitch_bends,
+          vec<TextEvent<T>>     lyrics);
 
     void set_program(i64 value); // validates 0..127
 
@@ -314,38 +317,45 @@ struct Track {
 
     // In-place mutators (void, strong guarantee)
     void sort(SortOrder order = SortOrder::Ascending); // stable, on every event list
-    void shift_time(unit offset);
+    void shift_time(time_input_t<T> offset);
+    template<std::floating_point U> requires std::same_as<T, Tick>
+    void shift_time(U) = delete;
     void shift_pitch(i64 offset);
     void shift_velocity(i64 offset);
 
     // Returning transforms (leave receiver unchanged)
-    [[nodiscard]] Track          clip(unit start, unit end, const ClipOptions& opts = {}) const;
+    [[nodiscard]] Track          clip(time_input_t<T> start, time_input_t<T> end, const ClipOptions& opts = {}) const;
+    template<typename U, typename V>
+        requires (std::same_as<T, Tick> && (std::floating_point<U> || std::floating_point<V>))
+    Track                        clip(U, V, const ClipOptions& = {}) const = delete;
     [[nodiscard]] Track          adjust_time(std::span<const unit> original, std::span<const unit> target) const;
     [[nodiscard]] TrackPianoroll pianoroll(const PianorollOptions& opts = {}) const requires std::same_as<T, Tick>;
 };
 
-template<TType T = Tick, typename S = ValueStorage>
+// Public single-parameter alias: using Score = detail::BasicScore<T, detail::ValueStorage>;
+template<TType T = Tick>
 class Score {
 public:
-    using ttype        = T;
-    using unit         = typename T::unit;
-    using storage_type = S;
-    using track_type   = Track<T, S>;
+    using ttype      = T;
+    using unit       = typename T::unit;
+    using track_type = Track<T>;
 
-    typename S::template Tracks<track_type>     tracks;
-    typename S::template List<TimeSignature<T>> time_signatures;
-    typename S::template List<KeySignature<T>>  key_signatures;
-    typename S::template List<Tempo<T>>         tempos;
-    typename S::template List<TextEvent<T>>     markers;
+    vec<Track<T>>         tracks;
+    vec<TimeSignature<T>> time_signatures;
+    vec<KeySignature<T>>  key_signatures;
+    vec<Tempo<T>>         tempos;
+    vec<TextEvent<T>>     markers;
 
     Score() = default; // tpq() == 960
     explicit Score(i64 tpq); // >= 1
-    Score(i64 tpq,
-          typename S::template Tracks<track_type>     tracks,
-          typename S::template List<TimeSignature<T>> time_signatures,
-          typename S::template List<KeySignature<T>>  key_signatures,
-          typename S::template List<Tempo<T>>         tempos,
-          typename S::template List<TextEvent<T>>     markers);
+    template<std::floating_point U>
+    explicit Score(U) = delete;
+    Score(i64                   tpq,
+          vec<Track<T>>         tracks,
+          vec<TimeSignature<T>> time_signatures,
+          vec<KeySignature<T>>  key_signatures,
+          vec<Tempo<T>>         tempos,
+          vec<TextEvent<T>>     markers);
 
     // MIDI only; ABC is symusic::abc. from_file/to_file report file errors as std::filesystem::filesystem_error.
     [[nodiscard]] static Score from_midi(std::span<const u8> bytes, const MidiReadOptions& opts = {});
@@ -360,24 +370,38 @@ public:
     [[nodiscard]] size_t      note_count() const;   // replaces note_num()
     [[nodiscard]] size_t      track_count() const;  // replaces track_num()
     [[nodiscard]] bool        is_empty() const;     // no events anywhere; empty tracks do not count (replaces empty())
-    [[nodiscard]] vec<unit>   beats(unit start = 0) const;     // replaces get_beats()
-    [[nodiscard]] vec<unit>   downbeats(unit start = 0) const; // replaces get_downbeats()
+    [[nodiscard]] vec<unit>   beats(time_input_t<T> start = 0) const;     // replaces get_beats()
+    [[nodiscard]] vec<unit>   downbeats(time_input_t<T> start = 0) const; // replaces get_downbeats()
+    template<std::floating_point U> requires std::same_as<T, Tick>
+    vec<unit>                 beats(U) const = delete;
+    template<std::floating_point U> requires std::same_as<T, Tick>
+    vec<unit>                 downbeats(U) const = delete;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string summary() const;
     bool                      operator==(const Score& other) const;
 
     // In-place mutators (void, strong guarantee)
     void sort(SortOrder order = SortOrder::Ascending); // stable, on every event list; keeps track order
-    void shift_time(unit offset);
+    void shift_time(time_input_t<T> offset);
+    template<std::floating_point U> requires std::same_as<T, Tick>
+    void shift_time(U) = delete;
     void shift_pitch(i64 offset);    // every track, drums included
     void shift_velocity(i64 offset);
 
     // Returning transforms (leave receiver unchanged)
-    [[nodiscard]] Score          clip(unit start, unit end, const ClipOptions& opts = {}) const;
+    [[nodiscard]] Score          clip(time_input_t<T> start, time_input_t<T> end, const ClipOptions& opts = {}) const;
+    template<typename U, typename V>
+        requires (std::same_as<T, Tick> && (std::floating_point<U> || std::floating_point<V>))
+    Score                        clip(U, V, const ClipOptions& = {}) const = delete;
     [[nodiscard]] Score          adjust_time(std::span<const unit> original, std::span<const unit> target) const;
     template<TType To>
-    [[nodiscard]] Score<To, S>   to(typename To::unit min_duration = 0) const;    // floor in the target unit
-    [[nodiscard]] Score<Tick, S> resample(i64 tpq, Tick::unit min_duration = 0) const; // one rounding step
+    [[nodiscard]] Score<To>      to(time_input_t<To> min_duration = 0) const; // floor in the target unit
+    template<TType To, std::floating_point U> requires std::same_as<To, Tick>
+    Score<To>                    to(U) const = delete;
+    [[nodiscard]] Score<Tick>    resample(i64 tpq, i64 min_duration = 0) const; // one rounding step
+    template<typename U, typename V = i64>
+        requires (std::floating_point<U> || std::floating_point<V>)
+    Score<Tick>                  resample(U, V = 0) const = delete;
     [[nodiscard]] ScorePianoroll pianoroll(const PianorollOptions& opts = {}) const requires std::same_as<T, Tick>;
 
 private:
@@ -409,10 +433,13 @@ template<TimeEvent E>
 [[nodiscard]] bool is_sorted(std::span<const E> events, SortOrder order = SortOrder::Ascending);
 
 // Point and batch time conversion through a score's tempo map without copying the score
-template<TType To, TType From, typename S = ValueStorage>
-[[nodiscard]] typename To::unit convert_time(typename From::unit time, const Score<From, S>& context);
-template<TType To, TType From, typename S = ValueStorage>
-[[nodiscard]] vec<typename To::unit> convert_times(std::span<const typename From::unit> times, const Score<From, S>& context);
+template<TType To, TType From>
+[[nodiscard]] typename To::unit convert_time(time_input_t<From> time, const Score<From>& context);
+template<TType To, TType From, std::floating_point U>
+    requires std::same_as<From, Tick>
+typename To::unit convert_time(U, const Score<From>&) = delete;
+template<TType To, TType From>
+[[nodiscard]] vec<typename To::unit> convert_times(std::span<const typename From::unit> times, const Score<From>& context);
 
 // Numeric events only (excludes TextEvent). ColumnValue<KeySignature<T>, 2> is u8 so std::vector<bool> never appears.
 template<typename E>
@@ -502,8 +529,8 @@ public:
     explicit Synthesizer(std::span<const u8> soundfont_bytes, const SynthSettings& settings = {}); // copies the bytes
 
     // Each call starts from fresh synthesizer state; concurrent calls are safe while no thread mutates `score`.
-    template<TType T, typename S = ValueStorage>
-    [[nodiscard]] AudioBuffer render(const Score<T, S>& score, const RenderOptions& options = {}) const;
+    template<TType T>
+    [[nodiscard]] AudioBuffer render(const Score<T>& score, const RenderOptions& options = {}) const;
 };
 
 } // namespace symusic
