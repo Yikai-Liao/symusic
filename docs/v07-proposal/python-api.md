@@ -18,7 +18,7 @@ No `inplace=` flags anywhere. Operations are grouped explicitly by receiver muta
 
 | Category | Return | Operations | Contract |
 |---|---|---|---|
-| **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `sort()` is **stable**: events with equal keys keep their relative order, as `list.sort` does, so equal-time tempos and CC64 events keep their playback order. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_*` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) **once per call** with atomic rollback on overflow |
+| **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `sort()` is **stable**: events with equal keys keep their relative order, as `list.sort` does, so equal-time tempos and CC64 events keep their playback order. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_time()` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) once per call, while `shift_pitch()` and `shift_velocity()` shift every reachable `Note` once per call, each with atomic rollback when any result leaves its range |
 | **Returning transforms** | New object | `filtered()`, `clip()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new object. `filtered(f)` returns a new list holding the **same** elements that `f` accepts, like `[n for n in notes if f(n)]`, so `notes.filtered(f)[0] is notes[0]` when the first note passes. Use `notes[:] = notes.filtered(f)` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib |
 
 ### Copies and References
@@ -44,12 +44,14 @@ Copy constructors (`Score(other)`, `Note(other)`) are removed. A list copy is sh
 `clip(start, end, *, head="drop", tail="keep")` returns the part of a score or track inside `[start, end)`. It replaces 0.6 `clip(start, end, clip_end=False)` and `trim(start, end, min_overlap, start_mode, end_mode)`. `head` and `tail` take `"drop"`, `"cut"` or `"keep"` and decide what happens to a note sticking out before `start` or after `end`; the full rules, including the tempo and signatures kept at the window start, are in [clip](./semantics.md#clip).
 
 ```python
-score.clip(0, 1920)                           # notes starting in the window, unchanged, as in 0.6
-score.clip(0, 1920, tail="drop")              # only notes lying wholly inside: 0.6 clip_end=True
-score.clip(0, 1920, tail="cut")               # notes starting in the window, cut at end
-score.clip(0, 1920, head="cut", tail="cut")   # excerpt, cut at both ends
+score.clip(0, 1920)  # notes starting in the window, unchanged, as in 0.6
+score.clip(
+    0, 1920, tail="drop"
+)  # notes lying wholly inside [0, 1920) (replaces clip_end=True)
+score.clip(0, 1920, tail="cut")  # notes starting in the window, cut at end
+score.clip(0, 1920, head="cut", tail="cut")  # excerpt, cut at both ends
 excerpt = score.clip(960, 2880)
-excerpt.shift_time(-960)                      # clip keeps times; shift to move the window to 0
+excerpt.shift_time(-960)  # clip keeps times; shift to move the window to 0
 ```
 
 ## 3. CC64 Sustain Pedals (Fixes #5)
@@ -109,7 +111,15 @@ if not resampled.empty():
 
 ```python
 from symusic import (
-    EventList, KeySignature, Note, Score, Second, Tempo, TextEvent, Tick, Track
+    EventList,
+    KeySignature,
+    Note,
+    Score,
+    Second,
+    Tempo,
+    TextEvent,
+    Tick,
+    Track,
 )
 
 # Small Tick lists: pass a plain list directly (no redundant EventList / ttype=Tick)
@@ -119,10 +129,13 @@ score: Score[Tick] = Score(
     key_signatures=[KeySignature(0, 0, minor=False)],
     markers=[TextEvent(0, "Intro")],
     tracks=[
-        Track("Piano", notes=[
-            Note(0, 480, 60),       # velocity defaults to 64 (MIDI 1.0 0x40)
-            Note(480, 480, 64, 80),
-        ])
+        Track(
+            "Piano",
+            notes=[
+                Note(0, 480, 60),  # velocity defaults to 64 (MIDI 1.0 0x40)
+                Note(480, 480, 64, 80),
+            ],
+        )
     ],
 )
 
@@ -200,8 +213,12 @@ score = Score.from_file("piece.mid")
 # Cached, SHA-384-verified SoundFont preset (default: "musescore_general_sf3")
 synth = Synthesizer(download_soundfont(), sample_rate=rate)
 
-audio = synth.render(score)  # float32 (sample_frames, 2); channels=1 gives (sample_frames, 1)
-write_wav("out.wav", audio, rate)  # zero-dependency; encoding="pcm16" (default) or "float32"
+audio = synth.render(
+    score
+)  # float32 (sample_frames, 2); channels=1 gives (sample_frames, 1)
+write_wav(
+    "out.wav", audio, rate
+)  # zero-dependency; encoding="pcm16" (default) or "float32"
 
 # Soundtrack for a 30-second video: exactly 30 s, whatever the score's length
 soundtrack = synth.render(score, sample_frames=30 * rate)
@@ -212,7 +229,9 @@ Other formats go through `soundfile`, which symusic does not depend on:
 ```python
 import soundfile as sf
 
-sf.write("out.flac", audio, rate)  # also OGG, Opus, MP3; accepts (frames, channels) float32
+sf.write(
+    "out.flac", audio, rate
+)  # also OGG, Opus, MP3; accepts (frames, channels) float32
 ```
 
 **0.6 (Before)**
@@ -233,7 +252,7 @@ symusic.dump_wav("out.wav", audio, 44100)
 
 | Area | 0.7 Contract |
 |---|---|
-| Exceptions | Defined once in the [error contract](../development/conventions.md#errors). Summary: `ValueError` for invalid values, modes and ranges; `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC; `OverflowError` for time arithmetic outside the unit's type; `IndexError` only for list indexes; an `OSError` subclass chosen by `errno` for file I/O; `TypeError` for the wrong kind of object, including an event whose `ttype` differs from the list's; `RuntimeError` for a failed external tool or a missing FluidSynth library |
+| Exceptions | Defined once in the [error contract](../development/conventions.md#errors). Summary: `ValueError` for invalid values, modes and ranges; `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC; `OverflowError` for time or WAV header arithmetic outside the target type; `IndexError` only for list indexes; an `OSError` subclass chosen by `errno` for file I/O; `TypeError` for the wrong kind of object, including an event whose `ttype` differs from the list's; `symusic.CancelledError` (a `RuntimeError` subclass) for cooperative cancellation; `RuntimeError` for a failed external tool or a missing FluidSynth library |
 | Resolution | `tpq` is read-only after construction. Assigning it would reinterpret every tick, while `resample(tpq)` keeps musical positions; only the second is offered (reading `ticks_per_quarter` is deprecated in 0.7 and removed in 0.8) |
 | Numeric domains & MIDI wire | [Numeric input](./semantics.md#numeric-input): `Tick` takes integers only (`1.0` and `True` raise `TypeError`), float units reject NaN and infinity, and every field validates its musical range (`0..127`, `tpq >= 1`). MIDI export additionally enforces SMF limits (`tpq` in `1..32767`) and skips velocity-0 notes ([MIDI export](./semantics.md#midi-export)) |
 | Strict MIDI & ABC | Rejects 7-bit MIDI channel data bytes `> 127` by default (`strict=False` clamps channel data bytes only); ABC converter warnings emit public `ABCConversionWarning` |

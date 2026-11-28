@@ -1,6 +1,6 @@
 # Shared Semantics
 
-Rules that every symusic binding reproduces: the Python package in 0.7, and the C ABI, JS and Go bindings that follow. [cpp-core.md](./cpp-core.md) and [python-api.md](./python-api.md) give the spelling in each language; this page gives the behaviour, so a binding that disagrees with it has a bug. [migration.md](./migration.md) lists where 0.6 behaved differently. In Wave 4 this page becomes `conformance/semantics.md`, backed by shared test cases ([rollout](./cpp-roadmap.md)).
+Rules that every symusic binding reproduces: the Python package in 0.7, and the Node/Bun, WASM, C ABI and Go bindings that follow. [cpp-core.md](./cpp-core.md) and [python-api.md](./python-api.md) give the spelling in each language; this page gives the behaviour, so a binding that disagrees with it has a bug. [migration.md](./migration.md) lists where 0.6 behaved differently. In Wave 4 this page becomes `conformance/semantics.md`, backed by shared test cases ([rollout](./cpp-roadmap.md)).
 
 ## Time units and precision
 
@@ -117,7 +117,7 @@ The controller value is not part of the key, so a CC64 release and press at the 
 ## Copies and references
 
 - Events, tracks and scores compare by value, including their time unit.
-- A copy of a score, track or event shares nothing with its source. A returning transform (`clip`, `adjust_time`, `to`, `resample`) builds a fresh value even when nothing changes; Python's `filtered` is the one operation that returns the source's elements.
+- A deep copy (`copy()` in Python, copy construction in `ValueStorage` bindings) of a score, track or event shares nothing with its source; Python also provides shallow `copy.copy` ([python-api.md](./python-api.md#copies-and-references)). A returning transform (`clip`, `adjust_time`, `to`, `resample`) builds a fresh value even when nothing changes; Python's `filtered` is the one operation that returns the source's elements.
 - A serialized form (MIDI, a pickle) holds values: two places that refer to one note in memory become two notes.
 - In a binding that hands out references into lists (Python), a reference keeps pointing at the same element through sorting, insertion and deletion of other elements, and an element removed from its list stays valid and keeps its values. A binding that cannot keep this promise hands out values, or views that fail once their element may have moved ([JS](./js-cli.md#object-model)); it never hands out a reference that silently moves to another element.
 
@@ -135,13 +135,13 @@ Python's copy protocols, `deepcopy` memo and identity rules are in [python-api.m
 
 - A velocity-0 note is skipped: SMF has no way to write it, because a NoteOn with velocity 0 means NoteOff.
 - A zero-duration note writes its NoteOn and NoteOff at the same tick.
-- At one tick, a track writes its non-note messages first, then NoteOffs, then NoteOns. A zero-duration note's NoteOn goes with the NoteOffs and its NoteOff with the NoteOns, so pairing on import restores it.
+- At one tick, a track writes its non-note messages first, then NoteOffs, then NoteOns. A zero-duration note's NoteOn goes with the NoteOffs and its NoteOff with the NoteOns, so pairing on import restores it when no other note of the same pitch in that track is sounding across that tick.
 - The writer orders a copy of each list stably by time. The score need not be sorted, and events at equal times keep their list order.
 
 **Round trip.** Reading the file back with `from_midi` gives the source score, converted to `Tick` and without its velocity-0 notes, once both are sorted, when these hold:
 
 - Every track holds at least one event. A track without events writes no channel message and does not come back.
-- No two notes of the same pitch in one track overlap with one inside the other. The reader pairs NoteOn and NoteOff first-in first-out, so a nested note comes back with a different duration.
+- No two notes of the same pitch in one track overlap with one inside the other (including a zero-duration note placed while another note of that pitch is already sounding). The reader pairs NoteOn and NoteOff first-in first-out, so a nested note comes back with a different duration.
 
 Channel sharing does not break the round trip, because the reader groups notes per MIDI track. It matters to players that merge channels across tracks: with more than fifteen melodic tracks, some share a channel and its controller state, and drum tracks always share channel 9.
 
@@ -158,7 +158,7 @@ Channel sharing does not break the round trip, because the reader groups notes p
 
 - Axes are `(mode, pitch, time)` for a track and `(mode, track, pitch, time)` for a score. The mode axis follows the order of `modes`, by default `(frame, onset)`.
 - `pitch_range` is half-open, `[low, high)` with `0 <= low < high <= 128`; notes outside it are skipped.
-- The time axis has `end() + 1` cells. A note at a negative time raises `ValueError`.
+- The time axis has `end() + 1` cells. Any event at a negative time raises `ValueError`.
 - `onset` writes the cell at the note's time, `frame` fills `[time, end)`, and `offset` writes the cell at its end. A zero-duration note writes its onset and offset cells and no frame.
 - A cell holds `1`, or the velocity with `encode_velocity`. Velocity-0 notes are skipped. Where notes overlap, the later note in list order wins.
 
@@ -166,16 +166,16 @@ Channel sharing does not break the round trip, because the reader groups notes p
 
 `render(score)` synthesizes a score of any unit with the SoundFont and settings of its `Synthesizer`. A `Tick` or `Quarter` score is converted to sample frames in `f64` through its tempo map.
 
-**What sounds.** Each track renders on its own synthesizer channel, so tracks never share controller state; a score with more than 256 tracks that hold notes raises `ValueError`. A track plays its program; a drum track plays the drum bank. Notes, controls (sustain, bank select, volume and the rest) and pitch bends are scheduled. Velocity-0 and zero-duration notes are skipped. An event at a negative time raises `ValueError`; shift the score first. What happens when the SoundFont lacks a track's preset is open.
+**What sounds.** Each track renders on its own synthesizer channel, so tracks never share controller state; a score with more than 256 tracks that hold notes raises `ValueError`. Notes, controls (sustain, bank select, volume and the rest) and pitch bends are scheduled. A melodic track starts at bank `0`, updates its bank from CC0 and CC32 (`msb * 128 + lsb` once CC32 has been received, otherwise `msb`), and selects `(bank, program)`; when the SoundFont lacks that preset, it falls back to `(0, program)` and then `(0, 0)` (General MIDI fallback). A drum track always stays on percussion bank `128` regardless of CC0 or CC32 and selects `(128, program)`, falling back to `(128, 0)` (Standard Kit); if the SoundFont has no `(128, 0)` percussion preset, drum notes stay silent rather than playing a melodic instrument. Only a SoundFont with no melodic preset at `(0, 0)` when a melodic track renders fails with `ValueError`. Velocity-0 and zero-duration notes are skipped. An event at a negative time in any track or score list raises `ValueError`; shift the score first.
 
-**Timing.** The synthesizer processes audio in blocks whose size comes from FluidSynth (64 frames by default, 1.33 ms at 48 kHz). An event starts at the first block boundary at or after its exact frame, so it is late by less than one block, and a note sounds for at least one block. A later release may tighten this bound without changing the API. Audible onset also depends on the instrument's attack, which is part of the SoundFont, not of scheduling.
+**Timing.** The synthesizer processes audio in blocks whose size comes from FluidSynth (64 frames by default, 1.33 ms at 48 kHz). An event starts at the first block boundary at or after its exact frame, so it is late by less than one block, and a note sounds for at least one block unless cut earlier by `sample_frames`. A later release may tighten this bound without changing the API. Audible onset also depends on the instrument's attack, which is part of the SoundFont, not of scheduling.
 
 **Length.**
 
 - By default the output has `ceil((end_seconds + tail_seconds) × sample_rate)` frames, where `end_seconds` is the score's `end()` in seconds and `tail_seconds` defaults to 1.0. A score without events gives `tail_seconds` of silence.
-- With `sample_frames = N`, the output has exactly `N` frames, whatever the score's length: synthesis continues through releases and silence up to `N`, events at or after `N` do not sound, and the audio stops at `N` without a fade. `tail_seconds` is ignored, and an empty score gives `N` frames of silence.
+- With `sample_frames = N`, the output has exactly `N` frames, whatever the score's length: synthesis continues through releases and silence up to `N`, events whose scheduled block boundary is at or after `N` do not sound, notes still sounding at `N` stop at `N` without a fade, `tail_seconds` is ignored, and an empty score gives `N` frames of silence.
 
-**Independence.** Every render starts from fresh synthesizer state, so its output does not depend on earlier renders, and concurrent renders on one `Synthesizer` are safe while nothing mutates the score being rendered. Output is not promised bit-exact across platforms, FluidSynth versions or `cpu_cores`; tests compare with a tolerance.
+**Independence and cancellation.** Every render starts from fresh synthesizer state, so its output does not depend on earlier renders, and concurrent renders on one `Synthesizer` are safe while nothing mutates the score being rendered. When cancelled via a caller's cancellation token (`RenderOptions::stop_token`, JS `AbortSignal`), the render stops at the next block boundary, leaves its inputs unchanged, and raises `CancelledError` (`AbortError` in JS). Output is not promised bit-exact across platforms, FluidSynth versions or `cpu_cores`; tests compare with a tolerance.
 
 **Windows.** Rendering a [clip](#clip) is not a slice of the full render: notes sounding into the window, controller and pedal state, and reverb tails from before it are missing. Slice a full render where the audio must match.
 
@@ -190,4 +190,4 @@ WAV output (`to_wav`, `write_wav`) checks the buffer first: one or two channels,
 | `pcm16` (default) | PCM, 16-bit little-endian | The sample clamped to `[-1, 1]`, times 32767, rounded to nearest |
 | `float32` | IEEE float, 32-bit little-endian | The sample unchanged |
 
-Output beyond the 4 GiB limit of a RIFF file raises `OverflowError`. `write_wav` reports file errors as an `OSError` subclass chosen by `errno`.
+Output beyond the 4 GiB limit of a RIFF file, or a `sample_rate` whose WAV byte rate (`sample_rate × channels × bytes_per_sample`) exceeds `UINT32_MAX`, raises `OverflowError`. `write_wav` reports file errors as an `OSError` subclass chosen by `errno`.
