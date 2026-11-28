@@ -11,3 +11,4 @@ Pick a task and read its page directly. The website on [Read the Docs](https://s
 | Write code that follows the project's names, types, errors and binding patterns | [Code conventions](development/conventions.md) |
 | Build, test or contribute | [Contributing](../CONTRIBUTING.md) |
 | See planned work and known debt | [Roadmap](../ROADMAP.md) |
+| Review the 0.7 design proposal (Python API, C++ ecosystem & migration) | [v0.7 Proposal](v07-proposal/README.md) |
