@@ -8,8 +8,9 @@ Every change in [RFC #136](https://github.com/Yikai-Liao/symusic/issues/136) rem
 |---|---|---|
 | Public surface | `symusic.core`, `symusic.factory`, `symusic.types`, `symusic.soundfont` | Top-level `symusic` only; `symusic._core` & `symusic._soundfont` are private (`python -m symusic.skill` kept) |
 | Time units | Free-form `"tick"` / `"second"`, `TimeUnit.tick` | `ttype` accepts non-instantiable marker **class objects** (`type[Tick] \| type[Quarter] \| type[Second]`); `Score[Second]()` raises `TypeError` |
-| Containers | `NoteTickList`, `TempoTickList`, `TextMetaTickList`, … | Single generic `EventList[Note[Tick]]` + `TrackList[Tick]`; strict `MutableSequence` (never equates to plain `list` — use `not notes` or `list(notes) == expected`) |
+| Containers | `NoteTickList`, `TempoTickList`, `TextMetaTickList`, … | Single generic `EventList[Note[Tick]]` + `TrackList[Tick]`, built as `EventList(Note, items=(), *, ttype=Tick)` and `TrackList(items=(), *, ttype=Tick)`; `ttype` is never guessed from the items, and an item of another unit raises `TypeError`. Both are `MutableSequence`s. Their equality also compares the event type and unit, so by symusic's choice a list never equals a plain `list`: write `list(notes) == expected`, and `not notes` for emptiness |
 | Events & audio | `TextMeta`, `Soundfont`, `BuiltInSF2`/`BuiltInSF3`, `dump_wav()` | `TextEvent`, `Synthesizer`, `write_wav()` (zero-dep WAV; use `soundfile` for multi-format), and `download_soundfont(name="musescore_general_sf3", *, cache_dir=None, force=False) -> Path` |
+| Tracks | Tracks hold times in their unit | Unchanged. A `Track` has no `tpq` or tempo map: its times are coordinates in its unit, and converting a track to another unit goes through a `Score` |
 
 ## 2. Strict CQS Mutability, Copy & Reference Semantics
 
@@ -20,16 +21,17 @@ No `inplace=` flags anywhere. Operations are grouped explicitly by receiver muta
 | **In-place value/order mutators** | `None` | `sort()`, `shift_time()`, `shift_pitch()`, `shift_velocity()` | Mutate the receiver in place. `sort()` is **stable**: events with equal keys keep their relative order, as `list.sort` does, so equal-time tempos and CC64 events keep their playback order. `Score.sort()`/`Track.sort()` sort all contained event lists while keeping `Score.tracks` in order. `shift_*` shifts every reachable event (`Note`, `ControlChange`, `Tempo`, `TextEvent`, etc.) **once per call** with atomic rollback on overflow |
 | **Returning transforms** | New object | `filtered()`, `clip()`, `adjust_time()`, `to()`, `resample()` | Leave the source unchanged and return a new object. `filtered(f)` returns a new list holding the **same** elements that `f` accepts, like `[n for n in notes if f(n)]`, so `notes.filtered(f)[0] is notes[0]` when the first note passes. Use `notes[:] = notes.filtered(f)` to mutate through aliases; `MutableSequence` operations like `del notes[i]` still mutate in place per Python stdlib |
 
-### Explicit Copy, Deepcopy & Reference Model
+### Copies and References
 
-Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the Python standard library: a list copy is shallow, as `list.copy()` is, and an object copy is deep, as `copy.deepcopy` is. This shallow/deep and alias-preserving matrix is a **Python host-protocol contract** (matching `MutableSequence` and stdlib `copy`); `ValueStorage` bindings (C++, C ABI, Go, WASM) share CQS and deep domain-object cloning without shallow container sharing or alias-preserving memo graphs.
+Copy constructors (`Score(other)`, `Note(other)`) are removed. A list copy is shallow, as `list.copy()` is. The `copy()` method of a score, track or event is deep and equals `copy.deepcopy`: the standard library defines no such method, and symusic makes it deep because a score copy that shares its tracks is rarely what a caller wants. `copy.copy` and `copy.deepcopy` keep their standard meaning. This matrix is the Python spelling of [copies and references](./semantics.md#copies-and-references); `ValueStorage` bindings (C++, C ABI, Go, WASM) copy by value and have no shallow container sharing or memo graphs.
 
 | Copy Operation | Semantics |
 |---|---|
 | `notes.copy()`, `notes[:]`, `copy.copy(notes)` (`EventList` / `TrackList`) | **Shallow** — a new list holding the same element objects |
 | `score.copy()`, `track.copy()`, `note.copy()` | **Deep** — identical to `copy.deepcopy(x)` |
 | `copy.copy(score)`, `copy.copy(track)` | **Shallow** — a new outer object sharing its lists and tracks |
-| `copy.deepcopy(x)` | **Deep, alias-preserving** — copies the whole graph and keeps aliases inside it (`[n, n]` copies to `[m, m]`), per Python stdlib `copy` |
+| `copy.deepcopy(x)` | **Deep, alias-preserving** — copies the whole graph and keeps aliases inside it (`[n, n]` copies to `[m, m]`). It uses the caller's memo, so `copy.deepcopy([score, score.tracks[0]])` gives a list whose second item is the copied score's first track |
+| `pickle.dumps(x)` | **Value snapshot** — aliases inside the object are not kept, and the bytes load only in the same symusic version |
 
 | Input Kind | Assignment / Insertion | Semantics |
 |---|---|---|
@@ -39,32 +41,16 @@ Copy constructors (`Score(other)`, `Note(other)`) are removed. Copies follow the
 
 ### Clipping a Window
 
-`clip(start, end, /, *, head="drop", tail="keep")` returns the part of a score or track inside `[start, end)`. It replaces 0.6 `clip(start, end, clip_end=False)` and `trim(start, end, min_overlap, start_mode, end_mode)`.
-
-A note lying wholly inside the window is kept, and one wholly outside is dropped. A note can stick out of the window on either side: its **head** is the part before `start`, and its **tail** the part after `end`. `head` and `tail` decide what happens to a note that has one:
-
-| Value | The note is |
-|---|---|
-| `"drop"` | removed |
-| `"cut"` | shortened to start at `start` (`head`) or end at `end` (`tail`) |
-| `"keep"` | kept unchanged |
+`clip(start, end, *, head="drop", tail="keep")` returns the part of a score or track inside `[start, end)`. It replaces 0.6 `clip(start, end, clip_end=False)` and `trim(start, end, min_overlap, start_mode, end_mode)`. `head` and `tail` take `"drop"`, `"cut"` or `"keep"` and decide what happens to a note sticking out before `start` or after `end`; the full rules, including the tempo and signatures kept at the window start, are in [clip](./semantics.md#clip).
 
 ```python
 score.clip(0, 1920)                           # notes starting in the window, unchanged, as in 0.6
 score.clip(0, 1920, tail="drop")              # only notes lying wholly inside: 0.6 clip_end=True
 score.clip(0, 1920, tail="cut")               # notes starting in the window, cut at end
 score.clip(0, 1920, head="cut", tail="cut")   # excerpt, cut at both ends
+excerpt = score.clip(960, 2880)
+excerpt.shift_time(-960)                      # clip keeps times; shift to move the window to 0
 ```
-
-- The defaults keep the notes whose onset lies in the window, so cutting consecutive windows puts every note in exactly one of them. `tail="drop"` cannot be emulated by moving `end`, because notes with the same onset can end at different times.
-- A note ending at `start` or starting at `end` touches the window without entering it and is dropped. 0.6 `trim` with `end_mode="retain"` kept a note starting exactly at `end`; 0.7 does not.
-- A note with both a head and a tail follows both rules: either `"drop"` removes it, and each `"cut"` shortens its side.
-- A zero-duration note has neither a head nor a tail; it is kept when its time lies in `[start, end)`.
-- Events without a duration (controls, pitch bends, lyrics, markers) are kept when their time lies in `[start, end)`. On a score, the tempo, time signature and key signature in effect at `start` are kept and moved to `start`.
-- With `head="keep"`, a kept note can start before `start`, where the result has no tempo, time signature or key signature; converting it to `Second` uses the default tempo there.
-- `start > end`, or a NaN bound, raises `ValueError`.
-- Times are not shifted; call `shift_time(-start)` on the result to move it to 0.
-- `min_overlap` is removed. To drop short fragments left by `"cut"`, filter the result, for example `track.notes = track.notes.filtered(lambda n: n.duration >= 10)`.
 
 ## 3. CC64 Sustain Pedals (Fixes #5)
 
@@ -77,7 +63,7 @@ track.controls (CC64 >= 64 press / < 64 release)
 ```
 
 - Order is preserved on equal timestamps, repeated presses merge, and unclosed presses are omitted.
-- `clip()` selects controls by timestamp, so sustain regions crossing a window boundary can lose their press or release event (a future playable-excerpt helper can synthesize active CC64 / pitch-bend / tempo state at window start).
+- `clip()` selects controls by timestamp, so sustain regions crossing a window boundary can lose their press or release event. A later `excerpt()` helper will carry the CC64, pitch-bend and program state in effect at the window start.
 
 ## 4. Before / After Workflows
 
@@ -207,18 +193,26 @@ rebuilt = Note.from_numpy(arr["time"], arr["duration"], arr["pitch"], arr["veloc
 **0.7 (After)**
 
 ```python
-import soundfile as sf
 from symusic import Score, Synthesizer, download_soundfont, write_wav
 
+rate = 48000
 score = Score.from_file("piece.mid")
-# Idempotent cached + SHA-384 verified SoundFont preset (default: "musescore_general_sf3")
-synth = Synthesizer(download_soundfont(), sample_rate=44100)
+# Cached, SHA-384-verified SoundFont preset (default: "musescore_general_sf3")
+synth = Synthesizer(download_soundfont(), sample_rate=rate)
 
-audio = synth.render(score, stereo=True)  # float32 (frames, channels); mono (frames, 1)
-# Recommended for multi-format audio output (WAV, FLAC, OGG, Opus, MP3):
-sf.write("out.flac", audio, 44100)
-# Or zero-extra-dependency WAV export for quick debugging:
-write_wav("out.wav", audio, 44100)  # encoding="pcm16" (default) or "float32"
+audio = synth.render(score)  # float32 (sample_frames, 2); channels=1 gives (sample_frames, 1)
+write_wav("out.wav", audio, rate)  # zero-dependency; encoding="pcm16" (default) or "float32"
+
+# Soundtrack for a 30-second video: exactly 30 s, whatever the score's length
+soundtrack = synth.render(score, sample_frames=30 * rate)
+```
+
+Other formats go through `soundfile`, which symusic does not depend on:
+
+```python
+import soundfile as sf
+
+sf.write("out.flac", audio, rate)  # also OGG, Opus, MP3; accepts (frames, channels) float32
 ```
 
 **0.6 (Before)**
@@ -241,9 +235,10 @@ symusic.dump_wav("out.wav", audio, 44100)
 |---|---|
 | Exceptions | Defined once in the [error contract](../development/conventions.md#errors). Summary: `ValueError` for invalid values, modes and ranges; `symusic.ParseError` (a `ValueError` subclass) for malformed MIDI/ABC; `OverflowError` for time arithmetic outside the unit's type; `IndexError` only for list indexes; an `OSError` subclass chosen by `errno` for file I/O; `TypeError` for the wrong kind of object, including an event whose `ttype` differs from the list's; `RuntimeError` for a failed external tool or a missing FluidSynth library |
 | Resolution | `tpq` is read-only after construction. Assigning it would reinterpret every tick, while `resample(tpq)` keeps musical positions; only the second is offered (reading `ticks_per_quarter` is deprecated in 0.7 and removed in 0.8) |
-| Numeric domains & MIDI wire | In-memory fields validate musical ranges (`0..127`, `tpq >= 1`); MIDI export additionally enforces SMF limits (`tpq` in `1..32767`; `Note(..., velocity=0)` encodes as MIDI NoteOff on export) |
+| Numeric domains & MIDI wire | [Numeric input](./semantics.md#numeric-input): `Tick` takes integers only (`1.0` and `True` raise `TypeError`), float units reject NaN and infinity, and every field validates its musical range (`0..127`, `tpq >= 1`). MIDI export additionally enforces SMF limits (`tpq` in `1..32767`) and skips velocity-0 notes ([MIDI export](./semantics.md#midi-export)) |
 | Strict MIDI & ABC | Rejects 7-bit MIDI channel data bytes `> 127` by default (`strict=False` clamps channel data bytes only); ABC converter warnings emit public `ABCConversionWarning` |
 | Binary streams | Require explicit `format`, remain caller-closed, handle short writes, typed with structural protocols |
-| Concurrency & reentrancy | Targets standard GIL CPython (free-threaded `3.13t`/`3.14t` deferred until per-container locking); `sort(key=...)` and Python callbacks enforce a reentrancy guard (`ValueError` on structural mutation during callback) |
-| Python data model | Equality is by value and requires the same `ttype` (`Score[Tick] == Score[Quarter]` is always `False`); mutable types are unhashable (`__hash__ = None`); `__eq__` returns `NotImplemented` for unknown types; `Tempo.__match_args__ == ("time", "qpm")`; escaped round-trippable `repr()`; `pianoroll()` is `Tick`-only |
-| Pickles (`SYMZ v3`) | Private C++20 little-endian codec compiled into `bindings/python/` carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); for inter-process transport only. #134 writes `SYMZ v2` through `zpp_bits`; the private codec is a new layout and bumps the version to 3 |
+| Concurrency & reentrancy | Targets standard GIL CPython (free-threaded `3.13t`/`3.14t` deferred until per-container locking). The binding holds the GIL whenever it touches shared storage; `render()` copies the score's events under the GIL and releases it while synthesizing, so other threads run and may even edit the score. `sort(key=...)` and Python callbacks enforce a reentrancy guard (`ValueError` on structural mutation during callback). An exception from a callback leaves the receiver unchanged; whatever the callback itself changed elsewhere stays changed |
+| Python data model | Equality is by value and requires the same `ttype` (`Score[Tick] == Score[Quarter]` is always `False`); mutable types are unhashable (`__hash__ = None`); `__eq__` returns `NotImplemented` for unknown types; `Tempo.__match_args__ == ("time", "qpm")`; escaped round-trippable `repr()`; `pianoroll()` is `Tick`-only. Public classes are final (subclassing raises `TypeError`) and their instances have no `__dict__`; `Score` and `Track` support weak references. `Score[Tick]` exists for annotations only: `isinstance(x, Score[Tick])` raises `TypeError`, so test `isinstance(x, Score) and x.ttype is Tick` |
+| Arrays | `to_numpy()` returns a dict of fresh 1-D columns named after the fields: `time` and `duration` are `int32` for `Tick` and `float32` otherwise; `pitch`, `velocity` and `fifths` are `int8`; `number`, `value` (controls), `numerator` and `denominator` are `uint8`; `value` (pitch bends) and `mspq` are `int32`; `minor` is `bool`. `TextEvent` lists have no array form (`TypeError`). `from_numpy()` needs every column, 1-D and of equal length, follows the [numeric input](./semantics.md#numeric-input) rules and copies. `pianoroll()` returns a new C-contiguous `uint8` array ([pianoroll](./semantics.md#pianoroll)); `render()` returns a new C-contiguous `float32` array of shape `(sample_frames, channels)` ([rendering](./semantics.md#rendering)) |
+| Pickles (`SYMZ v3`) | Private C++20 little-endian codec compiled into `bindings/python/` carrying a versioned **`SYMZ v3`** header with full `__setstate__` validation (rejecting NaN / out-of-range fields and incompatible 0.6 payloads); a value snapshot for inter-process transport, loadable only by the same symusic version. #134 writes `SYMZ v2` through `zpp_bits`; the private codec is a new layout and bumps the version to 3 |

@@ -6,7 +6,7 @@ One C++20 engineering contract across `symusic`, `minimidi`, and `anchorvec`, pa
 
 | Pillar | Enforceable Contract (`symusic` · `minimidi` · `anchorvec`) |
 |---|---|
-| Naming | `PascalCase` types, `snake_case` functions, variables and data members, `kPascalCase` constants (the [naming table](../development/conventions.md#names)); no `get_` prefix; uniform `is_*` predicates (`is_empty()`, `is_silent()`, `is_sorted()`) across C++ and all bindings (STL `.empty()` only on sequence containers like `std::vector` / `anchorvec`); English-only code, comments, and logs |
+| Naming | `PascalCase` types, `snake_case` functions, variables and data members, `kPascalCase` constants (the [naming table](../development/conventions.md#names)); no `get_` prefix; uniform `is_*` predicates (`is_empty()`, `is_silent()`, `is_sorted()`) in C++ and Python, while later bindings follow their host's spelling (`isEmpty()` in JS, `IsEmpty()` in Go) (STL `.empty()` only on sequence containers like `std::vector` / `anchorvec`); English-only code, comments, and logs |
 | Namespace & Headers | Internal headers live under `<lib>/detail/`; no `using namespace` in headers; no global `fmt::formatter<std::shared_ptr<T>>` or `namespace std` injection; strict IWYU |
 | Ownership & Parameters | Pure `ValueStorage` (`std::vector`) by default; non-owning views (`span`, `string_view`) and explicit owning `const std::filesystem::path&` for filesystem paths; aggregate `*Options` structs instead of boolean flag chains |
 | Error Taxonomy | The [error contract](../development/conventions.md#errors) owns the list: `std::invalid_argument`, domain `ParseError`, `std::overflow_error`, `std::out_of_range` (indexes only), `std::filesystem::filesystem_error` and `std::runtime_error`; `std::range_error`, `std::ios_base::failure` and bare `std::exception` are banned; zero exceptions across `extern "C"` |
@@ -24,7 +24,7 @@ src/                        # Core C++20 library + private MIDI wire TU + option
 bindings/
   c/                        # C99 ABI (zero exceptions across extern "C")
   python/                   # nanobind + anchorvec SharedStorage + private C++20 SYMZ v3 pickle codec
-  js/                       # WASM (ValueStorage + TypedArray) / Node N-API (deferred to 0.8+)
+  js/                       # Node N-API and WASM, ValueStorage + TypedArray (deferred to 0.8+)
   go/                       # cgo (deferred to 0.8+)
 extras/
   abcmidi/                  # Shared GPLv2 external converter recipe
@@ -120,16 +120,20 @@ target_link_libraries(my_app PRIVATE symusic::symusic)
 
 ## 4. Minimal C99 ABI Contract (Wave 4 Prototype)
 
-Before exposing `bindings/c/` for Go/Rust/JS FFI consumers, the C ABI locks down six invariants:
+The C ABI is experimental in 0.7 and freezes once a real JS or Go consumer has used it. Before `bindings/c/` is exposed to Go/Rust/JS FFI consumers, it fixes these rules:
 
-| Invariant | Contract |
+| Rule | Contract |
 |---|---|
 | Opaque handles | `typedef struct symusic_score symusic_score_t;` — zero C++ structs or STL types in C headers |
-| Buffer + length outputs | Explicit `(uint8_t** out_data, size_t* out_len)` outputs (and read-only `(const uint8_t*, size_t)` inputs) |
-| Paired deallocation | Every allocated handle or byte buffer pairs with `symusic_*_free(...)` so allocator boundaries never cross |
-| Stable status codes | Explicit `symusic_status_t` enum with one stable integer code per row of the [error contract](../development/conventions.md#errors), plus one for an unknown exception |
-| Error text lifetime | Thread-local or caller-owned error string (`symusic_last_error()` valid until next call on same thread) |
-| Exception boundary | Every `extern "C"` entry wraps body in `try { ... } catch (...)` — zero C++ exceptions unwind across C |
+| Fixed-width scalars | Every scalar and status crossing the boundary is a fixed-width integer (`int32_t`, `uint8_t`, ...). No C `enum` appears in a signature or struct, because its size depends on the compiler |
+| Buffers and strings | Explicit `(uint8_t** out_data, size_t* out_len)` outputs and read-only `(const uint8_t*, size_t)` inputs; an empty input may pass `NULL` with length 0. Strings and paths are UTF-8 with an explicit length: an embedded NUL is rejected rather than truncating, and Windows paths are converted from UTF-8 |
+| Paired deallocation | Every allocated handle or byte buffer pairs with `symusic_*_free(...)`, so allocator boundaries never cross. Freeing `NULL` does nothing; a double free is undefined |
+| Status and error | Every call returns an `int32_t` status: one stable code per row of the [error contract](../development/conventions.md#errors), plus one for an unknown exception. Detail goes into a caller-owned `symusic_error_t` (code, message, optional byte offset) that the caller passes in and frees. There is no thread-local last error, because two consecutive cgo calls may run on different OS threads. When allocation fails, the status alone reports it and the message stays empty |
+| Failure outputs | On failure every out pointer is set to `NULL` and every out length to 0 |
+| Options | Every options struct starts with its own `size`, so a newer library reads an older caller's struct and uses defaults for the fields it lacks |
+| Values, not borrows | Events and tracks cross as value snapshots or whole columns. No pointer into a `std::vector` crosses the boundary, and a note list moves in one call, not one call per note |
+| Exception boundary | Every `extern "C"` entry wraps its body in `try { ... } catch (...)` — zero C++ exceptions unwind across C |
+| Versions | `symusic_abi_version()` gives the C ABI version and `symusic_has_feature(...)` reports optional parts such as synthesis; neither is the package version |
 
 ## 5. `tessera-order` Docs Ownership Matrix
 
